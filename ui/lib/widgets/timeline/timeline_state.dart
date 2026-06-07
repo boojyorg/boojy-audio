@@ -231,6 +231,16 @@ mixin TimelineViewStateMixin on State<TimelineView>
   /// Audio clip ID that should reduce to single selection on tap-up (if no drag occurred).
   int? pendingAudioClipTapSelection;
 
+  /// MIDI selection as it was just before a non-shift click replaced it.
+  /// Kept until tap-up: if Shift turns out to be held at tap-up (the
+  /// pointer-down read can miss it when the modifier went down while the
+  /// window wasn't key — e.g. right after Cmd+Tab or a plugin window), the
+  /// replace is repaired back into an additive shift-click.
+  Set<int>? midiSelectionBeforeReplace;
+
+  /// Audio counterpart of [midiSelectionBeforeReplace].
+  Set<int>? audioSelectionBeforeReplace;
+
   // ============================================
   // BOX SELECTION STATE (Marquee Selection)
   // ============================================
@@ -238,14 +248,14 @@ mixin TimelineViewStateMixin on State<TimelineView>
   /// Whether box selection is currently active.
   bool isBoxSelecting = false;
 
-  /// Starting position of box selection (in local coordinates relative to gesture).
+  /// Starting position of box selection. X is in CONTENT space (track rows
+  /// span the full content width inside the horizontal scroll); Y is in
+  /// visible space relative to the tracks area.
   Offset? boxSelectionStart;
 
-  /// Current/end position of box selection (in local coordinates relative to gesture).
+  /// Current/end position of box selection (same coordinate split as
+  /// [boxSelectionStart]).
   Offset? boxSelectionEnd;
-
-  /// Scroll offset when box selection started (for proper coordinate calculation).
-  double boxSelectionScrollOffset = 0.0;
 
   /// Y offset of the track where selection started (for proper vertical positioning).
   double boxSelectionTrackYOffset = 0.0;
@@ -413,11 +423,14 @@ mixin TimelineViewStateMixin on State<TimelineView>
 
   /// Calculate beat position from X coordinate.
   double calculateBeatPosition(Offset localPosition) {
-    final scrollOffset = scrollController.hasClients
-        ? scrollController.offset
-        : 0.0;
-    final totalX = localPosition.dx + scrollOffset;
-    return totalX / pixelsPerBeat;
+    // localPosition comes from widgets INSIDE the horizontal scroll content
+    // (track rows / empty area are full content width), so it is already in
+    // content coordinates — do NOT add the scroll offset. Adding it shifted
+    // every computed beat right by the scrolled amount, which made
+    // drag-to-create / double-click-create / empty-click hit-testing misfire
+    // whenever the timeline was scrolled past bar 1. (The ruler context menu
+    // does its own math because the ruler lives OUTSIDE this scroll view.)
+    return localPosition.dx / pixelsPerBeat;
   }
 
   // ============================================

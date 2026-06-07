@@ -917,14 +917,13 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
       return const SizedBox.shrink();
     }
 
-    // Get horizontal scroll offset to convert X from content to visible coordinates
-    final scrollOffset = scrollController.hasClients
-        ? scrollController.offset
-        : 0.0;
-
-    // X coordinates are in content space, convert to visible
-    final visibleStartX = boxSelectionStart!.dx - scrollOffset;
-    final visibleEndX = boxSelectionEnd!.dx - scrollOffset;
+    // This overlay mounts in the CONTENT-space Stack (the same one the
+    // playhead is positioned in), and box X is stored in content space —
+    // use it directly. (Subtracting the scroll offset here used to cancel a
+    // matching erroneous addition at capture time; both halves are gone so
+    // the painted box and the selected region finally agree when scrolled.)
+    final visibleStartX = boxSelectionStart!.dx;
+    final visibleEndX = boxSelectionEnd!.dx;
 
     // Y coordinates are already in visible space
     final visibleStartY = boxSelectionStart!.dy;
