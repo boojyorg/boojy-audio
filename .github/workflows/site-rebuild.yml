@@ -1,0 +1,29 @@
+name: Rebuild boojy.org
+
+# Versions on boojy.org are baked at build time — the site fetches this repo's latest
+# published GitHub release during `astro build`. Publishing a release here POSTs the
+# site's Cloudflare Pages Deploy Hook so boojy.org rebuilds and shows the new tag
+# without a manual redeploy. See boojy-web/docs/WEBSITE-VERSION-UPDATES.md.
+#
+# Triggers on `published` (not tag push): tag push only builds the *draft* release —
+# the version isn't public until the draft is published.
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  rebuild-site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: POST Cloudflare Pages deploy hook
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.CF_PAGES_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$DEPLOY_HOOK_URL" ]; then
+            echo "CF_PAGES_DEPLOY_HOOK_URL secret not set — skipping site rebuild."
+            exit 0
+          fi
+          curl -fsS -X POST "$DEPLOY_HOOK_URL"
+          echo "boojy.org rebuild triggered."
