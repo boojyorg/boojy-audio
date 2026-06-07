@@ -296,6 +296,61 @@ class MidiClipData {
     );
   }
 
+  /// Expand this clip's looped/offset content into literal notes positioned
+  /// relative to the clip start (beat 0 = the clip's left edge on the
+  /// timeline).
+  ///
+  /// Mirrors the playback scheduling rules exactly
+  /// ([MidiPlaybackManager] uses this for scheduling, Join uses it to merge
+  /// clips so the joined clip sounds identical):
+  /// - Notes before [contentStartOffset] are skipped; the rest shift back
+  /// - Content tiles every [loopLength] beats while [canRepeat] is true
+  /// - Notes truncate at the loop boundary and at the arrangement [duration]
+  ///
+  /// Returned notes are fresh copies with new ids (tiles would otherwise
+  /// duplicate ids) and are sorted by start time.
+  List<MidiNoteData> unrolledNotes() {
+    final result = <MidiNoteData>[];
+    final numLoops = canRepeat && duration >= loopLength
+        ? (duration / loopLength).ceil()
+        : 1;
+
+    for (int loop = 0; loop < numLoops; loop++) {
+      final loopOffset = loop * loopLength;
+      for (final note in notes) {
+        final relativeStart = note.startTime - contentStartOffset;
+        // Skip notes before the content offset or beyond the loop boundary
+        if (relativeStart < 0 || relativeStart >= loopLength) continue;
+
+        final start = loopOffset + relativeStart;
+        if (start >= duration) continue;
+
+        var noteDuration = note.duration;
+        // Truncate at the loop boundary
+        if (relativeStart + noteDuration > loopLength) {
+          noteDuration = loopLength - relativeStart;
+        }
+        // Truncate at the arrangement end
+        if (start + noteDuration > duration) {
+          noteDuration = duration - start;
+        }
+        if (noteDuration <= 0) continue;
+
+        result.add(
+          MidiNoteData(
+            note: note.note,
+            velocity: note.velocity,
+            startTime: start,
+            duration: noteDuration,
+          ),
+        );
+      }
+    }
+
+    result.sort((a, b) => a.startTime.compareTo(b.startTime));
+    return result;
+  }
+
   /// Get all selected notes
   List<MidiNoteData> get selectedNotes =>
       notes.where((n) => n.isSelected).toList();

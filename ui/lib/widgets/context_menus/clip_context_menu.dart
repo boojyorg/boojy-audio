@@ -16,6 +16,7 @@ Future<String?> showClipContextMenu({
   required BuildContext context,
   required Offset position,
   required ClipType clipType,
+  bool canJoin = false,
 }) {
   final items = <PopupMenuEntry<String>>[
     // Common actions
@@ -37,6 +38,14 @@ Future<String?> showClipContextMenu({
       label: 'Split at Marker',
       shortcut: '⌘E',
     ),
+    // Only offered with 2+ clips of this type selected
+    if (canJoin)
+      ContextMenuItem(
+        value: 'join',
+        icon: BI.join,
+        label: 'Join Clips',
+        shortcut: '⌘J',
+      ),
     const PopupMenuDivider(),
     ContextMenuItem(value: 'cut', icon: BI.cut, label: 'Cut', shortcut: '⌘X'),
     ContextMenuItem(

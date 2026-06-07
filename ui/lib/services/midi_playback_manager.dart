@@ -177,83 +177,20 @@ class MidiPlaybackManager extends ChangeNotifier {
       isNewClip = true;
     }
 
-    // Ableton-style loop handling:
-    // - loopLength: piano roll loop boundary (in beats)
-    // - duration: arrangement length on timeline (in beats)
-    // - contentStartOffset: which beat of content to start from (Piano Roll Start field)
-    // - Notes within loopLength repeat if duration > loopLength
-    // - Playback stops at duration regardless of loopLength
+    // Ableton-style loop handling (skip/shift by contentStartOffset, tile
+    // every loopLength while canRepeat, truncate at loop boundary and
+    // arrangement duration) lives in MidiClipData.unrolledNotes() — shared
+    // with Join so a joined clip sounds identical to the clips it replaced.
     final beatsPerSecond = tempo / 60.0;
 
-    // The effective loop length for playback considers the content start offset
-    // If loopLength is 16 and contentStartOffset is 4, we play from beat 4 to beat 20
-    // which is still 16 beats of playback
-    final loopLengthSeconds = clip.loopLength / beatsPerSecond;
-    final contentOffset = clip.contentStartOffset;
-
-    // Calculate how many loop iterations fit within the arrangement duration
-    // If duration < loopLength, we still play once but truncated
-    // If canRepeat is false, only play once (no looping)
-    final numLoops = clip.canRepeat && clip.duration >= clip.loopLength
-        ? (clip.duration / clip.loopLength).ceil()
-        : 1;
-
-    for (int loop = 0; loop < numLoops; loop++) {
-      final loopOffsetBeats = loop * clip.loopLength;
-      final loopOffsetSeconds = loop * loopLengthSeconds;
-
-      for (final note in clip.notes) {
-        // Calculate note position relative to content start offset
-        // Notes before contentStartOffset are skipped
-        // Notes at/after contentStartOffset are shifted back
-        final noteRelativeStart = note.startTime - contentOffset;
-
-        // Skip notes that start before the content offset
-        if (noteRelativeStart < 0) continue;
-
-        // Only include notes that are within the loopLength boundary (relative to content start)
-        if (noteRelativeStart >= clip.loopLength) continue;
-
-        // Calculate note position within the arrangement
-        final noteStartBeats = loopOffsetBeats + noteRelativeStart;
-        final noteEndBeats =
-            loopOffsetBeats + noteRelativeStart + note.duration;
-
-        // Skip notes that start beyond the arrangement duration
-        if (noteStartBeats >= clip.duration) continue;
-
-        // Convert to seconds (using relative start time)
-        final noteStartSeconds =
-            (noteRelativeStart / beatsPerSecond) + loopOffsetSeconds;
-        var durationSeconds = note.durationInSeconds(tempo);
-
-        // Truncate note if it extends beyond the arrangement duration
-        if (noteEndBeats > clip.duration) {
-          final truncatedDurationBeats = clip.duration - noteStartBeats;
-          durationSeconds = truncatedDurationBeats / beatsPerSecond;
-        }
-
-        // Also truncate if note extends beyond the loop boundary (for looped notes)
-        final noteEndInLoop = noteRelativeStart + note.duration;
-        if (noteEndInLoop > clip.loopLength) {
-          final truncatedDurationBeats = clip.loopLength - noteRelativeStart;
-          final truncatedSeconds = truncatedDurationBeats / beatsPerSecond;
-          durationSeconds = durationSeconds < truncatedSeconds
-              ? durationSeconds
-              : truncatedSeconds;
-        }
-
-        // Only add if we have a positive duration
-        if (durationSeconds > 0) {
-          _audioEngine.addMidiNoteToClip(
-            rustClipId,
-            note.note,
-            note.velocity,
-            noteStartSeconds,
-            durationSeconds,
-          );
-        }
-      }
+    for (final note in clip.unrolledNotes()) {
+      _audioEngine.addMidiNoteToClip(
+        rustClipId,
+        note.note,
+        note.velocity,
+        note.startTime / beatsPerSecond,
+        note.duration / beatsPerSecond,
+      );
     }
 
     // Convert clip.startTime from beats to seconds for the engine
