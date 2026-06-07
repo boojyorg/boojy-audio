@@ -40,7 +40,15 @@ small mixer fixes in, §6.B strip mockup still parked pending a design conversat
   the lane-aligned space) · reverse-audio FFI + engine DSP (+ load-time re-push of all clip edit
   params — was silently lost on reopen) · input monitoring "I" toggle, armed-only (+ C9 even/odd
   channel fix).
-- [ ] **Join clips as Commands** (fixes C37/C50) → **normalize** → **UI batches 5–8** per plan.
+- [ ] **Join clips as Commands** (fixes C37/C50) — split into two PRs (settled design 2026-06-07:
+  GarageBand interaction / Ableton outcome; Join naming; refuse mixed-type + cross-track; bake
+  audio edits). **PR A (MIDI) in flight** — `feat/v0.6-join-midi-clips`: live mixin
+  `joinSelectedClips` Command-wrapped, loops unrolled via new `MidiClipData.unrolledNotes()`
+  (shared with playback scheduling), automation merged via `ClipAutomation.joined()`, dead
+  `_consolidateSelectedClips` deleted, right-click + ⌘J + menu renamed Join. **PR B (audio) next**:
+  needs new engine clip-subset offline render (bounce pipeline is a stub — `render_track_offline`
+  can't take a clip list) + FFI + `JoinAudioClipsCommand`. → **normalize** → **UI batches 5–8**
+  per plan.
 
 **Carried decisions:** ASIO deferred (WASAPI right for beginners). Windows machine = per-release
 test rig, not a dev machine. No stock instruments in v0.6 (triage). Loop region is orange, not

@@ -63,6 +63,7 @@ mixin TimelineContextMenusMixin
       context: context,
       position: position,
       clipType: ClipType.midi,
+      canJoin: selectedMidiClipIds.length >= 2,
     ).then((value) {
       if (value == null) return;
 
@@ -75,6 +76,9 @@ mixin TimelineContextMenusMixin
           break;
         case 'split':
           splitMidiClipAtPlayhead(clip);
+          break;
+        case 'join':
+          widget.midiClipCallbacks.onJoinSelected?.call();
           break;
         case 'cut':
           cutMidiClip(clip);

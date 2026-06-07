@@ -751,5 +751,157 @@ void main() {
         expect(copy.duration, 4.0);
       });
     });
+
+    group('unrolledNotes', () {
+      MidiNoteData note(double start, double duration, {int pitch = 60}) =>
+          MidiNoteData(
+            note: pitch,
+            velocity: 100,
+            startTime: start,
+            duration: duration,
+          );
+
+      test('non-looped clip passes notes through unchanged', () {
+        final clip = MidiClipData(
+          clipId: 1,
+          trackId: 1,
+          startTime: 8.0,
+          duration: 4.0,
+          notes: [note(0.0, 1.0), note(2.0, 0.5, pitch: 64)],
+        );
+
+        final unrolled = clip.unrolledNotes();
+
+        expect(unrolled.length, 2);
+        expect(unrolled[0].startTime, 0.0);
+        expect(unrolled[0].duration, 1.0);
+        expect(unrolled[1].startTime, 2.0);
+        expect(unrolled[1].note, 64);
+      });
+
+      test('looped clip tiles content every loopLength', () {
+        // 4 beats of content stretched to 16 beats = 4 tiles
+        final clip = MidiClipData(
+          clipId: 1,
+          trackId: 1,
+          startTime: 0.0,
+          duration: 16.0,
+          loopLength: 4.0,
+          notes: [note(0.0, 1.0), note(2.0, 1.0)],
+        );
+
+        final unrolled = clip.unrolledNotes();
+
+        expect(unrolled.length, 8);
+        expect(unrolled.map((n) => n.startTime).toList(), [
+          0.0,
+          2.0,
+          4.0,
+          6.0,
+          8.0,
+          10.0,
+          12.0,
+          14.0,
+        ]);
+      });
+
+      test('canRepeat=false plays content once even when stretched', () {
+        final clip = MidiClipData(
+          clipId: 1,
+          trackId: 1,
+          startTime: 0.0,
+          duration: 16.0,
+          loopLength: 4.0,
+          canRepeat: false,
+          notes: [note(0.0, 1.0)],
+        );
+
+        expect(clip.unrolledNotes().length, 1);
+      });
+
+      test('partial final tile drops notes beyond the arrangement end', () {
+        // 4-beat content over 6 beats: second tile only fits its first note
+        final clip = MidiClipData(
+          clipId: 1,
+          trackId: 1,
+          startTime: 0.0,
+          duration: 6.0,
+          loopLength: 4.0,
+          notes: [note(0.0, 1.0), note(3.0, 1.0)],
+        );
+
+        final unrolled = clip.unrolledNotes();
+
+        expect(unrolled.map((n) => n.startTime).toList(), [0.0, 3.0, 4.0]);
+      });
+
+      test('note straddling the arrangement end is truncated', () {
+        final clip = MidiClipData(
+          clipId: 1,
+          trackId: 1,
+          startTime: 0.0,
+          duration: 6.0,
+          loopLength: 4.0,
+          notes: [note(1.0, 2.0)],
+        );
+
+        final unrolled = clip.unrolledNotes();
+
+        // Second tile: starts at beat 5, would end at 7, truncates to 6
+        expect(unrolled[1].startTime, 5.0);
+        expect(unrolled[1].duration, 1.0);
+      });
+
+      test('note straddling the loop boundary is truncated per tile', () {
+        final clip = MidiClipData(
+          clipId: 1,
+          trackId: 1,
+          startTime: 0.0,
+          duration: 8.0,
+          loopLength: 4.0,
+          notes: [note(3.0, 2.0)], // would bleed 1 beat past the loop edge
+        );
+
+        final unrolled = clip.unrolledNotes();
+
+        expect(unrolled.length, 2);
+        expect(unrolled[0].duration, 1.0);
+        expect(unrolled[1].startTime, 7.0);
+        expect(unrolled[1].duration, 1.0);
+      });
+
+      test('contentStartOffset skips earlier notes and shifts the rest', () {
+        final clip = MidiClipData(
+          clipId: 1,
+          trackId: 1,
+          startTime: 0.0,
+          duration: 4.0,
+          loopLength: 4.0,
+          contentStartOffset: 2.0,
+          notes: [note(1.0, 1.0), note(3.0, 1.0, pitch: 64)],
+        );
+
+        final unrolled = clip.unrolledNotes();
+
+        expect(unrolled.length, 1);
+        expect(unrolled[0].note, 64);
+        expect(unrolled[0].startTime, 1.0); // 3.0 shifted back by offset 2.0
+      });
+
+      test('unrolled notes get fresh unique ids', () {
+        final clip = MidiClipData(
+          clipId: 1,
+          trackId: 1,
+          startTime: 0.0,
+          duration: 8.0,
+          loopLength: 4.0,
+          notes: [note(0.0, 1.0)],
+        );
+
+        final unrolled = clip.unrolledNotes();
+
+        expect(unrolled.map((n) => n.id).toSet().length, unrolled.length);
+      });
+    });
   });
 }

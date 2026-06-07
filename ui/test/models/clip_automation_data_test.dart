@@ -1515,5 +1515,93 @@ void main() {
         expect(updated.lanes.containsKey(AutomationParameter.pan), true);
       });
     });
+
+    group('joined', () {
+      ClipAutomation volumeAutomation(List<(double, double)> timeValues) {
+        return ClipAutomation(
+          lanes: {
+            AutomationParameter.volume: ClipAutomationLane(
+              parameter: AutomationParameter.volume,
+              points: [
+                for (final (time, value) in timeValues)
+                  ClipAutomationPoint(time: time, value: value),
+              ],
+            ),
+          },
+        );
+      }
+
+      test('returns empty when no segment has automation', () {
+        final joined = ClipAutomation.joined([
+          (ClipAutomation.empty(), 0.0, 4.0),
+          (ClipAutomation.empty(), 4.0, 4.0),
+        ]);
+
+        expect(joined.hasAutomation, false);
+      });
+
+      test('shifts points by segment offset', () {
+        final joined = ClipAutomation.joined([
+          (volumeAutomation([(1.0, 0.5)]), 0.0, 4.0),
+          (volumeAutomation([(1.0, 0.8)]), 8.0, 4.0),
+        ]);
+
+        final times = joined
+            .getLane(AutomationParameter.volume)
+            .sortedPoints
+            .map((p) => p.time)
+            .toList();
+
+        // Each segment contributes start edge, its point, end edge
+        expect(times, [0.0, 1.0, 4.0, 8.0, 9.0, 12.0]);
+      });
+
+      test('edge points pin held values at segment boundaries', () {
+        // Single point mid-clip: lane holds 0.5 across the whole clip, so the
+        // joined lane must hold 0.5 at the clip's edges too (not ramp away)
+        final joined = ClipAutomation.joined([
+          (volumeAutomation([(2.0, 0.5)]), 4.0, 4.0),
+        ]);
+
+        final lane = joined.getLane(AutomationParameter.volume);
+
+        expect(lane.getValueAtTime(4.0), 0.5);
+        expect(lane.getValueAtTime(8.0), 0.5);
+      });
+
+      test('merges different parameters from different segments', () {
+        final panAutomation = ClipAutomation(
+          lanes: {
+            AutomationParameter.pan: ClipAutomationLane(
+              parameter: AutomationParameter.pan,
+              points: [ClipAutomationPoint(time: 0.0, value: 0.2)],
+            ),
+          },
+        );
+
+        final joined = ClipAutomation.joined([
+          (volumeAutomation([(0.0, 0.5)]), 0.0, 4.0),
+          (panAutomation, 4.0, 4.0),
+        ]);
+
+        expect(joined.lanes.length, 2);
+        expect(joined.getLane(AutomationParameter.volume).hasAutomation, true);
+        expect(joined.getLane(AutomationParameter.pan).hasAutomation, true);
+      });
+
+      test('skips lanes without points', () {
+        final emptyLane = ClipAutomation(
+          lanes: {
+            AutomationParameter.volume: ClipAutomationLane(
+              parameter: AutomationParameter.volume,
+            ),
+          },
+        );
+
+        final joined = ClipAutomation.joined([(emptyLane, 0.0, 4.0)]);
+
+        expect(joined.hasAutomation, false);
+      });
+    });
   });
 }

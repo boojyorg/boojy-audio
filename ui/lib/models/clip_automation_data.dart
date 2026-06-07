@@ -388,6 +388,61 @@ class ClipAutomation {
     );
   }
 
+  /// Merge several clips' automation onto one joined-clip timeline.
+  ///
+  /// Each segment is `(automation, offsetBeats, durationBeats)` — the source
+  /// clip's automation, its left edge relative to the joined clip's start, and
+  /// its arrangement duration. For every lane with points, the points shift by
+  /// the segment offset and edge points pin the lane's held value at the
+  /// segment's boundaries — preserving each clip's hold-at-edges behaviour
+  /// instead of ramping across the gap between clips (same edge-point approach
+  /// as [ClipAutomationLane.sliceLeft]/[ClipAutomationLane.sliceRight]).
+  ///
+  /// Loop tiling of automation is deliberately not expanded — clip automation
+  /// lanes are hidden in the current UI, so this only needs to preserve data.
+  static ClipAutomation joined(
+    List<(ClipAutomation automation, double offsetBeats, double durationBeats)>
+    segments,
+  ) {
+    final mergedLanes = <AutomationParameter, List<ClipAutomationPoint>>{};
+
+    for (final (automation, offset, duration) in segments) {
+      for (final entry in automation.lanes.entries) {
+        final lane = entry.value;
+        if (!lane.hasAutomation) continue;
+
+        final points = mergedLanes.putIfAbsent(entry.key, () => []);
+        // Edge point at the segment start (held value at beat 0)
+        points.add(
+          ClipAutomationPoint(time: offset, value: lane.getValueAtTime(0)),
+        );
+        for (final p in lane.sortedPoints) {
+          points.add(
+            ClipAutomationPoint(time: offset + p.time, value: p.value),
+          );
+        }
+        // Edge point at the segment end (held value at the clip's right edge)
+        points.add(
+          ClipAutomationPoint(
+            time: offset + duration,
+            value: lane.getValueAtTime(duration),
+          ),
+        );
+      }
+    }
+
+    if (mergedLanes.isEmpty) return ClipAutomation.empty();
+
+    return ClipAutomation(
+      lanes: mergedLanes.map(
+        (param, points) => MapEntry(
+          param,
+          ClipAutomationLane(parameter: param, points: points),
+        ),
+      ),
+    );
+  }
+
   /// Deep copy all automation (for clip duplication)
   ClipAutomation deepCopy() {
     return ClipAutomation(

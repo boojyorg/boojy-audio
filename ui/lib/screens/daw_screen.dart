@@ -2433,84 +2433,6 @@ class _DAWScreenState extends State<DAWScreen>
     );
   }
 
-  /// Consolidate multiple selected MIDI clips into a single clip
-  void _consolidateSelectedClips() {
-    final timelineState = timelineKey.currentState;
-    if (timelineState == null) return;
-
-    // Get selected MIDI clips
-    final selectedMidiClips = timelineState.selectedMidiClips;
-
-    if (selectedMidiClips.length < 2) {
-      statusMessage = 'Select 2 or more MIDI clips to consolidate';
-      return;
-    }
-
-    // Ensure all clips are on the same track
-    final trackIds = selectedMidiClips.map((c) => c.trackId).toSet();
-    if (trackIds.length > 1) {
-      statusMessage = 'Cannot consolidate clips from different tracks';
-      return;
-    }
-
-    final trackId = trackIds.first;
-
-    // Sort clips by start time
-    final sortedClips = List<MidiClipData>.from(selectedMidiClips)
-      ..sort((a, b) => a.startTime.compareTo(b.startTime));
-
-    // Calculate consolidated clip bounds
-    final firstClipStart = sortedClips.first.startTime;
-    final lastClipEnd = sortedClips
-        .map((c) => c.endTime)
-        .reduce((a, b) => a > b ? a : b);
-    final totalDuration = lastClipEnd - firstClipStart;
-
-    // Merge all notes with adjusted timing
-    final mergedNotes = <MidiNoteData>[];
-    for (final clip in sortedClips) {
-      final clipOffset = clip.startTime - firstClipStart;
-      for (final note in clip.notes) {
-        mergedNotes.add(
-          note.copyWith(
-            startTime: note.startTime + clipOffset,
-            id: '${note.note}_${note.startTime + clipOffset}_${DateTime.now().microsecondsSinceEpoch}',
-          ),
-        );
-      }
-    }
-
-    // Sort notes by start time
-    mergedNotes.sort((a, b) => a.startTime.compareTo(b.startTime));
-
-    // Create consolidated clip
-    final consolidatedClip = MidiClipData(
-      clipId: DateTime.now().millisecondsSinceEpoch,
-      trackId: trackId,
-      startTime: firstClipStart,
-      duration: totalDuration,
-      loopLength: totalDuration,
-      notes: mergedNotes,
-      name: 'Consolidated',
-      color: sortedClips.first.color,
-    );
-
-    // Delete original clips
-    for (final clip in sortedClips) {
-      midiClipController.deleteClip(clip.clipId, clip.trackId);
-    }
-
-    // Add consolidated clip
-    midiClipController.addClip(consolidatedClip);
-    midiClipController.updateClip(consolidatedClip, playheadPosition);
-
-    // Select the new consolidated clip
-    midiPlaybackManager?.selectClip(consolidatedClip.clipId, consolidatedClip);
-    timelineState.clearClipSelection();
-
-    statusMessage = 'Consolidated ${sortedClips.length} clips into one';
-  }
-
   void _deleteMidiClip(int clipId, int trackId) {
     // Find the clip data for undo
     final clip = midiPlaybackManager?.midiClips.firstWhere(
@@ -3720,6 +3642,7 @@ class _DAWScreenState extends State<DAWScreen>
             onBatchDeleted: _deleteMidiClipsBatch,
             onExported: _exportMidiClip,
             onSplit: onMidiClipSplit,
+            onJoinSelected: joinSelectedClips,
             buildMidiOverlapCommand: (result) => ResolveMidiOverlapCommand(
               result: result,
               tempo: tempo,
@@ -4048,9 +3971,9 @@ class _DAWScreenState extends State<DAWScreen>
                   timelineKey.currentState?.selectedAudioClipId != null)
               ? _quantizeSelectedClip
               : null,
-          onConsolidateClips:
+          onJoinClips:
               (timelineKey.currentState?.selectedMidiClipIds.length ?? 0) >= 2
-              ? _consolidateSelectedClips
+              ? joinSelectedClips
               : null,
           onBounceMidiToAudio: midiPlaybackManager?.selectedClipId != null
               ? _bounceMidiToAudio
@@ -4090,9 +4013,9 @@ class _DAWScreenState extends State<DAWScreen>
           // Cmd+A to select all clips (in timeline view)
           const SingleActivator(LogicalKeyboardKey.keyA, meta: true):
               _selectAllClips,
-          // Cmd+J to consolidate clips
+          // Cmd+J to join selected clips into one
           const SingleActivator(LogicalKeyboardKey.keyJ, meta: true):
-              _consolidateSelectedClips,
+              joinSelectedClips,
           // Cmd+B to bounce MIDI to audio
           const SingleActivator(LogicalKeyboardKey.keyB, meta: true):
               _bounceMidiToAudio,
