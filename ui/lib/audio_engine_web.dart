@@ -380,6 +380,13 @@ class AudioEngine implements AudioEngineInterface {
   ) => 'OK';
 
   @override
+  String setAudioClipReverse(
+    int trackId,
+    int clipId, {
+    required bool reversed,
+  }) => 'OK';
+
+  @override
   bool removeAudioClip(int trackId, int clipId) => true;
 
   @override

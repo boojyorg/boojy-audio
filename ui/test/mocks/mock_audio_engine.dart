@@ -134,6 +134,16 @@ class MockAudioEngine implements AudioEngineInterface {
   }
 
   @override
+  String setAudioClipReverse(
+    int trackId,
+    int clipId, {
+    required bool reversed,
+  }) {
+    _record('setAudioClipReverse');
+    return 'OK';
+  }
+
+  @override
   int loadAudioFileToTrack(
     String filePath,
     int trackId, {

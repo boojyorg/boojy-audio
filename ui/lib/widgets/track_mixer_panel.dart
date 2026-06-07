@@ -524,12 +524,16 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         for (final t in allTracks) {
           if (t.type == 'midi' && t.id != track.id && t.armed) {
             t.armed = false;
+            t.inputMonitoring = false; // engine auto-mode mirrors arm
             disarmedIds.add(t.id);
           }
         }
       }
       // Toggle this track's arm state
       track.armed = !track.armed;
+      // Engine auto-mode: set_track_armed resets monitoring to match arm,
+      // so mirror it here or the I button would show stale state.
+      track.inputMonitoring = track.armed;
     });
     // Defer FFI calls so the frame paints first
     Future.microtask(() {
@@ -551,9 +555,25 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   void _handleArmShiftClick(TrackData track) {
     setState(() {
       track.armed = !track.armed;
+      track.inputMonitoring = track.armed; // engine auto-mode mirrors arm
     });
     Future.microtask(
       () => widget.audioEngine?.setTrackArmed(track.id, armed: track.armed),
+    );
+  }
+
+  /// Toggle input monitoring for an audio track (hear live input while
+  /// armed). Live state like arm — not undoable; the engine re-couples it to
+  /// arm on every arm change (auto-mode), this overrides it afterwards.
+  void _handleMonitorToggle(TrackData track) {
+    setState(() {
+      track.inputMonitoring = !track.inputMonitoring;
+    });
+    Future.microtask(
+      () => widget.audioEngine?.setTrackInputMonitoring(
+        track.id,
+        enabled: track.inputMonitoring,
+      ),
     );
   }
 
@@ -1418,6 +1438,10 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
               isArmed: track.armed,
               onArmToggle: () => _handleArmToggle(track, allTracks),
               onArmShiftClick: () => _handleArmShiftClick(track),
+              inputMonitoring: track.inputMonitoring,
+              onMonitorToggle: track.type.toLowerCase() == 'audio'
+                  ? () => _handleMonitorToggle(track)
+                  : null,
               showAutomation: widget.automationState.visibleTrackId == track.id,
               onAutomationToggle: () =>
                   widget.automationState.onToggle?.call(track.id),
@@ -1430,8 +1454,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                   ?.call(track.id, param),
               onResetParameter: () =>
                   widget.automationState.onResetParameter?.call(track.id),
-              onAddParameter: () =>
-                  widget.automationState.onAddParameter?.call(track.id),
               automationLane: widget.automationCallbacks.getAutomationLane
                   ?.call(track.id),
               pixelsPerBeat: widget.automationState.pixelsPerBeat,

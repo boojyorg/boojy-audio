@@ -475,7 +475,7 @@ class _PianoRollState extends State<PianoRoll>
                     // CC automation lane
                     if (ccLaneExpanded) _buildCCLane(totalBeats, canvasWidth),
                     // Clip automation lane
-                    if (UIConstants.enableAutomation &&
+                    if (UIConstants.enableClipAutomation &&
                         clipAutomationLaneExpanded)
                       _buildClipAutomationLane(totalBeats, canvasWidth),
                   ],
@@ -595,8 +595,8 @@ class _PianoRollState extends State<PianoRoll>
       velocityLaneVisible: velocityLaneExpanded,
       onVelocityLaneToggle: toggleVelocityLane,
       clipAutomationLaneVisible:
-          UIConstants.enableAutomation && clipAutomationLaneExpanded,
-      onClipAutomationLaneToggle: UIConstants.enableAutomation
+          UIConstants.enableClipAutomation && clipAutomationLaneExpanded,
+      onClipAutomationLaneToggle: UIConstants.enableClipAutomation
           ? () => setState(
               () => clipAutomationLaneExpanded = !clipAutomationLaneExpanded,
             )

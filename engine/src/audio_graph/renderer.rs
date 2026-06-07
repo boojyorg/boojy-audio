@@ -193,7 +193,7 @@ fn render_audio_clip_sample(timeline_clip: &TimelineClip, playhead_seconds: f64)
         return (0.0, 0.0);
     }
 
-    let time_in_clip = playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
+    let time_in_clip = timeline_clip.time_in_clip(playhead_seconds, effective_duration);
     let clip_gain = timeline_clip.get_gain();
     let pitch_ratio = f64::from(timeline_clip.get_pitch_ratio());
 
@@ -641,9 +641,15 @@ impl AudioGraph {
                                             );
 
                                             if track.monitoring_fade_gain > 0.0 {
+                                                // Only a stereo pair is captured: even
+                                                // channels map to left, odd to right (C9 —
+                                                // previously every channel >= 1 monitored right).
                                                 let ch = track.input_channel as usize;
-                                                let input_sample =
-                                                    if ch == 0 { input_left } else { input_right };
+                                                let input_sample = if ch.is_multiple_of(2) {
+                                                    input_left
+                                                } else {
+                                                    input_right
+                                                };
                                                 track_left += input_sample
                                                     * track.monitoring_fade_gain as f32;
                                                 track_right += input_sample
@@ -1032,9 +1038,13 @@ impl AudioGraph {
                                     monitoring_ramp_rate,
                                 );
                                 if track_snap.monitoring_fade_gain > 0.0 {
+                                    // Stereo pair only: even channels → left, odd → right (C9).
                                     let ch = track_snap.input_channel as usize;
-                                    let input_sample =
-                                        if ch == 0 { input_l[i] } else { input_r[i] };
+                                    let input_sample = if ch.is_multiple_of(2) {
+                                        input_l[i]
+                                    } else {
+                                        input_r[i]
+                                    };
                                     track_left +=
                                         input_sample * track_snap.monitoring_fade_gain as f32;
                                     track_right +=
