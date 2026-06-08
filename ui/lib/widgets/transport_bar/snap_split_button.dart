@@ -132,9 +132,7 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final isActive = widget.value != SnapValue.off;
-    final leftBg = isActive
-        ? colors.accent.withValues(alpha: BT.opacityLight)
-        : colors.surface;
+    final leftBg = isActive ? colors.selectionFill : colors.surface;
     final iconColor = isActive ? colors.accent : colors.textSecondary;
     final textColor = isActive ? colors.textPrimary : colors.textSecondary;
 
@@ -154,9 +152,7 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
           border: Border.all(
             // Off-state outline matches the active accent one in weight
             // (textMuted, not the near-invisible divider) — grey, not blue.
-            color: isActive
-                ? colors.accent.withValues(alpha: 0.7)
-                : colors.textMuted,
+            color: isActive ? colors.selectionBorder : colors.textMuted,
             width: 1,
           ),
         ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/tokens.dart';
+import '../dev_tools/playhead_lab.dart';
 
 /// Painter for the unified navigation bar that combines loop region and bar numbers.
 /// Single row (~24px) that handles both loop visualization and time display.
@@ -37,7 +38,7 @@ class UnifiedNavBarPainter extends CustomPainter {
     this.punchInEnabled = false,
     this.punchOutEnabled = false,
     this.textScale = 1.0,
-  });
+  }) : super(repaint: PlayheadLab.notifier);
 
   /// Get adaptive grid division based on zoom level
   /// Must match TimelineGridPainter._getGridDivision() for alignment
@@ -209,15 +210,9 @@ class UnifiedNavBarPainter extends CustomPainter {
           textPainter.paint(canvas, Offset(x + 4, 2));
         }
       } else if (isBeat) {
-        // Beat tick - medium height
-        final tickPaint = Paint()
-          ..color = colors.hover
-          ..strokeWidth = 1;
-        canvas.drawLine(
-          Offset(x, size.height - 4),
-          Offset(x, size.height),
-          tickPaint,
-        );
+        // No beat tick in the ruler — the beat-number labels name the beats and
+        // the track-area grid carries the alignment lines, so a tick here just
+        // competes with the numbers (decluttered per v0.6 orientation).
 
         // Show beat number when zoomed in (e.g., 1.2, 1.3, 1.4)
         // Beat 1 is skipped since bar number is already shown
@@ -268,15 +263,7 @@ class UnifiedNavBarPainter extends CustomPainter {
           }
         }
       } else {
-        // Subdivision tick - short
-        final tickPaint = Paint()
-          ..color = colors.divider
-          ..strokeWidth = 0.5;
-        canvas.drawLine(
-          Offset(x, size.height - 2),
-          Offset(x, size.height),
-          tickPaint,
-        );
+        // No subdivision tick in the ruler (decluttered) — see the beat branch.
 
         // Progressive subdivision labels:
         // - At >= 100px: show only .3 (half-beat at 0.5 position)
@@ -347,41 +334,78 @@ class UnifiedNavBarPainter extends CustomPainter {
     if (playheadPosition == null) return;
 
     final x = playheadPosition! * pixelsPerBeat;
-    final playheadColor = colors.accent;
+    final lab = PlayheadLab.notifier.value;
 
-    // Head radius: 5px default, 6px on hover
-    final headRadius = isHoveringPlayhead ? 6.0 : 5.0;
-    const lineWidth = 2.0;
+    // The grabber (triangle) keeps one calm colour; only the vertical line
+    // below it changes — white while playing so the moving time cursor is
+    // unmistakable, light grey at rest. Thin, no glow (a glow flashed on
+    // every play).
+    final headColor = colors.textSecondary;
+    final lineColor = isPlaying ? Colors.white : colors.textSecondary;
+    const lineWidth = 1.0;
 
-    // Draw subtle glow during playback
-    if (isPlaying) {
-      final glowPaint = Paint()
-        ..color = playheadColor.withValues(alpha: 0.15)
-        ..strokeWidth = 6.0
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), glowPaint);
+    // Fixed grabber size — the old "hover" size is now the default; no
+    // grow/colour change on hover (it just felt jumpy).
+    const halfWidth = 8.5;
+    const headHeight = 11.0;
+
+    // Anchor the inverted-triangle grabber to the top or bottom of the ruler
+    // band (A/B in the Playhead Lab).
+    final double headTop;
+    final double headBottom;
+    final double lineTop;
+    if (lab.anchor == PlayheadAnchor.bottom) {
+      headBottom = size.height; // tip touches the bottom edge of the band
+      headTop = headBottom - headHeight;
+      lineTop = 0.0; // line spans the whole band above the head
+    } else {
+      headTop = 1.0; // hug the top edge (just off it so it isn't hard-clipped)
+      headBottom = headTop + headHeight;
+      lineTop = headTop; // no nub poking above the head
     }
 
-    // Draw vertical line (full height, through circle center)
+    // Vertical line.
     final linePaint = Paint()
-      ..color = playheadColor
+      ..color = lineColor
       ..strokeWidth = lineWidth;
-    canvas.drawLine(Offset(x, 0), Offset(x, size.height), linePaint);
+    canvas.drawLine(Offset(x, lineTop), Offset(x, size.height), linePaint);
 
-    // Draw solid circle head at top
-    final circlePaint = Paint()
-      ..color = playheadColor
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(x, headRadius + 2), headRadius, circlePaint);
+    // Grabber fill.
+    final headPath = Path()
+      ..moveTo(x - halfWidth, headTop)
+      ..lineTo(x + halfWidth, headTop)
+      ..lineTo(x, headBottom)
+      ..close();
+    if (lab.fill == PlayheadFill.buttonBlue) {
+      // The shared, solid selection fill — identical to the buttons on any
+      // surface (incl. the gold band).
+      canvas.drawPath(headPath, Paint()..color = colors.selectionFill);
+    } else {
+      canvas.drawPath(
+        headPath,
+        Paint()
+          ..color = headColor
+          ..style = PaintingStyle.fill,
+      );
+    }
 
-    // Add glow effect on hover
-    if (isHoveringPlayhead) {
-      final glowPaint = Paint()
-        ..color = playheadColor.withValues(alpha: 0.3)
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(Offset(x, headRadius + 2), headRadius + 3, glowPaint);
-      // Redraw circle on top of glow
-      canvas.drawCircle(Offset(x, headRadius + 2), headRadius, circlePaint);
+    // Optional border (A/B in the Playhead Lab). Blue matches the button
+    // border (accent@65%).
+    final Color? borderColor = switch (lab.border) {
+      PlayheadBorder.none => null,
+      PlayheadBorder.white => Colors.white,
+      PlayheadBorder.darkGrey => const Color(0xFF2B2B2B),
+      PlayheadBorder.blue => colors.selectionBorder,
+    };
+    if (borderColor != null) {
+      canvas.drawPath(
+        headPath,
+        Paint()
+          ..color = borderColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0
+          ..strokeJoin = StrokeJoin.round,
+      );
     }
   }
 

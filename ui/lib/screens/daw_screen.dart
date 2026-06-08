@@ -18,6 +18,7 @@ import '../widgets/transport_bar/title_strip.dart';
 import '../widgets/dev_tools/palette_editor.dart';
 import '../widgets/dev_tools/ui_labs_switcher.dart';
 import '../widgets/dev_tools/editor_button_switcher.dart';
+import '../widgets/dev_tools/playhead_lab.dart';
 import '../widgets/canvas_bg_variant.dart';
 import '../widgets/editor_button_variant.dart';
 import '../widgets/timeline/timeline_models.dart';
@@ -122,6 +123,16 @@ class _DAWScreenState extends State<DAWScreen>
     }());
   }
 
+  // Playhead Lab (debug only) — A/B the grabber's border + vertical position.
+  bool _showPlayheadLab = false;
+
+  void _togglePlayheadLab() {
+    assert(() {
+      setState(() => _showPlayheadLab = !_showPlayheadLab);
+      return true;
+    }());
+  }
+
   // UI Labs editor-button switcher (debug only) + the live A/B/C it drives.
   bool _showEditorButtonSwitcher = false;
   EditorButtonVariant _editorButtonVariant = EditorButtonVariant.outline;
@@ -165,13 +176,23 @@ class _DAWScreenState extends State<DAWScreen>
     // when the user returns focus to Boojy.
     WidgetsBinding.instance.addObserver(this);
 
+    // Transport single-key shortcuts (Space, L, M, I, O) are handled at the
+    // hardware-keyboard level so they fire *before* focus dispatch. Otherwise,
+    // once focus lands on any Material button (clicking the transport, mixer,
+    // a menu…) that button swallows Space via its own activate-on-space
+    // binding and the key appears dead. See _handleGlobalTransportKey.
+    HardwareKeyboard.instance.addHandler(_handleGlobalTransportKey);
+
     // Listen for undo/redo state changes to update menu
     undoRedoManager.addListener(_onUndoRedoChanged);
 
     // Listen for controller state changes that require UI rebuilds.
-    // Note: playbackController is NOT included — its frequent updates
-    // (play/pause/stop/seek) use playheadNotifier inside TimelineView.
+    // Note: playbackController's *per-frame* updates do NOT rebuild here —
+    // they flow through playheadNotifier inside TimelineView. We only listen
+    // for play/stop *transitions* (gated in _onPlaybackPlayingChanged) so the
+    // playhead line can switch grey<->white when playback starts/stops.
     // automationPreviewValues use ValueNotifier listened to by TrackMixerPanel only.
+    playbackController.addListener(_onPlaybackPlayingChanged);
     recordingController.addListener(_onRecordingStateChanged);
     trackController.addListener(_onTrackStateChanged);
     midiClipController.addListener(_onMidiClipStateChanged);
@@ -238,6 +259,19 @@ class _DAWScreenState extends State<DAWScreen>
     if (mounted) setState(() {});
   }
 
+  /// Playback play/stop *transition* — rebuilds so the playhead line's colour
+  /// (white while playing, grey at rest) updates. Gated on the bool flipping so
+  /// we rebuild ~twice per playback session, never per frame (per-frame
+  /// playhead motion stays on playheadNotifier — see initState).
+  bool _lastIsPlaying = false;
+  void _onPlaybackPlayingChanged() {
+    final playing = playbackController.isPlaying;
+    if (playing != _lastIsPlaying) {
+      _lastIsPlaying = playing;
+      if (mounted) setState(() {});
+    }
+  }
+
   /// Panel visibility or sizes changed.
   void _onLayoutChanged() {
     if (mounted) setState(() {});
@@ -283,11 +317,13 @@ class _DAWScreenState extends State<DAWScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    HardwareKeyboard.instance.removeHandler(_handleGlobalTransportKey);
 
     // Remove undo/redo listener
     undoRedoManager.removeListener(_onUndoRedoChanged);
 
     // Remove controller listeners
+    playbackController.removeListener(_onPlaybackPlayingChanged);
     recordingController.removeListener(_onRecordingStateChanged);
     trackController.removeListener(_onTrackStateChanged);
     midiClipController.removeListener(_onMidiClipStateChanged);
@@ -564,6 +600,52 @@ class _DAWScreenState extends State<DAWScreen>
     return context.findAncestorWidgetOfExactType<EditableText>() != null;
   }
 
+  /// App-level handler for transport/loop single-key shortcuts (Space, L, M,
+  /// I, O). Registered on [HardwareKeyboard] in initState so it runs *before*
+  /// focus-based key dispatch — this is what makes Space keep working after
+  /// you click a button (a focused Material button would otherwise consume
+  /// Space via its activate-on-space binding). Returns true to consume the
+  /// event so the focused widget never sees it.
+  ///
+  /// Other single-key shortcuts (Q, Delete) stay in [_handleSingleKeyShortcut]
+  /// because they overlap the timeline's own contextual handling.
+  bool _handleGlobalTransportKey(KeyEvent event) {
+    // Act on initial press only — never key-repeat or key-up.
+    if (event is! KeyDownEvent) return false;
+
+    // Let focused text fields keep their keystrokes (typing names, etc.).
+    if (_isTextFieldFocused()) return false;
+
+    // A held command modifier means this belongs to a combo shortcut
+    // (e.g. Cmd+Shift+L) — leave it for CallbackShortcuts.
+    final keyboard = HardwareKeyboard.instance;
+    if (keyboard.isMetaPressed ||
+        keyboard.isControlPressed ||
+        keyboard.isAltPressed) {
+      return false;
+    }
+
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.space:
+        _togglePlayPause();
+        return true;
+      case LogicalKeyboardKey.keyL:
+        uiLayout.toggleLoopPlayback();
+        return true;
+      case LogicalKeyboardKey.keyM:
+        _toggleMetronome();
+        return true;
+      case LogicalKeyboardKey.keyI:
+        uiLayout.togglePunchIn();
+        return true;
+      case LogicalKeyboardKey.keyO:
+        uiLayout.togglePunchOut();
+        return true;
+      default:
+        return false;
+    }
+  }
+
   /// Handle single-key shortcuts that should be suppressed when text field is focused.
   /// Returns true if the key was handled, false to let it propagate to text fields.
   KeyEventResult _handleSingleKeyShortcut(KeyEvent event) {
@@ -584,25 +666,12 @@ class _DAWScreenState extends State<DAWScreen>
       return KeyEventResult.ignored;
     }
 
-    // Handle single-key shortcuts
+    // Handle single-key shortcuts. Space/L/M/I/O are handled globally in
+    // _handleGlobalTransportKey (so they survive focus drift to a button);
+    // only the timeline-contextual keys remain here.
     switch (event.logicalKey) {
-      case LogicalKeyboardKey.space:
-        _togglePlayPause();
-        return KeyEventResult.handled;
       case LogicalKeyboardKey.keyQ:
         _quantizeSelectedClip();
-        return KeyEventResult.handled;
-      case LogicalKeyboardKey.keyL:
-        uiLayout.toggleLoopPlayback();
-        return KeyEventResult.handled;
-      case LogicalKeyboardKey.keyM:
-        _toggleMetronome();
-        return KeyEventResult.handled;
-      case LogicalKeyboardKey.keyI:
-        uiLayout.togglePunchIn();
-        return KeyEventResult.handled;
-      case LogicalKeyboardKey.keyO:
-        uiLayout.togglePunchOut();
         return KeyEventResult.handled;
       case LogicalKeyboardKey.delete:
       case LogicalKeyboardKey.backspace:
@@ -4044,9 +4113,17 @@ class _DAWScreenState extends State<DAWScreen>
             meta: true,
             shift: true,
           ): _cycleCanvasBg,
+          // Cmd+Shift+H toggles the Playhead Lab (debug only)
+          const SingleActivator(
+            LogicalKeyboardKey.keyH,
+            meta: true,
+            shift: true,
+          ): _togglePlayheadLab,
         },
-        // Single-key shortcuts (Space, Q, L, M) are handled in Focus.onKeyEvent
-        // so they don't interfere with text input fields
+        // Transport keys (Space, L, M, I, O) are handled globally via
+        // HardwareKeyboard (_handleGlobalTransportKey) so they survive focus
+        // drift onto buttons. Q/Delete stay here on Focus.onKeyEvent. Both
+        // paths skip text fields so they don't interfere with typing.
         child: Focus(
           autofocus: true,
           onKeyEvent: (node, event) => _handleSingleKeyShortcut(event),
@@ -4197,6 +4274,8 @@ class _DAWScreenState extends State<DAWScreen>
                               undoManager: undoRedoManager,
                               playheadNotifier:
                                   playbackController.playheadNotifier,
+                              isPlaying: isPlaying,
+                              onSeek: playbackController.seek,
                               onInstrumentParameterChanged:
                                   _onInstrumentParameterChanged,
                               currentEditingAudioClip: selectedAudioClip,
@@ -4302,6 +4381,8 @@ class _DAWScreenState extends State<DAWScreen>
                     },
                     onClose: _toggleUiLabsSwitcher,
                   ),
+                if (_showPlayheadLab)
+                  PlayheadLabSwitcher(onClose: _togglePlayheadLab),
                 if (_showEditorButtonSwitcher)
                   EditorButtonSwitcher(
                     activeVariant: _editorButtonVariant,

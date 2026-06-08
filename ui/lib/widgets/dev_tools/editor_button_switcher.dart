@@ -124,10 +124,10 @@ class _EditorButtonSwitcherState extends State<EditorButtonSwitcher> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: isActive ? colors.accent : colors.dark,
+            color: isActive ? colors.selectionFill : colors.dark,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: isActive ? colors.accent : colors.divider,
+              color: isActive ? colors.selectionBorder : colors.divider,
             ),
           ),
           child: Row(
@@ -146,7 +146,7 @@ class _EditorButtonSwitcherState extends State<EditorButtonSwitcher> {
               Text(
                 variant.labLabel,
                 style: TextStyle(
-                  color: isActive ? Colors.white : colors.textSecondary,
+                  color: isActive ? colors.accent : colors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
@@ -71,6 +72,21 @@ class PianoRoll extends StatefulWidget {
   /// Track color for MIDI note rendering
   final Color? trackColor;
 
+  /// Global playback position in seconds (transport). Drives the live
+  /// playhead that sweeps across the note grid + ruler during playback.
+  final ValueListenable<double>? playheadNotifier;
+
+  /// Whether transport is playing — drives the playhead *line* colour (white
+  /// playing / grey at rest); the grabber triangle stays calm grey.
+  final bool isPlaying;
+
+  /// Project tempo (BPM) — converts the playhead's seconds into beats.
+  final double tempo;
+
+  /// Seek the transport to a global position (seconds). Wired up so dragging
+  /// the ruler moves the playhead, matching the arrangement.
+  final void Function(double seconds)? onSeek;
+
   const PianoRoll({
     super.key,
     this.audioEngine,
@@ -87,6 +103,10 @@ class PianoRoll extends StatefulWidget {
     this.beatUnit = 4,
     this.isRecording = false,
     this.trackColor,
+    this.playheadNotifier,
+    this.isPlaying = false,
+    this.tempo = 120.0,
+    this.onSeek,
   });
 
   @override
@@ -620,31 +640,62 @@ class _PianoRollState extends State<PianoRoll>
             onZoomIn: zoomIn,
             onZoomOut: zoomOut,
             height: UIConstants.navBarHeight,
-            child: UnifiedNavBar(
-              config: UnifiedNavBarConfig(
-                pixelsPerBeat: pixelsPerBeat,
-                totalBeats: totalBeats,
-                loopEnabled: loopEnabled,
-                loopStart: loopStartBeats,
-                loopEnd: loopStartBeats + getLoopLength(),
-                insertMarkerPosition: insertMarkerBeats,
-                playheadPosition:
-                    insertMarkerBeats, // Use insert marker as playhead
-              ),
-              callbacks: UnifiedNavBarCallbacks(
-                onHorizontalScroll: _handleNavBarScroll,
-                onZoom: _handleNavBarZoom,
-                onPlayheadSet: _handleNavBarPlayheadSet,
-                onPlayheadDrag: _handleNavBarPlayheadSet, // Same as click
-                onLoopRegionChanged: _handleNavBarLoopRegionChanged,
-              ),
-              scrollController: navBarScroll,
-              height: UIConstants.navBarHeight,
-            ),
+            // Repaint the ruler on every playhead tick so the grabber sweeps
+            // during playback (mirrors the arrangement). Without a notifier
+            // (e.g. preview contexts) it just renders once.
+            child: widget.playheadNotifier == null
+                ? _buildNavBar(totalBeats, null)
+                : ValueListenableBuilder<double>(
+                    valueListenable: widget.playheadNotifier!,
+                    builder: (context, _, __) => _buildNavBar(
+                      totalBeats,
+                      _livePlayheadBeats(totalBeats),
+                    ),
+                  ),
           ),
         ),
       ],
     );
+  }
+
+  /// The ruler itself. [playheadBeats] is the live transport position mapped
+  /// into clip-local beats (null = playhead outside the clip → grabber hidden);
+  /// the dashed insert marker stays put separately.
+  Widget _buildNavBar(double totalBeats, double? playheadBeats) {
+    return UnifiedNavBar(
+      config: UnifiedNavBarConfig(
+        pixelsPerBeat: pixelsPerBeat,
+        totalBeats: totalBeats,
+        loopEnabled: loopEnabled,
+        loopStart: loopStartBeats,
+        loopEnd: loopStartBeats + getLoopLength(),
+        playheadPosition: playheadBeats,
+        isPlaying: widget.isPlaying,
+      ),
+      callbacks: UnifiedNavBarCallbacks(
+        onHorizontalScroll: _handleNavBarScroll,
+        onZoom: _handleNavBarZoom,
+        onPlayheadSet: _handleNavBarPlayheadSet,
+        onPlayheadDrag: _handleNavBarPlayheadSet, // Same as click
+        onLoopRegionChanged: _handleNavBarLoopRegionChanged,
+      ),
+      scrollController: navBarScroll,
+      height: UIConstants.navBarHeight,
+    );
+  }
+
+  /// Live transport position (seconds) mapped into this clip's local beats,
+  /// or null when the playhead sits outside the clip's bounds. MIDI clips
+  /// position in beats, so: globalBeats = seconds × tempo/60, then subtract
+  /// the clip's arrangement start.
+  double? _livePlayheadBeats(double totalBeats) {
+    final notifier = widget.playheadNotifier;
+    final clip = widget.clipData;
+    if (notifier == null || clip == null) return null;
+    final globalBeats = notifier.value * widget.tempo / 60.0;
+    final rel = globalBeats - clip.startTime;
+    if (rel < 0 || rel > totalBeats) return null;
+    return rel;
   }
 
   /// Build the piano keys gutter + note grid area with shared vertical scroll
@@ -924,7 +975,7 @@ class _PianoRollState extends State<PianoRoll>
                                     ).scale(1.0),
                                   ),
                                 ),
-                                _buildInsertMarker(canvasHeight),
+                                _buildPlayheadLine(canvasHeight, canvasWidth),
                               ],
                             ),
                           ),
@@ -1205,29 +1256,37 @@ class _PianoRollState extends State<PianoRoll>
   // - onVelocityPanStart(), onVelocityPanUpdate(), onVelocityPanEnd()
   // Note finding: findNoteAtVelocityPosition() is in NoteGestureHandlerMixin
 
-  /// Build insert marker (blue dashed line) - spec v2.0
-  Widget _buildInsertMarker(double canvasHeight) {
-    if (insertMarkerBeats == null) return const SizedBox.shrink();
-
-    final markerX = insertMarkerBeats! * pixelsPerBeat;
-
-    return Positioned(
-      left: markerX - 1, // Center the 2px line
-      top: 0,
-      child: IgnorePointer(
-        child: SizedBox(
-          width: 2,
-          height: canvasHeight,
-          child: CustomPaint(
-            painter: DashedLinePainter(
-              color: context.colors.accent, // Accent color
-              strokeWidth: 2,
-              dashLength: 6,
-              gapLength: 4,
+  /// Live transport playhead line inside the note grid — sweeps during
+  /// playback, white while playing / grey at rest (matching the arrangement
+  /// track line). Hidden whenever the playhead sits outside this clip.
+  Widget _buildPlayheadLine(double canvasHeight, double canvasWidth) {
+    final notifier = widget.playheadNotifier;
+    final clip = widget.clipData;
+    if (notifier == null || clip == null) return const SizedBox.shrink();
+    return ValueListenableBuilder<double>(
+      valueListenable: notifier,
+      builder: (context, seconds, _) {
+        final globalBeats = seconds * widget.tempo / 60.0;
+        final rel = globalBeats - clip.startTime;
+        final x = rel * pixelsPerBeat;
+        if (rel < 0 || x > canvasWidth) return const SizedBox.shrink();
+        // The line changes colour with playback (white playing / grey at
+        // rest); the grabber in the ruler stays calm grey. Thin, no glow.
+        const lineWidth = 1.0;
+        return Positioned(
+          left: x - lineWidth / 2,
+          top: 0,
+          child: IgnorePointer(
+            child: Container(
+              width: lineWidth,
+              height: canvasHeight,
+              color: widget.isPlaying
+                  ? Colors.white
+                  : context.colors.textSecondary,
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -1347,10 +1406,18 @@ class _PianoRollState extends State<PianoRoll>
 
   /// Handle playhead set from UnifiedNavBar click.
   void _handleNavBarPlayheadSet(double beat) {
-    // Set insert marker position (piano roll uses insert marker, not global playhead)
-    setState(() {
-      insertMarkerBeats = beat.clamp(0.0, double.infinity);
-    });
+    final clip = widget.clipData;
+    final onSeek = widget.onSeek;
+    if (clip == null || onSeek == null) return;
+    // Snap to the grid (honouring the Snap toggle); hold Alt/Option to drag
+    // freely. Then map this clip-local beat to a global transport position.
+    final modifiers = ModifierKeyState.current();
+    final localBeat = (modifiers.isAltPressed ? beat : snapToGrid(beat)).clamp(
+      0.0,
+      double.infinity,
+    );
+    final globalBeats = clip.startTime + localBeat;
+    onSeek(globalBeats / widget.tempo * 60.0);
   }
 
   /// Handle loop region change from UnifiedNavBar edge drag.
