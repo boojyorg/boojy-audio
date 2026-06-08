@@ -220,12 +220,6 @@ mixin NoteGestureHandlerMixin
       saveToHistory();
       final snappedBeat = snapToGrid(beat);
 
-      // Stamp chord if chord palette visible
-      if (chordPaletteVisible) {
-        stampChordAt(snappedBeat, noteRow);
-        return;
-      }
-
       // Create single note
       final newNote = MidiNoteData(
         note: noteRow,
@@ -255,55 +249,9 @@ mixin NoteGestureHandlerMixin
   // ============================================
   // AUDITION SUPPORT — provided by AuditionMixin (on-clause).
   // This mixin used to carry its own diverged copies of startAudition /
-  // stopAudition / changeAuditionPitch / previewChord; they were shadowed
-  // dead code (AuditionMixin is mixed in later) and previewChord's copy
-  // still had the dispose-leak bug. One implementation only.
+  // stopAudition / changeAuditionPitch; they were shadowed dead code
+  // (AuditionMixin is mixed in later). One implementation only.
   // ============================================
-
-  /// Stamp a chord at the given position.
-  void stampChordAt(double beat, int baseNote) {
-    if (currentClip == null) return;
-
-    final chordNotes = chordConfig.midiNotes;
-    if (chordNotes.isEmpty) return;
-
-    final lowestChordNote = chordNotes.reduce((a, b) => a < b ? a : b);
-    final offset = baseNote - lowestChordNote;
-
-    final newNotes = <MidiNoteData>[];
-    for (final midiNote in chordNotes) {
-      final transposedNote = midiNote + offset;
-      if (transposedNote >= 0 && transposedNote <= 127) {
-        newNotes.add(
-          MidiNoteData(
-            note: transposedNote,
-            velocity: UIConstants.defaultMidiVelocity,
-            startTime: beat,
-            duration: lastNoteDuration,
-            isSelected: true,
-          ),
-        );
-      }
-    }
-
-    if (newNotes.isEmpty) return;
-
-    setState(() {
-      currentClip = currentClip?.copyWith(
-        notes: currentClip!.notes
-            .map((n) => n.copyWith(isSelected: false))
-            .toList(),
-      );
-      for (final note in newNotes) {
-        currentClip = currentClip?.addNote(note);
-        autoExtendLoopIfNeeded(note);
-      }
-    });
-
-    commitToHistory('Add chord');
-    notifyClipUpdated();
-    previewChord(newNotes.map((n) => n.note).toList());
-  }
 
   // ============================================
   // ERASER MODE

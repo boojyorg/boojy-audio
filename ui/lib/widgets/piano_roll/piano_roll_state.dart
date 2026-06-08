@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../models/midi_note_data.dart';
 import '../../models/midi_cc_data.dart';
 import '../../models/scale_data.dart';
-import '../../models/chord_data.dart';
 import '../../models/tool_mode.dart';
 import '../../models/track_automation_data.dart';
 import '../../services/undo_redo_manager.dart';
@@ -429,22 +428,6 @@ mixin PianoRollStateMixin on State<PianoRoll> {
 
   /// Beat unit (denominator).
   int beatUnit = 4;
-
-  // ============================================
-  // CHORD PALETTE STATE
-  // ============================================
-
-  /// Whether chord palette is visible.
-  bool chordPaletteVisible = false;
-
-  /// Current chord configuration.
-  ChordConfiguration chordConfig = const ChordConfiguration(
-    root: ChordRoot.c,
-    type: ChordType.major,
-  );
-
-  /// Whether chord preview is enabled.
-  bool chordPreviewEnabled = true;
 
   // ============================================
   // FOCUS

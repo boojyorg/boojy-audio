@@ -16,7 +16,6 @@ import 'painters/painters.dart';
 import 'piano_roll/piano_roll_controls_bar.dart';
 import 'piano_roll/piano_roll_cc_lane.dart';
 import 'piano_roll/piano_roll_clip_automation_lane.dart';
-import 'piano_roll/chord_palette.dart';
 import 'piano_roll/piano_roll_state.dart';
 import 'piano_roll/operations/note_operations.dart';
 import 'piano_roll/operations/clipboard_operations.dart';
@@ -183,11 +182,9 @@ class _PianoRollState extends State<PianoRoll>
 
   @override
   void dispose() {
-    // Release any sounding audition notes before the widget goes away —
-    // otherwise a held click (or a chord preview within its 500ms window)
-    // sustains indefinitely after the editor closes.
+    // Release any sounding audition note before the widget goes away —
+    // otherwise a held click sustains indefinitely after the editor closes.
     stopAudition();
-    stopChordPreview();
     HardwareKeyboard.instance.removeHandler(_onHardwareKey);
     undoRedoManager.removeListener(_onUndoRedoChanged);
     horizontalScroll.removeListener(_syncNavBarFromGrid);
@@ -275,62 +272,7 @@ class _PianoRollState extends State<PianoRoll>
 
   // Audition methods now provided by AuditionMixin:
   // - startAudition(), stopAudition(), changeAuditionPitch()
-  // - toggleAudition(), previewChord()
-
-  /// Stamp a chord at the given position
-  /// The chord is placed relative to the clicked note position
-  void _stampChordAt(double beat, int baseNote) {
-    if (currentClip == null) return;
-
-    // Get the chord's MIDI notes based on current configuration
-    // Transpose the chord so its lowest note is at the clicked position
-    final chordNotes = chordConfig.midiNotes;
-    if (chordNotes.isEmpty) return;
-
-    // Calculate the offset to place the chord's lowest note at baseNote
-    final lowestChordNote = chordNotes.reduce((a, b) => a < b ? a : b);
-    final offset = baseNote - lowestChordNote;
-
-    // Create notes for the chord
-    final newNotes = <MidiNoteData>[];
-    for (final midiNote in chordNotes) {
-      final transposedNote = midiNote + offset;
-      // Clamp to valid MIDI range
-      if (transposedNote >= 0 && transposedNote <= 127) {
-        newNotes.add(
-          MidiNoteData(
-            note: transposedNote,
-            velocity: UIConstants.defaultMidiVelocity,
-            startTime: beat,
-            duration: lastNoteDuration,
-            isSelected: true,
-          ),
-        );
-      }
-    }
-
-    if (newNotes.isEmpty) return;
-
-    setState(() {
-      // Deselect all existing notes
-      currentClip = currentClip?.copyWith(
-        notes: currentClip!.notes
-            .map((n) => n.copyWith(isSelected: false))
-            .toList(),
-      );
-      // Add all chord notes
-      for (final note in newNotes) {
-        currentClip = currentClip?.addNote(note);
-        autoExtendLoopIfNeeded(note);
-      }
-    });
-
-    commitToHistory('Add chord');
-    notifyClipUpdated();
-
-    // Preview the chord
-    previewChord(newNotes.map((n) => n.note).toList());
-  }
+  // - toggleAudition()
 
   // Velocity lane toggle now provided by VelocityLaneMixin: toggleVelocityLane()
 
@@ -390,26 +332,6 @@ class _PianoRollState extends State<PianoRoll>
               color: context.colors.darkest, // Content area background
               child: Column(children: [_buildPianoRollContent()]),
             ),
-            // Chord palette overlay
-            if (chordPaletteVisible)
-              Positioned(
-                right: 16,
-                top: 100,
-                child: ChordPalette(
-                  configuration: chordConfig,
-                  previewEnabled: chordPreviewEnabled,
-                  onConfigurationChanged: (config) {
-                    setState(() => chordConfig = config);
-                  },
-                  onPreview: previewChord,
-                  onPreviewToggle: (enabled) {
-                    setState(() => chordPreviewEnabled = enabled);
-                  },
-                  onClose: () {
-                    setState(() => chordPaletteVisible = false);
-                  },
-                ),
-              ),
           ],
         ),
       ),
@@ -1894,12 +1816,6 @@ class _PianoRollState extends State<PianoRoll>
       saveToHistory();
       final snappedBeat = snapToGrid(beat);
 
-      // Check if chord palette is visible - stamp chord instead of single note
-      if (chordPaletteVisible) {
-        _stampChordAt(snappedBeat, noteRow);
-        return;
-      }
-
       // Create single note (FL Studio style)
       final newNote = MidiNoteData(
         note: noteRow,
@@ -2690,12 +2606,6 @@ class _PianoRollState extends State<PianoRoll>
           !HardwareKeyboard.instance.isMetaPressed &&
           !HardwareKeyboard.instance.isControlPressed) {
         widget.onToolModeChanged?.call(ToolMode.slice);
-      }
-      // K key to toggle chord palette
-      else if (event.logicalKey == LogicalKeyboardKey.keyK &&
-          !HardwareKeyboard.instance.isMetaPressed &&
-          !HardwareKeyboard.instance.isControlPressed) {
-        setState(() => chordPaletteVisible = !chordPaletteVisible);
       }
       // ============================================
       // TRANSPOSE SHORTCUTS
