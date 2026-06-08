@@ -35,54 +35,30 @@ jobs:
       - name: Install dependencies
         run: cd ui && flutter pub get
 
-      # Without this the engine cold-compiles every run (~minutes). Mirrors the
-      # cache in the rust-checks job.
+      # The native-engine tests (test/native/) load libengine over dart:ffi, so
+      # the dylib must exist before `flutter test`. Cached so it doesn't
+      # cold-compile every run (mirrors the rust-checks job).
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: engine
 
-      - name: Build native engine (integration tests)
+      - name: Build native engine (for test/native ffi tests)
         run: cd engine && cargo build
 
       - name: Check formatting
-        run: cd ui && dart format --set-exit-if-changed lib/ test/ integration_test/
+        run: cd ui && dart format --set-exit-if-changed lib/ test/
 
       - name: Analyze
         run: cd ui && flutter analyze --fatal-infos
 
+      # The native-engine golden-path tests now run here as plain unit tests
+      # (test/native/), not as on-device `integration_test -d macos` — so the old
+      # headless-foreground hang, reporter-grep success check, and 3x retry are
+      # gone. BOOJY_CI=true makes test/native fail loudly (not skip) if the dylib
+      # is missing, so a forgotten build can't produce a vacuous green suite (C92).
       - name: Run unit tests
-        run: cd ui && flutter test
-
-      # The macOS test host can't foreground on the headless runner
-      # ("open returned 1"), so `flutter test -d macos` returns a non-zero exit
-      # code regardless of the actual result — whether the app hangs (old 13-min
-      # stall) or exits cleanly (BOOJY_CI=true makes the suite exit(0) once done,
-      # which the tool then misreads as a crash). So we can't trust the exit code.
-      #
-      # Instead we judge success from the streamed test reporter: flutter prints
-      # "<N> tests passed." only when every test passed, and "Some tests failed."
-      # on any failure. A genuine failure therefore still fails the gate (no pass
-      # marker / failure marker present) — only the bogus lifecycle exit code is
-      # ignored. The retry remains as a net for the separate mid-suite stall flake
-      # (a hang is killed at the timeout and re-run on a fresh attempt).
-      - name: Run integration tests
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          retry_on: any
-          command: |
-            cd ui
-            set +e
-            out=$(flutter test integration_test/ -d macos --dart-define=BOOJY_CI=true 2>&1)
-            echo "$out"
-            if echo "$out" | grep -qE "[0-9]+ tests? passed\." && ! echo "$out" | grep -q "Some tests failed"; then
-              echo "Integration suite passed (flutter exit code ignored — known headless-foreground quirk)."
-              exit 0
-            fi
-            echo "::error::Integration suite did not report success."
-            exit 1
+        run: cd ui && flutter test --dart-define=BOOJY_CI=true
 
   flutter-checks-windows:
     runs-on: windows-latest
