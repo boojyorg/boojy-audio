@@ -128,9 +128,31 @@ jobs:
         with:
           workspaces: engine
 
-      # The committed engine/lib/*.lib go stale (built only on a Mac dev box).
-      # Build them fresh from source so cargo test links — mirrors release.yml.
+      # Resolve the pinned VST3 SDK commit so the host-lib cache below busts
+      # whenever the SDK changes — the same staleness guard the from-scratch
+      # rebuild gives, just skipped on a hit.
+      - name: Resolve VST3 SDK commit
+        id: vst3
+        shell: pwsh
+        run: '"sha=$(git rev-parse HEAD:engine/vst3sdk)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append'
+
+      # The committed engine/lib/*.lib go stale (built only on a Mac dev box),
+      # so Windows rebuilds the VST3 host libs from source via CMake — several
+      # minutes, the long pole of this job. Cache just the built .lib outputs
+      # (all cargo needs to link) in a dir OUTSIDE the git-tracked build_win,
+      # keyed on the SDK commit + our vst3_host sources: a hit skips CMake
+      # entirely, a miss does the full clean rebuild and repopulates the cache.
+      # Bump the -v1- token to force a rebuild if a toolchain change ever makes
+      # the cached libs incompatible.
+      - name: Cache VST3 host libraries
+        id: vst3-cache
+        uses: actions/cache@v4
+        with:
+          path: vst3-libs-cache
+          key: vst3-host-libs-win-v1-${{ steps.vst3.outputs.sha }}-${{ hashFiles('engine/vst3_host/CMakeLists.txt', 'engine/vst3_host/vst3_host.cpp', 'engine/vst3_host/vst3_host.h', 'engine/vst3_host/vst3_host_win.cpp') }}
+
       - name: Build VST3 host libraries
+        if: steps.vst3-cache.outputs.cache-hit != 'true'
         run: |
           cd engine\vst3_host
           if (Test-Path build_win) { Remove-Item -Recurse -Force build_win }
@@ -138,8 +160,13 @@ jobs:
           cd build_win
           cmake -G "Visual Studio 17 2022" -A x64 ..
           cmake --build . --config Release
-          # Copy all rebuilt libraries to engine/lib/ (overwrite stale pre-built ones)
-          Copy-Item -Path "lib\Release\*.lib" -Destination "..\..\lib\" -Force
+          # Stash the rebuilt libraries in the cache dir at the repo root.
+          New-Item -ItemType Directory -Force -Path ..\..\..\vst3-libs-cache | Out-Null
+          Copy-Item -Path "lib\Release\*.lib" -Destination ..\..\..\vst3-libs-cache\ -Force
+
+      # Install the freshly built OR cache-restored libs where cargo links them.
+      - name: Install VST3 host libraries
+        run: Copy-Item -Path "vst3-libs-cache\*.lib" -Destination "engine\lib\" -Force
 
       - name: Clippy
         run: cd engine && cargo clippy --all-targets -- -D warnings
