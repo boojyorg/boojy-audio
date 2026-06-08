@@ -421,7 +421,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
             underline: Container(),
             dropdownColor: context.colors.standard,
             style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
-            items: BoojyTheme.values.map((theme) {
+            items: BoojyThemeExtension.selectable.map((theme) {
               return DropdownMenuItem<BoojyTheme>(
                 value: theme,
                 child: Text(theme.displayName),

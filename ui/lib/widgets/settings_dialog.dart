@@ -269,7 +269,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
             dropdownColor: context.colors.elevated,
             underline: const SizedBox(),
             style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
-            items: BoojyTheme.values.map((theme) {
+            items: BoojyThemeExtension.selectable.map((theme) {
               return DropdownMenuItem<BoojyTheme>(
                 value: theme,
                 child: Text(theme.displayName),
