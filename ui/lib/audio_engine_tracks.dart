@@ -333,6 +333,30 @@ mixin _TracksMixin on _AudioEngineBase {
     }
   }
 
+  /// Join (bounce) the given audio clips on a track into one rendered WAV,
+  /// baking each clip's gain/pitch/warp/reverse exactly as playback does. The
+  /// engine writes the WAV to a temp path and returns it; the caller loads that
+  /// file as a new clip. RENDER-ONLY — the engine does not touch the track.
+  /// Returns the WAV path, or null on error.
+  String? joinAudioClips(int trackId, List<int> clipIds) {
+    try {
+      final csv = clipIds.join(',');
+      final csvPtr = csv.toNativeUtf8();
+      final resultPtr = _joinAudioClips(trackId, csvPtr.cast());
+      malloc.free(csvPtr);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      if (result.startsWith('Error:')) {
+        Log.e('joinAudioClips: $result');
+        return null;
+      }
+      return result;
+    } catch (e) {
+      Log.e('joinAudioClips error: $e');
+      return null;
+    }
+  }
+
   /// Clear all tracks except master - used for New Project / Close Project
   String clearAllTracks() {
     try {

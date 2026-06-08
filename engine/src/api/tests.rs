@@ -605,6 +605,58 @@ fn single_track_stem_matches_the_full_mix() {
 }
 
 // ============================================================================
+// JOIN AUDIO CLIPS (render-only bounce of a clip subset)
+// ============================================================================
+
+#[test]
+fn join_audio_clips_renders_selected_span_with_gaps() {
+    let _guard = engine_lock();
+
+    // Two 1 s clips on one track with a 1 s gap between them (0..1 and 2..3).
+    let dir = temp_dir("join_audio");
+    let wav = write_sine_wav(&dir, "a.wav", 1.0, 0.8);
+    let track_id = create_track("Audio", "Join".to_string()).unwrap();
+    let id1 = load_audio_file_to_track_api(path_str(&wav), track_id, 0.0).unwrap();
+    let id2 = load_audio_file_to_track_api(path_str(&wav), track_id, 2.0).unwrap();
+
+    let out = dir.join("joined.wav");
+    let (start, duration) = {
+        let graph = get_audio_graph().unwrap().lock();
+        graph
+            .render_audio_clips_to_wav(track_id, &[id1, id2], &out)
+            .unwrap()
+    };
+
+    assert!(start.abs() < 1e-6, "joined clip starts at the earliest clip");
+    assert!(
+        (duration - 3.0).abs() < 0.05,
+        "span 0..3s expected, got {duration}"
+    );
+    assert!(out.exists());
+
+    let mut reader = hound::WavReader::open(&out).unwrap();
+    assert_eq!(reader.spec().channels, 2);
+    assert_eq!(reader.spec().sample_rate, 48000);
+    let samples: Vec<f32> = reader.samples::<f32>().map(Result::unwrap).collect();
+
+    let peak = |t0: f64, t1: f64| {
+        let a = (t0 * 48000.0) as usize * 2;
+        let b = (t1 * 48000.0) as usize * 2;
+        samples[a..b].iter().map(|s| s.abs()).fold(0.0f32, f32::max)
+    };
+    // RENDER-ONLY bake: both clips audible, the gap between them silent.
+    assert!(peak(0.1, 0.9) > 0.1, "first clip audible");
+    assert!(peak(1.2, 1.8) < 0.01, "gap is silent");
+    assert!(peak(2.1, 2.9) > 0.1, "second clip audible");
+
+    // The originals are untouched — render-only never mutates the track.
+    let graph = get_audio_graph().unwrap().lock();
+    let tm = graph.track_manager.lock();
+    let track = tm.get_track(track_id).unwrap();
+    assert_eq!(track.lock().audio_clips.len(), 2);
+}
+
+// ============================================================================
 // OFFLINE RENDER vs LIVE STREAM RATE (locks Phase 8: the C2 offline pin)
 // ============================================================================
 

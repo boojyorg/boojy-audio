@@ -399,6 +399,9 @@ class AudioEngine implements AudioEngineInterface {
   }) => -1;
 
   @override
+  String? joinAudioClips(int trackId, List<int> clipIds) => null;
+
+  @override
   int duplicateAudioClip(int trackId, int clipId, double startTime) => -1;
 
   // ============================================================================

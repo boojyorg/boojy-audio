@@ -52,10 +52,17 @@ pub fn save_project(project_name: String, project_path_str: String) -> Result<St
         };
         let source_path = Path::new(&clip_arc.file_path);
 
-        // Copy file to project folder
-        let relative_path =
+        // Recorded clips live only in memory: their `file_path` is a synthetic
+        // name (recorded_t{id}_{ts}.wav) that was never written to disk. Copying
+        // it would fail and abort the entire save, losing the recording. Detect
+        // the missing source and write the decoded samples out instead.
+        let relative_path = if source_path.exists() {
             project::copy_audio_file_to_project(source_path, project_path, audio_file.id)
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| e.to_string())?
+        } else {
+            project::write_audio_clip_to_project(clip_arc, project_path, audio_file.id)
+                .map_err(|e| e.to_string())?
+        };
 
         // Update the relative path in project data
         audio_file.relative_path = relative_path;

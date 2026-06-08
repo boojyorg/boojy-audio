@@ -140,6 +140,10 @@ class AudioEngine implements AudioEngineInterface {
   }) => throw UnsupportedError('stub');
 
   @override
+  String? joinAudioClips(int trackId, List<int> clipIds) =>
+      throw UnsupportedError('stub');
+
+  @override
   int duplicateAudioClip(int trackId, int clipId, double startTime) =>
       throw UnsupportedError('stub');
 
