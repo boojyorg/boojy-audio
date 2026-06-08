@@ -746,8 +746,20 @@ class UserSettings extends ChangeNotifier {
       _pianoRollSidebarWidth =
           _prefs?.getDouble(_keyPianoRollSidebarWidth) ?? 250.0;
 
-      // Load appearance settings
-      _theme = _prefs?.getString(_keyTheme) ?? 'dark';
+      // Load appearance settings. High Contrast was retired from the theme
+      // picker (its tokens render broken surfaces), so migrate any saved HC
+      // preference to the matching standard variant on first load — existing
+      // HC users land on a working theme and can't get stuck on the hidden
+      // one. The HC definitions stay in code for a future re-introduction.
+      final savedTheme = _prefs?.getString(_keyTheme) ?? 'dark';
+      _theme = switch (savedTheme) {
+        'highContrastDark' => 'dark',
+        'highContrastLight' => 'light',
+        _ => savedTheme,
+      };
+      if (_theme != savedTheme) {
+        await _prefs?.setString(_keyTheme, _theme);
+      }
       _uiScale = _prefs?.getDouble(_keyUiScale) ?? 1.0;
       _positionDisplayMode =
           _prefs?.getString(_keyPositionDisplayMode) ?? 'bars';
