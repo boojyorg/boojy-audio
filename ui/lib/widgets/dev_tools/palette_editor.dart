@@ -272,14 +272,16 @@ class _PaletteEditorState extends State<PaletteEditor> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: isActive ? colors.accent : colors.dark,
+          color: isActive ? colors.selectionFill : colors.dark,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: isActive ? colors.accent : colors.divider),
+          border: Border.all(
+            color: isActive ? colors.selectionBorder : colors.divider,
+          ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isActive ? Colors.white : colors.textSecondary,
+            color: isActive ? colors.accent : colors.textSecondary,
             fontSize: 11,
             fontWeight: FontWeight.w500,
           ),

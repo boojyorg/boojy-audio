@@ -57,12 +57,13 @@ class _BoojyButtonState extends State<BoojyButton> {
     final active = widget.isActive;
     final hovered = _isHovered;
 
-    // Background color — 4 states
+    // Background color — 4 states. Active states use the shared, solid
+    // selection tokens so this reads identically on every surface.
     final Color bg;
     if (active && hovered) {
-      bg = colors.accent.withValues(alpha: 0.22);
+      bg = colors.selectionFillHover;
     } else if (active) {
-      bg = colors.accent.withValues(alpha: BT.opacityLight);
+      bg = colors.selectionFill;
     } else if (hovered) {
       bg = colors.accent.withValues(alpha: BT.opacitySubtle);
     } else {
@@ -72,9 +73,9 @@ class _BoojyButtonState extends State<BoojyButton> {
     // Border color — 4 states
     final Color borderColor;
     if (active && hovered) {
-      borderColor = colors.accent.withValues(alpha: BT.opacityFull);
+      borderColor = colors.selectionBorderHover;
     } else if (active) {
-      borderColor = colors.accent.withValues(alpha: BT.opacityStrong);
+      borderColor = colors.selectionBorder;
     } else if (hovered) {
       borderColor = colors.accent.withValues(alpha: BT.opacityMedium);
     } else {

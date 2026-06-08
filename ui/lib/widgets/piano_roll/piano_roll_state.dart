@@ -306,9 +306,6 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   /// Last note duration (default = 1 beat = quarter note).
   double lastNoteDuration = 1.0;
 
-  /// Insert marker position (in beats, separate from playhead).
-  double? insertMarkerBeats;
-
   // ============================================
   // AUDITION SETTINGS
   // ============================================

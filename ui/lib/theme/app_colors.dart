@@ -117,6 +117,31 @@ class BoojyColors {
   Color get accentHover => _getAccentColor('hover');
 
   // ============================================
+  // SELECTION / ACTIVE-TOGGLE
+  // ============================================
+
+  // One canonical "this control is selected/active" look, so toggles read the
+  // same everywhere. The buttons used a translucent accent@15% fill, which
+  // resolves to a *different* colour on every surface (and goes muddy over the
+  // gold loop band). Baking that appearance over the dark surface as a SOLID
+  // colour keeps it identical on any background. Alphas mirror BoojyButton's
+  // active states (0.15 fill / 0.22 hover, 0.50 border / 0.65 hover).
+
+  /// Fill for a selected/active control (solid grey-blue).
+  Color get selectionFill =>
+      Color.alphaBlend(accent.withValues(alpha: 0.15), dark);
+
+  /// Fill for a selected/active control while hovered.
+  Color get selectionFillHover =>
+      Color.alphaBlend(accent.withValues(alpha: 0.22), dark);
+
+  /// Border for a selected/active control.
+  Color get selectionBorder => accent.withValues(alpha: 0.50);
+
+  /// Border for a selected/active control while hovered.
+  Color get selectionBorderHover => accent.withValues(alpha: 0.65);
+
+  // ============================================
   // SEMANTIC COLORS (Theme-independent)
   // ============================================
 
