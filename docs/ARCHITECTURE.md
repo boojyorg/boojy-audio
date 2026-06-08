@@ -320,7 +320,7 @@ log; the UI just freezes). Snapshot what you need (`id`, `fx_chain`,
    - Add state persistence for UI preferences
 
 3. **Testing Coverage**
-   - Integration tests **growing** — `ui/integration_test/` (8 native golden paths incl. send/return save+reload, shared-send dedup, reverb-send tail energy); plus Rust stock-effect output guards in `effects.rs`
+   - Native-engine golden-path tests — `ui/test/native/` (run as plain `flutter test` over `dart:ffi`; native golden paths incl. send/return save+reload, shared-send dedup, reverb-send tail energy); plus Rust stock-effect output guards in `effects.rs`
    - Add widget tests for critical components
    - Golden tests for visual regression
 
