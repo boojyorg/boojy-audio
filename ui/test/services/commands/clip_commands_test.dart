@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:boojy_audio/services/commands/clip_commands.dart';
 import 'package:boojy_audio/models/clip_data.dart';
+import 'package:boojy_audio/models/audio_clip_edit_data.dart';
 import 'package:boojy_audio/models/midi_note_data.dart';
 import 'package:boojy_audio/utils/clip_overlap_handler.dart';
 import '../../mocks/mock_audio_engine.dart';
@@ -529,6 +530,99 @@ void main() {
 
       expect(mockEngine.removedClipIds.first, 42);
       expect(mockEngine.removedClipIds.last, isNot(42));
+    });
+  });
+
+  group('JoinAudioClipsCommand', () {
+    // A stand-in for the timeline's stateful `clips` list.
+    late List<ClipData> ui;
+
+    ClipData clip(
+      int id,
+      double start,
+      double dur, {
+      AudioClipEditData? edit,
+    }) => ClipData(
+      clipId: id,
+      trackId: 7,
+      filePath: 'clip$id.wav',
+      startTime: start,
+      duration: dur,
+      editData: edit,
+    );
+
+    JoinAudioClipsCommand makeCommand(List<ClipData> clips) =>
+        JoinAudioClipsCommand(
+          clips: clips,
+          trackId: 7,
+          onOriginalsRemoved: (ids) =>
+              ui.removeWhere((c) => ids.contains(c.clipId)),
+          onJoinedClipCreated: (joined) => ui.add(joined),
+          onJoinedClipRemoved: (id) => ui.removeWhere((c) => c.clipId == id),
+          onOriginalsRestored: (restored) => ui.addAll(restored),
+        );
+
+    setUp(() => ui = []);
+
+    test('execute renders, removes originals, adds the joined clip', () async {
+      ui = [clip(1, 0.0, 1.0), clip(2, 2.0, 1.0)];
+      final command = makeCommand(ui.toList());
+
+      await command.execute(mockEngine);
+
+      expect(mockEngine.calls, contains('joinAudioClips'));
+      expect(mockEngine.joinedClipIdLists.last, [1, 2]);
+      // Originals gone, exactly one joined clip remains.
+      expect(ui.length, 1);
+      expect(ui.single.startTime, 0.0); // earliest start
+      expect(ui.single.filePath, '/tmp/boojy_join_test.wav');
+    });
+
+    test('undo restores the originals and removes the joined clip', () async {
+      ui = [clip(1, 0.0, 1.0), clip(2, 2.0, 1.0)];
+      final command = makeCommand(ui.toList());
+
+      await command.execute(mockEngine);
+      await command.undo(mockEngine);
+
+      // Both originals back by their original ids, joined removed.
+      expect(ui.map((c) => c.clipId).toSet(), {1, 2});
+      expect(mockEngine.calls, contains('addExistingClipToTrack'));
+    });
+
+    test('undo re-applies edit params for clips that had them', () async {
+      ui = [
+        clip(
+          1,
+          0.0,
+          1.0,
+          edit: const AudioClipEditData(gainDb: -3.0, reversed: true),
+        ),
+        clip(2, 2.0, 1.0),
+      ];
+      final command = makeCommand(ui.toList());
+
+      await command.execute(mockEngine);
+      await command.undo(mockEngine);
+
+      // Edited clip 1 re-pushes its processing; plain clip 2 does not need to.
+      expect(mockEngine.calls, contains('setAudioClipGain'));
+      expect(mockEngine.calls, contains('setAudioClipReverse'));
+    });
+
+    test('renders only once — redo reuses the rendered WAV', () async {
+      ui = [clip(1, 0.0, 1.0), clip(2, 2.0, 1.0)];
+      final command = makeCommand(ui.toList());
+
+      await command.execute(mockEngine); // render #1
+      await command.undo(mockEngine);
+      await command.execute(mockEngine); // redo — no second render
+
+      final renders = mockEngine.calls
+          .where((c) => c == 'joinAudioClips')
+          .length;
+      expect(renders, 1);
+      expect(ui.length, 1); // joined clip present again after redo
     });
   });
 

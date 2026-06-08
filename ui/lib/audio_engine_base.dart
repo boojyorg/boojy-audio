@@ -12,6 +12,7 @@ class _AudioEngineBase {
   late final _InitAudioGraphFfi _initAudioGraph;
   late final _LoadAudioFileFfi _loadAudioFile;
   late final _LoadAudioFileToTrackFfi _loadAudioFileToTrack;
+  late final _JoinAudioClipsFfi _joinAudioClips;
   late final _TransportPlayFfi _transportPlay;
   late final _TransportPauseFfi _transportPause;
   late final _TransportStopFfi _transportStop;
@@ -352,6 +353,12 @@ class _AudioEngineBase {
       _loadAudioFileToTrack = _lib
           .lookup<ffi.NativeFunction<_LoadAudioFileToTrackFfiNative>>(
             'load_audio_file_to_track_ffi',
+          )
+          .asFunction();
+
+      _joinAudioClips = _lib
+          .lookup<ffi.NativeFunction<_JoinAudioClipsFfiNative>>(
+            'join_audio_clips_ffi',
           )
           .asFunction();
 

@@ -3658,6 +3658,7 @@ class _DAWScreenState extends State<DAWScreen>
             onSelected: _onAudioClipSelected,
             onCopied: onAudioClipCopied,
             onBatchDeleted: _deleteAudioClipsBatch,
+            onJoinSelected: joinSelectedClips,
           ),
           dragDropCallbacks: DragDropCallbacks(
             onInstrumentDropped: _onInstrumentDropped,

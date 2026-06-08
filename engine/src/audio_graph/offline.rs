@@ -614,6 +614,109 @@ impl AudioGraph {
     /// Render a single track offline to a buffer of stereo f32 samples
     /// Returns interleaved stereo audio (L, R, L, R, ...)
     /// This renders the track in isolation without master bus processing
+    /// Render a subset of a track's audio clips to a stereo 48 kHz WAV file,
+    /// baking each clip's gain / pitch / warp / reverse exactly as playback does
+    /// (it reuses the same per-sample math, [`render_audio_clip_sample`]).
+    ///
+    /// RENDER-ONLY: it never mutates the track or its clips, and applies no track
+    /// fader / pan / FX — the join feature prints clip edits, not the channel
+    /// strip. The output begins at the earliest selected clip's start, so the
+    /// caller places the joined clip at that same start time. Gaps between the
+    /// selected clips render as silence.
+    ///
+    /// Returns the joined clip's `(start_time, duration)` in seconds.
+    pub fn render_audio_clips_to_wav(
+        &self,
+        track_id: u64,
+        clip_ids: &[u64],
+        output_path: &std::path::Path,
+    ) -> Result<(f64, f64), String> {
+        use super::renderer::render_audio_clip_sample;
+
+        // Snapshot the selected clips under the track lock, then drop the guard
+        // before doing any heavy work (lock-safety: see sends.rs pattern).
+        let clips: Vec<TimelineClip> = {
+            let tm = self.track_manager.lock();
+            let mut found = Vec::new();
+            for track_arc in tm.get_all_tracks() {
+                let track = track_arc.lock();
+                if track.id == track_id {
+                    for tc in &track.audio_clips {
+                        if clip_ids.contains(&tc.id) {
+                            found.push(tc.clone());
+                        }
+                    }
+                    break;
+                }
+            }
+            found
+        };
+
+        if clips.is_empty() {
+            return Err(format!(
+                "no matching audio clips on track {track_id} to join"
+            ));
+        }
+
+        // Audio clip start_time/duration are in the (tempo-warped) playhead
+        // timescale; playback maps real_seconds -> playhead via tempo_ratio.
+        let tempo_ratio = self.recorder.get_tempo() / 120.0;
+        let sr = TARGET_SAMPLE_RATE;
+
+        let clip_end = |c: &TimelineClip| -> f64 {
+            let dur = c.duration.unwrap_or(c.clip.duration_seconds);
+            let eff = if c.warp_enabled {
+                dur / f64::from(c.stretch_factor)
+            } else {
+                dur
+            };
+            c.start_time + eff
+        };
+
+        let start = clips
+            .iter()
+            .map(|c| c.start_time)
+            .fold(f64::INFINITY, f64::min);
+        let end = clips.iter().map(clip_end).fold(f64::NEG_INFINITY, f64::max);
+        let span_playhead = (end - start).max(0.0);
+        let duration_real = span_playhead / tempo_ratio;
+        let total_frames = (duration_real * f64::from(sr)).ceil() as usize;
+
+        let mut samples = Vec::with_capacity(total_frames * 2);
+        for i in 0..total_frames {
+            let real = i as f64 / f64::from(sr);
+            let playhead = start + real * tempo_ratio;
+            let mut left = 0.0f32;
+            let mut right = 0.0f32;
+            for clip in &clips {
+                let (l, r) = render_audio_clip_sample(clip, playhead);
+                left += l;
+                right += r;
+            }
+            samples.push(left);
+            samples.push(right);
+        }
+
+        let spec = hound::WavSpec {
+            channels: 2,
+            sample_rate: sr,
+            bits_per_sample: 32,
+            sample_format: hound::SampleFormat::Float,
+        };
+        let mut writer = hound::WavWriter::create(output_path, spec)
+            .map_err(|e| format!("Failed to create joined WAV: {e}"))?;
+        for s in &samples {
+            writer
+                .write_sample(*s)
+                .map_err(|e| format!("Failed to write joined sample: {e}"))?;
+        }
+        writer
+            .finalize()
+            .map_err(|e| format!("Failed to finalize joined WAV: {e}"))?;
+
+        Ok((start, duration_real))
+    }
+
     pub fn render_track_offline(&self, track_id: u64, duration_seconds: f64) -> Vec<f32> {
         // Get track snapshot
         struct TrackSnapshot {
