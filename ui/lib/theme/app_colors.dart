@@ -45,6 +45,16 @@ extension BoojyThemeExtension on BoojyTheme {
         return BoojyTheme.dark;
     }
   }
+
+  /// Themes offered in the picker. The High Contrast variants are
+  /// intentionally excluded for now — their tokens render broken surfaces, so
+  /// they're hidden until the colour system is cleaned up. The definitions
+  /// (and [fromKey] round-trip) stay intact for that re-introduction; saved HC
+  /// prefs are migrated to standard on load (see UserSettings.load).
+  static const List<BoojyTheme> selectable = [
+    BoojyTheme.dark,
+    BoojyTheme.light,
+  ];
 }
 
 /// Centralized color definitions for Boojy Audio

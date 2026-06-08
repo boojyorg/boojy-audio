@@ -85,6 +85,16 @@ All notable changes to Boojy Audio will be documented in this file.
   monitored the right channel; even/odd inputs now map to left/right of the captured stereo
   pair (C9).
 
+### Improvements
+
+- **Removed the hidden piano-roll chord palette.** The `K`-key chord stamper was keyboard-only
+  with no on-screen affordance, so it was effectively undiscoverable; it's been removed along with
+  its now-dead sidebar widget rather than left as a half-feature.
+- **The High Contrast theme is no longer offered in Settings.** Its colour tokens render broken
+  surfaces today, so the option is hidden until the colour system is cleaned up — the theme itself
+  is kept in code for a later re-introduction. Anyone already on High Contrast is moved to the
+  matching standard Dark/Light theme on next launch.
+
 ## v0.5.4 — 2026-06-06
 
 ### Bug Fixes
