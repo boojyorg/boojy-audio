@@ -350,14 +350,15 @@ mixin DAWClipMixin
     final selectedMidiClips = timelineState.selectedMidiClips;
     final selectedAudioCount = timelineState.selectedAudioClipIds.length;
 
-    // Audio join lands with the engine render path (v0.6 batch 4); refuse
-    // honestly rather than silently ignoring part of the selection.
+    // Join works on one clip type at a time; refuse a mixed selection honestly
+    // rather than silently ignoring part of it.
     if (selectedMidiClips.isNotEmpty && selectedAudioCount > 0) {
       statusMessage = 'Join works on one clip type at a time';
       return;
     }
-    if (selectedMidiClips.isEmpty && selectedAudioCount >= 2) {
-      statusMessage = 'Joining audio clips is not supported yet';
+    // Audio-only selection → render-and-bounce path.
+    if (selectedMidiClips.isEmpty && selectedAudioCount >= 1) {
+      joinSelectedAudioClips();
       return;
     }
 
@@ -457,6 +458,64 @@ mixin DAWClipMixin
     timelineState.clearClipSelection();
 
     statusMessage = 'Joined ${sortedClips.length} clips into one';
+  }
+
+  /// Join multiple selected audio clips on one track into a single clip.
+  ///
+  /// The engine renders the selection into one WAV (baking each clip's
+  /// gain/pitch/warp/reverse; gaps become silence; no track FX printed) and the
+  /// originals are replaced by it as one undo step. Undo restores the originals
+  /// with their edits intact. Refuses cross-track selections.
+  void joinSelectedAudioClips() {
+    final timelineState = timelineKey.currentState;
+    if (timelineState == null) return;
+
+    final ids = timelineState.selectedAudioClipIds;
+    final selected = timelineState.clips
+        .where((c) => ids.contains(c.clipId))
+        .toList();
+
+    if (selected.length < 2) {
+      statusMessage = 'Select 2 or more audio clips to join';
+      return;
+    }
+
+    final trackIds = selected.map((c) => c.trackId).toSet();
+    if (trackIds.length > 1) {
+      statusMessage = 'Cannot join clips from different tracks';
+      return;
+    }
+    final trackId = trackIds.first;
+
+    final command = JoinAudioClipsCommand(
+      clips: selected,
+      trackId: trackId,
+      onOriginalsRemoved: (clipIds) {
+        for (final id in clipIds) {
+          timelineState.removeClip(id);
+        }
+        if (mounted) setState(() {});
+      },
+      onJoinedClipCreated: (joined) {
+        timelineState.addClip(joined);
+        if (mounted) setState(() {});
+      },
+      onJoinedClipRemoved: (id) {
+        timelineState.removeClip(id);
+        if (mounted) setState(() {});
+      },
+      onOriginalsRestored: (restored) {
+        for (final clip in restored) {
+          timelineState.addClip(clip);
+        }
+        if (mounted) setState(() {});
+      },
+    );
+
+    undoRedoManager.execute(command);
+    timelineState.clearClipSelection();
+
+    statusMessage = 'Joined ${selected.length} clips into one';
   }
 
   // ============================================

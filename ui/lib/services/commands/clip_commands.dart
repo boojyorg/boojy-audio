@@ -838,6 +838,155 @@ class DeleteAudioClipCommand extends Command {
   String get description => 'Delete Clip: ${clipData.fileName}';
 }
 
+/// Join (consolidate) multiple audio clips on one track into a single clip.
+///
+/// The engine renders the selected clips into one WAV, baking each clip's
+/// gain/pitch/warp/reverse exactly as playback (gaps between clips become
+/// silence; track FX are NOT printed). The originals are then removed and the
+/// rendered clip takes their place — all as one undo step.
+///
+/// Undo restores the originals via [AudioEngineInterface.addExistingClipToTrack]
+/// (which re-adds from the engine's still-resident clips map under their
+/// original ids) and re-applies their edit params. It deliberately does NOT use
+/// `loadAudioFileToTrack`, which reloads from disk and so cannot restore a
+/// recorded clip whose samples only ever lived in memory.
+///
+/// The rendered WAV is left on disk after an undo (a harmless orphan); a project
+/// save copies the live joined clip's file in like any other audio file.
+class JoinAudioClipsCommand extends Command {
+  /// Selected clips, sorted by start time. The joined clip inherits the first
+  /// one's name and colour.
+  final List<ClipData> originalClips;
+  final int trackId;
+
+  /// UI sync: remove the originals from the on-screen clip list.
+  final void Function(List<int> clipIds)? onOriginalsRemoved;
+
+  /// UI sync: add the rendered joined clip.
+  final void Function(ClipData joined)? onJoinedClipCreated;
+
+  /// UI sync (undo): remove the joined clip from the on-screen list.
+  final void Function(int joinedClipId)? onJoinedClipRemoved;
+
+  /// UI sync (undo): restore the originals to the on-screen list.
+  final void Function(List<ClipData> clips)? onOriginalsRestored;
+
+  /// Cached render path so a redo reuses the rendered WAV instead of rendering
+  /// again (and the originals it would need are back in the track after undo).
+  String? _renderedPath;
+
+  /// Live engine id of the joined clip (a reload on redo assigns a new id).
+  int? _joinedClipId;
+
+  JoinAudioClipsCommand({
+    required List<ClipData> clips,
+    required this.trackId,
+    this.onOriginalsRemoved,
+    this.onJoinedClipCreated,
+    this.onJoinedClipRemoved,
+    this.onOriginalsRestored,
+  }) : originalClips = List<ClipData>.from(clips)
+         ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+  double get _joinedStart => originalClips.first.startTime;
+
+  @override
+  Future<void> execute(AudioEngineInterface engine) async {
+    // Render once; redo reuses the same WAV.
+    _renderedPath ??= engine.joinAudioClips(
+      trackId,
+      originalClips.map((c) => c.clipId).toList(),
+    );
+    final path = _renderedPath;
+    if (path == null) {
+      Log.e('[JoinAudioClipsCommand] render failed — join aborted');
+      return;
+    }
+
+    // Remove the originals from the engine (they stay in the clips map, so undo
+    // can re-add them by id).
+    final originalIds = originalClips.map((c) => c.clipId).toList();
+    for (final id in originalIds) {
+      engine.removeAudioClip(trackId, id);
+    }
+
+    // Add the rendered clip in their place.
+    final newId = engine.loadAudioFileToTrack(
+      path,
+      trackId,
+      startTime: _joinedStart,
+    );
+    if (newId < 0) {
+      Log.e('[JoinAudioClipsCommand] failed to load joined WAV');
+      return;
+    }
+    _joinedClipId = newId;
+    final duration = engine.getClipDuration(newId);
+    final peaks = engine.getWaveformPeaks(newId, 1000);
+
+    final joined = ClipData(
+      clipId: newId,
+      trackId: trackId,
+      filePath: path,
+      startTime: _joinedStart,
+      duration: duration,
+      waveformPeaks: peaks,
+      color: originalClips.first.color,
+    );
+
+    onOriginalsRemoved?.call(originalIds);
+    onJoinedClipCreated?.call(joined);
+  }
+
+  @override
+  Future<void> undo(AudioEngineInterface engine) async {
+    final joinedId = _joinedClipId;
+    if (joinedId != null) {
+      engine.removeAudioClip(trackId, joinedId);
+      onJoinedClipRemoved?.call(joinedId);
+    }
+
+    for (final clip in originalClips) {
+      engine.addExistingClipToTrack(
+        clip.clipId,
+        trackId,
+        clip.startTime,
+        offset: clip.offset,
+        duration: clip.duration,
+      );
+      // addExistingClipToTrack restores a clip with default processing; re-apply
+      // the saved edits so an edited clip comes back exactly as it was.
+      final edit = clip.editData;
+      if (edit != null) {
+        engine.setAudioClipGain(trackId, clip.clipId, edit.gainDb);
+        engine.setAudioClipWarp(
+          trackId,
+          clip.clipId,
+          edit.syncEnabled,
+          edit.stretchFactor,
+          edit.warpMode.index,
+        );
+        engine.setAudioClipTranspose(
+          trackId,
+          clip.clipId,
+          edit.transposeSemitones,
+          edit.fineCents,
+        );
+        engine.setAudioClipReverse(
+          trackId,
+          clip.clipId,
+          reversed: edit.reversed,
+        );
+      }
+    }
+
+    onOriginalsRestored?.call(originalClips);
+  }
+
+  @override
+  String get description => 'Join ${originalClips.length} clips';
+}
+
 /// Command to duplicate an audio clip
 class DuplicateAudioClipCommand extends Command {
   final ClipData originalClip;

@@ -26,6 +26,7 @@ mixin TimelineContextMenusMixin
       context: context,
       position: position,
       clipType: ClipType.audio,
+      canJoin: selectedAudioClipIds.length >= 2,
     ).then((value) {
       if (value == null) return;
 
@@ -35,6 +36,9 @@ mixin TimelineContextMenusMixin
           break;
         case 'duplicate':
           duplicateAudioClip(clip);
+          break;
+        case 'join':
+          widget.audioClipCallbacks.onJoinSelected?.call();
           break;
         case 'split':
           // Future: Audio clip split from context menu (v0.3.0)

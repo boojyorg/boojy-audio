@@ -55,10 +55,16 @@ class AudioClipCallbacks {
   final Function(ClipData sourceClip, double newStartTime)? onCopied;
   final Function(List<ClipData>)? onBatchDeleted;
 
+  /// Join the currently selected audio clips into one, undoably (same path as
+  /// Cmd+J / Edit → Join Clips). Operates on the timeline selection, so no clip
+  /// argument is needed.
+  final VoidCallback? onJoinSelected;
+
   const AudioClipCallbacks({
     this.onSelected,
     this.onCopied,
     this.onBatchDeleted,
+    this.onJoinSelected,
   });
 }
 

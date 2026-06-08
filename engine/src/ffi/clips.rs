@@ -274,6 +274,27 @@ pub extern "C" fn remove_audio_clip_ffi(track_id: u64, clip_id: u64) -> i32 {
 /// Re-add an existing audio clip to a track (for undo/redo support).
 /// The clip data must still exist in the clips map.
 /// Returns new clip ID, or -1 on error.
+/// Join the given audio clips on a track into one rendered WAV.
+///
+/// `clip_ids` is a comma-separated list of clip ids (e.g. "12,15,18"). Returns
+/// the absolute path of the rendered WAV on success, or "Error: ..." on failure.
+#[no_mangle]
+pub extern "C" fn join_audio_clips_ffi(track_id: u64, clip_ids: *const c_char) -> *mut c_char {
+    ffi_catch(std::ptr::null_mut(), || {
+        let Some(csv) = (unsafe { cstr_arg(clip_ids) }) else {
+            return safe_cstring("Error: null clip id list".to_string()).into_raw();
+        };
+        let ids: Vec<u64> = csv
+            .split(',')
+            .filter_map(|s| s.trim().parse::<u64>().ok())
+            .collect();
+        match api::join_audio_clips(track_id, ids) {
+            Ok(path) => safe_cstring(path).into_raw(),
+            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+        }
+    })
+}
+
 #[no_mangle]
 pub extern "C" fn add_existing_clip_to_track_ffi(
     clip_id: u64,

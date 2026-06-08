@@ -45,6 +45,37 @@ pub fn add_existing_clip_to_track(
     Ok(clip_id)
 }
 
+/// Join (bounce) a set of audio clips on one track into a single rendered WAV.
+///
+/// RENDER-ONLY: the engine writes a stereo 48 kHz WAV baking each clip's
+/// gain/pitch/warp/reverse exactly as playback does, and does NOT mutate the
+/// track — the UI's `JoinAudioClipsCommand` owns removing the originals and
+/// adding the joined clip (so the whole thing is one undo step). The file is
+/// written to the OS temp dir; on project save it is copied into the project
+/// like any other audio file.
+///
+/// Returns the absolute path of the rendered WAV.
+pub fn join_audio_clips(track_id: u64, clip_ids: Vec<u64>) -> Result<String, String> {
+    if clip_ids.len() < 2 {
+        return Err("need at least 2 clips to join".to_string());
+    }
+
+    // Deterministic temp filename — repeating the same join overwrites rather
+    // than leaking a new file each time.
+    let mut sorted = clip_ids.clone();
+    sorted.sort_unstable();
+    let first = sorted.first().copied().unwrap_or(0);
+    let last = sorted.last().copied().unwrap_or(0);
+    let out_path =
+        std::env::temp_dir().join(format!("boojy_join_t{track_id}_{first}_{last}.wav"));
+
+    let graph_mutex = graph()?;
+    let graph_lock = graph_mutex.lock();
+    graph_lock.render_audio_clips_to_wav(track_id, &clip_ids, &out_path)?;
+
+    Ok(out_path.to_string_lossy().into_owned())
+}
+
 /// Set the start time (position) of a clip on a track
 /// Used for dragging clips to reposition them on the timeline
 pub fn set_clip_start_time(track_id: u64, clip_id: u64, start_time: f64) -> Result<String, String> {
