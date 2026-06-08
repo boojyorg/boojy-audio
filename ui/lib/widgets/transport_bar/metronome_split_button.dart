@@ -119,9 +119,7 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final leftBg = widget.isActive
-        ? colors.accent.withValues(alpha: BT.opacityLight)
-        : colors.surface;
+    final leftBg = widget.isActive ? colors.selectionFill : colors.surface;
     final iconColor = widget.isActive ? colors.accent : colors.textSecondary;
 
     final tooltip = widget.isActive
@@ -140,9 +138,7 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
           border: Border.all(
             // Off-state outline matches the active accent one in weight
             // (textMuted, not the near-invisible divider) — grey, not blue.
-            color: widget.isActive
-                ? colors.accent.withValues(alpha: 0.7)
-                : colors.textMuted,
+            color: widget.isActive ? colors.selectionBorder : colors.textMuted,
             width: 1,
           ),
         ),

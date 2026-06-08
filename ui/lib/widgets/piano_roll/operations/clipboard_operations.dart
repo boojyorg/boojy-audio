@@ -42,6 +42,18 @@ mixin ClipboardOperationsMixin
     );
   }
 
+  /// Where pasted notes anchor: the playhead's position in clip-local beats
+  /// (clamped to the clip start). Replaces the old insert marker — pasting
+  /// lands wherever you last positioned the playhead by clicking the ruler.
+  double _playheadBeatsForPaste() {
+    final notifier = widget.playheadNotifier;
+    final clip = currentClip;
+    if (notifier == null || clip == null) return 0.0;
+    final globalBeats = notifier.value * widget.tempo / 60.0;
+    final rel = globalBeats - clip.startTime;
+    return rel < 0 ? 0.0 : rel;
+  }
+
   /// Paste notes from clipboard.
   void pasteNotes() {
     if (clipboard.isEmpty) return;
@@ -52,7 +64,7 @@ mixin ClipboardOperationsMixin
     final earliestTime = clipboard
         .map((n) => n.startTime)
         .reduce((a, b) => a < b ? a : b);
-    final pasteTime = insertMarkerBeats ?? 0.0;
+    final pasteTime = _playheadBeatsForPaste();
     final timeOffset = pasteTime - earliestTime;
 
     final newNotes = clipboard.map((note) {

@@ -102,9 +102,7 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final isActive = widget.loopEnabled;
-    final leftBg = isActive
-        ? colors.accent.withValues(alpha: BT.opacityLight)
-        : colors.surface;
+    final leftBg = isActive ? colors.selectionFill : colors.surface;
     final iconColor = isActive ? colors.accent : colors.textSecondary;
     final textColor = isActive ? colors.textPrimary : colors.textSecondary;
 
@@ -127,9 +125,7 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
               // Off-state outline reads with the same weight as the active
               // accent one (textMuted, not the near-invisible divider) — just
               // grey instead of blue.
-              color: isActive
-                  ? colors.accent.withValues(alpha: 0.7)
-                  : colors.textMuted,
+              color: isActive ? colors.selectionBorder : colors.textMuted,
               width: 1,
             ),
           ),

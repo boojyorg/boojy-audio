@@ -95,6 +95,14 @@ class EditorPanel extends StatefulWidget {
   // column highlight (same notifier the timeline playhead uses).
   final ValueListenable<double>? playheadNotifier;
 
+  // Whether transport is playing — drives the piano-roll playhead *line*
+  // colour (white playing / grey at rest); the grabber stays calm grey.
+  final bool isPlaying;
+
+  // Seek the transport to a global position (seconds) — wired so the
+  // piano-roll ruler drag moves the playhead, matching the arrangement.
+  final void Function(double seconds)? onSeek;
+
   const EditorPanel({
     super.key,
     this.audioEngine,
@@ -124,6 +132,8 @@ class EditorPanel extends StatefulWidget {
     this.onCreateSamplerFromClip,
     this.undoManager,
     this.playheadNotifier,
+    this.isPlaying = false,
+    this.onSeek,
   });
 
   @override
@@ -1363,6 +1373,10 @@ class _EditorPanelState extends State<EditorPanel>
       beatUnit: widget.beatUnit,
       isRecording: widget.isRecording,
       trackColor: widget.trackColor,
+      playheadNotifier: widget.playheadNotifier,
+      isPlaying: widget.isPlaying,
+      tempo: widget.projectTempo,
+      onSeek: widget.onSeek,
       onClose: () {
         // Switch back to another tab or close bottom panel
         _tabController.index = 3; // Switch to Virtual Piano tab

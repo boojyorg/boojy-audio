@@ -1025,14 +1025,23 @@ class TimelineViewState extends State<TimelineView>
                                         final playheadX =
                                             widget.playheadNotifier.value *
                                             pixelsPerSecond;
+                                        // The line changes colour with playback
+                                        // (white playing / grey at rest) to
+                                        // match the ruler; the grabber stays
+                                        // grey. Thin, no glow.
+                                        const lineWidth = 1.0;
                                         return Positioned(
-                                          left: playheadX - 1,
+                                          left: playheadX - lineWidth / 2,
                                           top: 0,
                                           bottom: 0,
                                           child: IgnorePointer(
                                             child: Container(
-                                              width: 2,
-                                              color: context.colors.accent,
+                                              width: lineWidth,
+                                              color: widget.isPlaying
+                                                  ? Colors.white
+                                                  : context
+                                                        .colors
+                                                        .textSecondary,
                                             ),
                                           ),
                                         );

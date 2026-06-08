@@ -26,6 +26,10 @@ All notable changes to Boojy Audio will be documented in this file.
 - **Drag-to-create no longer randomly stops working after using modifier keys.** The
   drag-to-create gate trusted a cached tool override that could go stale when a modifier key was
   released while the window wasn't focused; it now reads the live modifier state.
+- **Space bar (play/pause) no longer dies after you click a button.** Transport shortcuts ran
+  through widget focus, so clicking any button stole the keystroke — Space, and likewise L/M/I/O
+  (loop, metronome, punch in/out), are now handled at the app level and work regardless of what's
+  focused, while still leaving text fields alone.
 
 ### Features
 
@@ -87,6 +91,18 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **The Piano Roll now has a live playhead.** A transport playhead sweeps across the note grid
+  and ruler during playback (it was previously static), and dragging the ruler now seeks the
+  transport — snapping to the grid, with Alt/Option to drag freely. The old dashed "insert
+  marker" is gone; pasted notes now land at the playhead.
+- **Cleaner, calmer playhead.** One consistent treatment across the arrangement and Piano Roll:
+  an inverted-triangle grabber at the top of the ruler and a thin vertical line. The line turns
+  white while playing and grey at rest so the moving cursor is easy to follow; the grabber stays
+  a quiet grey. Ruler tick clutter was trimmed (bar lines + numbers only).
+- **Unified "selected" look (in progress).** Toggles and selection chips now share one soft
+  accent-tint fill with an accent border, baked so it reads identically on every surface
+  (transport Loop/Snap/Metronome, Piano Roll sidebar toggles, dev panels). Remaining controls
+  (editor tabs/tools, audio/sampler toggles) still use the old styles and will follow.
 - **Removed the hidden piano-roll chord palette.** The `K`-key chord stamper was keyboard-only
   with no on-screen affordance, so it was effectively undiscoverable; it's been removed along with
   its now-dead sidebar widget rather than left as a half-feature.

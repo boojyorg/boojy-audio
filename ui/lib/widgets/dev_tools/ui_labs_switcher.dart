@@ -105,10 +105,10 @@ class _UiLabsSwitcherState extends State<UiLabsSwitcher> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: isActive ? colors.accent : colors.dark,
+            color: isActive ? colors.selectionFill : colors.dark,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: isActive ? colors.accent : colors.divider,
+              color: isActive ? colors.selectionBorder : colors.divider,
             ),
           ),
           child: Row(
@@ -116,13 +116,13 @@ class _UiLabsSwitcherState extends State<UiLabsSwitcher> {
               Icon(
                 isActive ? Icons.radio_button_checked : Icons.radio_button_off,
                 size: 15,
-                color: isActive ? Colors.white : colors.textMuted,
+                color: isActive ? colors.accent : colors.textMuted,
               ),
               const SizedBox(width: 8),
               Text(
                 variant.labLabel,
                 style: TextStyle(
-                  color: isActive ? Colors.white : colors.textSecondary,
+                  color: isActive ? colors.accent : colors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
