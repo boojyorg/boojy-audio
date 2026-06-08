@@ -330,6 +330,49 @@ pub fn copy_audio_file_to_project(
     Ok(relative_path)
 }
 
+/// Write an in-memory audio clip's samples into the project folder as a WAV.
+///
+/// Used for clips that have no real source file on disk — e.g. freshly recorded
+/// clips, whose `file_path` is only a synthetic in-memory name
+/// (`recorded_t{id}_{ts}.wav`). Copying that path with `fs::copy` would fail and
+/// abort the whole save, silently losing the recording. Writing the decoded
+/// samples directly is the correct path for these clips.
+pub fn write_audio_clip_to_project(
+    clip: &crate::audio_file::AudioClip,
+    project_path: &Path,
+    file_id: u64,
+) -> Result<String> {
+    let audio_dir = project_path.join("audio");
+    fs::create_dir_all(&audio_dir).context("Failed to create audio directory")?;
+
+    // Mirror copy_audio_file_to_project's naming: 001-filename.wav
+    let original_name = Path::new(&clip.file_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("audio.wav");
+    let dest_filename = format!("{file_id:03}-{original_name}");
+    let dest_path = audio_dir.join(&dest_filename);
+
+    let spec = hound::WavSpec {
+        channels: clip.channels as u16,
+        sample_rate: clip.sample_rate,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+    let mut writer =
+        hound::WavWriter::create(&dest_path, spec).context("Failed to create WAV file")?;
+    for sample in &clip.samples {
+        writer
+            .write_sample(*sample)
+            .context("Failed to write audio sample")?;
+    }
+    writer.finalize().context("Failed to finalize WAV file")?;
+
+    let relative_path = format!("audio/{dest_filename}");
+    eprintln!("📁 [Project] Wrote in-memory audio clip: {relative_path}");
+    Ok(relative_path)
+}
+
 /// Resolve audio file path (relative to project folder)
 pub fn resolve_audio_file_path(project_path: &Path, relative_path: &str) -> PathBuf {
     project_path.join(relative_path)
@@ -371,6 +414,39 @@ mod tests {
         assert!((loaded.tempo - 140.0).abs() < 1e-6);
 
         // Clean up
+        fs::remove_dir_all(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn test_write_in_memory_audio_clip() {
+        // Regression: recorded clips have a synthetic file_path that never
+        // exists on disk; save must write their samples out rather than copying.
+        let temp_dir = env::temp_dir().join("boojy_test_inmem_clip.audio");
+        let _ = fs::remove_dir_all(&temp_dir);
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        let clip = crate::audio_file::AudioClip {
+            samples: vec![0.1, -0.1, 0.2, -0.2], // 2 stereo frames
+            channels: 2,
+            sample_rate: 48000,
+            duration_seconds: 0.0,
+            file_path: "recorded_t1_123456.wav".to_string(),
+        };
+
+        let rel = write_audio_clip_to_project(&clip, &temp_dir, 1).unwrap();
+        assert_eq!(rel, "audio/001-recorded_t1_123456.wav");
+
+        let written = resolve_audio_file_path(&temp_dir, &rel);
+        assert!(written.exists());
+
+        // The samples must round-trip through hound.
+        let loaded = crate::audio_file::load_audio_file(&written).unwrap();
+        assert_eq!(loaded.channels, 2);
+        assert_eq!(loaded.samples.len(), clip.samples.len());
+        for (a, b) in loaded.samples.iter().zip(clip.samples.iter()) {
+            assert!((a - b).abs() < 1e-6);
+        }
+
         fs::remove_dir_all(&temp_dir).unwrap();
     }
 

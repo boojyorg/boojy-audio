@@ -52,10 +52,16 @@ small mixer fixes in, §6.B strip mockup still parked pending a design conversat
   buttons match tab height** (#72 MERGED): 28→30px, icon 16→18; tool-state research report →
   `docs/reviews/tool_state_research_2026_06_07.md` (direction SETTLED: one global toolset, chip,
   marker+⌘E port — future batch).
-- [ ] **Join clips PR B — audio**: needs new engine clip-subset offline render (bounce pipeline
-  is a stub — `render_track_offline` can't take a clip list) + FFI + `JoinAudioClipsCommand`;
-  bake clip edits (gain/reverse/stretch/transpose), gaps = silence, no track FX. →
-  **normalize** → **UI batches 5–8** per plan.
+- [x] **Join clips PR B — audio** (`feat/v0.6-join-audio-clips`, in flight — gates green, not yet
+  merged/Tyr-tested): render-only engine `render_audio_clips_to_wav` (reuses
+  `render_audio_clip_sample` so the bake is sample-identical to playback; gaps = silence; no track
+  FX/fader/pan) + `join_audio_clips` API/FFI + Dart `JoinAudioClipsCommand` (undo restores originals
+  via `addExistingClipToTrack` + re-applied edit params, never `loadAudioFileToTrack`). Wired into
+  the existing `joinSelectedClips` so ⌘J / menu / right-click all cover audio.
+- [x] **Data-loss fix folded into PR B**: saving a project with recorded (in-memory) audio clips
+  failed — `save_project` `fs::copy`-ed a synthetic path that never existed, aborting the save. Save
+  now writes in-memory clip samples out as a WAV (`project::write_audio_clip_to_project`) when the
+  source path is absent. → **normalize** → **UI batches 5–8** per plan.
 
 **Carried decisions:** ASIO deferred (WASAPI right for beginners). Windows machine = per-release
 test rig, not a dev machine. No stock instruments in v0.6 (triage). Loop region is orange, not

@@ -36,6 +36,7 @@ class MockAudioEngine implements AudioEngineInterface {
   final List<int> removedEffectIds = [];
   final List<int> removedReturnIds = [];
   final List<int> removedClipIds = [];
+  final List<List<int>> joinedClipIdLists = [];
 
   /// trackIds passed to deleteTrack, in call order — lets DeleteTrackCommand
   /// redo tests assert it targets the recreated id, not the stale original (C62).
@@ -182,6 +183,13 @@ class MockAudioEngine implements AudioEngineInterface {
   }) {
     _record('addExistingClipToTrack');
     return nextClipId++;
+  }
+
+  @override
+  String? joinAudioClips(int trackId, List<int> clipIds) {
+    _record('joinAudioClips');
+    joinedClipIdLists.add(List<int>.from(clipIds));
+    return '/tmp/boojy_join_test.wav';
   }
 
   @override

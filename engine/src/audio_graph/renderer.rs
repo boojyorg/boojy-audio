@@ -178,7 +178,10 @@ fn update_monitoring_fade(fade_gain: &mut f64, should_monitor: bool, sample_rate
 /// Render a single audio clip at the given playhead position.
 /// Returns (left, right) sample values, or (0, 0) if the playhead is outside the clip.
 #[inline]
-fn render_audio_clip_sample(timeline_clip: &TimelineClip, playhead_seconds: f64) -> (f32, f32) {
+pub(crate) fn render_audio_clip_sample(
+    timeline_clip: &TimelineClip,
+    playhead_seconds: f64,
+) -> (f32, f32) {
     let clip_duration = timeline_clip
         .duration
         .unwrap_or(timeline_clip.clip.duration_seconds);

@@ -6,6 +6,11 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Saving a project that contains recorded audio no longer fails.** Recorded clips live only in
+  memory with a placeholder filename that was never written to disk, so saving tried to copy a file
+  that didn't exist and aborted the entire save — silently losing the recording. The save now
+  detects an in-memory clip and writes its samples out as a WAV instead of copying. (Only MIDI was
+  ever recorded in smoke tests, so this had gone unnoticed.)
 - **Timeline gestures now work when scrolled past bar 1.** Every beat position computed from a
   click or drag on a track row was shifted right by the scrolled amount: drag-to-create and
   double-click-create placed clips in the wrong bar (or silently refused because the shifted spot
@@ -30,6 +35,13 @@ All notable changes to Boojy Audio will be documented in this file.
   replaces (repeats, start offsets and truncated notes all preserved), clip automation is
   carried across, and the result takes the first clip's name. One Cmd+Z brings the original
   clips back — previously "Consolidate" was permanent and silently dropped loop repeats.
+
+- **Join clips now works for audio too.** Select two or more audio clips on one track and join
+  them (Cmd+J / Edit → Join Clips / right-click → Join Clips). The engine renders the selection
+  into one clip, baking each clip's gain, pitch, warp and reverse exactly as it plays; gaps between
+  clips become silence. The joined clip takes the first clip's start and name, and one Cmd+Z brings
+  the originals back with their edits intact. (Joining mixed MIDI + audio, or clips on different
+  tracks, is refused with a message rather than partially applied.)
 
 - **Volume automation lanes are now on.** One Automation button above the mixer strips shows
   every track's volume lane in the timeline at once (GarageBand-style); click again to hide

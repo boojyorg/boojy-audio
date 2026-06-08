@@ -42,6 +42,11 @@ abstract class AudioEngineInterface {
   });
   int duplicateAudioClip(int trackId, int clipId, double startTime);
 
+  /// Render the given audio clips on a track into one WAV, baking clip edits.
+  /// Returns the rendered WAV path, or null on error. Render-only — does not
+  /// mutate the track (the JoinAudioClipsCommand owns the timeline changes).
+  String? joinAudioClips(int trackId, List<int> clipIds);
+
   // Track operations
   int createTrack(String trackType, String name);
   String deleteTrack(int trackId);

@@ -29,6 +29,11 @@ typedef _LoadAudioFileToTrackFfiNative =
 typedef _LoadAudioFileToTrackFfi =
     int Function(ffi.Pointer<ffi.Char>, int, double);
 
+typedef _JoinAudioClipsFfiNative =
+    ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Pointer<ffi.Char>);
+typedef _JoinAudioClipsFfi =
+    ffi.Pointer<Utf8> Function(int, ffi.Pointer<ffi.Char>);
+
 typedef _TransportPlayFfiNative = ffi.Pointer<Utf8> Function();
 typedef _TransportPlayFfi = ffi.Pointer<Utf8> Function();
 
