@@ -47,7 +47,7 @@ Docs/memory model (CLAUDE.md / `.claude/rules/` / `dreams.md` / auto-memory / gi
   - `lib/screens/daw/mixins/` - DAW screen mixins (recording, playback, etc.)
   - `lib/widgets/` - UI components (timeline, piano roll, painters, shared)
   - `lib/controllers/` - Playback, recording, track controllers
-  - `integration_test/` - Native engine golden-path tests (macOS)
+  - `test/native/` - Native engine golden-path tests over `dart:ffi` (plain `flutter test`, no device — needs `./build.sh` first)
 - `docs/` - Architecture docs, roadmap, design specs
 
 ## Gates
@@ -59,12 +59,14 @@ missing. Full test suites are **not** run in that loop — run
 them manually / let CI run them. Before committing, all of the following must be green (CI enforces
 them on every PR — macOS full pipeline + Windows analyze/test/clippy, no VST3):
 
-- **Flutter tests**: `cd ui && fvm flutter test`
-- **Integration tests**: `./build.sh` first, then `cd ui && fvm flutter test integration_test/ -d macos`
+- **Flutter tests** (incl. the native-engine `test/native/` ffi tests): `./build.sh` first, then
+  `cd ui && fvm flutter test`. CI adds `--dart-define=BOOJY_CI=true` so `test/native` fails loudly
+  rather than skipping when the dylib is missing (C92). No `-d macos` device run — those are plain
+  unit tests now.
 - **Rust tests**: `cd engine && cargo test`
 - **Static analysis**: `cd ui && fvm flutter analyze --fatal-infos`
 - **Rust lints**: `cd engine && cargo clippy --all-targets`
-- **Format check**: `cd ui && fvm dart format --set-exit-if-changed lib/ test/ integration_test/`
+- **Format check**: `cd ui && fvm dart format --set-exit-if-changed lib/ test/`
 
 ## Architecture Rules
 
