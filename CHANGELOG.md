@@ -6,6 +6,23 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **The editor's instrument volume fader and the mixer's track fader now mirror each other
+  live.** The editor read the engine's track info with a parser that never matched, so mixer
+  changes never reached it; and editor changes only reached the mixer on its slow refresh. Both
+  directions now update in real time, playing or idle.
+- **The built-in Synthesizer's level meter works.** It showed nothing because the synth isn't an
+  engine effect and had no meter source — it now meters the track output.
+- **Ragged corners fixed on the metronome button and editor device cards.** Clipping a container
+  that draws its own rounded border shaved the outer half of the stroke at the corner arcs; the
+  border now paints unclipped with the fills rounded to nest inside it.
+- **The mixer no longer overflows (yellow/black stripes) at narrow widths.** The track-name row
+  sheds the track number, then the input chip, before anything can overflow — the name keeps
+  priority and truncates last.
+- **Timeline zoom buttons no longer collide with the last bar numbers.** They sit on an opaque
+  pinned backing at the ruler's right edge (matching the bar-number chip on the left), in the
+  arrangement and the Piano Roll.
+- **The EQ's Freq/Gain/Focus knobs are never dead.** A band is always selected (defaulting to
+  band 1), so the knob row can't sit in a disabled "–" state that read as broken.
 - **Saving a project that contains recorded audio no longer fails.** Recorded clips live only in
   memory with a placeholder filename that was never written to disk, so saving tried to copy a file
   that didn't exist and aborted the entire save — silently losing the recording. The save now
@@ -127,6 +144,26 @@ All notable changes to Boojy Audio will be documented in this file.
 - **Dialogs dim the app consistently.** All modal dialogs now share one barrier shade and one of
   three standard widths — previously the app-settings dialog dimmed the background with a different
   tint than every other dialog, and each dialog picked its own width.
+- **Track icons speak the app's icon language.** The emoji track icons (🎹/🔊/🎧…) are replaced
+  with the app's own monochrome icons, tinted with the track colour — including the icon picker
+  (click a track's icon to change it) and the Master strip's headphones. Emoji rendered
+  differently on Windows and clashed with every other icon in the app; old projects with a saved
+  emoji icon map to the closest new icon automatically.
+- **The whole ▲udio logo opens Settings.** Previously only the small triangle was clickable — an
+  easy-to-miss target; now the full wordmark is one button, with the pointer cursor and tooltip
+  to match.
+- **One header for every editor device card.** The Synthesizer card had a small 16px name strip
+  *and* a tall legacy "SYNTHESIZER" header inside it (with a close button that did nothing);
+  it now uses the same 24px header as the EQ, and the editor tab says "Synthesizer" to match.
+- **Library search field sits flush in its panel.** Square corners, edge-to-edge with the panel
+  (no floating pill), slightly larger icon and placeholder text.
+- **Panel dividers are now solid grab bars.** The resize dividers between library, arrangement,
+  mixer and editor were a hairline floating in a dark gutter; they're now a single solid 3px bar
+  with no gaps — easier to see and to grab (hover still highlights them).
+- **"+ Audio" uses the Samples icon.** The add-audio-track button now shows the same glyph as the
+  library's Samples category, so "audio track" and "samples" read as one concept.
+- **The editor's "+" add-effect slot lines up with the device cards** instead of floating at its
+  own height.
 
 ## v0.5.4 — 2026-06-06
 

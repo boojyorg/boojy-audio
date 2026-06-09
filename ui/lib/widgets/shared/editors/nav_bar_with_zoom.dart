@@ -63,23 +63,36 @@ class NavBarWithZoom extends StatelessWidget {
           // shown once scrolled past bar 1. Opt-in via pixelsPerBeat/beatsPerBar.
           if (pixelsPerBeat != null && beatsPerBar != null)
             _buildOrientationChip(context),
-          // Zoom controls overlaid at right edge (no background)
+          // Zoom controls pinned at the right edge. Opaque backing (like the
+          // orientation chip on the left) so scrolling bar numbers don't
+          // collide with the buttons underneath them.
           Positioned(
-            right: 4,
+            right: 0,
             top: 0,
             bottom: 0,
-            child: Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ZoomButton(
-                    icon: BI.remove,
-                    tooltip: 'Zoom out',
-                    onTap: onZoomOut,
-                  ),
-                  const SizedBox(width: 2),
-                  ZoomButton(icon: BI.add, tooltip: 'Zoom in', onTap: onZoomIn),
-                ],
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: context.colors.dark,
+                border: Border(left: BorderSide(color: context.colors.divider)),
+              ),
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ZoomButton(
+                      icon: BI.remove,
+                      tooltip: 'Zoom out',
+                      onTap: onZoomOut,
+                    ),
+                    const SizedBox(width: 2),
+                    ZoomButton(
+                      icon: BI.add,
+                      tooltip: 'Zoom in',
+                      onTap: onZoomIn,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

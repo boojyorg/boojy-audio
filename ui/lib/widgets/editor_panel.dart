@@ -750,7 +750,7 @@ class _EditorPanelState extends State<EditorPanel>
       // Truncate to max 15 characters with ellipsis
       return name.length > 15 ? '${name.substring(0, 12)}...' : name;
     }
-    return 'Synth';
+    return 'Synthesizer';
   }
 
   /// Whether the current track's VST3 plugin is in a floating window
