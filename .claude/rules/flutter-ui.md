@@ -61,6 +61,14 @@ CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
 - **Test at different window sizes** — the DAW layout is responsive; verify small and large.
 - **Painters are sensitive** — changes to `CustomPainter` classes affect rendering across the
   timeline.
+- **Never combine `Border.all` + `borderRadius` + `clipBehavior` on one Container** — the clip
+  shaves the outer half of the border stroke at the corner arcs (ragged-corner artifact; was
+  visible on the metronome button and every device card). Instead: bordered container with NO
+  clip, and either round the inner fills to `radius - borderWidth` (metronome pattern) or wrap
+  the child in `ClipRRect` at the inner radius (DeviceBox pattern).
+- **Track icons are BI icons keyed by string** (`utils/track_icons.dart`): `customIcon` persists
+  a key like `'mic'`; legacy emoji strings from old projects map through the legacy-emoji table.
+  Don't reintroduce emoji glyphs in track chrome.
 - **Timeline layout:** `timeline_view.dart` uses `part` files for `timeline_gesture_layer.dart` and
   `timeline_track_list.dart` (private methods share one library). Import `timeline_view.dart` only,
   never the part files directly.

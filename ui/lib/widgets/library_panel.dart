@@ -507,13 +507,12 @@ class _LibraryPanelState extends State<LibraryPanel> {
     final colors = context.colors;
     final showChip = _searchQuery.isNotEmpty && _selectedCategory != null;
 
-    return Container(
+    return DecoratedBox(
       // No bottom divider: the search field is the single box here. Drawing a
       // divider under it fenced the field inside a second "band", which read as
       // a box-in-a-box. Whitespace separates it from the category list instead.
-      // No vertical padding either, so the 24px field's top edge sits flush with
-      // the timeline loop bar (both BT.controlHeight); only a small side inset.
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      // No padding at all: the square-cornered field runs edge-to-edge and its
+      // top edge sits flush with the timeline loop bar (both BT.controlHeight).
       decoration: BoxDecoration(color: colors.dark),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -539,10 +538,13 @@ class _LibraryPanelState extends State<LibraryPanel> {
               );
             },
           ),
-          // Scoped search chip
+          // Scoped search chip (keeps the side inset the full-bleed field shed)
           if (showChip) ...[
             const SizedBox(height: 6),
-            _buildSearchScopeChip(colors),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: _buildSearchScopeChip(colors),
+            ),
           ],
         ],
       ),

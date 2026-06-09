@@ -87,8 +87,13 @@ class _DeviceChainViewState extends State<DeviceChainView>
   bool _isExternalDragOver =
       false; // true when a compatible external item hovers over chain
 
-  // Per-effect display levels (after decay smoothing). Key = effectId.
+  // Per-effect display levels (after decay smoothing). Key = effectId, or
+  // [_trackMeterKey] for a built-in instrument metering the track output.
   final Map<int, (double, double)> _displayLevels = {};
+
+  /// Sentinel _displayLevels key for the built-in instrument's track-output
+  /// meter (engine effect ids are non-negative, so -1 can't collide).
+  static const int _trackMeterKey = -1;
   DateTime _lastMeterUpdate = DateTime.now();
 
   // Track volume for the instrument strip thumb
@@ -141,19 +146,33 @@ class _DeviceChainViewState extends State<DeviceChainView>
     final decayPerFrame = (deltaMs / 1000.0) * 0.33;
     var changed = false;
 
-    // Sync track volume from engine (picks up mixer changes)
-    _syncTrackVolume();
+    // Sync track volume from engine (picks up mixer changes). Counts as a
+    // change so the chain fader repaints even when no audio is playing —
+    // meter levels alone won't trigger the rebuild then.
+    if (_syncTrackVolume()) changed = true;
 
-    // Collect all effect IDs to poll (instrument + chain effects)
-    final effectIds = <int>[];
+    // Collect everything to poll: (display key, peak CSV). Effects meter by
+    // effectId; a built-in instrument is NOT an engine effect (no effectId),
+    // so its card meters the track output under the sentinel key instead.
+    final samples = <(int, String)>[];
     final instrumentEffectId = widget.instrumentData?.effectId;
-    if (instrumentEffectId != null) effectIds.add(instrumentEffectId);
+    if (instrumentEffectId != null) {
+      samples.add((
+        instrumentEffectId,
+        widget.audioEngine!.getEffectPeakLevels(instrumentEffectId),
+      ));
+    } else if (widget.instrumentData != null &&
+        widget.selectedTrackId != null) {
+      samples.add((
+        _trackMeterKey,
+        widget.audioEngine!.getTrackPeakLevels(widget.selectedTrackId!),
+      ));
+    }
     for (final e in _effects) {
-      effectIds.add(e.id);
+      samples.add((e.id, widget.audioEngine!.getEffectPeakLevels(e.id)));
     }
 
-    for (final id in effectIds) {
-      final levelStr = widget.audioEngine!.getEffectPeakLevels(id);
+    for (final (id, levelStr) in samples) {
       final parts = levelStr.split(',');
       final leftDb = double.tryParse(parts[0]) ?? -96.0;
       final rightDb =
@@ -182,16 +201,23 @@ class _DeviceChainViewState extends State<DeviceChainView>
   }
 
   /// Read track volume from engine so mixer slider changes appear here.
-  void _syncTrackVolume() {
-    if (widget.selectedTrackId == null || widget.audioEngine == null) return;
+  /// Returns true when the value moved (caller decides whether to repaint).
+  bool _syncTrackVolume() {
+    if (widget.selectedTrackId == null || widget.audioEngine == null) {
+      return false;
+    }
+    // getTrackInfo is positional CSV: id,name,type,volume_db,pan,mute,...
+    // (the name field is percent-encoded, so commas can't shift the fields).
     final info = widget.audioEngine!.getTrackInfo(widget.selectedTrackId!);
-    final match = RegExp(r'volume:([-\d.]+)').firstMatch(info);
-    if (match != null) {
-      final engineDb = double.tryParse(match.group(1)!) ?? 0.0;
-      if ((engineDb - _trackVolumeDb).abs() > 0.01) {
+    final parts = info.split(',');
+    if (parts.length > 3) {
+      final engineDb = double.tryParse(parts[3]);
+      if (engineDb != null && (engineDb - _trackVolumeDb).abs() > 0.01) {
         _trackVolumeDb = engineDb;
+        return true;
       }
     }
+    return false;
   }
 
   void _loadEffects() {
@@ -1075,14 +1101,16 @@ class _DeviceChainViewState extends State<DeviceChainView>
     final isVst3 = instrument.isVst3;
     final name = isVst3
         ? (instrument.pluginName ?? 'VST3 Instrument')
-        : (instrument.type == 'synthesizer' ? 'Synth' : instrument.type);
+        : (instrument.type == 'synthesizer' ? 'Synthesizer' : instrument.type);
     final icon = isVst3 ? BI.plugin : BI.piano;
 
-    final headerMode = isVst3 ? HeaderMode.none : HeaderMode.mini16;
+    // Built-in instruments share the effects' 24px header — one header system
+    // across the chain (the old 16px mini header read as a different control).
+    final headerMode = isVst3 ? HeaderMode.none : HeaderMode.full24;
 
     final instrumentLevels = instrument.effectId != null
         ? (_displayLevels[instrument.effectId!] ?? (0.0, 0.0))
-        : (0.0, 0.0);
+        : (_displayLevels[_trackMeterKey] ?? (0.0, 0.0));
 
     return GestureDetector(
       onSecondaryTapUp: (details) =>
@@ -1141,7 +1169,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
       return 622; // 600 + 22 strip
     }
 
-    return 322; // 300 + 22 strip (built-in: 16px mini header + 1px divider)
+    return 322; // 300 + 22 strip (built-in: 24px header + 1px divider)
   }
 
   Widget _buildInstrumentContent(double chainHeight) {
@@ -1206,7 +1234,6 @@ class _DeviceChainViewState extends State<DeviceChainView>
       onParameterChanged: (instrumentData) {
         widget.onInstrumentParameterChanged?.call(instrumentData);
       },
-      onClose: () {},
     );
   }
 
@@ -1577,7 +1604,9 @@ class _DeviceChainViewState extends State<DeviceChainView>
         cursor: SystemMouseCursors.click,
         child: Container(
           width: 40,
-          height: chainHeight.clamp(60, 80),
+          // Full chain height so the empty slot lines up with the device
+          // cards beside it (a shorter pill read as a different control).
+          height: chainHeight,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(6),
             border: Border.all(color: colors.divider, style: BorderStyle.solid),

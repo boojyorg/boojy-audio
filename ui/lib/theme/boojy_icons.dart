@@ -42,6 +42,15 @@ class BoojyIcons {
   static IconData get speakerHigh => Icons.volume_up;
   static IconData get speakerNone => Icons.volume_off;
   static IconData get speakerSlash => Icons.volume_off;
+  static IconData get mic => Icons.mic;
+  static IconData get headphones => Icons.headphones;
+  static IconData get audiotrack => Icons.audiotrack;
+  static IconData get album => Icons.album;
+  static IconData get radio => Icons.radio;
+  static IconData get speaker => Icons.speaker;
+  static IconData get libraryMusic => Icons.library_music;
+  static IconData get multitrackAudio => Icons.multitrack_audio;
+  static IconData get surroundSound => Icons.surround_sound;
   static IconData get waveSine => Icons.blur_on;
   static IconData get waveSawtooth => Icons.blur_on;
   static IconData get waveSquare => Icons.blur_on;

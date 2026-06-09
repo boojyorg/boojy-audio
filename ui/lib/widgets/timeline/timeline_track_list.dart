@@ -1504,7 +1504,11 @@ mixin TimelineTrackListMixin
                 child: Row(
                   children: [
                     // Icon (headphones)
-                    const Text('🎧', style: TextStyle(fontSize: BT.fontLabel)),
+                    Icon(
+                      BI.headphones,
+                      size: BT.fontLabel + 2,
+                      color: context.colors.textPrimary,
+                    ),
                     const SizedBox(width: 4),
                     // "Master" text (white)
                     Text(
