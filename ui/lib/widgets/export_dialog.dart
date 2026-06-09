@@ -369,7 +369,7 @@ class ExportDialog extends StatefulWidget {
   }) async {
     await showDialog(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.8),
+      barrierColor: BT.dialogBarrierColor,
       builder: (context) =>
           ExportDialog(audioEngine: audioEngine, defaultName: defaultName),
     );
@@ -547,7 +547,7 @@ class _ExportDialogState extends State<ExportDialog> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black.withValues(alpha: 0.8),
+      barrierColor: BT.dialogBarrierColor,
       builder: (dialogContext) => ExportProgressDialog(
         audioEngine: widget.audioEngine,
         exportTask: () async {
@@ -825,7 +825,7 @@ class _ExportDialogState extends State<ExportDialog> {
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
-        width: 480,
+        width: BT.dialogWidthMd,
         constraints: const BoxConstraints(maxHeight: 600),
         decoration: BoxDecoration(
           color: context.colors.dark,

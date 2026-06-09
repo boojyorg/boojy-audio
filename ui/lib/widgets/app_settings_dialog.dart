@@ -35,7 +35,7 @@ class AppSettingsDialog extends StatefulWidget {
   }) {
     return showDialog(
       context: context,
-      barrierColor: const Color(0xF0141623),
+      barrierColor: BT.dialogBarrierColor,
       builder: (context) =>
           AppSettingsDialog(settings: settings, audioEngine: audioEngine),
     );
@@ -277,7 +277,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
       elevation: 16,
       shadowColor: Colors.black.withValues(alpha: 0.4),
       child: Container(
-        width: 680,
+        width: BT.dialogWidthLg,
         height: 550,
         padding: const EdgeInsets.all(24),
         child: Column(

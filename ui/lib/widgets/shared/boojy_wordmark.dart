@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 
 /// Paints the filled equilateral "▲" that doubles as the "A" in the Boojy Audio
@@ -78,6 +79,71 @@ class BoojyWordmark extends StatelessWidget {
             letterSpacing: -0.5,
             height: 1.0,
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The stacked "Boojy / ▲udio" brand lockup.
+///
+/// Rebuilt in code rather than served from PNGs: the old `boojy-logo.png` /
+/// `boojy_audio_text.png` baked the lettering in near-black, so it disappeared
+/// against dark modals. "Boojy" is white with the brand amber dot for the
+/// second "o"; "▲udio" reuses [BoojyWordmark] — the same treatment as the live
+/// top-bar logo — so the two can never drift. Shown on the start screen and
+/// the crash-recovery dialog; [scale] shrinks the whole lockup proportionally.
+class BoojyWordmarkLockup extends StatelessWidget {
+  const BoojyWordmarkLockup({super.key, this.scale = 1.0});
+
+  /// Multiplies every dimension (1.0 = the 46px/32px start-screen lockup).
+  final double scale;
+
+  // The warm amber of the logo dot (sampled from the original asset). Not a
+  // theme token — it's a fixed brand colour, like the accent blue.
+  static const Color _brandAmber = Color(0xFFFBB034);
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text.rich(
+          TextSpan(
+            style: TextStyle(
+              fontSize: 46 * scale,
+              fontWeight: FontWeight.w700,
+              color: colors.textPrimary,
+              letterSpacing: -1 * scale,
+              height: 1.0,
+            ),
+            children: [
+              const TextSpan(text: 'Bo'),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 1.5 * scale),
+                  child: Container(
+                    width: 24 * scale,
+                    height: 24 * scale,
+                    decoration: const BoxDecoration(
+                      color: _brandAmber,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ),
+              const TextSpan(text: 'jy'),
+            ],
+          ),
+        ),
+        SizedBox(height: 6 * scale),
+        BoojyWordmark(
+          triangleColor: colors.accent,
+          textColor: colors.textPrimary,
+          fontSize: 32 * scale,
         ),
       ],
     );
