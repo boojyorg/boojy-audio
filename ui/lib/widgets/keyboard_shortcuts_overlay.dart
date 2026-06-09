@@ -10,7 +10,7 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
   static void show(BuildContext context) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.8),
+      barrierColor: BT.dialogBarrierColor,
       builder: (context) => const KeyboardShortcutsOverlay(),
     );
   }
@@ -20,7 +20,7 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
-        width: 600,
+        width: BT.dialogWidthLg,
         constraints: const BoxConstraints(maxHeight: 600),
         decoration: BoxDecoration(
           color: context.colors.dark,

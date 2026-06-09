@@ -8,6 +8,7 @@ import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../theme/theme_provider.dart';
+import 'shared/boojy_wordmark.dart';
 
 /// Settings dialog for configuring user preferences
 class SettingsDialog extends StatefulWidget {
@@ -16,7 +17,7 @@ class SettingsDialog extends StatefulWidget {
   static Future<void> show(BuildContext context) async {
     await showDialog(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.8),
+      barrierColor: BT.dialogBarrierColor,
       builder: (context) => const SettingsDialog(),
     );
   }
@@ -75,7 +76,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
-        width: 400,
+        width: BT.dialogWidthSm,
         decoration: BoxDecoration(
           color: context.colors.standard,
           borderRadius: BorderRadius.circular(12),
@@ -347,7 +348,7 @@ class RecoveryDialog extends StatelessWidget {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black.withValues(alpha: 0.8),
+      barrierColor: BT.dialogBarrierColor,
       builder: (context) =>
           RecoveryDialog(backupPath: backupPath, backupDate: backupDate),
     );
@@ -386,7 +387,7 @@ class RecoveryDialog extends StatelessWidget {
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
-        width: 420,
+        width: BT.dialogWidthSm,
         decoration: BoxDecoration(
           color: colors.dark,
           borderRadius: BorderRadius.circular(12),
@@ -404,27 +405,9 @@ class RecoveryDialog extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Logo — Boojy + Audio on one row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Image.asset(
-                    'assets/images/boojy-logo.png',
-                    width: 120,
-                    fit: BoxFit.contain,
-                  ),
-                  const SizedBox(width: 5),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Image.asset(
-                      'assets/images/boojy_audio_text.png',
-                      width: 128,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ],
-              ),
+              // Logo — the code-drawn lockup (the old PNGs baked the text
+              // near-black, so the brand vanished on this dark modal — H13).
+              const BoojyWordmarkLockup(scale: 0.75),
               const SizedBox(height: 20),
 
               // Message

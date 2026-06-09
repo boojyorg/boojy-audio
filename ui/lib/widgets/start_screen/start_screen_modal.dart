@@ -42,7 +42,7 @@ class StartScreenModal extends StatefulWidget {
   ) {
     return showDialog<StartScreenResult>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.8),
+      barrierColor: BT.dialogBarrierColor,
       barrierDismissible: true,
       builder: (context) => StartScreenModal(userSettings: userSettings),
     );
@@ -184,7 +184,7 @@ class _StartScreenModalState extends State<StartScreenModal> {
         // App logo — rebuilt in code (the old PNGs baked the text near-black, so
         // it vanished on the dark modal). "Boojy" in white with the brand amber
         // dot; "▲udio" reuses the live top-bar wordmark so it can't drift.
-        const _BoojyWordmarkLockup(),
+        const BoojyWordmarkLockup(),
 
         const SizedBox(height: 40),
 
@@ -302,67 +302,6 @@ class _StartScreenModalState extends State<StartScreenModal> {
           ],
         ],
       ),
-    );
-  }
-}
-
-/// The stacked "Boojy / ▲udio" brand lockup for the start screen.
-///
-/// Rebuilt in code rather than served from PNGs: the old `boojy-logo.png` /
-/// `boojy_audio_text.png` baked the lettering in near-black, so it disappeared
-/// against the dark modal. "Boojy" is white with the brand amber dot for the
-/// second "o"; "▲udio" reuses [BoojyWordmark] — the same treatment as the live
-/// top-bar logo — so the two can never drift.
-class _BoojyWordmarkLockup extends StatelessWidget {
-  const _BoojyWordmarkLockup();
-
-  // The warm amber of the logo dot (sampled from the original asset). Not a
-  // theme token — it's a fixed brand colour, like the accent blue.
-  static const Color _brandAmber = Color(0xFFFBB034);
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text.rich(
-          TextSpan(
-            style: TextStyle(
-              fontSize: 46,
-              fontWeight: FontWeight.w700,
-              color: colors.textPrimary,
-              letterSpacing: -1,
-              height: 1.0,
-            ),
-            children: [
-              const TextSpan(text: 'Bo'),
-              WidgetSpan(
-                alignment: PlaceholderAlignment.middle,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 1.5),
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    decoration: const BoxDecoration(
-                      color: _brandAmber,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ),
-              const TextSpan(text: 'jy'),
-            ],
-          ),
-        ),
-        const SizedBox(height: 6),
-        BoojyWordmark(
-          triangleColor: colors.accent,
-          textColor: colors.textPrimary,
-          fontSize: 32,
-        ),
-      ],
     );
   }
 }

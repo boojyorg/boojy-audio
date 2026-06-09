@@ -17,15 +17,21 @@ class TempoDisplay extends StatefulWidget {
   final Function(double)? onTempoChanged;
 
   /// When true the number zone shrinks its min width — used at low
-  /// transport-bar density so the readout cluster stays compact. The `BPM`
-  /// tap zone always stays (it's the affordance, not just a unit label).
+  /// transport-bar density so the readout cluster stays compact.
   final bool compact;
+
+  /// When false the divider + `BPM` tap zone shed entirely ("120 BPM" →
+  /// "120"), in step with the tool labels — the density math budgets for the
+  /// label being gone at compact width (M22). Tempo stays adjustable via
+  /// drag / scroll / double-tap; tap-tempo returns with the labels.
+  final bool showLabel;
 
   const TempoDisplay({
     super.key,
     required this.tempo,
     this.onTempoChanged,
     this.compact = false,
+    this.showLabel = true,
   });
 
   @override
@@ -216,43 +222,44 @@ class _TempoDisplayState extends State<TempoDisplay> {
               ),
             ),
             // ── Divider — always neutral grey (only the BPM label flashes) ──
-            Container(width: 1, color: colors.divider),
+            if (widget.showLabel) Container(width: 1, color: colors.divider),
             // ── BPM zone: tap in rhythm to set tempo ──
-            Tooltip(
-              message: 'Tap in time to set tempo',
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                onEnter: (_) {
-                  if (!_bpmHovered) setState(() => _bpmHovered = true);
-                },
-                onExit: (_) {
-                  if (_bpmHovered) setState(() => _bpmHovered = false);
-                },
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _onTapTempo,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 120),
-                    padding: const EdgeInsets.fromLTRB(7, 2, 8, 2),
-                    alignment: Alignment.center,
-                    color: _flash
-                        ? colors.accent.withValues(alpha: 0.18)
-                        : (_bpmHovered
-                              ? colors.textPrimary.withValues(alpha: 0.06)
-                              : Colors.transparent),
-                    child: Text(
-                      'BPM',
-                      style: TextStyle(
-                        color: bpmColor,
-                        fontSize: BT.fontLabel,
-                        fontWeight: BT.weightSemiBold,
-                        letterSpacing: 0.5,
+            if (widget.showLabel)
+              Tooltip(
+                message: 'Tap in time to set tempo',
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  onEnter: (_) {
+                    if (!_bpmHovered) setState(() => _bpmHovered = true);
+                  },
+                  onExit: (_) {
+                    if (_bpmHovered) setState(() => _bpmHovered = false);
+                  },
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _onTapTempo,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 120),
+                      padding: const EdgeInsets.fromLTRB(7, 2, 8, 2),
+                      alignment: Alignment.center,
+                      color: _flash
+                          ? colors.accent.withValues(alpha: 0.18)
+                          : (_bpmHovered
+                                ? colors.textPrimary.withValues(alpha: 0.06)
+                                : Colors.transparent),
+                      child: Text(
+                        'BPM',
+                        style: TextStyle(
+                          color: bpmColor,
+                          fontSize: BT.fontLabel,
+                          fontWeight: BT.weightSemiBold,
+                          letterSpacing: 0.5,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),

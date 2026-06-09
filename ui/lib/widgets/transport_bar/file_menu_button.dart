@@ -243,7 +243,7 @@ class _FileMenuButtonState extends State<FileMenuButton> {
           ),
           decoration: BoxDecoration(
             color: _isHovered ? colors.elevated : Colors.transparent,
-            borderRadius: BorderRadius.circular(2),
+            borderRadius: BorderRadius.circular(BT.radiusMd),
           ),
           child: Text(
             displayName,

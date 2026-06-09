@@ -11,13 +11,13 @@
 triage). Work order: starter kit (drum-kit PR3) → sound quick wins (automation/reverse/monitoring)
 → join clips → UI ledger batches → cleanups. **Normalize moved to v1.0 (Tyr, 2026-06-08).**
 
-**Status (2026-06-09):** everything through the playhead/orientation batch is **on master** —
+**Status (2026-06-09):** everything through the selection-token sweep is **on master** —
 drum-kit stack (#44/#65/#66), sound quick wins (#68), join MIDI (#70) + audio (#75, incl. the
-recorded-audio save data-loss fix), gesture/tool fixes (#71/#72), batch-8 cleanups (#78: chord
-palette removed, High Contrast hidden), and the playhead overhaul + transport-key fix (#79,
-Tyr eyeballed and approved 2026-06-09). The **selection-token sweep** (deferred from #79) is the
-current branch (`feat/v0.6-selection-token-sweep`). Remaining for v0.6: **UI batch 6 (top bar +
-chrome)** → dogfood. §6.B strip mockup still parked pending a design conversation.
+recorded-audio save data-loss fix), gesture/tool fixes (#71/#72), batch-8 cleanups (#78), the
+playhead overhaul + transport-key fix (#79, Tyr-approved in-app), and the selection-token sweep
+(#80, merged 2026-06-09). **UI batch 6 (top bar + chrome)** is the current branch
+(`feat/v0.6-ui-batch-6-topbar-chrome`); after it: dogfood. §6.B strip mockup still parked
+pending a design conversation.
 
 ### Milestones
 
@@ -64,14 +64,16 @@ chrome)** → dogfood. §6.B strip mockup still parked pending a design conversa
   redesign (grey grabber, line white-on-play, decluttered ruler), Piano Roll live playhead +
   ruler-seek + paste-at-playhead, Space/L/M/I/O moved to HardwareKeyboard (focus-proof), partial
   selection-token unification. #78 cleanups also merged.
-- [ ] **Selection-token sweep** (this branch): convert all remaining selected/active controls to
-  the shared `selectionFill`/`selectionBorder` tokens — editor tabs + tools + collapsed tabs
-  (via `resolveEditorButtonStyle`), transport split-button hover/divider, piano-roll Snap split,
-  scale + audition toggles, audio/sampler controls-bar Loop/Warp/Reverse chips. Panel toggles
-  stay quiet chrome — an active state was tried and Tyr rejected it (don't re-add).
-- [ ] **UI batch 6 — top bar + chrome** (per plan §batch 6): overflow banner H1 · transport
-  circles H2 · panel-toggle radius M25 · BPM compact M22 · RecoveryDialog logos H13 · dialog
-  barrier/width M20.
+- [x] **Selection-token sweep** (#80 MERGED 2026-06-09): all remaining selected/active controls
+  on the shared `selectionFill`/`selectionBorder` tokens — editor tabs + tools + collapsed tabs,
+  transport split-button hover/divider, piano-roll Snap split, scale + audition toggles,
+  audio/sampler Loop/Warp/Reverse chips. Panel toggles stay quiet chrome — an active state was
+  tried and Tyr rejected it (don't re-add).
+- [ ] **UI batch 6 — top bar + chrome** (this branch): overflow banner H1 (FittedBox guard on
+  the modifiers well + hard clip + tempo/sig shed at minimum) · transport circles H2 (32px floor
+  dropped, circles shed to 28/24) · radius unification M25 (split buttons 2→4; active state is
+  dead — radius only) · BPM suffix sheds with labels M22 · RecoveryDialog code-drawn lockup H13 ·
+  dialog barrier + width tokens M20 (`BT.dialogBarrierColor`, `BT.dialogWidthSm/Md/Lg`).
 - [ ] **Dogfood pass** → pick remaining ledger items / close v0.6.
 
 **Carried decisions:** ASIO deferred (WASAPI right for beginners). Windows machine = per-release

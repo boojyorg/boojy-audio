@@ -93,17 +93,35 @@ extension TransportDensityValues on TransportDensity {
     }
   }
 
-  double get transportButtonSize {
+  /// Play/stop/record circle size. Slightly larger than the split buttons
+  /// (32px) for visual hierarchy, but it DOES shed with the ladder — a fixed
+  /// floor here once let the circles dominate the bar at narrow widths (H2).
+  double get transportCircleSize {
     switch (this) {
       case TransportDensity.comfortable:
       case TransportDensity.compact:
       case TransportDensity.tight:
       case TransportDensity.iconsOnly:
-        return 30.0;
+        return 32.0;
       case TransportDensity.compressed:
-        return 26.0;
+        return 28.0;
       case TransportDensity.minimum:
         return 24.0;
+    }
+  }
+
+  /// Whether the tempo + signature readouts render at all. Shed last, at
+  /// [TransportDensity.minimum] — position + transport survive to the end.
+  bool get showTempoSig {
+    switch (this) {
+      case TransportDensity.comfortable:
+      case TransportDensity.compact:
+      case TransportDensity.tight:
+      case TransportDensity.iconsOnly:
+      case TransportDensity.compressed:
+        return true;
+      case TransportDensity.minimum:
+        return false;
     }
   }
 
@@ -758,38 +776,40 @@ class _TransportBarState extends State<TransportBar> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final density = _computeDensity(constraints.maxWidth);
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: BT.sm),
-          child: Row(
-            // Transport (play/stop/record) is pinned to the centre of the bar;
-            // the modifier and readout wells flank it, hugging inward via the
-            // flexible side slots. When the bar narrows the Expanded slots
-            // collapse to zero and this degrades to the old grouped-centre
-            // layout, so the density ladder still prevents overflow.
-            children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: _buildModifiersWell(colors, density),
-                ),
-              ),
-              SizedBox(width: density.clusterGap),
-              _buildTransportWell(colors, density),
-              SizedBox(width: density.clusterGap),
-              // Well 3: Readouts — layout chosen by the UI Labs variant. Fixed
-              // size; the density ladder sheds labels (tools → icons,
-              // "BPM"/"Tap") before the bar would overflow.
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: _buildReadoutWell(
-                    colors,
-                    compactReadouts: density.compactReadouts,
-                    wGap: density.withinGap,
+        // The hard clip is the last line of defence: even if a well outgrows
+        // its slot for a frame, nothing may paint over the arrangement below.
+        return ClipRect(
+          clipBehavior: Clip.hardEdge,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: BT.sm),
+            child: Row(
+              // Transport (play/stop/record) is pinned to the centre of the
+              // bar; the modifier and readout wells flank it, hugging inward
+              // via the flexible side slots. When the bar narrows the Expanded
+              // slots collapse to zero and this degrades to the old
+              // grouped-centre layout, so the density ladder still prevents
+              // overflow.
+              children: [
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: _buildModifiersWell(colors, density),
                   ),
                 ),
-              ),
-            ],
+                SizedBox(width: density.clusterGap),
+                _buildTransportWell(colors, density),
+                SizedBox(width: density.clusterGap),
+                // Well 3: Readouts — layout chosen by the UI Labs variant.
+                // Fixed size; the density ladder sheds labels (tools → icons,
+                // "BPM"/"Tap") before the bar would overflow.
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: _buildReadoutWell(colors, density),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -810,11 +830,7 @@ class _TransportBarState extends State<TransportBar> {
             children: [
               _buildTransportWell(colors, density),
               SizedBox(width: density.clusterGap),
-              _buildReadoutWell(
-                colors,
-                compactReadouts: density.compactReadouts,
-                wGap: density.withinGap,
-              ),
+              _buildReadoutWell(colors, density),
               SizedBox(width: density.clusterGap),
               _buildModifiersWell(colors, density),
             ],
@@ -830,34 +846,42 @@ class _TransportBarState extends State<TransportBar> {
     final showLabels = density.showLabels;
     final wGap = density.withinGap;
     return _ClusterWell(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          LoopSplitButton(
-            loopEnabled: widget.loopPlaybackEnabled,
-            punchInEnabled: widget.punchInEnabled,
-            punchOutEnabled: widget.punchOutEnabled,
-            showLabel: showLabels,
-            onLoopToggle: widget.transport.onLoopPlaybackToggle,
-            onPunchInToggle: widget.transport.onPunchInToggle,
-            onPunchOutToggle: widget.transport.onPunchOutToggle,
-          ),
-          SizedBox(width: wGap),
-          SnapSplitButton(
-            value: widget.arrangementSnap,
-            onChanged: widget.onSnapChanged,
-            mode: ButtonDisplayMode.wide,
-            isIconOnly: !showLabels,
-          ),
-          SizedBox(width: wGap),
-          MetronomeSplitButton(
-            isActive: widget.metronomeEnabled,
-            countInBars: widget.countInBars,
-            showLabel: showLabels,
-            onToggle: widget.transport.onMetronomeToggle,
-            onCountInChanged: widget.onCountInChanged,
-          ),
-        ],
+      // Same scaleDown guard as the readout well: the flank slots split the
+      // leftover width evenly, so this well can be starved by a few pixels
+      // before the next density tier kicks in. Without the guard that gap
+      // rendered as a live "OVERFLOWED BY" banner over the arrangement (H1).
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerRight,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            LoopSplitButton(
+              loopEnabled: widget.loopPlaybackEnabled,
+              punchInEnabled: widget.punchInEnabled,
+              punchOutEnabled: widget.punchOutEnabled,
+              showLabel: showLabels,
+              onLoopToggle: widget.transport.onLoopPlaybackToggle,
+              onPunchInToggle: widget.transport.onPunchInToggle,
+              onPunchOutToggle: widget.transport.onPunchOutToggle,
+            ),
+            SizedBox(width: wGap),
+            SnapSplitButton(
+              value: widget.arrangementSnap,
+              onChanged: widget.onSnapChanged,
+              mode: ButtonDisplayMode.wide,
+              isIconOnly: !showLabels,
+            ),
+            SizedBox(width: wGap),
+            MetronomeSplitButton(
+              isActive: widget.metronomeEnabled,
+              countInBars: widget.countInBars,
+              showLabel: showLabels,
+              onToggle: widget.transport.onMetronomeToggle,
+              onCountInChanged: widget.onCountInChanged,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -866,8 +890,7 @@ class _TransportBarState extends State<TransportBar> {
   /// [_buildModifiersWell] so C's row 2 can reorder the clusters.
   Widget _buildTransportWell(BoojyColors colors, TransportDensity density) {
     final wGap = density.withinGap;
-    // Transport buttons are slightly larger (32px) for visual hierarchy.
-    final transportBtnSize = math.max(density.transportButtonSize, 32.0);
+    final transportBtnSize = density.transportCircleSize;
     // The transport is "rolling" whenever the playhead is moving — during plain
     // playback AND during a take (count-in or recording). In all of these the
     // primary button acts as Pause, so it must also *look* like Pause; otherwise
@@ -953,15 +976,15 @@ class _TransportBarState extends State<TransportBar> {
   /// readout with the position promoted to a hero size; [TopBarVariant.lcd]
   /// groups it into a bordered LCD panel with tempo/sig as dim satellites
   /// beneath (the taller bar gives the vertical room).
-  Widget _buildReadoutWell(
-    BoojyColors colors, {
-    required bool compactReadouts,
-    required double wGap,
-  }) {
+  Widget _buildReadoutWell(BoojyColors colors, TransportDensity density) {
+    final wGap = density.withinGap;
     final tempo = TempoDisplay(
       tempo: widget.tempo,
       onTempoChanged: widget.onTempoChanged,
-      compact: compactReadouts,
+      compact: density.compactReadouts,
+      // Shed the "BPM" suffix together with the tool labels — the density
+      // math assumes the compact tier already dropped it (M22).
+      showLabel: density.showLabels,
     );
     final signature = SignatureDropdown(
       beatsPerBar: widget.beatsPerBar,
@@ -999,11 +1022,15 @@ class _TransportBarState extends State<TransportBar> {
                   // for a cleaner, even readout row.
                   scale: 1.0,
                 ),
-                SizedBox(width: wGap),
-                // Tempo + tap fused into one split button (tap the BPM zone).
-                tempo,
-                SizedBox(width: wGap),
-                signature,
+                // At minimum density the tempo + signature shed entirely —
+                // the position readout + transport survive to the end.
+                if (density.showTempoSig) ...[
+                  SizedBox(width: wGap),
+                  // Tempo + tap fused into one split button (tap the BPM zone).
+                  tempo,
+                  SizedBox(width: wGap),
+                  signature,
+                ],
               ],
             ),
           ),
@@ -1024,7 +1051,9 @@ class _TransportBarState extends State<TransportBar> {
                 ),
                 decoration: BoxDecoration(
                   color: colors.darkest,
-                  borderRadius: BorderRadius.circular(6),
+                  // Chrome radius (M25) — the bar uses radiusMd for chrome,
+                  // radiusLg for overlays; this panel had a stray 6.
+                  borderRadius: BT.borderMd,
                   border: Border.all(
                     color: colors.accent.withValues(alpha: 0.25),
                   ),

@@ -120,7 +120,7 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
           // behind the zone fills. The outline turns a soft accent when engaged.
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            borderRadius: BT.borderSm,
+            borderRadius: BT.borderMd,
             border: Border.all(
               // Off-state outline reads with the same weight as the active
               // accent one (textMuted, not the near-invisible divider) — just
@@ -173,10 +173,10 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
                         // round so the punch zone joins seamlessly on the right.
                         borderRadius: isActive
                             ? const BorderRadius.only(
-                                topLeft: Radius.circular(BT.radiusSm),
-                                bottomLeft: Radius.circular(BT.radiusSm),
+                                topLeft: Radius.circular(BT.radiusMd),
+                                bottomLeft: Radius.circular(BT.radiusMd),
                               )
-                            : BT.borderSm,
+                            : BT.borderMd,
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -235,8 +235,8 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
                                       ))
                               : leftBg,
                           borderRadius: const BorderRadius.only(
-                            topRight: Radius.circular(BT.radiusSm),
-                            bottomRight: Radius.circular(BT.radiusSm),
+                            topRight: Radius.circular(BT.radiusMd),
+                            bottomRight: Radius.circular(BT.radiusMd),
                           ),
                         ),
                         child: _hasPunch
