@@ -13,4 +13,3 @@ export 'knob_split_button.dart';
 export 'mini_knob.dart';
 export 'panel_header.dart';
 export 'search_field.dart';
-export 'split_button.dart';
