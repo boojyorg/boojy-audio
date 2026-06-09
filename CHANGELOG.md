@@ -102,11 +102,9 @@ All notable changes to Boojy Audio will be documented in this file.
 - **Unified "selected" look — everywhere.** Every toggle and selection control now shares one
   soft accent-tint fill with an accent border, baked so it reads identically on every surface:
   transport Loop/Snap/Metronome, the editor's Instrument/MIDI tabs and tool palette (expanded and
-  collapsed), the Piano Roll's Snap split button, scale/ghost/audition toggles, the audio and
-  sampler editors' Loop/Warp/Reverse chips, and the Library/Editor panel toggles in the top bar —
-  which previously showed no "open" state at all, and now light up while their panel is open.
-  Selected controls no longer flip to a solid blue block with white text; the calm tint + accent
-  icon language reads the same in every corner of the app.
+  collapsed), the Piano Roll's Snap split button, scale/ghost/audition toggles, and the audio and
+  sampler editors' Loop/Warp/Reverse chips. Selected controls no longer flip to a solid blue block
+  with white text; the calm tint + accent icon language reads the same in every corner of the app.
 - **Removed the hidden piano-roll chord palette.** The `K`-key chord stamper was keyboard-only
   with no on-screen affordance, so it was effectively undiscoverable; it's been removed along with
   its now-dead sidebar widget rather than left as a half-feature.

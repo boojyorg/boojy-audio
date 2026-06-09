@@ -66,9 +66,9 @@ chrome)** → dogfood. §6.B strip mockup still parked pending a design conversa
   selection-token unification. #78 cleanups also merged.
 - [ ] **Selection-token sweep** (this branch): convert all remaining selected/active controls to
   the shared `selectionFill`/`selectionBorder` tokens — editor tabs + tools + collapsed tabs
-  (via `resolveEditorButtonStyle`), panel toggles (M25, now have an active state), transport
-  split-button hover/divider, piano-roll Snap split, scale + audition toggles, audio/sampler
-  controls-bar Loop/Warp/Reverse chips.
+  (via `resolveEditorButtonStyle`), transport split-button hover/divider, piano-roll Snap split,
+  scale + audition toggles, audio/sampler controls-bar Loop/Warp/Reverse chips. Panel toggles
+  stay quiet chrome — an active state was tried and Tyr rejected it (don't re-add).
 - [ ] **UI batch 6 — top bar + chrome** (per plan §batch 6): overflow banner H1 · transport
   circles H2 · panel-toggle radius M25 · BPM compact M22 · RecoveryDialog logos H13 · dialog
   barrier/width M20.
