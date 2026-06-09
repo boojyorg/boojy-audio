@@ -4251,7 +4251,21 @@ class _DAWScreenState extends State<DAWScreen>
                                 },
                                 onToolModeChanged: (mode) =>
                                     setState(() => currentToolMode = mode),
-                                onTrackVolumeChanged: (_) => setState(() {}),
+                                // Mirror the editor chain fader into the mixer
+                                // strip's TrackData immediately — the strip
+                                // reads track.volumeDb, which otherwise only
+                                // catches up on the mixer's slow track refresh.
+                                onTrackVolumeChanged: (db) {
+                                  final tracks =
+                                      mixerKey.currentState?.tracks ?? [];
+                                  for (final t in tracks) {
+                                    if (t.id == selectedTrackId) {
+                                      t.volumeDb = db;
+                                      break;
+                                    }
+                                  }
+                                  setState(() {});
+                                },
                               ),
                               vst3Callbacks: Vst3EditorCallbacks(
                                 onVst3ParameterChanged:

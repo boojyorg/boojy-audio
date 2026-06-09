@@ -4,7 +4,6 @@ import '../models/instrument_data.dart';
 import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
-import 'instrument_browser.dart';
 
 /// Synthesizer instrument panel widget
 class SynthesizerPanel extends StatefulWidget {
@@ -12,7 +11,6 @@ class SynthesizerPanel extends StatefulWidget {
   final int trackId;
   final InstrumentData? instrumentData;
   final Function(InstrumentData) onParameterChanged;
-  final VoidCallback onClose;
 
   const SynthesizerPanel({
     super.key,
@@ -20,7 +18,6 @@ class SynthesizerPanel extends StatefulWidget {
     required this.trackId,
     required this.instrumentData,
     required this.onParameterChanged,
-    required this.onClose,
   });
 
   @override
@@ -68,8 +65,8 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
       ),
       child: Column(
         children: [
-          // Header
-          _buildHeader(),
+          // No header of its own — the hosting DeviceBox draws the shared
+          // 24px "Synthesizer" header, same as effect cards.
 
           // Synth controls - Minimal: 1 osc, filter cutoff, ADSR
           Expanded(
@@ -86,108 +83,6 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: context.colors.darkest,
-        border: Border(bottom: BorderSide(color: context.colors.surface)),
-      ),
-      child: Row(
-        children: [
-          // Make instrument name draggable (instant drag)
-          Draggable<Instrument>(
-            data: Instrument(
-              id: 'synthesizer',
-              name: 'Synthesizer',
-              category: 'Synthesizer',
-              icon: BI.equalizer,
-            ),
-            feedback: Material(
-              elevation: 8,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: context.colors.success,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      BI.equalizer,
-                      color: context.colors.textPrimary,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Synthesizer',
-                      style: TextStyle(
-                        color: context.colors.textPrimary,
-                        fontSize: 14,
-                        fontWeight: BT.weightSemiBold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            childWhenDragging: Opacity(
-              opacity: 0.5,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(BI.piano, color: context.colors.textSecondary, size: 20),
-                  const SizedBox(width: 12),
-                  Text(
-                    'SYNTHESIZER',
-                    style: TextStyle(
-                      color: context.colors.textSecondary,
-                      fontSize: 14,
-                      fontWeight: BT.weightSemiBold,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            child: MouseRegion(
-              cursor: SystemMouseCursors.grab,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(BI.piano, color: context.colors.textSecondary, size: 20),
-                  const SizedBox(width: 12),
-                  Text(
-                    'SYNTHESIZER',
-                    style: TextStyle(
-                      color: context.colors.textSecondary,
-                      fontSize: 14,
-                      fontWeight: BT.weightSemiBold,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: Icon(BI.close),
-            color: context.colors.textSecondary,
-            iconSize: 20,
-            onPressed: widget.onClose,
-            tooltip: 'Close synthesizer',
           ),
         ],
       ),

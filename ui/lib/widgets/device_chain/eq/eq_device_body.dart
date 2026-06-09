@@ -86,9 +86,19 @@ class _EqDeviceBodyState extends State<EqDeviceBody> {
     return out;
   }
 
-  EqBandView? _selectedBand(List<EqBandView> bands) {
+  /// Effective selection: falls back to band 0 so the Freq/Gain/Focus knobs
+  /// are never in a dead "–" state while bands exist (a knob row that looks
+  /// disabled reads as broken, especially to beginners).
+  int? get _effectiveSelected {
+    if (_count == 0) return null;
     final s = _selected;
-    if (s == null || s < 0 || s >= bands.length) return null;
+    if (s == null || s < 0 || s >= _count) return 0;
+    return s;
+  }
+
+  EqBandView? _selectedBand(List<EqBandView> bands) {
+    final s = _effectiveSelected;
+    if (s == null || s >= bands.length) return null;
     return bands[s];
   }
 
@@ -325,7 +335,7 @@ class _EqDeviceBodyState extends State<EqDeviceBody> {
             size: Size.infinite,
             painter: EqCurvePainter(
               bands: bands,
-              selectedBand: _selected,
+              selectedBand: _effectiveSelected,
               lowCutOn: _lowCut,
               highCutOn: _highCut,
               sampleRate: _sr,
