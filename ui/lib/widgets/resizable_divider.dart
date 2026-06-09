@@ -10,8 +10,9 @@ enum DividerOrientation {
 /// A subtle draggable divider that allows resizing panels
 ///
 /// Features:
-/// - Drag to resize (4px grab zone)
-/// - 1px centered line at rest, 4px accent bar on hover/drag
+/// - Drag to resize (solid 3px bar — the whole slot is painted, so panels
+///   butt directly against it with no dark gutter either side)
+/// - Accent fill + resize cursor on hover/drag
 /// - Double-click to collapse/expand
 /// - Optional [activeNotifier] for synchronized hover with linked dividers
 class ResizableDivider extends StatefulWidget {
@@ -39,7 +40,7 @@ class ResizableDivider extends StatefulWidget {
 }
 
 class _ResizableDividerState extends State<ResizableDivider> {
-  static const double _dividerWidth = 4.0;
+  static const double _dividerWidth = 3.0;
 
   bool _isHovered = false;
   bool _isDragging = false;
@@ -120,16 +121,7 @@ class _ResizableDividerState extends State<ResizableDivider> {
         child: Container(
           width: isVertical ? _dividerWidth : double.infinity,
           height: isVertical ? double.infinity : _dividerWidth,
-          color: isActive ? colors.accent : colors.dark,
-          child: isActive
-              ? null
-              : Center(
-                  child: SizedBox(
-                    width: isVertical ? 1.0 : double.infinity,
-                    height: isVertical ? double.infinity : 1.0,
-                    child: ColoredBox(color: colors.divider),
-                  ),
-                ),
+          color: isActive ? colors.accent : colors.divider,
         ),
       ),
     );

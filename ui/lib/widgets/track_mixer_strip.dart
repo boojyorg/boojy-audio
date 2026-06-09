@@ -16,6 +16,7 @@ import '../theme/theme_extension.dart';
 import '../theme/theme_provider.dart';
 import '../theme/tokens.dart';
 import '../utils/track_colors.dart';
+import '../utils/track_icons.dart';
 import 'instrument_browser.dart';
 import 'pan_knob.dart';
 import 'capsule_fader.dart';
@@ -369,43 +370,64 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         children: [
           // Row 1: Icon + Number + Name + [Input] + MSR + Pan
           // No fixed height - let it size to content and sit at top
-          Row(
-            children: [
-              // Icon + Number + Name (fixed font sizes, expands to fill space)
-              Expanded(
-                child: _buildTrackInfoRow(
-                  fontSize: fontSize,
-                  iconSize: iconSize,
-                ),
-              ),
-              const SizedBox(width: 4),
-              // Input selector (Audio/Sampler tracks only)
-              if (_showInputSelector)
-                _buildInputSelector(
-                  buttonSize: buttonSize,
-                  fontSize: buttonFontSize,
-                ),
-              if (_showInputSelector) const SizedBox(width: 4),
-              // M, S, R buttons (scale with height)
-              _buildControlButtons(
-                buttonSize: buttonSize,
-                spacing: buttonSpacing,
-                fontSize: buttonFontSize,
-              ),
-              if (widget.onFxButtonPressed != null) ...[
-                const SizedBox(width: 4),
-                _buildFxButton(buttonSize: buttonSize),
-              ],
-              const SizedBox(width: 6),
-              // Pan knob (scales with height)
-              PanKnob(
-                pan: widget.pan,
-                onChanged: widget.onPanChanged,
-                onDragStart: widget.onPanDragStart,
-                onDragEnd: widget.onPanDragEnd,
-                size: panSize,
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Name keeps priority at narrow widths: the input chip is the
+              // first thing shed (the name truncates, the chip doesn't).
+              final fixedWidth =
+                  4 + // gap after info row
+                  (3 * buttonSize + 2 * buttonSpacing) + // MSR
+                  (widget.onFxButtonPressed != null ? buttonSize + 4 : 0) +
+                  6 +
+                  panSize;
+              const inputChipWidth = 52.0; // approx "In 1 ▾" chip + gap
+              const minInfoWidth = 96.0; // icon + number + a readable name
+              final showInput =
+                  _showInputSelector &&
+                  constraints.maxWidth - fixedWidth - inputChipWidth >=
+                      minInfoWidth;
+
+              return Row(
+                children: [
+                  // Icon + Number + Name (fixed font sizes, expands to fill
+                  // space)
+                  Expanded(
+                    child: _buildTrackInfoRow(
+                      fontSize: fontSize,
+                      iconSize: iconSize,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Input selector (Audio/Sampler tracks only)
+                  if (showInput) ...[
+                    _buildInputSelector(
+                      buttonSize: buttonSize,
+                      fontSize: buttonFontSize,
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  // M, S, R buttons (scale with height)
+                  _buildControlButtons(
+                    buttonSize: buttonSize,
+                    spacing: buttonSpacing,
+                    fontSize: buttonFontSize,
+                  ),
+                  if (widget.onFxButtonPressed != null) ...[
+                    const SizedBox(width: 4),
+                    _buildFxButton(buttonSize: buttonSize),
+                  ],
+                  const SizedBox(width: 6),
+                  // Pan knob (scales with height)
+                  PanKnob(
+                    pan: widget.pan,
+                    onChanged: widget.onPanChanged,
+                    onDragStart: widget.onPanDragStart,
+                    onDragEnd: widget.onPanDragEnd,
+                    size: panSize,
+                  ),
+                ],
+              );
+            },
           ),
           // Row 2: dB + Volume Slider
           SizedBox(
@@ -884,91 +906,109 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     final textColor = _getTextColor();
     final trackColor = widget.trackColor ?? context.colors.textPrimary;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Icon (fixed size, clickable to change)
-        GestureDetector(
-          onTap: widget.onIconChanged != null
-              ? () => _showIconPopup(context)
-              : null,
-          child: MouseRegion(
-            cursor: widget.onIconChanged != null
-                ? SystemMouseCursors.click
-                : SystemMouseCursors.basic,
-            child: Text(_getTrackEmoji(), style: TextStyle(fontSize: iconSize)),
-          ),
-        ),
-        const SizedBox(width: 6),
-        // Number (sequential display index, not internal ID) - fixed size
-        if (!widget.isReturnTrack)
-          Text(
-            '${widget.displayIndex}',
-            style: TextStyle(
-              color: textColor,
-              fontSize: fontSize,
-              fontWeight: BT.weightSemiBold,
-            ),
-          ),
-        if (!widget.isReturnTrack) const SizedBox(width: 8),
-        // Name (editable) - expanded to fill remaining space
-        Expanded(
-          child: _isEditing
-              ? TextField(
-                  controller: _nameController,
-                  focusNode: _focusNode,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: fontSize,
-                    fontWeight: BT.weightMedium,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // At narrow strip widths the fixed icon + number + gaps can exceed the
+        // space the Expanded gives this row (the name truncates, they don't).
+        // Shed the number first — the icon + name carry the identity.
+        final showNumber = !widget.isReturnTrack && constraints.maxWidth >= 56;
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Icon (fixed size, clickable to change)
+            GestureDetector(
+              onTap: widget.onIconChanged != null
+                  ? () => _showIconPopup(context)
+                  : null,
+              child: MouseRegion(
+                cursor: widget.onIconChanged != null
+                    ? SystemMouseCursors.click
+                    : SystemMouseCursors.basic,
+                child: Icon(
+                  TrackIcons.iconFor(
+                    customIcon: widget.customIcon,
+                    trackName: widget.trackName,
+                    trackType: widget.trackType,
                   ),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 2,
-                    ),
-                    border: const OutlineInputBorder(),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: trackColor),
-                    ),
-                  ),
-                  onSubmitted: (_) => _submitName(),
-                )
-              : GestureDetector(
-                  onDoubleTap: _startEditing,
-                  child: Text(
-                    _getStandardDisplayName(),
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: fontSize,
-                      fontWeight: BT.weightMedium,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  size: iconSize,
+                  color: textColor,
                 ),
-        ),
-        if (widget.isReturnTrack) ...[
-          const SizedBox(width: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-            decoration: BoxDecoration(
-              color: context.colors.dark,
-              borderRadius: BorderRadius.circular(2),
-            ),
-            child: Text(
-              'RETURN',
-              style: TextStyle(
-                color: context.colors.textMuted,
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
               ),
             ),
-          ),
-        ],
-      ],
+            const SizedBox(width: 6),
+            // Number (sequential display index, not internal ID) - fixed size
+            if (showNumber) ...[
+              Text(
+                '${widget.displayIndex}',
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: fontSize,
+                  fontWeight: BT.weightSemiBold,
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+            // Name (editable) - expanded to fill remaining space
+            Expanded(
+              child: _isEditing
+                  ? TextField(
+                      controller: _nameController,
+                      focusNode: _focusNode,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: fontSize,
+                        fontWeight: BT.weightMedium,
+                      ),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
+                        border: const OutlineInputBorder(),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: trackColor),
+                        ),
+                      ),
+                      onSubmitted: (_) => _submitName(),
+                    )
+                  : GestureDetector(
+                      onDoubleTap: _startEditing,
+                      child: Text(
+                        _getStandardDisplayName(),
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: fontSize,
+                          fontWeight: BT.weightMedium,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+            ),
+            if (widget.isReturnTrack) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: context.colors.dark,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Text(
+                  'RETURN',
+                  style: TextStyle(
+                    color: context.colors.textMuted,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 
@@ -1661,45 +1701,11 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     return trackColor;
   }
 
-  String _getTrackEmoji() {
-    // Use custom icon if set
-    if (widget.customIcon != null) return widget.customIcon!;
-
-    final lowerName = widget.trackName.toLowerCase();
-    final lowerType = widget.trackType.toLowerCase();
-
-    if (lowerType == 'master') return '🎚️';
-    if (lowerName.contains('guitar')) return '🎸';
-    if (lowerName.contains('piano') || lowerName.contains('keys')) return '🎹';
-    if (lowerName.contains('drum')) return '🥁';
-    if (lowerName.contains('vocal') || lowerName.contains('voice')) return '🎤';
-    if (lowerName.contains('bass')) return '🎸';
-    if (lowerName.contains('synth')) return '🎹';
-    if (lowerType == 'midi') return '🎼';
-    if (lowerType == 'audio') return '🔊';
-
-    return '🎵'; // Default
+  /// The currently-effective icon key for this track (custom or default).
+  String _currentIconKey() {
+    return TrackIcons.keyFor(widget.customIcon) ??
+        TrackIcons.defaultKey(widget.trackName, widget.trackType);
   }
-
-  /// Emoji grid for track icon picker
-  static const List<String> _iconEmojis = [
-    '🎤',
-    '🎸',
-    '🎹',
-    '🥁',
-    '🎺',
-    '🎷',
-    '🎻',
-    '🎧',
-    '🎵',
-    '🎶',
-    '🔊',
-    '🎼',
-    '🪗',
-    '🪘',
-    '🪕',
-    '🎙️',
-  ];
 
   /// Show icon picker popup
   void _showIconPopup(BuildContext context) {
@@ -1750,23 +1756,24 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      // Emoji grid (2 rows x 8 cols)
+                      // Icon grid (2 rows x 8 cols) — BI icons, persisted by
+                      // key (legacy emoji keys map through TrackIcons)
                       ...List.generate(2, (row) {
+                        final keys = TrackIcons.pickerIcons.keys.toList();
                         return Padding(
                           padding: EdgeInsets.only(bottom: row == 0 ? 4 : 0),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: List.generate(8, (col) {
-                              final idx = row * 8 + col;
-                              final emoji = _iconEmojis[idx];
-                              final isSelected = _getTrackEmoji() == emoji;
+                              final key = keys[row * 8 + col];
+                              final isSelected = _currentIconKey() == key;
                               return Padding(
                                 padding: EdgeInsets.only(
                                   right: col < 7 ? 4 : 0,
                                 ),
                                 child: GestureDetector(
                                   onTap: () {
-                                    widget.onIconChanged?.call(emoji);
+                                    widget.onIconChanged?.call(key);
                                     Navigator.of(dialogContext).pop();
                                   },
                                   child: Container(
@@ -1782,9 +1789,10 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                                       ),
                                     ),
                                     alignment: Alignment.center,
-                                    child: Text(
-                                      emoji,
-                                      style: const TextStyle(fontSize: 16),
+                                    child: Icon(
+                                      TrackIcons.pickerIcons[key],
+                                      size: 16,
+                                      color: dialogContext.colors.textSecondary,
                                     ),
                                   ),
                                 ),
@@ -2002,7 +2010,7 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                       child: Row(
                         children: [
                           // Icon (headphones)
-                          const Text('🎧', style: TextStyle(fontSize: 14)),
+                          Icon(BI.headphones, size: 14, color: masterColor),
                           const SizedBox(width: 6),
                           // "Master" text
                           Expanded(

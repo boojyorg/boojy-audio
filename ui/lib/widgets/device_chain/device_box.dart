@@ -116,8 +116,14 @@ class _DeviceBoxState extends State<DeviceBox> {
               width: widget.isSelected ? 2 : 1,
             ),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: _buildBody(colors),
+          // Clip the BODY to the inner radius rather than clipBehavior on the
+          // bordered container itself — clipping a container that draws its
+          // own rounded border shaves the outer half of the stroke at the
+          // corner arcs (ragged-corner artifact).
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(widget.isSelected ? 4 : 5),
+            child: _buildBody(colors),
+          ),
         ),
       ),
     );

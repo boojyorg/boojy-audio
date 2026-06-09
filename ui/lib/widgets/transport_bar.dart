@@ -695,75 +695,73 @@ class _TransportBarState extends State<TransportBar> {
   Widget _buildLogo(BoojyColors colors) {
     // Nudge the whole wordmark up ~2px so its optical centre lines up with the
     // smaller siblings (project name, undo/redo) in the centre-aligned row.
+    //
+    // The ENTIRE wordmark (▲ + "udio") is the Settings button — a ~20px
+    // triangle alone was too small a target (user testing). The triangle's
+    // hover-scale is the affordance, and it still doubles as the
+    // engine-health light (red ⇒ engine didn't start).
     return Transform.translate(
       offset: const Offset(0, -2),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ▲ = the "A": a filled equilateral triangle that doubles as the
-          // Settings button (carries the brand accent and hover-scales, exactly
-          // as the old blue dot did).
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            onEnter: (_) {
-              if (!_logoHovered) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) setState(() => _logoHovered = true);
-                });
-              }
-            },
-            onExit: (_) {
-              if (_logoHovered) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) setState(() => _logoHovered = false);
-                });
-              }
-            },
-            child: Tooltip(
-              // The ▲ doubles as the engine-health light: red ⇒ the engine
-              // didn't start; opening Settings is the place to fix the device.
-              message: widget.engineFailed
-                  ? "Audio engine didn't start — open Settings"
-                  : 'Settings',
-              child: GestureDetector(
-                onTap: () => widget.fileMenu.onAppSettings?.call(),
-                child: AnimatedScale(
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) {
+          if (!_logoHovered) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _logoHovered = true);
+            });
+          }
+        },
+        onExit: (_) {
+          if (_logoHovered) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _logoHovered = false);
+            });
+          }
+        },
+        child: Tooltip(
+          message: widget.engineFailed
+              ? "Audio engine didn't start — open Settings"
+              : 'Settings',
+          child: GestureDetector(
+            onTap: () => widget.fileMenu.onAppSettings?.call(),
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedScale(
                   scale: _logoHovered ? AnimationConstants.hoverScale : 1.0,
                   duration: AnimationConstants.hoverDuration,
                   curve: Curves.easeInOut,
-                  child: Transform.translate(
-                    // Baseline nudge in px (Offset(0, dy), positive = down).
-                    offset: Offset.zero,
-                    child: CustomPaint(
-                      // Equilateral: height = base * √3/2. ~10% larger than the
-                      // first cut so it reads at the wordmark's weight.
-                      size: const Size(22, 19.05),
-                      painter: BoojyTrianglePainter(
-                        widget.engineFailed ? colors.error : colors.accent,
-                      ),
+                  child: CustomPaint(
+                    // Equilateral: height = base * √3/2. ~10% larger than the
+                    // first cut so it reads at the wordmark's weight.
+                    size: const Size(22, 19.05),
+                    painter: BoojyTrianglePainter(
+                      widget.engineFailed ? colors.error : colors.accent,
                     ),
                   ),
                 ),
-              ),
+                const SizedBox(width: 2),
+                // "udio" wordmark in the UI font (Inter). The fixed left rail
+                // gives it a stable home, so it renders at full size and never
+                // clips.
+                Text(
+                  'udio',
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.clip,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: BT.weightSemiBold,
+                    color: colors.textPrimary,
+                    letterSpacing: -0.5,
+                    height: 1.0,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 2),
-          // "udio" wordmark in the UI font (Inter). The fixed left rail gives it
-          // a stable home, so it renders at full size and never clips.
-          Text(
-            'udio',
-            maxLines: 1,
-            softWrap: false,
-            overflow: TextOverflow.clip,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: BT.weightSemiBold,
-              color: colors.textPrimary,
-              letterSpacing: -0.5,
-              height: 1.0,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1117,7 +1115,9 @@ class _TransportBarState extends State<TransportBar> {
               const SizedBox(width: 6),
               AddTrackButton(
                 label: showLabels ? 'Audio' : '',
-                typeIcon: BI.waveform,
+                // Same glyph as the library's Samples category, so "Audio
+                // track" and "samples" read as one concept.
+                typeIcon: BI.equalizer,
                 typeColor:
                     TrackColors.categoryColors[TrackColorCategory.audio]!,
                 onTap: widget.panels.onAddAudioTrack,

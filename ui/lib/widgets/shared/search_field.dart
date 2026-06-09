@@ -5,12 +5,12 @@ import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 
-/// A styled search field — a slim, squared rectangle that matches the
-/// right-sidebar "+ MIDI/Audio Track" buttons (4px corners, 18px tall).
+/// A styled search field — a slim rectangle with hard-square corners that
+/// runs the full width of its host panel (edge-to-edge, no side margins).
 ///
 /// Features:
 /// - Fills [expandedWidth] (the host panel is fixed-width)
-/// - Dark filled background with a 4px-radius border
+/// - Dark filled background with a thin square-cornered border
 /// - Clear button (✕) when text is present
 /// - Escape key clears text and blurs
 class SearchField extends StatefulWidget {
@@ -38,6 +38,11 @@ class SearchField extends StatefulWidget {
 }
 
 class _SearchFieldState extends State<SearchField> {
+  // One step up from BT.iconMd/BT.fontLabel — the field is the panel's primary
+  // entry point, so its glyph and hint sit slightly above the chrome around it.
+  static const double _iconSize = 15;
+  static const double _fontSize = 12;
+
   late TextEditingController _controller;
   late FocusNode _focusNode;
   bool _hasText = false;
@@ -103,15 +108,13 @@ class _SearchFieldState extends State<SearchField> {
         duration: AnimationConstants.panelDuration,
         curve: Curves.easeInOut,
         // Always fill the available width (the panel is fixed-width) — the old
-        // 105px idle pill was what clipped the placeholder to "Searc…". The
-        // squared 4px corners + shared control height line the field up with the
-        // loop bar and the "+ MIDI/Audio Track" buttons (all BT.controlHeight),
-        // so every compact control shares one shape and height.
+        // 105px idle pill was what clipped the placeholder to "Searc…". Hard
+        // square corners: the field runs edge-to-edge of the host panel, so
+        // rounding would read as a floating pill rather than a built-in band.
         width: widget.expandedWidth,
         height: BT.controlHeight,
         decoration: BoxDecoration(
           color: colors.darkest,
-          borderRadius: BorderRadius.circular(BT.radiusMd),
           border: Border.all(
             color: _isFocused
                 ? colors.accent.withValues(alpha: 0.37)
@@ -122,7 +125,7 @@ class _SearchFieldState extends State<SearchField> {
         padding: const EdgeInsets.symmetric(horizontal: 7),
         child: Row(
           children: [
-            Icon(BI.search, size: BT.iconMd, color: colors.textMuted),
+            Icon(BI.search, size: _iconSize, color: colors.textMuted),
             const SizedBox(width: 6),
             Expanded(
               child: Focus(
@@ -135,14 +138,14 @@ class _SearchFieldState extends State<SearchField> {
                   onSubmitted: widget.onSubmitted,
                   style: TextStyle(
                     color: colors.textPrimary,
-                    fontSize: BT.fontLabel,
+                    fontSize: _fontSize,
                     fontWeight: BT.weightMedium,
                   ),
                   decoration: InputDecoration(
                     hintText: widget.hintText,
                     hintStyle: TextStyle(
                       color: colors.textMuted,
-                      fontSize: BT.fontLabel,
+                      fontSize: _fontSize,
                       fontWeight: BT.weightMedium,
                     ),
                     border: InputBorder.none,
