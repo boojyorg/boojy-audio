@@ -182,16 +182,24 @@ class PianoRollScaleControls extends StatelessWidget {
         cursor: SystemMouseCursors.click,
         child: Container(
           width: size,
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
           decoration: BoxDecoration(
-            color: isActive ? colors.accent : colors.dark,
+            color: isActive ? colors.selectionFill : colors.dark,
             borderRadius: BorderRadius.circular(2),
+            border: Border.all(
+              color: isActive ? colors.selectionBorder : colors.surface,
+              width: 1,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 12, color: colors.textPrimary),
+              Icon(
+                icon,
+                size: 12,
+                color: isActive ? colors.accent : colors.textPrimary,
+              ),
               if (label.isNotEmpty) ...[
                 const SizedBox(width: 2),
                 Text(
@@ -223,16 +231,22 @@ class PianoRollScaleControls extends StatelessWidget {
           cursor: SystemMouseCursors.click,
           child: Container(
             width: 52,
-            padding: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(vertical: 3),
             margin: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: auditionEnabled ? colors.accent : colors.dark,
+              color: auditionEnabled ? colors.selectionFill : colors.dark,
               borderRadius: BorderRadius.circular(2),
+              border: Border.all(
+                color: auditionEnabled
+                    ? colors.selectionBorder
+                    : colors.surface,
+                width: 1,
+              ),
             ),
             child: Icon(
               auditionEnabled ? BI.speakerHigh : BI.speakerNone,
               size: 16,
-              color: colors.textPrimary,
+              color: auditionEnabled ? colors.accent : colors.textPrimary,
             ),
           ),
         ),

@@ -170,10 +170,16 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             decoration: BoxDecoration(
-              color: widget.loopEnabled ? colors.accent : colors.dark,
+              color: widget.loopEnabled ? colors.selectionFill : colors.dark,
               borderRadius: BorderRadius.circular(2),
+              border: Border.all(
+                color: widget.loopEnabled
+                    ? colors.selectionBorder
+                    : colors.surface,
+                width: 1,
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -182,18 +188,13 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                   BI.loop,
                   size: 13,
                   color: widget.loopEnabled
-                      ? colors.elevated
+                      ? colors.accent
                       : colors.textPrimary,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   'Loop',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: widget.loopEnabled
-                        ? colors.elevated
-                        : colors.textPrimary,
-                  ),
+                  style: TextStyle(fontSize: 10, color: colors.textPrimary),
                 ),
               ],
             ),
@@ -475,8 +476,8 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
     final isEnabled = widget.warpEnabled;
     final mode = widget.warpMode;
     final modeLabel = mode == WarpMode.warp ? 'Stretch' : 'Re-Pitch';
-    final bgColor = isEnabled ? colors.accent : colors.dark;
-    final textColor = isEnabled ? colors.elevated : colors.textPrimary;
+    final bgColor = isEnabled ? colors.selectionFill : colors.dark;
+    final iconColor = isEnabled ? colors.accent : colors.textPrimary;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -493,6 +494,10 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
           decoration: BoxDecoration(
             color: bgColor,
             borderRadius: BorderRadius.circular(2),
+            border: Border.all(
+              color: isEnabled ? colors.selectionBorder : colors.surface,
+              width: 1,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -526,7 +531,9 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                     ),
                     decoration: BoxDecoration(
                       color: _isHoveringWarpLabel
-                          ? colors.textPrimary.withValues(alpha: 0.1)
+                          ? (isEnabled
+                                ? colors.selectionFillHover
+                                : colors.textPrimary.withValues(alpha: 0.1))
                           : Colors.transparent,
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(2),
@@ -536,11 +543,14 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(BI.sync, size: 13, color: textColor),
+                        Icon(BI.sync, size: 13, color: iconColor),
                         const SizedBox(width: 4),
                         Text(
                           modeLabel,
-                          style: TextStyle(color: textColor, fontSize: 10),
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 10,
+                          ),
                         ),
                       ],
                     ),
@@ -551,7 +561,9 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
               Container(
                 width: 1,
                 height: 15,
-                color: colors.textPrimary.withValues(alpha: 0.2),
+                color: isEnabled
+                    ? colors.selectionBorder
+                    : colors.textPrimary.withValues(alpha: 0.2),
               ),
               // Right side: Dropdown arrow (opens mode menu)
               MouseRegion(
@@ -584,14 +596,16 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                     ),
                     decoration: BoxDecoration(
                       color: _isHoveringWarpDropdown
-                          ? colors.textPrimary.withValues(alpha: 0.1)
+                          ? (isEnabled
+                                ? colors.selectionFillHover
+                                : colors.textPrimary.withValues(alpha: 0.1))
                           : Colors.transparent,
                       borderRadius: const BorderRadius.only(
                         topRight: Radius.circular(2),
                         bottomRight: Radius.circular(2),
                       ),
                     ),
-                    child: Icon(BI.caretDown, size: 14, color: textColor),
+                    child: Icon(BI.caretDown, size: 14, color: iconColor),
                   ),
                 ),
               ),
@@ -652,17 +666,21 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
               ? SystemMouseCursors.click
               : SystemMouseCursors.forbidden,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             decoration: BoxDecoration(
-              color: isActive ? colors.accent : colors.dark,
+              color: isActive ? colors.selectionFill : colors.dark,
               borderRadius: BorderRadius.circular(2),
+              border: Border.all(
+                color: isActive ? colors.selectionBorder : colors.surface,
+                width: 1,
+              ),
             ),
             child: Text(
               label,
               style: TextStyle(
                 fontSize: 10,
                 color: isActive
-                    ? colors.elevated
+                    ? colors.accent
                     : (enabled
                           ? colors.textPrimary
                           : colors.textMuted.withValues(alpha: 0.5)),
