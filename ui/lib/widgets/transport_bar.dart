@@ -1241,15 +1241,20 @@ class _PanelToggleButtonState extends State<_PanelToggleButton>
   Widget build(BuildContext context) {
     final colors = context.colors;
 
+    final active = widget.isActive;
+
     Widget svgIcon = SvgPicture.asset(
       widget.assetPath,
       width: 18,
       height: 18,
       colorFilter: ColorFilter.mode(
         // Rest colour matches the help (?) glyph — textSecondary, the one
-        // chrome-icon grey — and we no longer dim the collapsed-panel state to
-        // 0.5, which made these toggles read darker/heavier than the help icon.
-        isHovered ? colors.textPrimary : colors.textSecondary,
+        // chrome-icon grey. An open panel reads with the shared selection
+        // language (accent icon over the selection fill), like every other
+        // engaged toggle (M25 — this previously showed no active state at all).
+        active
+            ? (isHovered ? colors.accentHover : colors.accent)
+            : (isHovered ? colors.textPrimary : colors.textSecondary),
         BlendMode.srcIn,
       ),
     );
@@ -1276,10 +1281,19 @@ class _PanelToggleButtonState extends State<_PanelToggleButton>
             duration: AnimationConstants.pressDuration,
             curve: AnimationConstants.standardCurve,
             child: Container(
-              padding: const EdgeInsets.all(6),
+              // 5 + 1px border keeps the footprint identical to the old
+              // borderless 6px padding.
+              padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
-                color: isHovered ? colors.surface : Colors.transparent,
+                color: active
+                    ? (isHovered
+                          ? colors.selectionFillHover
+                          : colors.selectionFill)
+                    : (isHovered ? colors.surface : Colors.transparent),
                 borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: active ? colors.selectionBorder : Colors.transparent,
+                ),
               ),
               child: svgIcon,
             ),

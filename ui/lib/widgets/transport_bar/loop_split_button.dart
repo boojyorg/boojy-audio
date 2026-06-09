@@ -163,9 +163,7 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
                       decoration: BoxDecoration(
                         color: _isLeftHovered
                             ? (isActive
-                                  ? colors.accent.withValues(
-                                      alpha: BT.opacityMedium,
-                                    )
+                                  ? colors.selectionFillHover
                                   : colors.textPrimary.withValues(
                                       alpha: BT.opacitySubtle,
                                     ))
@@ -203,7 +201,7 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
                 // meaningless when loop is off, so the resting button is a single
                 // plain pill (no stray divider, no bare "|").
                 if (isActive) ...[
-                  Container(width: 1, color: colors.accent),
+                  Container(width: 1, color: colors.selectionBorder),
                   // Right zone: punch status (opens dropdown)
                   MouseRegion(
                     cursor: SystemMouseCursors.click,
@@ -231,9 +229,7 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
                         decoration: BoxDecoration(
                           color: _isRightHovered
                               ? (isActive
-                                    ? colors.accent.withValues(
-                                        alpha: BT.opacityMedium,
-                                      )
+                                    ? colors.selectionFillHover
                                     : colors.textPrimary.withValues(
                                         alpha: BT.opacitySubtle,
                                       ))

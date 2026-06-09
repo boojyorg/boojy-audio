@@ -691,9 +691,14 @@ class _EditorPanelState extends State<EditorPanel>
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: isSelected
-                ? context.colors.accent.withValues(alpha: 0.3)
+                ? context.colors.selectionFill
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: isSelected
+                  ? context.colors.selectionBorder
+                  : Colors.transparent,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

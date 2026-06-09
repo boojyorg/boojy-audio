@@ -1441,13 +1441,19 @@ class _PianoRollState extends State<PianoRoll>
                 width: 20,
                 height: 20,
                 decoration: BoxDecoration(
-                  color: auditionEnabled ? colors.accent : colors.dark,
+                  color: auditionEnabled ? colors.selectionFill : colors.dark,
                   borderRadius: BorderRadius.circular(2),
+                  border: Border.all(
+                    color: auditionEnabled
+                        ? colors.selectionBorder
+                        : colors.surface,
+                    width: 1,
+                  ),
                 ),
                 child: Icon(
                   auditionEnabled ? BI.speakerHigh : BI.speakerNone,
                   size: 14,
-                  color: auditionEnabled ? colors.elevated : colors.textMuted,
+                  color: auditionEnabled ? colors.accent : colors.textMuted,
                 ),
               ),
             ),
