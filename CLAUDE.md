@@ -55,9 +55,22 @@ Docs/memory model (CLAUDE.md / `.claude/rules/` / `dreams.md` / auto-memory / gi
 A `PostToolUse` hook (`.claude/hooks/post-edit-validation.sh`) runs a **fast** gate after each edit,
 at CI strictness: `.rs` under `engine/` → `cargo check` + `cargo clippy --all-targets -- -D warnings`;
 `.dart` under `ui/` → `flutter analyze --fatal-infos`. It skips gracefully if the toolchain is
-missing. Full test suites are **not** run in that loop — run
-them manually / let CI run them. Before committing, all of the following must be green (CI enforces
-them on every PR — macOS full pipeline + Windows analyze/test/clippy, no VST3):
+missing. Full test suites are **not** run in that loop.
+
+**Local-vs-CI split (don't burn session time re-running what CI runs):**
+
+- **Local, before committing — scope to what changed.** UI-only change → the edit-hook analyze
+  + `fvm dart format` + the test files *near* the change (e.g. `fvm flutter test test/widgets/`),
+  not the full suite. Engine change → `cargo test` + clippy, plus `test/native/` if the FFI
+  surface moved. Don't run `cargo` gates for Dart-only diffs or the full Flutter suite for
+  Rust-only diffs.
+- **CI runs the full matrix on every PR** (macOS full pipeline + Windows analyze/test/clippy, no
+  VST3) — that's where the complete suites below belong. Run them all locally only when asked, or
+  when a change is risky/cross-cutting (FFI surface, persistence, undo).
+- **CI is not a required status check** on this repo, so the discipline is: open the PR, **watch
+  CI go green, then merge** — never auto-merge-and-walk-away on a risky change.
+
+The full gate set (what CI enforces; run locally only per the split above):
 
 - **Flutter tests** (incl. the native-engine `test/native/` ffi tests): `./build.sh` first, then
   `cd ui && fvm flutter test`. CI adds `--dart-define=BOOJY_CI=true` so `test/native` fails loudly

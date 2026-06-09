@@ -57,6 +57,22 @@ class BoojyTokens {
   static final BorderRadius borderLg = BorderRadius.circular(radiusLg);
 
   // ============================================
+  // DIALOG CHROME
+  // ============================================
+
+  /// The one modal barrier colour (black @ 80%) — every showDialog /
+  /// showGeneralDialog barrier uses this so stacked modals dim identically.
+  /// (Transparent barriers on anchored popovers are the deliberate exception.)
+  static const Color dialogBarrierColor = Color(0xCC000000);
+
+  /// Dialog body widths — three sizes instead of a literal per dialog.
+  /// Sm: confirmations + single-column settings · Md: forms (export) ·
+  /// Lg: two-pane browsers (app settings, shortcuts).
+  static const double dialogWidthSm = 420.0;
+  static const double dialogWidthMd = 480.0;
+  static const double dialogWidthLg = 680.0;
+
+  // ============================================
   // OPACITY (for color.withValues(alpha: ...))
   // ============================================
 
