@@ -190,9 +190,7 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                     decoration: BoxDecoration(
                       color: _isIconHovered
                           ? (isActive
-                                ? colors.accent.withValues(
-                                    alpha: BT.opacityMedium,
-                                  )
+                                ? colors.selectionFillHover
                                 : colors.textPrimary.withValues(
                                     alpha: BT.opacitySubtle,
                                   ))
@@ -221,11 +219,11 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                   ),
                 ),
               ),
-              // Divider — full-height, accent when engaged to match the outline.
+              // Divider — full-height, selection-border when engaged to match the outline.
               Container(
                 width: 1,
                 color: isActive
-                    ? colors.accent
+                    ? colors.selectionBorder
                     : colors.textPrimary.withValues(alpha: BT.opacityMedium),
               ),
               // Right zone: current value text (opens dropdown)
@@ -255,9 +253,7 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                     decoration: BoxDecoration(
                       color: _isChevronHovered
                           ? (isActive
-                                ? colors.accent.withValues(
-                                    alpha: BT.opacityMedium,
-                                  )
+                                ? colors.selectionFillHover
                                 : colors.textPrimary.withValues(
                                     alpha: BT.opacitySubtle,
                                   ))

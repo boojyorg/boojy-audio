@@ -1249,6 +1249,8 @@ class _PanelToggleButtonState extends State<_PanelToggleButton>
         // Rest colour matches the help (?) glyph — textSecondary, the one
         // chrome-icon grey — and we no longer dim the collapsed-panel state to
         // 0.5, which made these toggles read darker/heavier than the help icon.
+        // Deliberately NO active/open treatment (selection fill was tried and
+        // rejected 2026-06-09) — these stay quiet chrome.
         isHovered ? colors.textPrimary : colors.textSecondary,
         BlendMode.srcIn,
       ),
