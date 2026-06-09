@@ -177,9 +177,7 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
                     decoration: BoxDecoration(
                       color: _isLeftHovered
                           ? (widget.isActive
-                                ? colors.accent.withValues(
-                                    alpha: BT.opacityMedium,
-                                  )
+                                ? colors.selectionFillHover
                                 : colors.textPrimary.withValues(
                                     alpha: BT.opacitySubtle,
                                   ))
@@ -202,11 +200,11 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
               // showLabel is false so the metronome collapses to an icon-only
               // toggle, matching Loop/Snap shedding.
               if (widget.showLabel) ...[
-                // Divider — full-height, accent when engaged to match the outline.
+                // Divider — full-height, selection-border when engaged to match the outline.
                 Container(
                   width: 1,
                   color: widget.isActive
-                      ? colors.accent
+                      ? colors.selectionBorder
                       : colors.textPrimary.withValues(alpha: BT.opacityMedium),
                 ),
                 // Right zone: count-in value text (opens dropdown)
@@ -236,9 +234,7 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
                       decoration: BoxDecoration(
                         color: _isRightHovered
                             ? (widget.isActive
-                                  ? colors.accent.withValues(
-                                      alpha: BT.opacityMedium,
-                                    )
+                                  ? colors.selectionFillHover
                                   : colors.textPrimary.withValues(
                                       alpha: BT.opacitySubtle,
                                     ))

@@ -405,10 +405,9 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
 
   Widget _buildSnapDropdown(BuildContext context, String label) {
     final colors = context.colors;
-    // Outlined + soft-tint grammar, matching the transport bar's Snap button.
-    final bgColor = widget.snapEnabled
-        ? colors.accent.withValues(alpha: BT.opacityLight)
-        : colors.surface;
+    // Outlined + soft-tint grammar, matching the transport bar's Snap button
+    // via the shared selection tokens.
+    final bgColor = widget.snapEnabled ? colors.selectionFill : colors.surface;
     final textColor = widget.snapEnabled
         ? colors.textPrimary
         : colors.textSecondary;
@@ -420,9 +419,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         color: bgColor,
         borderRadius: BT.borderSm,
         border: Border.all(
-          color: widget.snapEnabled
-              ? colors.accent.withValues(alpha: 0.7)
-              : colors.textMuted,
+          color: widget.snapEnabled ? colors.selectionBorder : colors.textMuted,
           width: 1,
         ),
       ),
@@ -453,7 +450,9 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
                 decoration: BoxDecoration(
                   color: _isHoveringSnapLabel
-                      ? colors.textPrimary.withValues(alpha: 0.1)
+                      ? (widget.snapEnabled
+                            ? colors.selectionFillHover
+                            : colors.textPrimary.withValues(alpha: 0.1))
                       : Colors.transparent,
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(2),
@@ -478,12 +477,13 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
             ),
           ),
 
-          // Divider line — accent when engaged, like the transport split button
+          // Divider line — selection-border when engaged, like the transport
+          // split button
           Container(
             width: 1,
             height: 15,
             color: widget.snapEnabled
-                ? colors.accent.withValues(alpha: 0.7)
+                ? colors.selectionBorder
                 : colors.textMuted,
           ),
 
@@ -515,7 +515,9 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
                 decoration: BoxDecoration(
                   color: _isHoveringSnapDropdown
-                      ? colors.textPrimary.withValues(alpha: 0.1)
+                      ? (widget.snapEnabled
+                            ? colors.selectionFillHover
+                            : colors.textPrimary.withValues(alpha: 0.1))
                       : Colors.transparent,
                   borderRadius: const BorderRadius.only(
                     topRight: Radius.circular(2),

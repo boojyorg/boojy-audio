@@ -96,9 +96,11 @@ EditorButtonStyle resolveEditorButtonStyle(
         content: onAccentContent,
       );
     case EditorButtonVariant.outline:
+      // The chosen design rides the shared selection tokens so the editor
+      // tabs/tools match BoojyButton and the transport split buttons exactly.
       return EditorButtonStyle(
-        background: colors.accent.withValues(alpha: 0.12),
-        border: colors.accent,
+        background: colors.selectionFill,
+        border: colors.selectionBorder,
         content: colors.accent,
       );
     case EditorButtonVariant.softFill:
