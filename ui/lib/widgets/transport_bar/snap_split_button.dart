@@ -148,7 +148,7 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
         // behind the zone fills. The outline turns a soft accent when engaged.
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          borderRadius: BT.borderSm,
+          borderRadius: BT.borderMd,
           border: Border.all(
             // Off-state outline matches the active accent one in weight
             // (textMuted, not the near-invisible divider) — grey, not blue.
@@ -196,8 +196,8 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                                   ))
                           : leftBg,
                       borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(BT.radiusSm),
-                        bottomLeft: Radius.circular(BT.radiusSm),
+                        topLeft: Radius.circular(BT.radiusMd),
+                        bottomLeft: Radius.circular(BT.radiusMd),
                       ),
                     ),
                     child: Row(
@@ -259,8 +259,8 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                                   ))
                           : leftBg,
                       borderRadius: const BorderRadius.only(
-                        topRight: Radius.circular(2),
-                        bottomRight: Radius.circular(2),
+                        topRight: Radius.circular(BT.radiusMd),
+                        bottomRight: Radius.circular(BT.radiusMd),
                       ),
                     ),
                     child: Text(

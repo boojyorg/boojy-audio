@@ -112,6 +112,21 @@ All notable changes to Boojy Audio will be documented in this file.
   surfaces today, so the option is hidden until the colour system is cleaned up — the theme itself
   is kept in code for a later re-introduction. Anyone already on High Contrast is moved to the
   matching standard Dark/Light theme on next launch.
+- **The top bar degrades gracefully at narrow window widths.** Squeezing the window below ~720px
+  used to spill a live red "OVERFLOWED BY" error banner over the arrangement while the
+  play/stop/record circles ballooned over their neighbours. Now the bar sheds progressively — tool
+  labels first, then the "BPM" suffix, then button size, and finally the tempo/signature readouts —
+  the transport circles shrink with everything else, and nothing can ever paint over the
+  arrangement.
+- **One shape language for the top bar.** The Loop/Snap/Metronome split buttons and file-menu
+  hover pill used a sharper corner radius than the rest of the bar's chrome; everything chrome now
+  shares the same 4px radius (menus and popovers keep 8px).
+- **The crash-recovery dialog shows the real Boojy logo.** It was the last screen still using the
+  old PNG logo assets, whose near-black lettering was invisible on the dark dialog; it now uses the
+  same code-drawn "Boojy / ▲udio" lockup as the start screen.
+- **Dialogs dim the app consistently.** All modal dialogs now share one barrier shade and one of
+  three standard widths — previously the app-settings dialog dimmed the background with a different
+  tint than every other dialog, and each dialog picked its own width.
 
 ## v0.5.4 — 2026-06-06
 
