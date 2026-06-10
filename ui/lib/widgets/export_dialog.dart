@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import '../theme/boojy_icons.dart';
@@ -804,12 +803,11 @@ class _ExportDialogState extends State<ExportDialog> {
         actions: [
           TextButton(
             onPressed: () {
-              // Open folder containing the file
-              final folder = File(results.first.path).parent.path;
-              Process.run('open', [folder]);
+              // Reveal the exported file in the platform file manager
+              revealInFinder(results.first.path);
               Navigator.of(context).pop();
             },
-            child: const Text('Show in Finder'),
+            child: Text(revealInFinderLabel),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(),

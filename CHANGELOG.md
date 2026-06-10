@@ -130,6 +130,28 @@ All notable changes to Boojy Audio will be documented in this file.
   through widget focus, so clicking any button stole the keystroke — Space, and likewise L/M/I/O
   (loop, metronome, punch in/out), are now handled at the app level and work regardless of what's
   focused, while still leaving text fields alone.
+- **Favourites work now.** Starring a user-folder sample or a VST3 plugin used to vanish into an
+  always-empty Favorites view — favourites now appear for every item source (bundled content,
+  user folders, plugins), and the star icon finally has two states (outline → filled when
+  favourited). Library items are also identified by their full path instead of a collision-prone
+  hash, so two files can no longer share one favourite or selection state. One-time cost:
+  favourites saved before this fix are reset, with a one-time notice.
+- **Right-click menus no longer die silently in debug builds.** The track header's context menu
+  and the piano-roll CC/automation lane menus read theme colours in a way that killed the handler
+  in debug builds (the same class as the v0.5.1 right-click-Delete bug — its third shipping). All
+  remaining cases are fixed, a new repo-wide static guard test fails CI if the pattern is ever
+  reintroduced, and failed undoable commands now rethrow in debug instead of vanishing.
+- **"Show in Finder" works on Windows.** Every reveal action (library items and folders, recent
+  projects, the start screen, the post-export confirmation) goes through one cross-platform
+  helper — Explorer with the file pre-selected on Windows, Finder on macOS — and the menu label
+  matches the platform. The export dialog now reveals the exported file itself instead of just
+  opening its folder.
+- **The collapsed editor no longer shows a phantom Effects tab.** MIDI tracks offered an Effects
+  tab that crashed in debug builds when tapped (and the Master track an extra button past the tab
+  range); the collapsed and expanded tab strips now derive from one shared tab list, so they can
+  never disagree again.
+- **Arrangement rows and mixer strips stay aligned at the bottom of the scroll.** They drifted
+  apart by 60px at full scroll (160 vs 100 bottom padding); both sides now share one constant.
 
 ### Features
 

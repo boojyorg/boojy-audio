@@ -331,6 +331,9 @@ class _PianoRollClipAutomationLaneState
   }
 
   void _showParameterMenu() {
+    // Event handler: context.colors here is a listening Provider.of, which
+    // asserts "listen outside build" in debug and kills the menu silently.
+    final colors = context.themeProvider.colors;
     final RenderBox button = context.findRenderObject() as RenderBox;
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
@@ -351,7 +354,7 @@ class _PianoRollClipAutomationLaneState
           child: Text(
             param.displayName,
             style: TextStyle(
-              color: context.colors.textPrimary,
+              color: colors.textPrimary,
               fontSize: BT.fontLabel,
               fontWeight: param == widget.lane.parameter
                   ? BT.weightSemiBold

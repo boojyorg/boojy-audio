@@ -241,14 +241,19 @@ class _TrackHeaderState extends State<TrackHeader> {
 
     final isAudioTrack = widget.trackType.toLowerCase() == 'audio';
 
+    // Event handler (onSecondaryTapDown): context.colors here is a listening
+    // Provider.of, which asserts "listen outside build" in debug and kills
+    // the right-click menu silently.
+    final colors = context.themeProvider.colors;
+
     final menuItems = <PopupMenuEntry<String>>[
       PopupMenuItem<String>(
         value: 'rename',
         child: Row(
           children: [
-            Icon(BI.pencil, size: 16, color: context.colors.darkest),
+            Icon(BI.pencil, size: 16, color: colors.darkest),
             const SizedBox(width: 8),
-            Text('Rename', style: TextStyle(color: context.colors.darkest)),
+            Text('Rename', style: TextStyle(color: colors.darkest)),
           ],
         ),
       ),
@@ -256,9 +261,9 @@ class _TrackHeaderState extends State<TrackHeader> {
         value: 'duplicate',
         child: Row(
           children: [
-            Icon(BI.copy, size: 16, color: context.colors.darkest),
+            Icon(BI.copy, size: 16, color: colors.darkest),
             const SizedBox(width: 8),
-            Text('Duplicate', style: TextStyle(color: context.colors.darkest)),
+            Text('Duplicate', style: TextStyle(color: colors.darkest)),
           ],
         ),
       ),
@@ -268,11 +273,11 @@ class _TrackHeaderState extends State<TrackHeader> {
           value: 'convert_to_sampler',
           child: Row(
             children: [
-              Icon(BI.musicNote, size: 16, color: context.colors.darkest),
+              Icon(BI.musicNote, size: 16, color: colors.darkest),
               const SizedBox(width: 8),
               Text(
                 'Convert to Sampler',
-                style: TextStyle(color: context.colors.darkest),
+                style: TextStyle(color: colors.darkest),
               ),
             ],
           ),
@@ -282,9 +287,9 @@ class _TrackHeaderState extends State<TrackHeader> {
         value: 'delete',
         child: Row(
           children: [
-            Icon(BI.delete, size: 16, color: context.colors.error),
+            Icon(BI.delete, size: 16, color: colors.error),
             const SizedBox(width: 8),
-            Text('Delete', style: TextStyle(color: context.colors.error)),
+            Text('Delete', style: TextStyle(color: colors.error)),
           ],
         ),
       ),

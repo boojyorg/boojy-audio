@@ -93,6 +93,7 @@ dev_dependencies:
   #     -define icon:auto-resize=256,128,64,48,32,24,16 \
   #     windows/runner/resources/app_icon.ico
   flutter_launcher_icons: ^0.14.3
+  analyzer: ^13.0.0
 
 flutter_launcher_icons:
   image_path: "assets/images/app_icon_master.png"

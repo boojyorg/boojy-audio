@@ -293,12 +293,14 @@ class RecordingController extends ChangeNotifier {
       _countInProgress = 0.0;
       _countInDurationSeconds = 0.0;
 
-      // Clear engine punch flags
+      // Clear engine punch flags (best-effort cleanup, but never silent)
       if (_isPunchRecording) {
         try {
           _audioEngine!.setPunchInEnabled(enabled: false);
           _audioEngine!.setPunchOutEnabled(enabled: false);
-        } catch (_) {}
+        } catch (e) {
+          Log.e('RecordingController: failed to clear punch flags: $e');
+        }
         _isPunchRecording = false;
         _hasPunchOut = false;
       }
@@ -530,11 +532,13 @@ class RecordingController extends ChangeNotifier {
     _isMidiRecording = false;
     _audioRecordingStarted = false;
 
-    // Clear engine punch flags
+    // Clear engine punch flags (best-effort cleanup, but never silent)
     try {
       _audioEngine!.setPunchInEnabled(enabled: false);
       _audioEngine!.setPunchOutEnabled(enabled: false);
-    } catch (_) {}
+    } catch (e) {
+      Log.e('RecordingController: failed to clear punch flags: $e');
+    }
     _isPunchRecording = false;
     _hasPunchOut = false;
 
