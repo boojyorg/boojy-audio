@@ -102,15 +102,20 @@ strip mockup still parked pending a design conversation.
   pad fader/M/S undo, autoSelectClip on all creation paths (+ audio→sampler convert rebuilt — its
   clips were engine-only/invisible), waveform corner artifact. Follow-up flagged: delete dead
   mixin duplicates (`convertAudioTrackToSampler` etc.) in a consolidation pass.
-- [ ] **M/S/R tap lag — ROOT CAUSE FOUND + FIXED** (branch `fix/v0.6-msr-tap-lag`, commit
-  `c5fa4d5`, NOT pushed — awaiting Tyr's walkthrough): ancestor `onDoubleTap` on
-  TrackHeader/TrackMixerStrip held the gesture arena ~300 ms per tap (proven by widget test;
-  batch 2's engine lock was a separate, real lag). Now manual double-click detection; regression
-  test `track_buttons_latency_test.dart`; rule in `.claude/rules/flutter-ui.md`. Closes the §4.4
-  bug-report decision.
-- [ ] **Batches 4–5** (right-click/favourites sweep · undo-truth/persistence), then the
-  low-sweep visual batch; §4-of-bug-report decisions need Tyr (multi-arm, mixer border, M/S/R-lag
-  retest after batch 2).
+- [x] **M/S/R tap lag — fixed (PR #87 MERGED 2026-06-10, `e470d75`, walkthrough passed)**:
+  ancestor `onDoubleTap` on TrackHeader/TrackMixerStrip held the gesture arena ~300 ms per tap;
+  now manual double-click detection + regression test `track_buttons_latency_test.dart` + rule
+  in `.claude/rules/flutter-ui.md`. Closes the §4.4 bug-report decision.
+- [x] **Batch 4 — right-click/favourites** (walkthrough PASSED 2026-06-10, PR opening):
+  favourites for all sources (#9) + path-as-ID with legacy prune (#41) + star outline/filled
+  pair, cross-platform `revealInFinder()` (#40), provider-listen sweep (track-header/CC/
+  automation-lane menus) + **AST guard test** `ui/test/lint/provider_listen_guard_test.dart` +
+  UndoRedoManager debug rethrow, phantom Effects tab via single `_tabs` source (#7, + collapsed
+  Master), shared bottom buffer (#12), instrument-drop mixin consolidation (batch-3 debt).
+- [ ] **Batch 5** (undo-truth/persistence — lighter than report scope: recording undo
+  engine-resync #15/#16, icon command+persistence #17/#47, auto-save restart + undo-limit
+  setting #44/#45, navBar dispose #52, dead stubs), then the low-sweep visual batch;
+  §4-of-bug-report decisions need Tyr (multi-arm, mixer border).
 - [ ] **Tag decision** after batches land + dogfood round 2.
 
 **Carried decisions:** ASIO deferred (WASAPI right for beginners). Windows machine = per-release
