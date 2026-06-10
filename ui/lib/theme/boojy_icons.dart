@@ -130,7 +130,7 @@ class BoojyIcons {
   static IconData get lockOpen => Icons.lock_open;
   static IconData get eye => Icons.visibility;
   static IconData get eyeSlash => Icons.visibility_off;
-  static IconData get star => Icons.star;
+  static IconData get star => Icons.star_border;
   static IconData get starFilled => Icons.star;
   static IconData get bookmark => Icons.bookmark_add;
   static IconData get layers => Icons.layers;

@@ -88,6 +88,11 @@ class UndoRedoManager extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       Log.e('UndoRedoManager: Error executing command: $e');
+      // In debug, surface the error instead of letting the action die
+      // silently — this is how the "listen outside build" class shipped
+      // three times (the assert was swallowed right here). Release keeps
+      // the old swallow-and-continue behavior.
+      if (kDebugMode) rethrow;
     } finally {
       _releaseLock();
     }
@@ -105,7 +110,13 @@ class UndoRedoManager extends ChangeNotifier {
     }
   }
 
-  /// Undo the last action
+  /// Undo the last action.
+  ///
+  /// Failure contract is asymmetric by design: in RELEASE a failing command
+  /// returns `false`; in DEBUG the error is rethrown (the Future completes
+  /// with the error, so an `if (!await undo())` branch is never reached) —
+  /// silent-swallow here is how the "listen outside build" class shipped
+  /// three times. Returns `false` immediately when there is nothing to undo.
   Future<bool> undo() async {
     if (!canUndo || _engine == null) {
       return false;
@@ -127,13 +138,17 @@ class UndoRedoManager extends ChangeNotifier {
       return true;
     } catch (e) {
       Log.e('UndoRedoManager: Error undoing command: $e');
+      if (kDebugMode) rethrow; // see execute(): never die silently in debug
       return false;
     } finally {
       _releaseLock();
     }
   }
 
-  /// Redo the last undone action
+  /// Redo the last undone action.
+  ///
+  /// Same failure contract as [undo]: returns `false` in release, rethrows in
+  /// debug (the returned Future completes with the error, not `false`).
   Future<bool> redo() async {
     if (!canRedo || _engine == null) {
       return false;
@@ -154,6 +169,7 @@ class UndoRedoManager extends ChangeNotifier {
       return true;
     } catch (e) {
       Log.e('UndoRedoManager: Error redoing command: $e');
+      if (kDebugMode) rethrow; // see execute(): never die silently in debug
       return false;
     } finally {
       _releaseLock();

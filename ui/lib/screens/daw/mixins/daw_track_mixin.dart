@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import '../../../models/clip_data.dart';
 import '../../../models/instrument_data.dart';
 import '../../../models/midi_note_data.dart';
+import '../../../services/bundled_content_service.dart';
 import '../../../services/commands/track_commands.dart';
 import '../../../services/vst3_editor_service.dart';
 import '../../../utils/csv_field.dart';
 import '../../../widgets/instrument_browser.dart';
 import '../../daw_screen.dart';
+import '../../daw_screen_io.dart'
+    if (dart.library.js_interop) '../../daw_screen_io_web.dart';
 import 'daw_screen_state.dart';
 import 'daw_recording_mixin.dart';
 import 'daw_ui_mixin.dart';
@@ -151,6 +154,28 @@ mixin DAWTrackMixin
 
   /// Handle instrument selection for a track
   void onInstrumentSelected(int trackId, String instrumentId) {
+    // The Sampler is an engine-side instrument (tracked via isSamplerTrack),
+    // not an InstrumentData, so it can't go through the synth path below —
+    // that would silently leave the track a Synthesizer. Swap the existing
+    // track to a sampler instead, mirroring the new-track path.
+    if (instrumentId == 'sampler') {
+      trackController.removeTrackInstrument(trackId);
+      audioEngine?.createSamplerForTrack(trackId);
+      trackController.selectTrack(trackId);
+      uiLayout.isEditorPanelVisible = true;
+      if (!trackController.isTrackNameUserEdited(trackId)) {
+        audioEngine?.setTrackName(trackId, 'Sampler');
+      }
+      return;
+    }
+
+    // A Drum Kit is a whole multi-pad track, not an in-place instrument swap —
+    // always spin up a fresh drum-kit track rather than overwriting this one.
+    if (instrumentId == 'drum_kit') {
+      createDrumKitTrack();
+      return;
+    }
+
     // Create default instrument data for the track
     final instrumentData = InstrumentData.defaultSynthesizer(trackId);
     trackController.setTrackInstrument(trackId, instrumentData);
@@ -262,8 +287,14 @@ mixin DAWTrackMixin
 
       refreshTrackWidgets();
       // autoSelectClip so the new 1-bar clip shows selected, matching the
-      // synth path below.
+      // synth path below (also opens the editor panel).
       onTrackSelected(trackId, autoSelectClip: true);
+      return;
+    }
+
+    // Handle Drum Kit instrument — multi-pad one-shot sampler on a MIDI track
+    if (instrument.id == 'drum_kit') {
+      createDrumKitTrack();
       return;
     }
 
@@ -293,9 +324,67 @@ mixin DAWTrackMixin
     disarmOtherMidiTracks(trackId);
   }
 
+  /// Create a new Drum Kit track seeded with standard empty pads.
+  ///
+  /// Pads are pinned to General-MIDI percussion notes and pre-filled with the
+  /// bundled starter kit (copied out of the asset bundle on first use), so a
+  /// fresh Drum Kit makes sound with zero setup — the one-click first beat.
+  Future<void> createDrumKitTrack() async {
+    if (audioEngine == null) return;
+
+    final trackId = audioEngine!.createTrack('midi', 'Drum Kit');
+    if (trackId < 0) {
+      showSnackBar('Failed to create drum kit track');
+      return;
+    }
+
+    final kitId = audioEngine!.createDrumKitForTrack(trackId);
+    if (kitId < 0) {
+      showSnackBar('Failed to create drum kit');
+      return;
+    }
+
+    // The engine loads samples by filesystem path, so make sure the bundled
+    // kit is installed on disk (no-op after the first call). On failure the
+    // kit still appears, just with empty pads.
+    final drumsRoot = await BundledContentService.ensureInstalled();
+    var loadedAll = drumsRoot != null;
+    for (final (note, sample) in BundledContentService.starterKitPads) {
+      final padIndex = audioEngine!.addDrumPad(trackId, note);
+      if (drumsRoot != null && padIndex >= 0) {
+        final samplePath =
+            '$drumsRoot$pathSeparator'
+            '${sample.split('/').join(pathSeparator)}';
+        loadedAll &= audioEngine!.loadDrumPadSample(
+          trackId,
+          padIndex,
+          samplePath,
+        );
+      }
+    }
+
+    createDefaultMidiClip(trackId);
+    refreshTrackWidgets();
+    // autoSelectClip so the new 1-bar clip shows selected, matching the synth
+    // drop path (also opens the editor panel on the new kit).
+    onTrackSelected(trackId, autoSelectClip: true);
+    showSnackBar(
+      loadedAll
+          ? 'Created drum kit'
+          : 'Created drum kit (starter sounds unavailable)',
+    );
+  }
+
   // ============================================
   // HELPER METHODS
   // ============================================
+
+  /// Show snackbar message
+  void showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+    );
+  }
 
   /// Check if a track is a MIDI track
   bool isMidiTrack(int trackId) {

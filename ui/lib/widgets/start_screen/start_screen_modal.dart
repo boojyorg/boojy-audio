@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -9,6 +8,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
+import '../../utils/native_dialogs.dart';
 import '../shared/boojy_wordmark.dart';
 import 'recent_projects_grid.dart';
 
@@ -276,7 +276,7 @@ class _StartScreenModalState extends State<StartScreenModal> {
               setState(() {}); // Refresh grid
             },
             onShowInFinder: (project) {
-              Process.run('open', ['-R', project.path]);
+              revealInFinder(project.path);
             },
             onNewProject: () => Navigator.of(
               context,

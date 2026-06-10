@@ -73,3 +73,37 @@ Future<String?> pickSaveFilePath({
 String sanitizeFileName(String name) {
   return name.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
 }
+
+/// Platform-appropriate menu label for [revealInFinder].
+String get revealInFinderLabel {
+  if (Platform.isMacOS) return 'Show in Finder';
+  if (Platform.isWindows) return 'Show in Explorer';
+  return 'Show in File Manager';
+}
+
+/// Reveal [path] in the platform's file manager, selecting it when the
+/// platform supports selection. Never throws on a nonzero exit code —
+/// Windows `explorer` exits nonzero even on success.
+Future<void> revealInFinder(String path) async {
+  if (Platform.isMacOS) {
+    await Process.run('open', ['-R', path]);
+  } else if (Platform.isWindows) {
+    // explorer needs backslashes; forward slashes make /select silently
+    // fall back to opening the Documents folder. The path must reach
+    // explorer QUOTED or any space in it truncates the argument (also a
+    // silent Documents fallback) — pass `/select,` and the path as two
+    // arguments so dart:io's Windows argument quoting wraps the path in
+    // quotes itself (`explorer /select, "C:\My Dir\f.txt"`). Embedding
+    // quotes in a single `/select,"$winPath"` argument does NOT work:
+    // dart:io re-escapes the embedded quotes and explorer's own command
+    // line parser mangles them.
+    final winPath = path.replaceAll('/', r'\');
+    await Process.run('explorer', ['/select,', winPath]);
+  } else {
+    // Linux: no portable "select file in manager" — open the containing
+    // directory instead (or the folder itself if path is a directory).
+    final isDir = await Directory(path).exists();
+    final target = isDir ? path : File(path).parent.path;
+    await Process.run('xdg-open', [target]);
+  }
+}

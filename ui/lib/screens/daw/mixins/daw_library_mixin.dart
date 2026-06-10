@@ -2,15 +2,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../utils/logger.dart';
 import '../../../models/clip_data.dart';
-import '../../../models/library_item.dart';
 import '../../../models/midi_note_data.dart';
-import '../../../models/vst3_plugin_data.dart';
 import '../../../services/commands/track_commands.dart';
 // ignore: unused_import
 import '../../../services/commands/clip_commands.dart';
 import '../../../utils/clip_overlap_handler.dart';
 import '../../../services/midi_file_service.dart';
-import '../../../widgets/instrument_browser.dart';
 import '../../daw_screen.dart';
 import 'daw_screen_state.dart';
 import 'daw_recording_mixin.dart';
@@ -31,158 +28,19 @@ mixin DAWLibraryMixin
         DAWClipMixin,
         DAWVst3Mixin {
   // ============================================
-  // LIBRARY ITEM DOUBLE-CLICK
-  // ============================================
-
-  /// Handle double-click on library item
-  void handleLibraryItemDoubleClick(LibraryItem item) {
-    if (audioEngine == null) return;
-
-    final selectedTrack = selectedTrackId;
-    final isMidi = selectedTrack != null && isMidiTrack(selectedTrack);
-    final isEmptyAudio =
-        selectedTrack != null && isEmptyAudioTrack(selectedTrack);
-
-    switch (item.type) {
-      case LibraryItemType.instrument:
-        // Find the matching Instrument from availableInstruments
-        final instrument = findInstrumentByName(item.name);
-        if (instrument != null) {
-          if (isMidi) {
-            // Swap/add instrument on selected MIDI track
-            onInstrumentSelected(selectedTrack, instrument.id);
-          } else {
-            // Create new MIDI track with instrument
-            onInstrumentDroppedOnEmpty(instrument);
-          }
-        }
-        break;
-
-      case LibraryItemType.preset:
-        if (item is PresetItem) {
-          // Find the instrument for this preset
-          final instrument = findInstrumentById(item.instrumentId);
-          if (instrument != null) {
-            if (isMidi) {
-              // Swap/add instrument on selected MIDI track
-              onInstrumentSelected(selectedTrack, instrument.id);
-              // Preset loading deferred to v0.5.0 (Stock Instruments milestone)
-            } else {
-              // Create new MIDI track with instrument
-              onInstrumentDroppedOnEmpty(instrument);
-              // Preset loading deferred to v0.5.0 (Stock Instruments milestone)
-            }
-          }
-        }
-        break;
-
-      case LibraryItemType.sample:
-        if (item is SampleItem && item.filePath.isNotEmpty) {
-          if (isEmptyAudio) {
-            // Add clip to selected empty audio track
-            addAudioClipToTrack(selectedTrack, item.filePath);
-          } else {
-            // Create new audio track with clip
-            onAudioFileDroppedOnEmpty(item.filePath);
-          }
-        } else {
-          showSnackBar('Sample not available [WIP]');
-        }
-        break;
-
-      case LibraryItemType.audioFile:
-        if (item is AudioFileItem) {
-          if (isEmptyAudio) {
-            // Add clip to selected empty audio track
-            addAudioClipToTrack(selectedTrack, item.filePath);
-          } else {
-            // Create new audio track with clip
-            onAudioFileDroppedOnEmpty(item.filePath);
-          }
-        }
-        break;
-
-      case LibraryItemType.effect:
-        if (selectedTrack != null) {
-          // Add effect to selected track
-          if (item is EffectItem) {
-            addBuiltInEffectToTrack(selectedTrack, item.effectType);
-          }
-        } else {
-          showSnackBar('Select a track first to add effects');
-        }
-        break;
-
-      case LibraryItemType.midiFile:
-        if (item is MidiFileItem) {
-          if (isMidi) {
-            onMidiFileDroppedOnTrack(selectedTrack, item.filePath, 0.0);
-          } else {
-            onMidiFileDroppedOnEmpty(item.filePath);
-          }
-        }
-        break;
-
-      case LibraryItemType.vst3Instrument:
-      case LibraryItemType.vst3Effect:
-        // Handled by handleVst3DoubleClick
-        break;
-
-      case LibraryItemType.folder:
-        // Folders are not double-clickable for adding
-        break;
-    }
-  }
-
-  /// Handle double-click on VST3 plugin in library
-  void handleVst3DoubleClick(Vst3Plugin plugin) {
-    if (audioEngine == null) return;
-
-    final selectedTrack = selectedTrackId;
-    final isMidi = selectedTrack != null && isMidiTrack(selectedTrack);
-
-    if (plugin.isInstrument) {
-      if (isMidi) {
-        // Swap/add VST3 instrument on selected MIDI track
-        onVst3InstrumentDropped(selectedTrack, plugin);
-      } else {
-        // Create new MIDI track with VST3 instrument
-        onVst3InstrumentDroppedOnEmpty(plugin);
-      }
-    } else {
-      // VST3 effect
-      if (selectedTrack != null) {
-        onVst3PluginDropped(selectedTrack, plugin);
-      } else {
-        showSnackBar('Select a track first to add effects');
-      }
-    }
-  }
-
-  // ============================================
   // SAMPLER OPERATIONS
   // ============================================
 
-  /// Open an audio file in a new Sampler track
-  void handleOpenInSampler(LibraryItem item) {
-    if (audioEngine == null) return;
-
-    // Get the file path
-    String? filePath;
-    if (item is SampleItem) {
-      filePath = item.filePath;
-    } else if (item is AudioFileItem) {
-      filePath = item.filePath;
-    }
-
-    if (filePath == null || filePath.isEmpty) {
-      showSnackBar('Cannot open in sampler: no file path');
-      return;
-    }
-
-    // Create a new Sampler track
-    createSamplerTrackWithSample(filePath, item.name);
-  }
+  // TOMBSTONE: handleLibraryItemDoubleClick / handleVst3DoubleClick /
+  // handleOpenInSampler do NOT live here. The live handlers are the private
+  // `_handleLibraryItemDoubleClick` / `_handleVst3DoubleClick` /
+  // `_handleOpenInSampler` in `daw_screen.dart` — both LibraryPanel instances
+  // wire those. The mixin copies (and their orphaned helpers
+  // findInstrumentByName / findInstrumentById / addAudioClipToTrack /
+  // addBuiltInEffectToTrack) were dead duplicates that had already diverged
+  // from the live versions, so they were deleted — fix bugs in the
+  // daw_screen privates, don't re-add copies here (see the mixin-trap rule
+  // in .claude/rules/flutter-ui.md).
 
   /// Create a new Sampler track and load a sample into it
   void createSamplerTrackWithSample(String filePath, String sampleName) {
@@ -191,8 +49,9 @@ mixin DAWLibraryMixin
     // Generate track name based on sample name
     final trackName = 'Sampler: ${truncateName(sampleName, 20)}';
 
-    // Create Sampler track type
-    final trackId = audioEngine!.createTrack('sampler', trackName);
+    // Create MIDI track with sampler instrument (samplers live on regular
+    // MIDI tracks — the instrument is engine-side, see isSamplerTrack)
+    final trackId = audioEngine!.createTrack('midi', trackName);
     if (trackId < 0) {
       showSnackBar('Failed to create sampler track');
       return;
@@ -217,7 +76,8 @@ mixin DAWLibraryMixin
     // transport never triggers the sampler (bug-hunt #1 sibling).
     createDefaultMidiClip(trackId);
 
-    // Refresh track list and select the new track + its default clip
+    // Refresh track list, select the new track and its clip (autoSelectClip
+    // so the fresh 1-bar clip shows selected, matching the synth drop path)
     refreshTrackWidgets();
     onTrackSelected(trackId, autoSelectClip: true);
 
@@ -225,6 +85,8 @@ mixin DAWLibraryMixin
   }
 
   /// Convert an Audio track to a Sampler track
+  /// Takes the first audio clip on the track and uses it as the sample
+  /// Creates MIDI notes at the position/duration of each audio clip
   void convertAudioTrackToSampler(int trackId) {
     if (audioEngine == null) return;
 
@@ -249,11 +111,8 @@ mixin DAWLibraryMixin
         ? trackName
         : 'Sampler: $trackName';
 
-    // Create Sampler track
-    final samplerTrackId = audioEngine!.createTrack(
-      'sampler',
-      samplerTrackName,
-    );
+    // Create MIDI track with sampler instrument
+    final samplerTrackId = audioEngine!.createTrack('midi', samplerTrackName);
     if (samplerTrackId < 0) {
       showSnackBar('Failed to create sampler track');
       return;
@@ -277,35 +136,50 @@ mixin DAWLibraryMixin
       return;
     }
 
-    // Create MIDI clips for each audio clip position
+    // Create MIDI clips for each audio clip position — each audio clip
+    // becomes a MIDI note at the same position. Register the clips through
+    // midiPlaybackManager (rescheduleClip creates the engine clip, adds the
+    // note, and places it on the track): the previous direct-FFI loop left
+    // the clips engine-only, so they were invisible to the timeline and
+    // could never be selected or edited (bug-hunt #20).
+    final beatsPerSecond = tempo / 60.0;
+    var nextClipId = DateTime.now().millisecondsSinceEpoch;
     for (final clip in audioClips) {
-      final startTime = clip.startTime;
-      final duration = clip.duration;
+      // ClipData times are seconds; MidiClipData stores beats.
+      final startBeats = clip.startTime * beatsPerSecond;
+      final durationBeats = clip.duration * beatsPerSecond;
 
       // Calculate MIDI note based on transpose (if any)
+      // Default root note is 60 (C4), transpose shifts it
       final transpose = clip.editData?.transposeSemitones ?? 0;
       final midiNote = (60 + transpose).clamp(0, 127);
 
-      // Create an empty MIDI clip
-      final clipId = audioEngine!.createMidiClip();
-      if (clipId < 0) continue;
-
-      // Add the MIDI note to the clip
-      audioEngine!.addMidiNoteToClip(
-        clipId,
-        midiNote,
-        100, // velocity
-        0.0, // note starts at beginning of clip
-        duration, // note duration = clip duration
+      final midiClip = MidiClipData(
+        clipId: nextClipId++,
+        trackId: samplerTrackId,
+        startTime: startBeats,
+        duration: durationBeats,
+        loopLength: durationBeats,
+        name: generateClipName(samplerTrackId),
+        notes: [
+          MidiNoteData(
+            note: midiNote,
+            velocity: 100,
+            startTime: 0.0, // note starts at beginning of clip
+            duration: durationBeats, // note duration = clip duration
+          ),
+        ],
       );
-
-      // Add the clip to the sampler track at the correct position
-      audioEngine!.addMidiClipToTrack(samplerTrackId, clipId, startTime);
+      midiPlaybackManager?.addRecordedClip(midiClip);
+      midiPlaybackManager?.rescheduleClip(midiClip, tempo);
     }
 
-    // Refresh tracks and select the new sampler track
+    // Refresh tracks and select the new sampler track + its first clip
     refreshTrackWidgets();
-    selectTrack(samplerTrackId);
+    onTrackSelected(samplerTrackId, autoSelectClip: true);
+
+    // Optionally delete the original audio track (ask user?)
+    // For now, keep both tracks so user can compare
 
     showSnackBar('Converted to Sampler track');
   }
@@ -649,76 +523,9 @@ mixin DAWLibraryMixin
     }
   }
 
-  /// Add audio clip to existing track
-  // ignore: unused_element
-  Future<void> addAudioClipToTrack(int trackId, String filePath) async {
-    if (audioEngine == null) return;
-
-    try {
-      // Copy sample to project folder if setting is enabled
-      final finalPath = await prepareSamplePath(filePath);
-
-      final clipId = audioEngine!.loadAudioFileToTrack(finalPath, trackId);
-      if (clipId < 0) {
-        return;
-      }
-
-      final duration = audioEngine!.getClipDuration(clipId);
-      // Store high-resolution peaks (8000/sec)
-      final peakResolution = (duration * 8000).clamp(8000, 240000).toInt();
-      final peaks = audioEngine!.getWaveformPeaks(clipId, peakResolution);
-
-      timelineKey.currentState?.addClip(
-        ClipData(
-          clipId: clipId,
-          trackId: trackId,
-          filePath: finalPath, // Use the copied path
-          startTime: 0.0,
-          duration: duration,
-          waveformPeaks: peaks,
-        ),
-      );
-    } catch (e) {
-      // Silently fail
-    }
-  }
-
-  /// Add built-in effect to track
-  // ignore: unused_element
-  void addBuiltInEffectToTrack(int trackId, String effectType) {
-    if (audioEngine == null) return;
-
-    try {
-      final effectId = audioEngine!.addEffectToTrack(trackId, effectType);
-      if (effectId >= 0) {
-        statusMessage = 'Added $effectType to track';
-      }
-    } catch (e) {
-      Log.e('Failed to add effect to track: $e');
-    }
-  }
-
-  /// Find instrument by name
-  // ignore: unused_element
-  Instrument? findInstrumentByName(String name) {
-    try {
-      return availableInstruments.firstWhere(
-        (inst) => inst.name.toLowerCase() == name.toLowerCase(),
-      );
-    } catch (e) {
-      return null;
-    }
-  }
-
-  /// Find instrument by ID
-  // ignore: unused_element
-  Instrument? findInstrumentById(String id) {
-    try {
-      return availableInstruments.firstWhere((inst) => inst.id == id);
-    } catch (e) {
-      return null;
-    }
-  }
+  // (addAudioClipToTrack / addBuiltInEffectToTrack / findInstrumentByName /
+  // findInstrumentById lived here as dead duplicates of the daw_screen
+  // privates — see the tombstone above.)
 
   /// Truncate a name to max length with ellipsis
   // ignore: unused_element
@@ -727,11 +534,6 @@ mixin DAWLibraryMixin
     return '${name.substring(0, maxLength - 3)}...';
   }
 
-  /// Show snackbar message
-  // ignore: unused_element
-  void showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
-    );
-  }
+  // showSnackBar lives in DAWTrackMixin (shared by the track-creation paths
+  // there); this mixin is `on DAWTrackMixin`, so it resolves from here too.
 }

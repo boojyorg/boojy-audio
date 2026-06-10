@@ -82,11 +82,16 @@ CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
   overlay Stack is the content-space one the playhead mounts in). When in doubt, check which
   render box the position is relative to before adding/subtracting scroll offsets.
 - **`daw_screen.dart` / mixin trap:** `_DAWScreenState` **does** mix in `DAWClipMixin` etc., and
-  some mixin methods are live (`splitSelectedClipAtPlayhead`, `joinSelectedClips`) — but other
-  mixin methods have **private `_` duplicates in `daw_screen.dart` that the call sites actually
-  use** (e.g. `_bounceMidiToAudio`), leaving the mixin copy dead/diverged. Before editing either
-  copy, check which one the Cmd-shortcuts/menus/callbacks reference; edit that one and delete the
-  other when possible (the v0.6 join work removed the dead `_consolidateSelectedClips` this way).
+  many mixin methods are live — the instrument-drop/sampler/drum-kit constellation
+  (`onInstrumentSelected`, `onInstrumentDropped(OnEmpty)`, `createDrumKitTrack`,
+  `createSamplerTrackWithSample`, `convertAudioTrackToSampler`, `showSnackBar`) is consolidated
+  onto the mixins, as are `splitSelectedClipAtPlayhead` / `joinSelectedClips`. But other methods
+  have **private `_` duplicates in `daw_screen.dart` that the call sites actually use** (e.g.
+  `_bounceMidiToAudio`; the library double-click trio `_handleLibraryItemDoubleClick` /
+  `_handleVst3DoubleClick` / `_handleOpenInSampler` — the dead mixin copies were deleted in v0.6
+  batch 4 after they silently diverged). Before editing either copy, check which one the
+  Cmd-shortcuts/menus/callbacks reference; edit that one and delete the other when possible (the
+  v0.6 join work removed the dead `_consolidateSelectedClips` this way).
 - **UI persistence:** new fields saved in `ui_layout.json` must go through
   `ProjectPersistence.collect()` / `applyUILayout()` — don't scatter field lists across project
   managers.
@@ -96,12 +101,20 @@ CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
   menu/dialog/action just doesn't happen (v0.5.1 right-click Delete; v0.6 found five dead
   context/signature menus this way). In handlers use `context.themeProvider.colors`
   (listen:false), or capture the colors in `build()` / inside the menu's item builder.
+  Regression guard = `ui/test/lint/provider_listen_guard_test.dart` (AST scan of `lib/**`, runs
+  under plain `flutter test`) — it also catches reads inside methods *invoked from* handlers
+  (`onTap: _showMenu` tearoffs and `onTap: () => _showMenu()`), the shape that shipped the
+  sampler Root Note bug (#23). Note `UndoRedoManager` now rethrows command errors in debug
+  (`kDebugMode`), so swallowed handler asserts surface instead of dying silently.
 - **Use `Log.d()` / `Log.e()` / `Log.i()`** (from `utils/logger.dart`), not `print()`.
 - **File/folder dialogs go through `ui/lib/utils/native_dialogs.dart`**
   (`pickFolder` / `pickSaveFilePath` / `sanitizeFileName`) — never call `osascript` inline.
   AppleScript dialogs throw a `ProcessException` on Windows; that's exactly how Save As / Open /
   Export shipped broken there through v0.5.3. The helper keeps AppleScript on macOS and uses
-  `file_picker` everywhere else.
+  `file_picker` everywhere else. Same rule for revealing files: use `revealInFinder(path)` +
+  `revealInFinderLabel` from that file, never an inline `Process.run('open', ['-R', …])` —
+  Windows needs `explorer /select,` with backslashes (and `explorer` exits nonzero even on
+  success, so don't treat its exit code as failure).
 - **Never put `onDoubleTap` on an ancestor of interactive controls.** A real
   `DoubleTapGestureRecognizer` HOLDS the gesture arena for `kDoubleTapTimeout` (~300 ms) after
   every tap-up, so every button inside the detector fires that late — this was the v0.6 M/S/R

@@ -704,10 +704,13 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
     if (success) {
     } else {
       if (mounted) {
+        // Event-handler path (after an await): context.colors here is a
+        // listening Provider.of, which asserts "listen outside build" in
+        // debug and kills the snackbar silently.
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to open GUI for ${plugin.pluginName}'),
-            backgroundColor: context.colors.error,
+            backgroundColor: context.themeProvider.colors.error,
             duration: const Duration(seconds: 3),
           ),
         );

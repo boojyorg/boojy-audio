@@ -881,9 +881,15 @@ class TimelineViewState extends State<TimelineView>
                                         Expanded(
                                           child: LayoutBuilder(
                                             builder: (context, constraints) {
-                                              // Compute empty area height to fill remaining viewport
+                                              // Compute empty area height to
+                                              // fill remaining viewport. The
+                                              // floor is shared with the
+                                              // mixer's end spacer — see
+                                              // UIConstants
+                                              // .trackAreaBottomBuffer.
                                               final emptyAreaHeight = math.max(
-                                                100.0,
+                                                UIConstants
+                                                    .trackAreaBottomBuffer,
                                                 constraints.maxHeight -
                                                     actualTracksHeight,
                                               );

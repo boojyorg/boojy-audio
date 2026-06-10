@@ -191,6 +191,9 @@ class _PianoRollCCLaneState extends State<PianoRollCCLane> {
   }
 
   void _showCCTypeMenu() {
+    // Event handler: context.colors here is a listening Provider.of, which
+    // asserts "listen outside build" in debug and kills the menu silently.
+    final colors = context.themeProvider.colors;
     final RenderBox button = context.findRenderObject() as RenderBox;
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
@@ -211,7 +214,7 @@ class _PianoRollCCLaneState extends State<PianoRollCCLane> {
           child: Text(
             type.displayName,
             style: TextStyle(
-              color: context.colors.textPrimary,
+              color: colors.textPrimary,
               fontSize: BT.fontLabel,
               fontWeight: type == widget.lane.ccType
                   ? BT.weightSemiBold
