@@ -4,8 +4,34 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Features
+
+- **The Sampler is now a one-screen instrument (GarageBand Quick Sampler model).** A sampler
+  track with no sample shows a drop zone — drop an audio file or hit Browse and the empty state
+  *is* the load UI. A keyboard strip along the bottom auditions the sample pitched across keys
+  (root note highlighted), and loop start/end are dragged as handles directly on the waveform.
+  The controls bar slims to the six controls that matter (Loop, Attack, Release, Root, Reverse,
+  Volume + Load); the Warp/BPM/÷2/×2, bars-beats Start/Length/Sig, and Pitch controls — several
+  of which were stored-but-dead engine parameters — are gone.
+- **Sampler edits are undoable.** Every sampler parameter change is one undo step per gesture
+  (a slider drag coalesces instead of producing dozens of steps).
+
 ### Bug Fixes
 
+- **New instrument tracks play on the first Play press.** The default 1-bar clip created with a
+  new sampler/synth/VST3 track was never registered with the engine, so a fresh track produced
+  silence until its first piano-roll edit — the headline "sampler makes no sound" bug.
+- **"Open in Sampler" from the library now creates a playable track** (it previously created no
+  clip at all, so the transport never triggered the sampler).
+- **The sampler's Root Note dropdown opens again in debug builds** (theme read inside an event
+  handler — the recurring listen-outside-build class).
+- **Closing the editor while a sample file picker is open no longer crashes** (sampler and drum
+  kit both guard against the panel being disposed mid-pick).
+- **Collapsed editor bar no longer shows a phantom "Effects" tab on MIDI tracks** (tapping it
+  threw a RangeError past the 2-tab controller), and closing the piano roll no longer jumps to
+  the long-removed Virtual Piano tab index.
+- **Sampler ruler loop-edge drags no longer drift when scrolled** (scroll offset was added to a
+  position that was already in content space).
 - **The editor's instrument volume fader and the mixer's track fader now mirror each other
   live.** The editor read the engine's track info with a parser that never matched, so mixer
   changes never reached it; and editor changes only reached the mixer on its slow refresh. Both

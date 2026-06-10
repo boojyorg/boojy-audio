@@ -267,6 +267,8 @@ class _DrumKitEditorState extends State<DrumKitEditor> {
       allowedExtensions: ['wav', 'mp3', 'flac', 'aif', 'aiff'],
       dialogTitle: 'Select Drum Sample',
     );
+    // The editor can be disposed while the OS picker is open.
+    if (!mounted) return;
     if (result != null && result.files.isNotEmpty) {
       final path = result.files.first.path;
       if (path != null) {
