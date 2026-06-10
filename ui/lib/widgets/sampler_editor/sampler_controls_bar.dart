@@ -146,8 +146,16 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
             onTap: widget.onReverseToggle,
           ),
           _buildSeparator(context),
-          Flexible(child: _buildVolumeControl(context)),
-          const Spacer(),
+          // Expanded (not Flexible+Spacer): the volume group absorbs all
+          // remaining width so Load stays visible at any panel width — the
+          // Spacer variant gave the slider zero space when the bar got tight.
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _buildVolumeControl(context),
+            ),
+          ),
+          const SizedBox(width: 8),
           _buildLoadButton(context),
         ],
       ),

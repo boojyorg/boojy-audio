@@ -62,7 +62,6 @@ import '../widgets/export_dialog.dart';
 import '../models/project_version.dart';
 import '../models/version_type.dart';
 import '../services/version_manager.dart';
-import '../services/clip_naming_service.dart';
 import '../services/midi_file_service.dart';
 import '../widgets/start_screen/start_screen_modal.dart';
 import '../state/ui_layout_state.dart';
@@ -1147,22 +1146,11 @@ class _DAWScreenState extends State<DAWScreen>
     _onInstrumentSelected(trackId, instrument.id);
   }
 
-  /// Create a default 1-bar empty MIDI clip for a new track
-  void _createDefaultMidiClip(int trackId) {
-    // 1 bar = 4 beats (MIDI clips store duration in beats, not seconds)
-    const durationBeats = 4.0;
-
-    final defaultClip = MidiClipData(
-      clipId: DateTime.now().millisecondsSinceEpoch,
-      trackId: trackId,
-      startTime: 0.0, // Start at beat 0
-      duration: durationBeats,
-      name: _generateClipName(trackId),
-      notes: [],
-    );
-
-    midiPlaybackManager?.addRecordedClip(defaultClip);
-  }
+  // Default-clip creation lives in DAWTrackMixin.createDefaultMidiClip. A
+  // private duplicate here predated the mixin and missed the engine
+  // rescheduleClip call, so tracks created via the toolbar/mixer/quick-record
+  // paths played silence until their first piano-roll edit (the daw_screen
+  // mixin trap — see .claude/rules/flutter-ui.md).
 
   /// Called when a track is created from the mixer panel - refresh timeline immediately
   void _onTrackCreatedFromMixer(int trackId, String trackType) {
@@ -1215,7 +1203,7 @@ class _DAWScreenState extends State<DAWScreen>
     _onInstrumentSelected(trackId, instrument.id);
 
     // Create default 1-bar empty clip for the new track
-    _createDefaultMidiClip(trackId);
+    createDefaultMidiClip(trackId);
 
     // Select track and highlight the clip (editor stays on Instrument tab)
     _onTrackSelected(trackId, autoSelectClip: true);
@@ -1312,7 +1300,7 @@ class _DAWScreenState extends State<DAWScreen>
       audioEngine?.setTrackName(trackId, plugin.name);
 
       // Create default 1-bar clip AFTER instrument so clip name = plugin name
-      _createDefaultMidiClip(trackId);
+      createDefaultMidiClip(trackId);
 
       // Send a test note to trigger audio processing (some VST3 instruments
       // like Serum show "Audio Processing disabled" until they receive MIDI)
@@ -1895,16 +1883,6 @@ class _DAWScreenState extends State<DAWScreen>
 
     // Name is percent-encoded by the engine (C34).
     return decodeCsvField(parts[1]);
-  }
-
-  // Helper: Generate clip name for a track using instrument or track name
-  String _generateClipName(int trackId) {
-    final instrument = trackInstruments[trackId];
-    final trackName = _getTrackName(trackId);
-    return ClipNamingService.generateClipName(
-      instrument: instrument,
-      trackName: trackName,
-    );
   }
 
   // Helper: Find instrument by name
@@ -3538,7 +3516,7 @@ class _DAWScreenState extends State<DAWScreen>
     final trackId = command.createdTrackId;
     if (trackId == null || trackId < 0) return;
 
-    _createDefaultMidiClip(trackId);
+    createDefaultMidiClip(trackId);
     _onTrackSelected(trackId, autoSelectClip: true);
     refreshTrackWidgets();
   }
@@ -3570,7 +3548,7 @@ class _DAWScreenState extends State<DAWScreen>
     if (trackId == null || trackId < 0) return;
 
     if (trackType == 'midi') {
-      _createDefaultMidiClip(trackId);
+      createDefaultMidiClip(trackId);
     }
 
     // Arm via the engine (source of truth) so recording targets the new track;
@@ -3884,7 +3862,7 @@ class _DAWScreenState extends State<DAWScreen>
                   onDuplicated: _onTrackDuplicated,
                   onDeleted: _onTrackDeleted,
                   onDeleteRequested: _onDeleteTrackRequested,
-                  onMidiTrackCreated: _createDefaultMidiClip,
+                  onMidiTrackCreated: createDefaultMidiClip,
                   onTrackCreated: _onTrackCreatedFromMixer,
                   onReordered: _onTrackReordered,
                   onOrderSync: trackController.syncTrackOrder,

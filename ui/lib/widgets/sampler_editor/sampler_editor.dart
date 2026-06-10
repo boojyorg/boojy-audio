@@ -78,6 +78,9 @@ class _SamplerEditorState extends State<SamplerEditor> {
   // On-waveform loop handle interaction
   LoopEdge? _waveHoverEdge;
   LoopEdge? _waveDragEdge;
+  // Non-edge waveform drags scroll the view (the opaque gesture layer would
+  // otherwise swallow them); tracks the last global X during such a drag.
+  double? _waveScrollDragX;
 
   // Undo coalescing: param key -> value snapshot at gesture start
   final Map<String, String> _gestureOldValues = {};
@@ -109,6 +112,12 @@ class _SamplerEditorState extends State<SamplerEditor> {
     if (widget.trackId != oldWidget.trackId ||
         widget.samplePath != oldWidget.samplePath) {
       _stopAudition();
+      // Drop any in-flight gesture state: a drag begun on the old track must
+      // not commit an undo command against the new one.
+      _gestureOldValues.clear();
+      _waveDragEdge = null;
+      _waveHoverEdge = null;
+      _navDragMode = _NavDragMode.none;
       _loadSampleData();
     }
   }
@@ -132,7 +141,12 @@ class _SamplerEditorState extends State<SamplerEditor> {
         : null;
 
     setState(() {
-      if (info != null) {
+      if (info == null) {
+        // Not (or no longer) a sampler track — don't keep showing the
+        // previous track's waveform and duration.
+        _sampleDuration = 0.0;
+        _waveformPeaks = [];
+      } else {
         _sampleDuration = info.durationSeconds;
         _loopEnabled = info.loopEnabled;
         _loopStartSeconds = info.loopStartSeconds;
@@ -222,7 +236,7 @@ class _SamplerEditorState extends State<SamplerEditor> {
     if (manager == null) {
       // No undo plumbing (shouldn't happen from EditorPanel) — at least apply.
       _sendParameterToEngine(param, newValue);
-      _syncFromEngine(reloadPeaks: param == 'reversed');
+      _syncFromEngine();
       return;
     }
 
@@ -232,14 +246,32 @@ class _SamplerEditorState extends State<SamplerEditor> {
         paramName: param,
         oldValue: oldValue,
         newValue: newValue,
-        onApplied: () => _syncFromEngine(reloadPeaks: param == 'reversed'),
+        onApplied: _syncFromEngine,
       ),
     );
   }
 
   /// Instant (non-drag) undoable change: toggle, dropdown pick, reset.
+  /// The local mirror updates optimistically (before the async command lands)
+  /// so a rapid second tap reads the post-change value and produces the
+  /// correct undo pair.
   void _applyInstantParam(String param, String newValue) {
-    _commitParam(param, _currentValueString(param), newValue);
+    final oldValue = _currentValueString(param);
+    setState(() => _applyLocalMirror(param, newValue));
+    _commitParam(param, oldValue, newValue);
+  }
+
+  void _applyLocalMirror(String param, String value) {
+    switch (param) {
+      case 'loop_enabled':
+        _loopEnabled = value == '1';
+      case 'reversed':
+        _reversed = value == '1';
+      case 'root_note':
+        _rootNote = int.tryParse(value) ?? _rootNote;
+      case 'volume_db':
+        _volumeDb = double.tryParse(value) ?? _volumeDb;
+    }
   }
 
   // Live drag setters (engine + local mirror, no undo entry until gesture end)
@@ -325,12 +357,18 @@ class _SamplerEditorState extends State<SamplerEditor> {
     widget.audioEngine!.sendTrackMidiNoteOn(widget.trackId!, note, 100);
   }
 
-  void _stopAudition() {
-    final note = _auditionNote;
-    if (note != null && widget.audioEngine != null && widget.trackId != null) {
-      widget.audioEngine!.sendTrackMidiNoteOff(widget.trackId!, note, 0);
+  /// Stop [note] if given (the strip reports which key was released),
+  /// otherwise whatever note is currently sounding.
+  void _stopAudition([int? note]) {
+    final target = note ?? _auditionNote;
+    if (target != null &&
+        widget.audioEngine != null &&
+        widget.trackId != null) {
+      widget.audioEngine!.sendTrackMidiNoteOff(widget.trackId!, target, 0);
     }
-    _auditionNote = null;
+    if (note == null || note == _auditionNote) {
+      _auditionNote = null;
+    }
   }
 
   void _zoomIn() => _zoomByFactor(1.3);
@@ -353,6 +391,9 @@ class _SamplerEditorState extends State<SamplerEditor> {
 
     setState(() {
       _pixelsPerSecond = newPps;
+      // Handle positions just moved under the (stationary) pointer.
+      _waveHoverEdge = null;
+      _navBarHoverSeconds = null;
     });
 
     // Sync both scroll controllers after layout with new content size
@@ -489,7 +530,7 @@ class _SamplerEditorState extends State<SamplerEditor> {
                 SamplerKeyboardStrip(
                   rootNote: _rootNote,
                   onNoteOn: _startAudition,
-                  onNoteOff: (_) => _stopAudition(),
+                  onNoteOff: _stopAudition,
                 ),
               ],
             ),
@@ -687,6 +728,14 @@ class _SamplerEditorState extends State<SamplerEditor> {
       _horizontalScroll.position.maxScrollExtent,
     );
     _horizontalScroll.jumpTo(newOffset);
+    // Content moved under the stationary pointer; stale edge hover would
+    // leave a resize cursor floating over nothing.
+    if (_waveHoverEdge != null || _navBarHoverSeconds != null) {
+      setState(() {
+        _waveHoverEdge = null;
+        _navBarHoverSeconds = null;
+      });
+    }
   }
 
   // ============================================================================
@@ -728,7 +777,12 @@ class _SamplerEditorState extends State<SamplerEditor> {
 
   void _handleWaveformPanStart(DragStartDetails details) {
     final edge = _loopEdgeAt(details.localPosition.dx);
-    if (edge == null) return;
+    if (edge == null) {
+      // Not on a handle: treat the drag as scroll navigation, since the
+      // opaque gesture layer wins the arena over the scroll view.
+      _waveScrollDragX = details.globalPosition.dx;
+      return;
+    }
     setState(() => _waveDragEdge = edge);
     _beginParamGesture(
       edge == LoopEdge.start ? 'loop_start_seconds' : 'loop_end_seconds',
@@ -737,7 +791,20 @@ class _SamplerEditorState extends State<SamplerEditor> {
 
   void _handleWaveformPanUpdate(DragUpdateDetails details) {
     final edge = _waveDragEdge;
-    if (edge == null) return;
+    if (edge == null) {
+      final lastX = _waveScrollDragX;
+      if (lastX != null && _horizontalScroll.hasClients) {
+        final deltaX = details.globalPosition.dx - lastX;
+        _horizontalScroll.jumpTo(
+          (_horizontalScroll.offset - deltaX).clamp(
+            0.0,
+            _horizontalScroll.position.maxScrollExtent,
+          ),
+        );
+        _waveScrollDragX = details.globalPosition.dx;
+      }
+      return;
+    }
     final seconds = _secondsAtX(details.localPosition.dx);
     if (edge == LoopEdge.start) {
       _onLoopStartChanged(seconds);
@@ -747,6 +814,7 @@ class _SamplerEditorState extends State<SamplerEditor> {
   }
 
   void _endWaveformPan() {
+    _waveScrollDragX = null;
     final edge = _waveDragEdge;
     if (edge == null) return;
     setState(() => _waveDragEdge = null);
