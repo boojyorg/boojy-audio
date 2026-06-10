@@ -22,6 +22,24 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **The drum-kit playhead highlights the right column wherever the clip sits.** The step grid
+  assumed the clip started at bar 1 and ignored its content offset, so the moving highlight was
+  wrong for any clip placed later in the arrangement. It now follows the clip's actual position,
+  wraps correctly when the clip loops, and turns off before the clip starts and after it ends.
+- **Drum steps can be painted with a drag.** Press on an empty cell and drag to fill a run of
+  steps (a hi-hat roll is one stroke, not 16 clicks); press on a filled cell and drag to erase.
+  One stroke is one undo step.
+- **Drum-pad volume, mute, and solo are undoable.** A fader drag coalesces into a single undo
+  step; the double-tap 0 dB reset and mute/solo toggles each undo discretely, and undo pushes
+  the restored value back to the engine.
+- **Dropping a drum kit or sampler now shows its clip selected and opens the editor**, the same
+  as dropping a synth — previously the clip was created but nothing visibly happened. The
+  audio-clip → sampler conversion had a deeper version of the same bug: its MIDI clips were
+  created engine-only and never appeared in the UI at all; they're now real, visible, selected
+  clips. Creating a clip from the library no longer flickers the selection off and back on.
+- **The drum-kit waveform block no longer shows dark corner artifacts** (the same border/clip
+  rounding bug fixed elsewhere in v0.6).
+
 - **Audio clips play at the right time — and the right speed — at every tempo.** The engine
   rendered audio clips, volume automation, and punch-in/out against a legacy tempo-scaled clock
   while MIDI, the playhead, and the UI all used real time. At any tempo other than 120 BPM,

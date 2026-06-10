@@ -146,8 +146,8 @@ class _DrumKitEditorState extends State<DrumKitEditor> {
   int? _gesturePadIndex;
 
   /// Live engine write + optimistic local update, with no undo entry. Used
-  /// during a drag and for the mixer-row volume/mute/solo (kept fire-and-forget
-  /// this cycle).
+  /// during a drag; the undo step is committed at gesture end (or via
+  /// [_commitDiscretePadParam] for one-shot changes).
   void _setPadParam(String key, String value, DrumPadInfo optimistic) {
     final engine = widget.audioEngine;
     final tid = widget.trackId;
@@ -181,6 +181,12 @@ class _DrumKitEditorState extends State<DrumKitEditor> {
         return pad.reversed.toString();
       case 'pan':
         return pad.pan.toStringAsFixed(3);
+      case 'volume_db':
+        return pad.volumeDb.toStringAsFixed(2);
+      case 'muted':
+        return pad.muted.toString();
+      case 'soloed':
+        return pad.soloed.toString();
       default:
         return '';
     }
@@ -405,22 +411,56 @@ class _DrumKitEditorState extends State<DrumKitEditor> {
                       _loadSampleInto(i, path);
                     },
                     onToggleStep: _toggleStep,
+                    // Coalesce a whole drag-to-paint stroke into one undo
+                    // step: live no-undo applies while the drag is in
+                    // progress, then a single snapshot command on release.
+                    onPaintClipChanged: _applyClip,
+                    onPaintCommitted: (before, after) => _runClipCommand(
+                      MidiClipSnapshotCommand(
+                        beforeState: before,
+                        afterState: after,
+                        actionDescription: 'Paint drum steps',
+                        onApplyState: _applyClip,
+                      ),
+                      after,
+                    ),
                     onAddPad: _addPad,
                     onPadVolumeChanged: (i, db) {
                       final pad = _padByIndex(i);
-                      if (pad != null) {
+                      if (pad == null) return;
+                      final inGesture =
+                          _gestureParamKey == 'volume_db' &&
+                          _gesturePadIndex == i;
+                      if (inGesture) {
+                        // Mid-drag: live write only; the undo step is
+                        // committed once at drag end.
                         _setPadParam(
                           'volume_db',
                           db.toStringAsFixed(2),
                           pad.copyWith(volumeDb: db),
                         );
+                      } else {
+                        // Double-tap reset arrives without drag start/end —
+                        // commit it as a discrete undo step.
+                        _commitDiscretePadParam(
+                          i,
+                          'volume_db',
+                          _padParamValueString(pad, 'volume_db'),
+                          db.toStringAsFixed(2),
+                          pad.copyWith(volumeDb: db),
+                        );
                       }
                     },
+                    onPadVolumeDragStart: (i) =>
+                        _beginPadGesture(i, 'volume_db'),
+                    onPadVolumeDragEnd: (_) => _endPadGesture(),
                     onPadMuteToggle: (i) {
                       final pad = _padByIndex(i);
                       if (pad != null) {
-                        _setPadParam(
+                        _commitDiscretePadParam(
+                          i,
                           'muted',
+                          pad.muted.toString(),
                           (!pad.muted).toString(),
                           pad.copyWith(muted: !pad.muted),
                         );
@@ -429,8 +469,10 @@ class _DrumKitEditorState extends State<DrumKitEditor> {
                     onPadSoloToggle: (i) {
                       final pad = _padByIndex(i);
                       if (pad != null) {
-                        _setPadParam(
+                        _commitDiscretePadParam(
+                          i,
                           'soloed',
+                          pad.soloed.toString(),
                           (!pad.soloed).toString(),
                           pad.copyWith(soloed: !pad.soloed),
                         );
@@ -730,38 +772,47 @@ class _DrumKitEditorState extends State<DrumKitEditor> {
           _loadSampleInto(pad.padIndex, details.data.filePath),
       builder: (context, candidate, rejected) {
         final highlight = candidate.isNotEmpty;
+        final borderWidth = highlight ? 1.5 : 1.0;
         return GestureDetector(
           onTap: _pickSampleForSelected,
-          child: Container(
+          child: DecoratedBox(
             decoration: BoxDecoration(
-              color: colors.surface,
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
                 color: highlight ? colors.accent : colors.divider,
-                width: highlight ? 1.5 : 1,
+                width: borderWidth,
               ),
             ),
-            clipBehavior: Clip.antiAlias,
-            child: _waveformPeaks.isEmpty
-                ? Center(
-                    child: Text(
-                      pad.hasSample
-                          ? 'No waveform'
-                          : 'Drop a sound or click to load',
-                      style: TextStyle(
-                        color: colors.textMuted,
-                        fontSize: BT.fontLabel,
+            // No clipBehavior on the bordered container — that shaves the
+            // outer half of the stroke at the corner arcs (ragged-corner
+            // artifact; see .claude/rules/flutter-ui.md). Clip the fill and
+            // waveform inside the border at the inner radius instead.
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6 - borderWidth),
+              child: ColoredBox(
+                color: colors.surface,
+                child: _waveformPeaks.isEmpty
+                    ? Center(
+                        child: Text(
+                          pad.hasSample
+                              ? 'No waveform'
+                              : 'Drop a sound or click to load',
+                          style: TextStyle(
+                            color: colors.textMuted,
+                            fontSize: BT.fontLabel,
+                          ),
+                        ),
+                      )
+                    : CustomPaint(
+                        painter: _DrumPadWaveformPainter(
+                          peaks: _waveformPeaks,
+                          color: drumPadColor(pad.padIndex),
+                          colors: colors,
+                        ),
+                        size: Size.infinite,
                       ),
-                    ),
-                  )
-                : CustomPaint(
-                    painter: _DrumPadWaveformPainter(
-                      peaks: _waveformPeaks,
-                      color: drumPadColor(pad.padIndex),
-                      colors: colors,
-                    ),
-                    size: Size.infinite,
-                  ),
+              ),
+            ),
           ),
         );
       },
