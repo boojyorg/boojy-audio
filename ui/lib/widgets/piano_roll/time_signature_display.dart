@@ -5,28 +5,26 @@ import '../../theme/app_colors.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 
-/// A clickable time signature display showing numerator/denominator format.
-/// Each segment is individually clickable to edit.
-/// Format: [4] / [4]
+/// A time signature display showing numerator/denominator format.
+/// The numerator is clickable/scrollable to edit; the denominator is
+/// read-only — the engine has no beat-unit concept yet, so an editable
+/// denominator was a control that did nothing (locked to /4 for v0.6).
+/// Format: [4] / 4
 class TimeSignatureDisplay extends StatefulWidget {
   /// Beats per bar (numerator, e.g., 4 in 4/4)
   final int beatsPerBar;
 
-  /// Beat unit (denominator, e.g., 4 in 4/4)
+  /// Beat unit (denominator, e.g., 4 in 4/4) — display only
   final int beatUnit;
 
   /// Called when beats per bar changes
   final Function(int)? onBeatsPerBarChanged;
-
-  /// Called when beat unit changes
-  final Function(int)? onBeatUnitChanged;
 
   const TimeSignatureDisplay({
     super.key,
     required this.beatsPerBar,
     required this.beatUnit,
     this.onBeatsPerBarChanged,
-    this.onBeatUnitChanged,
   });
 
   @override
@@ -35,7 +33,6 @@ class TimeSignatureDisplay extends StatefulWidget {
 
 class _TimeSignatureDisplayState extends State<TimeSignatureDisplay> {
   bool _isEditing = false;
-  int _editingSegment = -1; // 0=numerator, 1=denominator
   late TextEditingController _editController;
   late FocusNode _editFocusNode;
 
@@ -61,23 +58,10 @@ class _TimeSignatureDisplayState extends State<TimeSignatureDisplay> {
     }
   }
 
-  void _startEditing(int segment) {
-    String initialValue;
-    switch (segment) {
-      case 0:
-        initialValue = widget.beatsPerBar.toString();
-        break;
-      case 1:
-        initialValue = widget.beatUnit.toString();
-        break;
-      default:
-        return;
-    }
-
+  void _startEditing() {
     setState(() {
       _isEditing = true;
-      _editingSegment = segment;
-      _editController.text = initialValue;
+      _editController.text = widget.beatsPerBar.toString();
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -94,23 +78,13 @@ class _TimeSignatureDisplayState extends State<TimeSignatureDisplay> {
 
     final newValue = int.tryParse(_editController.text);
     if (newValue != null) {
-      switch (_editingSegment) {
-        case 0:
-          // Numerator: 1-99
-          final clamped = newValue.clamp(1, 99);
-          widget.onBeatsPerBarChanged?.call(clamped);
-          break;
-        case 1:
-          // Denominator: 1-16
-          final clamped = newValue.clamp(1, 16);
-          widget.onBeatUnitChanged?.call(clamped);
-          break;
-      }
+      // Numerator: 1-99
+      final clamped = newValue.clamp(1, 99);
+      widget.onBeatsPerBarChanged?.call(clamped);
     }
 
     setState(() {
       _isEditing = false;
-      _editingSegment = -1;
     });
   }
 
@@ -122,35 +96,17 @@ class _TimeSignatureDisplayState extends State<TimeSignatureDisplay> {
       } else if (event.logicalKey == LogicalKeyboardKey.escape) {
         setState(() {
           _isEditing = false;
-          _editingSegment = -1;
-        });
-      } else if (event.logicalKey == LogicalKeyboardKey.tab) {
-        // Move to next segment
-        _commitEdit();
-        final nextSegment = (_editingSegment + 1) % 2;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _startEditing(nextSegment);
         });
       }
     }
   }
 
-  /// Increment/decrement segment with scroll
-  void _handleScroll(int segment, double delta) {
+  /// Increment/decrement the numerator with scroll
+  void _handleScroll(double delta) {
     final direction = delta > 0 ? -1 : 1; // Scroll up = increase
-
-    switch (segment) {
-      case 0:
-        // Numerator: 1-99
-        final newValue = (widget.beatsPerBar + direction).clamp(1, 99);
-        widget.onBeatsPerBarChanged?.call(newValue);
-        break;
-      case 1:
-        // Denominator: 1-16
-        final newValue = (widget.beatUnit + direction).clamp(1, 16);
-        widget.onBeatUnitChanged?.call(newValue);
-        break;
-    }
+    // Numerator: 1-99
+    final newValue = (widget.beatsPerBar + direction).clamp(1, 99);
+    widget.onBeatsPerBarChanged?.call(newValue);
   }
 
   @override
@@ -160,17 +116,27 @@ class _TimeSignatureDisplayState extends State<TimeSignatureDisplay> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildSegment(0, widget.beatsPerBar.toString(), colors),
+        _buildNumerator(widget.beatsPerBar.toString(), colors),
         _buildSlash(colors),
-        _buildSegment(1, widget.beatUnit.toString(), colors),
+        // Denominator: read-only (locked to /4 — see widget doc comment)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Text(
+            widget.beatUnit.toString(),
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 10,
+              fontFamily: BT.fontFamilyMono,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildSegment(int segment, String value, BoojyColors colors) {
-    final isEditing = _isEditing && _editingSegment == segment;
-
-    if (isEditing) {
+  Widget _buildNumerator(String value, BoojyColors colors) {
+    if (_isEditing) {
       return SizedBox(
         width: 20,
         child: KeyboardListener(
@@ -203,11 +169,11 @@ class _TimeSignatureDisplayState extends State<TimeSignatureDisplay> {
     return Listener(
       onPointerSignal: (event) {
         if (event is PointerScrollEvent) {
-          _handleScroll(segment, event.scrollDelta.dy);
+          _handleScroll(event.scrollDelta.dy);
         }
       },
       child: GestureDetector(
-        onTap: () => _startEditing(segment),
+        onTap: _startEditing,
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
           child: Container(

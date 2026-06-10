@@ -74,6 +74,10 @@ class EditorPanel extends StatefulWidget {
   final int beatsPerBar;
   final int beatUnit;
 
+  // Commits a piano-roll Signature edit to the project time signature
+  // (same undoable command as the transport-bar control).
+  final void Function(int beatsPerBar, int beatUnit)? onTimeSignatureChanged;
+
   // Project tempo (for warp calculations in Audio Editor)
   final double projectTempo;
   final Function(double)? onProjectTempoChanged;
@@ -125,6 +129,7 @@ class EditorPanel extends StatefulWidget {
     this.editorButtonVariant = EditorButtonVariant.outline,
     this.beatsPerBar = 4,
     this.beatUnit = 4,
+    this.onTimeSignatureChanged,
     this.projectTempo = 120.0,
     this.onProjectTempoChanged,
     this.isRecording = false,
@@ -1376,6 +1381,7 @@ class _EditorPanelState extends State<EditorPanel>
       onVirtualPianoToggle: widget.callbacks.onVirtualPianoToggle,
       beatsPerBar: widget.beatsPerBar,
       beatUnit: widget.beatUnit,
+      onTimeSignatureChanged: widget.onTimeSignatureChanged,
       isRecording: widget.isRecording,
       trackColor: widget.trackColor,
       playheadNotifier: widget.playheadNotifier,

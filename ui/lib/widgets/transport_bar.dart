@@ -231,7 +231,6 @@ class TransportBar extends StatefulWidget {
 
   // Time signature
   final int beatsPerBar;
-  final int beatUnit;
   final Function(int beatsPerBar, int beatUnit)? onTimeSignatureChanged;
 
   /// Fired when the time-signature drag gesture starts/ends, so the parent can
@@ -286,7 +285,6 @@ class TransportBar extends StatefulWidget {
     this.punchInEnabled = false,
     this.punchOutEnabled = false,
     this.beatsPerBar = 4,
-    this.beatUnit = 4,
     this.onTimeSignatureChanged,
     this.onTimeSignatureDragStart,
     this.onTimeSignatureDragEnd,
@@ -986,7 +984,6 @@ class _TransportBarState extends State<TransportBar> {
     );
     final signature = SignatureDropdown(
       beatsPerBar: widget.beatsPerBar,
-      beatUnit: widget.beatUnit,
       onChanged: widget.onTimeSignatureChanged,
       onDragStart: widget.onTimeSignatureDragStart,
       onDragEnd: widget.onTimeSignatureDragEnd,

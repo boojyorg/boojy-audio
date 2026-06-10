@@ -28,7 +28,6 @@ class PianoRollControlsBar extends StatefulWidget {
   final Function(double)? onLoopStartChanged;
   final Function(double)? onLoopLengthChanged;
   final Function(int)? onBeatsPerBarChanged;
-  final Function(int)? onBeatUnitChanged;
 
   // Grid section
   final bool snapEnabled;
@@ -94,7 +93,6 @@ class PianoRollControlsBar extends StatefulWidget {
     this.onLoopStartChanged,
     this.onLoopLengthChanged,
     this.onBeatsPerBarChanged,
-    this.onBeatUnitChanged,
     // Grid section
     this.snapEnabled = true,
     this.gridDivision = 0.25,
@@ -362,7 +360,6 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
             beatsPerBar: widget.beatsPerBar,
             beatUnit: widget.beatUnit,
             onBeatsPerBarChanged: widget.onBeatsPerBarChanged,
-            onBeatUnitChanged: widget.onBeatUnitChanged,
           ),
         ),
       ],

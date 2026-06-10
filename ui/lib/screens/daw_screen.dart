@@ -810,11 +810,13 @@ class _DAWScreenState extends State<DAWScreen>
   int _timeSigDragStartUnit = 4;
 
   /// Apply a time signature to the engine + UI metadata WITHOUT registering undo.
+  /// The denominator is locked to /4 in v0.6 — the engine has no beat-unit
+  /// concept, so any other value was display-only theater (6/8 played as 6/4).
   void _applyTimeSignature(int beatsPerBar, int beatUnit) {
     setState(() {
       projectMetadata = projectMetadata.copyWith(
         timeSignatureNumerator: beatsPerBar,
-        timeSignatureDenominator: beatUnit,
+        timeSignatureDenominator: 4,
       );
     });
     audioEngine?.setTimeSignature(beatsPerBar);
@@ -3522,7 +3524,6 @@ class _DAWScreenState extends State<DAWScreen>
           punchInEnabled: uiLayout.punchInEnabled,
           punchOutEnabled: uiLayout.punchOutEnabled,
           beatsPerBar: projectMetadata.timeSignatureNumerator,
-          beatUnit: projectMetadata.timeSignatureDenominator,
           onTimeSignatureChanged: _onTimeSignatureChanged,
           onTimeSignatureDragStart: _onTimeSignatureDragStart,
           onTimeSignatureDragEnd: _onTimeSignatureDragEnd,
@@ -4333,6 +4334,7 @@ class _DAWScreenState extends State<DAWScreen>
                                   projectMetadata.timeSignatureNumerator,
                               beatUnit:
                                   projectMetadata.timeSignatureDenominator,
+                              onTimeSignatureChanged: _onTimeSignatureChanged,
                               projectTempo: projectMetadata.bpm,
                               onProjectTempoChanged: _onTempoChanged,
                               isRecording: isRecording,

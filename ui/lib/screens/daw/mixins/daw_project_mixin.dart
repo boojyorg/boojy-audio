@@ -754,22 +754,20 @@ mixin DAWProjectMixin
       uiLayout.applyLayout(layout);
     });
 
-    // Restore time signature. The UI owns the display value (numerator +
-    // denominator); the engine is quarter-note based and only needs the
-    // numerator for bar math, so we re-push that. Without this, 3/4 or 6/8
-    // projects silently reopened in 4/4.
+    // Restore the time-signature numerator and re-push it to the engine
+    // (without this, 3/4 projects silently reopened in 4/4). The denominator
+    // is locked to /4 in v0.6: the engine is quarter-note based, so a saved
+    // 6/8 always *played* as 6/4 — displaying it as 6/8 was dishonest, and
+    // it now flattens to x/4 (the audible result is unchanged).
     final tsNum = layout.timeSignatureNumerator;
-    final tsDen = layout.timeSignatureDenominator;
-    if (tsNum != null || tsDen != null) {
+    if (tsNum != null) {
       setState(() {
         projectMetadata = projectMetadata.copyWith(
           timeSignatureNumerator: tsNum,
-          timeSignatureDenominator: tsDen,
+          timeSignatureDenominator: 4,
         );
       });
-      if (tsNum != null) {
-        audioEngine?.setTimeSignature(tsNum);
-      }
+      audioEngine?.setTimeSignature(tsNum);
     }
 
     if (userSettings.continueWhereLeftOff && layout.viewState != null) {
