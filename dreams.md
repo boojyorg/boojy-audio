@@ -11,15 +11,16 @@
 triage). Work order: starter kit (drum-kit PR3) → sound quick wins (automation/reverse/monitoring)
 → join clips → UI ledger batches → cleanups. **Normalize moved to v1.0 (Tyr, 2026-06-08).**
 
-**Status (2026-06-09, evening):** ALL v0.6 code batches are **on master** — drum-kit stack
-(#44/#65/#66), sound quick wins (#68), join MIDI (#70) + audio (#75, incl. the recorded-audio
-save data-loss fix), gesture/tool fixes (#71/#72), batch-8 cleanups (#78), playhead overhaul +
-transport-key fix (#79), selection-token sweep (#80), UI batch 6 top bar + chrome (#81), and
-dead-code deletion (#82). **Dogfood session 1 ran 2026-06-09** (Tyr grade: B−; theme = simplify
-& modularise) → **PR #83 (`feat/v0.6-dogfood-fixes`) open**: fader sync, synth meter, corner
-artifact, emoji→BI track icons, wordmark-opens-Settings, search/dividers/headers. Ledger =
-`docs/reviews/dogfood_2026_06_09.md`. §6.B strip mockup still parked pending a design
-conversation.
+**Status (2026-06-10):** #83 (dogfood batch 1) MERGED. **Bug-hunt + design reviews ran
+2026-06-10** (96 confirmed findings; reports = `docs/reviews/bug_hunt_2026_06_10.md` +
+`design_recs_2026_06_10.md`) → verdict: don't tag v0.6 until the headline sound features work.
+**Fix Batch 1 ("the sampler makes sound") = PR #84 open, CI watching**: silence-bug fix (default
+clip never engine-registered — covered ALL instrument paths incl. a daw_screen private duplicate),
+full sampler rescue (drop-zone, keyboard strip, on-waveform loop handles, slim 6-control bar,
+per-gesture undo). Diff adversarially reviewed (2 blockers found+fixed pre-PR). Remaining
+batches 2–5 in the bug-hunt report: time-domain/tempo (#3/#4 worst bug in app), drum kit,
+right-click+favourites sweep, undo-truth+persistence; then visual sweep. §6.B strip mockup
+still parked pending a design conversation.
 
 ### Milestones
 
@@ -79,8 +80,17 @@ conversation.
   flutter-ui.md rule; mixer narrow-width shedding; zoom-button backing; EQ auto-select band 1;
   emoji→BI track icons with key-based persistence; whole-wordmark Settings; 24px header
   unification; square full-bleed search field; solid 3px dividers; + Audio = Samples glyph).
-- [ ] **Merge #83** (CI green first) → **dogfood round 2** → decides: tag v0.6 as-is or one more
-  batch.
+- [x] **Merge #83** (merged 2026-06-10, CI green).
+- [x] **Bug-hunt + design-recs reviews** (2026-06-10, ultracode): 96 confirmed findings → 5 fix
+  batches; sampler + tempo time-domain block the tag. Reports in `docs/reviews/`.
+- [ ] **Batch 1 — sampler rescue (PR #84)**: CI green → Tyr in-app walkthrough (drop zone, strip,
+  loop handles, undo) → merge.
+- [ ] **Batch 2 — "time is one domain"** (audio-clip tempo ratio #3/#4, metronome phase #28,
+  time-sig decision #10/#18): the quietly-worst bug in the app.
+- [ ] **Batches 3–5** (drum kit · right-click/favourites sweep · undo-truth/persistence), then the
+  low-sweep visual batch; §4-of-bug-report decisions need Tyr (multi-arm, mixer border, M/S/R-lag
+  retest after batch 2).
+- [ ] **Tag decision** after batches land + dogfood round 2.
 
 **Carried decisions:** ASIO deferred (WASAPI right for beginners). Windows machine = per-release
 test rig, not a dev machine. No stock instruments in v0.6 (triage). Loop region is orange, not
