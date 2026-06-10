@@ -212,6 +212,11 @@ mixin DAWLibraryMixin
       return;
     }
 
+    // Give the track a default clip like every other instrument path —
+    // without one, the piano roll shows "Click to create MIDI clip" and the
+    // transport never triggers the sampler (bug-hunt #1 sibling).
+    createDefaultMidiClip(trackId);
+
     // Refresh track list and select the new track
     refreshTrackWidgets();
     selectTrack(trackId);

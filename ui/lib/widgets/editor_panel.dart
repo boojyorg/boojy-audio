@@ -665,13 +665,12 @@ class _EditorPanelState extends State<EditorPanel>
       ];
     }
 
-    // MIDI track: [Instrument] [Piano Roll] [Effects]
+    // MIDI track: [Instrument] [MIDI] — must mirror _buildTabButtons; a third
+    // "Effects" button here pointed past the 2-tab controller (RangeError).
     return [
       _buildCollapsedTabButton(0, _instrumentTabIcon, _getInstrumentTabLabel()),
       const SizedBox(width: 4),
       _buildCollapsedTabButton(1, _firstTabIcon, _firstTabLabel),
-      const SizedBox(width: 4),
-      _buildCollapsedTabButton(2, BI.lightning, 'Effects'),
     ];
   }
 
@@ -1040,6 +1039,7 @@ class _EditorPanelState extends State<EditorPanel>
     return SamplerEditor(
       audioEngine: widget.audioEngine,
       trackId: widget.trackContext.selectedTrackId,
+      undoManager: widget.undoManager,
     );
   }
 
@@ -1383,8 +1383,10 @@ class _EditorPanelState extends State<EditorPanel>
       tempo: widget.projectTempo,
       onSeek: widget.onSeek,
       onClose: () {
-        // Switch back to another tab or close bottom panel
-        _tabController.index = 3; // Switch to Virtual Piano tab
+        // Back to the instrument tab. (This used to jump to index 3 — the
+        // long-removed Virtual Piano tab — which is out of range on the
+        // 2-tab controller and threw a RangeError.)
+        _tabController.index = 0;
       },
     );
   }
