@@ -4,7 +4,8 @@ import '../../theme/tokens.dart';
 
 /// Custom painter for sampler waveform display.
 /// Matches the Audio Editor's WaveformEditorPainter visual style:
-/// Grid → Waveform → Loop dimming (no envelope, no loop markers).
+/// Grid → Waveform → Loop dimming. Loop edges are edited in the ruler bar
+/// (same idiom as the Arrangement / Piano Roll loop), not on the waveform.
 class SamplerWaveformPainter extends CustomPainter {
   final List<double> peaks;
   final double sampleDuration; // in seconds
@@ -258,6 +259,9 @@ class SamplerWaveformPainter extends CustomPainter {
         colors != oldDelegate.colors;
   }
 }
+
+/// Which loop edge a (ruler) pointer interaction targets.
+enum LoopEdge { start, end }
 
 /// Beat-based ruler painter for the sampler editor.
 /// Matches UnifiedNavBarPainter: 24px height, dark background,

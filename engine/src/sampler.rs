@@ -316,6 +316,16 @@ impl Sampler {
         self.root_note = root_note;
     }
 
+    /// Clear the loaded sample (lets the UI undo a first load back to the
+    /// empty state). Silences voices first so nothing keeps indexing into
+    /// the dropped clip.
+    pub fn unload_sample(&mut self) {
+        self.all_notes_off();
+        self.sample = None;
+        self.loop_start = 0.0;
+        self.loop_end = 0.0;
+    }
+
     /// Get the loaded sample path (for serialization)
     pub fn sample_path(&self) -> Option<&str> {
         self.sample.as_ref().map(|s| s.file_path.as_str())

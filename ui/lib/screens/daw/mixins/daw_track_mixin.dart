@@ -232,6 +232,10 @@ mixin DAWTrackMixin
     );
 
     midiPlaybackManager?.addRecordedClip(defaultClip);
+    // Register the clip with the engine immediately. addRecordedClip is
+    // Dart-side only; without this the clip is unknown to the engine until
+    // the first piano-roll edit, so a fresh track plays silence (bug-hunt #1).
+    midiPlaybackManager?.rescheduleClip(defaultClip, tempo);
   }
 
   // ============================================
@@ -251,7 +255,9 @@ mixin DAWTrackMixin
       createDefaultMidiClip(trackId);
 
       refreshTrackWidgets();
-      selectTrack(trackId);
+      // autoSelectClip so the new 1-bar clip shows selected, matching the
+      // synth path below.
+      onTrackSelected(trackId, autoSelectClip: true);
       return;
     }
 

@@ -169,6 +169,37 @@ pub extern "C" fn load_sample_for_track_ffi(
     )
 }
 
+/// Unload the sample from a sampler track (undo of a first sample load)
+/// Returns 1 on success, 0 on failure
+#[no_mangle]
+pub extern "C" fn unload_sample_for_track_ffi(track_id: u64) -> i32 {
+    ffi_catch(-1, || match api::unload_sample_for_track(track_id) {
+        Ok(msg) => {
+            println!("[FFI] {msg}");
+            1
+        }
+        Err(e) => {
+            eprintln!("[FFI] Failed to unload sample: {e}");
+            0
+        }
+    })
+}
+
+/// Path of the sample currently loaded on a sampler track
+/// Returns an empty string when the track has no sample (or isn't a sampler)
+#[no_mangle]
+pub extern "C" fn get_sampler_sample_path_ffi(track_id: u64) -> *mut c_char {
+    ffi_catch(std::ptr::null_mut(), || {
+        match api::get_sampler_sample_path(track_id) {
+            Ok(path) => safe_cstring(path).into_raw(),
+            Err(e) => {
+                eprintln!("[FFI] Failed to get sampler sample path: {e}");
+                safe_cstring(String::new()).into_raw()
+            }
+        }
+    })
+}
+
 /// Set sampler parameter for a track
 /// `param_name`: "`root_note`", "attack", "`attack_ms`", "release", "`release_ms`"
 /// Returns success message or error
