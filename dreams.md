@@ -14,13 +14,19 @@ triage). Work order: starter kit (drum-kit PR3) → sound quick wins (automation
 **Status (2026-06-10):** #83 (dogfood batch 1) MERGED. **Bug-hunt + design reviews ran
 2026-06-10** (96 confirmed findings; reports = `docs/reviews/bug_hunt_2026_06_10.md` +
 `design_recs_2026_06_10.md`) → verdict: don't tag v0.6 until the headline sound features work.
-**Fix Batch 1 ("the sampler makes sound") = PR #84 open, CI watching**: silence-bug fix (default
-clip never engine-registered — covered ALL instrument paths incl. a daw_screen private duplicate),
-full sampler rescue (drop-zone, keyboard strip, on-waveform loop handles, slim 6-control bar,
-per-gesture undo). Diff adversarially reviewed (2 blockers found+fixed pre-PR). Remaining
-batches 2–5 in the bug-hunt report: time-domain/tempo (#3/#4 worst bug in app), drum kit,
-right-click+favourites sweep, undo-truth+persistence; then visual sweep. §6.B strip mockup
-still parked pending a design conversation.
+Batch 1 (sampler rescue, #84) MERGED. **Batch 2 ("time is one domain") on branch
+`fix/v0.6-batch2-time-domain`, PR opening**: engine unified to one real-seconds time domain
+(dropped legacy tempo/120 playhead scaling — audio clips played displaced AND pitch-shifted at
+tempo≠120, automation/punch too; live + export + stems + join), tempo change/undo now re-pushes
+audio-clip + automation positions to the engine (+ Project Settings BPM routed through the
+undoable command; metadata.bpm kept synced), metronome reseeks on live tempo change (#28),
+stopped-path track-manager lock hold fixed (#19 — Tyr should RETEST the M/S/R lag after this),
+time-sig honesty per Tyr's calls: denominator LOCKED to /4 (settled — don't re-add compound
+sigs until the engine has a beat-unit concept), piano-roll Signature edits the project sig
+(undoable), piano-roll ruler follows the numerator. Time-domain rule codified in
+`.claude/rules/ffi.md` (route all tempo writes through `_onTempoChanged`). Remaining batches
+3–5: drum kit, right-click+favourites sweep, undo-truth+persistence; then visual sweep. §6.B
+strip mockup still parked pending a design conversation.
 
 ### Milestones
 
@@ -83,10 +89,14 @@ still parked pending a design conversation.
 - [x] **Merge #83** (merged 2026-06-10, CI green).
 - [x] **Bug-hunt + design-recs reviews** (2026-06-10, ultracode): 96 confirmed findings → 5 fix
   batches; sampler + tempo time-domain block the tag. Reports in `docs/reviews/`.
-- [ ] **Batch 1 — sampler rescue (PR #84)**: CI green → Tyr in-app walkthrough (drop zone, strip,
-  loop handles, undo) → merge.
-- [ ] **Batch 2 — "time is one domain"** (audio-clip tempo ratio #3/#4, metronome phase #28,
-  time-sig decision #10/#18): the quietly-worst bug in the app.
+- [x] **Batch 1 — sampler rescue (PR #84 MERGED 2026-06-10, Tyr-approved)**: silence fix on all
+  instrument paths, drop zone (library + Finder drops), ▶ preview (strip rejected), ruler-only
+  loop (on-waveform handles rejected), per-gesture undo incl. undoable load (new unload/get-path
+  FFI). Deferred: Load copy-to-project, seconds-based sampler ruler, engine println flood.
+- [x] **Batch 2 — "time is one domain"** (branch `fix/v0.6-batch2-time-domain`, PR opening):
+  #3/#4 one real-seconds domain + tempo-change engine sync, #28 metronome phase, #19
+  stopped-path lock (→ retest M/S/R lag), #10/#11/#18 time-sig honesty (denominator locked
+  /4 — Tyr's call; piano-roll Signature now edits the project sig).
 - [ ] **Batches 3–5** (drum kit · right-click/favourites sweep · undo-truth/persistence), then the
   low-sweep visual batch; §4-of-bug-report decisions need Tyr (multi-arm, mixer border, M/S/R-lag
   retest after batch 2).

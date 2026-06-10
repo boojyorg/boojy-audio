@@ -22,6 +22,29 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Audio clips play at the right time — and the right speed — at every tempo.** The engine
+  rendered audio clips, volume automation, and punch-in/out against a legacy tempo-scaled clock
+  while MIDI, the playhead, and the UI all used real time. At any tempo other than 120 BPM,
+  audio clips started early or late against MIDI *and* played pitch-shifted (1.5× too fast at
+  180 BPM); export and stems carried the same error. Everything now lives in one time domain.
+- **Changing the tempo no longer silently corrupts audio-clip playback.** The arrangement
+  rescaled clips on screen but never told the engine, so clips looked right and played wrong —
+  and undoing the tempo change desynced them again. Clip positions and automation curves now
+  reach the engine on every tempo change, redo, and undo. The BPM field in Project Settings
+  also routes through the same undoable path (it used to skip the reschedule entirely), and it
+  no longer shows a stale value after loading a project or editing tempo in the transport bar.
+- **The metronome stays on the beat after a live tempo change** (its beat counter kept counting
+  in old-tempo beats until the transport stopped).
+- **Mute/Solo/Record-arm respond immediately while stopped.** The stopped-state audio engine
+  held the track list locked for whole buffers, so button presses queued behind the audio
+  thread — the likely cause of the 100–400 ms M/S/R lag.
+- **The time signature is honest now.** The piano-roll Signature field used to change only the
+  piano-roll grid (metronome, ruler, and project ignored it) — it now edits the real project
+  signature, undoably, same as the transport control. The piano-roll ruler follows the
+  signature instead of always drawing 4/4 bars. And since the engine has no beat-unit concept
+  yet, the denominator is a read-only /4 instead of a control that did nothing — 6/8 always
+  played identically to 6/4, so the compound-signature menu options are gone until they can be
+  real.
 - **New instrument tracks play on the first Play press.** The default 1-bar clip created with a
   new sampler/synth/VST3 track was never registered with the engine, so a fresh track produced
   silence until its first piano-roll edit — the headline "sampler makes no sound" bug.
