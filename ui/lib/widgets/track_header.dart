@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/material.dart';
 import '../audio_engine.dart';
 import '../theme/boojy_icons.dart';
@@ -56,10 +57,25 @@ class _TrackHeaderState extends State<TrackHeader> {
   // Drag state
   bool _isDragging = false;
 
+  DateTime? _lastTapAt;
+
+  // Double-click is detected manually from single taps: a real onDoubleTap
+  // recognizer holds the gesture arena for ~300ms after every tap, which
+  // delayed the M/S/R buttons inside this header by that long.
+  void _handleTap() {
+    final now = DateTime.now();
+    final last = _lastTapAt;
+    _lastTapAt = now;
+    if (last != null && now.difference(last) < kDoubleTapTimeout) {
+      _lastTapAt = null;
+      widget.onDoubleClick?.call();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onDoubleTap: widget.onDoubleClick,
+      onTap: _handleTap,
       onSecondaryTapDown: (TapDownDetails details) {
         _showContextMenu(context, details.globalPosition);
       },
