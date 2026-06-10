@@ -102,3 +102,13 @@ CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
   AppleScript dialogs throw a `ProcessException` on Windows; that's exactly how Save As / Open /
   Export shipped broken there through v0.5.3. The helper keeps AppleScript on macOS and uses
   `file_picker` everywhere else.
+- **Never put `onDoubleTap` on an ancestor of interactive controls.** A real
+  `DoubleTapGestureRecognizer` HOLDS the gesture arena for `kDoubleTapTimeout` (~300 ms) after
+  every tap-up, so every button inside the detector fires that late — this was the v0.6 M/S/R
+  "100–400 ms lag" on track headers and mixer strips (misdiagnosed twice before; the engine lock
+  fix in #85 was a real but separate lag). Detect double-click manually instead: keep a
+  `DateTime? _lastTapAt` and compare in `onTap` against `kDoubleTapTimeout` (see
+  `track_header.dart` / `track_mixer_strip.dart`; regression test =
+  `test/widgets/track_buttons_latency_test.dart`). Bonus: the first click of a double-click then
+  fires `onTap` immediately instead of being swallowed. `onDoubleTap` on a *leaf* widget with no
+  interactive children (fader reset, name-rename) is fine.

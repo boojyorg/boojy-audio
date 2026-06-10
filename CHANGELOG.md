@@ -56,6 +56,11 @@ All notable changes to Boojy Audio will be documented in this file.
 - **Mute/Solo/Record-arm respond immediately while stopped.** The stopped-state audio engine
   held the track list locked for whole buffers, so button presses queued behind the audio
   thread — the likely cause of the 100–400 ms M/S/R lag.
+- **Mute/Solo/Record-arm/Input-monitor buttons respond instantly to every tap.** The real M/S/R
+  lag turned out to be in the UI: the track header and mixer strip listened for double-click
+  across their whole area, and Flutter holds every single tap ~300 ms to see if a second one is
+  coming. Double-click is now detected without that hold, so buttons fire immediately — and the
+  first click of a double-click selects the track right away instead of being swallowed.
 - **The time signature is honest now.** The piano-roll Signature field used to change only the
   piano-roll grid (metronome, ruler, and project ignored it) — it now edits the real project
   signature, undoably, same as the transport control. The piano-roll ruler follows the

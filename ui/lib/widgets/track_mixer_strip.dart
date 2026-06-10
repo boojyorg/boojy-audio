@@ -1,5 +1,6 @@
 // ignore_for_file: avoid_positional_boolean_parameters
 
+import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -204,6 +205,7 @@ class TrackMixerStrip extends StatefulWidget {
 class _TrackMixerStripState extends State<TrackMixerStrip> {
   bool _isEditing = false;
   bool _fxHovered = false;
+  DateTime? _lastTapAt; // manual double-click detection (see root onTap)
   late TextEditingController _nameController;
   late FocusNode _focusNode;
 
@@ -1168,8 +1170,19 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           onTap: () {
             final isShiftHeld = ModifierKeyState.current().isShiftPressed;
             widget.onTap?.call(isShiftHeld);
+            // Double-click is detected manually from single taps: a real
+            // onDoubleTap recognizer holds the gesture arena for ~300ms
+            // after every tap, which delayed the M/S/R/I buttons inside
+            // this strip by that long. The first click of a double-click
+            // also selects the track now instead of being swallowed.
+            final now = DateTime.now();
+            final last = _lastTapAt;
+            _lastTapAt = now;
+            if (last != null && now.difference(last) < kDoubleTapTimeout) {
+              _lastTapAt = null;
+              widget.onDoubleTap?.call();
+            }
           },
-          onDoubleTap: widget.onDoubleTap,
           onSecondaryTapDown: (TapDownDetails details) {
             _showContextMenu(context, details.globalPosition);
           },
