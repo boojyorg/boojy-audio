@@ -265,6 +265,12 @@ class AudioEngine implements AudioEngineInterface {
       throw UnsupportedError('stub');
 
   @override
+  bool unloadSampleForTrack(int trackId) => throw UnsupportedError('stub');
+
+  @override
+  String? getSamplerSamplePath(int trackId) => throw UnsupportedError('stub');
+
+  @override
   String setSamplerParameter(int trackId, String param, String value) =>
       throw UnsupportedError('stub');
 

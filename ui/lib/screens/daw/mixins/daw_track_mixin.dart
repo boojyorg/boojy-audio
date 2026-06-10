@@ -255,7 +255,9 @@ mixin DAWTrackMixin
       createDefaultMidiClip(trackId);
 
       refreshTrackWidgets();
-      selectTrack(trackId);
+      // autoSelectClip so the new 1-bar clip shows selected, matching the
+      // synth path below.
+      onTrackSelected(trackId, autoSelectClip: true);
       return;
     }
 

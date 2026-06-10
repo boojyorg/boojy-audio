@@ -217,9 +217,9 @@ mixin DAWLibraryMixin
     // transport never triggers the sampler (bug-hunt #1 sibling).
     createDefaultMidiClip(trackId);
 
-    // Refresh track list and select the new track
+    // Refresh track list and select the new track + its default clip
     refreshTrackWidgets();
-    selectTrack(trackId);
+    onTrackSelected(trackId, autoSelectClip: true);
 
     showSnackBar('Created sampler with "${truncateName(sampleName, 30)}"');
   }

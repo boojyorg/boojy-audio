@@ -396,6 +396,22 @@ mixin _PluginsMixin on _AudioEngineBase {
     }
   }
 
+  /// Unload the sample from a sampler track (undo of a first sample load).
+  /// Returns true on success.
+  bool unloadSampleForTrack(int trackId) {
+    return _unloadSampleForTrack(trackId) == 1;
+  }
+
+  /// Path of the sample currently loaded on a sampler track.
+  /// Returns null when the track has no sample (or isn't a sampler).
+  String? getSamplerSamplePath(int trackId) {
+    final resultPtr = _getSamplerSamplePath(trackId);
+    if (resultPtr == ffi.nullptr) return null;
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result.isEmpty ? null : result;
+  }
+
   /// Set sampler parameter for a track
   /// param: "root_note", "attack", "attack_ms", "release", "release_ms"
   /// value: parameter value as string

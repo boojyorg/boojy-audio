@@ -7,14 +7,18 @@ All notable changes to Boojy Audio will be documented in this file.
 ### Features
 
 - **The Sampler is now a one-screen instrument (GarageBand Quick Sampler model).** A sampler
-  track with no sample shows a drop zone — drop an audio file or hit Browse and the empty state
-  *is* the load UI. A keyboard strip along the bottom auditions the sample pitched across keys
-  (root note highlighted), and loop start/end are dragged as handles directly on the waveform.
-  The controls bar slims to the six controls that matter (Loop, Attack, Release, Root, Reverse,
-  Volume + Load); the Warp/BPM/÷2/×2, bars-beats Start/Length/Sig, and Pitch controls — several
-  of which were stored-but-dead engine parameters — are gone.
-- **Sampler edits are undoable.** Every sampler parameter change is one undo step per gesture
-  (a slider drag coalesces instead of producing dozens of steps).
+  track with no sample shows a drop zone — drag a file from the library or Finder, or hit
+  Browse; the empty state *is* the load UI. A hold-to-preview ▶ button next to Root auditions
+  the sample at its root note. Loop start/end are edited in the ruler bar, the same idiom as
+  the Arrangement and Piano Roll loops. The controls bar slims to the six controls that matter
+  (Loop, Attack, Release, Root + ▶, Reverse, Volume + Load); the Warp/BPM/÷2/×2, bars-beats
+  Start/Length/Sig, and Pitch controls — several of which were stored-but-dead engine
+  parameters — are gone. Creating a sampler also auto-selects its 1-bar clip, like every other
+  instrument.
+- **Sampler edits are undoable — including loading a sample.** Every parameter change is one
+  undo step per gesture (a slider drag coalesces instead of producing dozens of steps), and
+  undoing a sample load restores the previous sample with its exact loop/envelope settings —
+  or returns a first load to the empty drop zone (new engine unload support).
 
 ### Bug Fixes
 

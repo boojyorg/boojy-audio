@@ -703,6 +703,12 @@ class AudioEngine implements AudioEngineInterface {
   bool loadSampleForTrack(int trackId, String path, int rootNote) => false;
 
   @override
+  bool unloadSampleForTrack(int trackId) => false;
+
+  @override
+  String? getSamplerSamplePath(int trackId) => null;
+
+  @override
   String setSamplerParameter(int trackId, String param, String value) =>
       'Not supported on web';
 

@@ -636,6 +636,28 @@ impl TrackSynthManager {
         }
     }
 
+    /// Unload the sample from a sampler track. Returns false if the track
+    /// is not a sampler.
+    pub fn unload_sample(&mut self, track_id: u64) -> bool {
+        if let Some(TrackInstrument::Sampler(sampler)) = self.instruments.get_mut(&track_id) {
+            sampler.unload_sample();
+            true
+        } else {
+            println!("⚠️ unload_sample: Track {track_id} is not a sampler");
+            false
+        }
+    }
+
+    /// Currently loaded sample path for a sampler track (None when the track
+    /// is not a sampler or has no sample).
+    pub fn sampler_sample_path(&self, track_id: u64) -> Option<String> {
+        if let Some(TrackInstrument::Sampler(sampler)) = self.instruments.get(&track_id) {
+            sampler.sample_path().map(str::to_string)
+        } else {
+            None
+        }
+    }
+
     pub fn set_parameter(&mut self, track_id: u64, key: &str, value: &str) {
         if let Some(inst) = self.instruments.get_mut(&track_id) {
             inst.set_parameter(key, value);
