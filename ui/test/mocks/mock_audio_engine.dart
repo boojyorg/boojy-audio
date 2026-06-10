@@ -360,6 +360,18 @@ class MockAudioEngine implements AudioEngineInterface {
   }
 
   @override
+  bool unloadSampleForTrack(int trackId) {
+    _record('unloadSampleForTrack');
+    return true;
+  }
+
+  @override
+  String? getSamplerSamplePath(int trackId) {
+    _record('getSamplerSamplePath');
+    return null;
+  }
+
+  @override
   String setSamplerParameter(int trackId, String param, String value) {
     _record('setSamplerParameter');
     return 'OK';

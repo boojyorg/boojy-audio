@@ -516,6 +516,12 @@ typedef _LoadSampleForTrackFfiNative =
     ffi.Int32 Function(ffi.Uint64, ffi.Pointer<ffi.Char>, ffi.Uint8);
 typedef _LoadSampleForTrackFfi = int Function(int, ffi.Pointer<ffi.Char>, int);
 
+typedef _UnloadSampleForTrackFfiNative = ffi.Int32 Function(ffi.Uint64);
+typedef _UnloadSampleForTrackFfi = int Function(int);
+
+typedef _GetSamplerSamplePathFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64);
+typedef _GetSamplerSamplePathFfi = ffi.Pointer<Utf8> Function(int);
+
 typedef _SetSamplerParameterFfiNative =
     ffi.Pointer<Utf8> Function(
       ffi.Uint64,

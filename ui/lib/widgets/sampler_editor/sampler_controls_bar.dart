@@ -40,6 +40,11 @@ class SamplerControlsBar extends StatefulWidget {
   final void Function(String param)? onParamGestureStart;
   final void Function(String param)? onParamGestureEnd;
 
+  /// Hold-to-audition: ▶ press plays the sample at the root note, release
+  /// stops it.
+  final VoidCallback? onPreviewStart;
+  final VoidCallback? onPreviewEnd;
+
   const SamplerControlsBar({
     super.key,
     this.loopEnabled = false,
@@ -58,6 +63,8 @@ class SamplerControlsBar extends StatefulWidget {
     this.onLoadSample,
     this.onParamGestureStart,
     this.onParamGestureEnd,
+    this.onPreviewStart,
+    this.onPreviewEnd,
   });
 
   @override
@@ -137,6 +144,8 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
           _buildEnvelopeGroup(context),
           _buildSeparator(context),
           _buildRootNoteGroup(context),
+          const SizedBox(width: 6),
+          _buildPreviewButton(context),
           _buildSeparator(context),
           _buildToggleButton(
             context,
@@ -344,6 +353,35 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
           ),
         ),
       ],
+    );
+  }
+
+  // ============================================================================
+  // Preview button — hold to hear the sample at the root note
+  // ============================================================================
+
+  Widget _buildPreviewButton(BuildContext context) {
+    final colors = context.colors;
+
+    return Tooltip(
+      message: 'Hold to preview at the root note',
+      child: GestureDetector(
+        onTapDown: (_) => widget.onPreviewStart?.call(),
+        onTapUp: (_) => widget.onPreviewEnd?.call(),
+        onTapCancel: () => widget.onPreviewEnd?.call(),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: colors.dark,
+              borderRadius: BorderRadius.circular(BT.radiusSm),
+              border: Border.all(color: colors.surface, width: 1),
+            ),
+            child: Icon(BI.play, size: 13, color: colors.textPrimary),
+          ),
+        ),
+      ),
     );
   }
 

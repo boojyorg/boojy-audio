@@ -8,15 +8,16 @@ import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 import '../../theme/app_colors.dart';
+import '../../models/library_item.dart';
 import '../platform_drop_target.dart';
 import '../shared/editors/nav_bar_with_zoom.dart';
 import 'sampler_controls_bar.dart';
-import 'sampler_keyboard_strip.dart';
 import 'sampler_waveform_painter.dart';
 
 /// Sampler Editor widget — beginner-first flow (GarageBand Quick Sampler):
-/// drop/Browse a file → see the waveform → audition on the keyboard strip.
-/// Loop points are edited with drag handles directly on the waveform.
+/// drop/Browse a file → see the waveform → hold the ▶ button to audition at
+/// the root note. Loop points are edited in the ruler bar, the same idiom as
+/// the Arrangement / Piano Roll loop.
 /// All parameter edits are Command-wrapped (one undo step per gesture).
 class SamplerEditor extends StatefulWidget {
   static const List<String> acceptedExtensions = [
@@ -75,20 +76,16 @@ class _SamplerEditorState extends State<SamplerEditor> {
   double? _navDragStartX;
   double? _navDragStartY;
 
-  // On-waveform loop handle interaction
-  LoopEdge? _waveHoverEdge;
-  LoopEdge? _waveDragEdge;
-  // Non-edge waveform drags scroll the view (the opaque gesture layer would
-  // otherwise swallow them); tracks the last global X during such a drag.
+  // Waveform drags scroll the view; tracks the last global X during a drag.
   double? _waveScrollDragX;
 
   // Undo coalescing: param key -> value snapshot at gesture start
   final Map<String, String> _gestureOldValues = {};
 
-  // External file drag highlight
+  // External file / library-item drag highlight
   bool _isDropHovering = false;
 
-  // Keyboard strip audition
+  // Preview-button audition
   int? _auditionNote;
 
   @override
@@ -115,8 +112,6 @@ class _SamplerEditorState extends State<SamplerEditor> {
       // Drop any in-flight gesture state: a drag begun on the old track must
       // not commit an undo command against the new one.
       _gestureOldValues.clear();
-      _waveDragEdge = null;
-      _waveHoverEdge = null;
       _navDragMode = _NavDragMode.none;
       _loadSampleData();
     }
@@ -324,19 +319,58 @@ class _SamplerEditorState extends State<SamplerEditor> {
   }
 
   void _loadFromPath(String path) {
-    if (widget.audioEngine == null || widget.trackId == null) return;
-    final ok = widget.audioEngine!.loadSampleForTrack(
-      widget.trackId!,
-      path,
-      _rootNote,
-    );
-    if (ok) {
-      _loadSampleData();
-    } else if (mounted) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Could not load that audio file')),
-      );
+    final engine = widget.audioEngine;
+    final trackId = widget.trackId;
+    if (engine == null || trackId == null) return;
+
+    final manager = widget.undoManager;
+    if (manager == null) {
+      // No undo plumbing — plain load.
+      if (engine.loadSampleForTrack(trackId, path, _rootNote)) {
+        _loadSampleData();
+      } else {
+        _showLoadError();
+      }
+      return;
     }
+
+    // Snapshot the outgoing sample so undo restores it exactly (loading
+    // resets loop points); null path = first load, undo returns to the
+    // empty drop zone.
+    final oldPath = engine.getSamplerSamplePath(trackId);
+    final oldParams = <String, String>{
+      for (final param in const [
+        'root_note',
+        'loop_enabled',
+        'loop_start_seconds',
+        'loop_end_seconds',
+        'attack_ms',
+        'release_ms',
+        'volume_db',
+        'reversed',
+      ])
+        param: _currentValueString(param),
+    };
+
+    manager.execute(
+      LoadSampleCommand(
+        trackId: trackId,
+        newPath: path,
+        newRootNote: _rootNote,
+        oldPath: oldPath,
+        oldParams: oldParams,
+        onApplied: () {
+          if (mounted) _loadSampleData();
+        },
+      ),
+    );
+  }
+
+  void _showLoadError() {
+    if (!mounted) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      const SnackBar(content: Text('Could not load that audio file')),
+    );
   }
 
   String? _firstAcceptedPath(Iterable<String> paths) {
@@ -348,27 +382,24 @@ class _SamplerEditorState extends State<SamplerEditor> {
   }
 
   // ============================================================================
-  // Keyboard strip audition
+  // Preview audition (hold the ▶ button → sample plays at root note)
   // ============================================================================
 
-  void _startAudition(int note) {
-    if (widget.audioEngine == null || widget.trackId == null) return;
-    _auditionNote = note;
-    widget.audioEngine!.sendTrackMidiNoteOn(widget.trackId!, note, 100);
+  void _startPreview() {
+    if (widget.audioEngine == null || widget.trackId == null || !_hasSample) {
+      return;
+    }
+    _stopAudition();
+    _auditionNote = _rootNote;
+    widget.audioEngine!.sendTrackMidiNoteOn(widget.trackId!, _rootNote, 100);
   }
 
-  /// Stop [note] if given (the strip reports which key was released),
-  /// otherwise whatever note is currently sounding.
-  void _stopAudition([int? note]) {
-    final target = note ?? _auditionNote;
-    if (target != null &&
-        widget.audioEngine != null &&
-        widget.trackId != null) {
-      widget.audioEngine!.sendTrackMidiNoteOff(widget.trackId!, target, 0);
+  void _stopAudition() {
+    final note = _auditionNote;
+    if (note != null && widget.audioEngine != null && widget.trackId != null) {
+      widget.audioEngine!.sendTrackMidiNoteOff(widget.trackId!, note, 0);
     }
-    if (note == null || note == _auditionNote) {
-      _auditionNote = null;
-    }
+    _auditionNote = null;
   }
 
   void _zoomIn() => _zoomByFactor(1.3);
@@ -391,8 +422,7 @@ class _SamplerEditorState extends State<SamplerEditor> {
 
     setState(() {
       _pixelsPerSecond = newPps;
-      // Handle positions just moved under the (stationary) pointer.
-      _waveHoverEdge = null;
+      // Loop-edge positions just moved under the (stationary) pointer.
       _navBarHoverSeconds = null;
     });
 
@@ -441,98 +471,101 @@ class _SamplerEditorState extends State<SamplerEditor> {
 
         final totalWidth = _sampleDuration * _pixelsPerSecond;
 
-        return PlatformDropTarget(
-          onDragDone: (details) {
-            final path = _firstAcceptedPath(details.files.map((f) => f.path));
-            if (path != null) _loadFromPath(path);
-          },
-          child: ColoredBox(
-            color: colors.dark,
-            child: Column(
-              children: [
-                // Controls bar (slim: Loop / Atk / Rel / Root / Reverse / Vol / Load)
-                SamplerControlsBar(
-                  loopEnabled: _loopEnabled,
-                  attackMs: _attackMs,
-                  releaseMs: _releaseMs,
-                  rootNote: _rootNote,
-                  reversed: _reversed,
-                  volumeDb: _volumeDb,
-                  onLoopToggle: () => _applyInstantParam(
-                    'loop_enabled',
-                    _loopEnabled ? '0' : '1',
+        return DragTarget<AudioFileItem>(
+          // Library items travel as in-app drags, not OS file drops — both
+          // must land here (a Finder-only target reads as "drop is broken").
+          onAcceptWithDetails: (details) =>
+              _loadFromPath(details.data.filePath),
+          builder: (context, candidates, rejected) => PlatformDropTarget(
+            onDragDone: (details) {
+              final path = _firstAcceptedPath(details.files.map((f) => f.path));
+              if (path != null) _loadFromPath(path);
+            },
+            child: ColoredBox(
+              color: colors.dark,
+              child: Column(
+                children: [
+                  // Controls bar (slim: Loop / Atk / Rel / Root / Reverse / Vol / Load)
+                  SamplerControlsBar(
+                    loopEnabled: _loopEnabled,
+                    attackMs: _attackMs,
+                    releaseMs: _releaseMs,
+                    rootNote: _rootNote,
+                    reversed: _reversed,
+                    volumeDb: _volumeDb,
+                    onLoopToggle: () => _applyInstantParam(
+                      'loop_enabled',
+                      _loopEnabled ? '0' : '1',
+                    ),
+                    onReverseToggle: () =>
+                        _applyInstantParam('reversed', _reversed ? '0' : '1'),
+                    onRootNoteChanged: (note) =>
+                        _applyInstantParam('root_note', note.toString()),
+                    onAttackChanged: _onAttackChanged,
+                    onReleaseChanged: _onReleaseChanged,
+                    onVolumeChanged: _onVolumeChanged,
+                    onVolumeReset: () => _applyInstantParam('volume_db', '0.0'),
+                    onParamGestureStart: _beginParamGesture,
+                    onParamGestureEnd: _endParamGesture,
+                    onPreviewStart: _startPreview,
+                    onPreviewEnd: _stopAudition,
+                    onLoadSample: _onLoadSample,
                   ),
-                  onReverseToggle: () =>
-                      _applyInstantParam('reversed', _reversed ? '0' : '1'),
-                  onRootNoteChanged: (note) =>
-                      _applyInstantParam('root_note', note.toString()),
-                  onAttackChanged: _onAttackChanged,
-                  onReleaseChanged: _onReleaseChanged,
-                  onVolumeChanged: _onVolumeChanged,
-                  onVolumeReset: () => _applyInstantParam('volume_db', '0.0'),
-                  onParamGestureStart: _beginParamGesture,
-                  onParamGestureEnd: _endParamGesture,
-                  onLoadSample: _onLoadSample,
-                ),
 
-                // Navigation bar with loop drag interaction
-                NavBarWithZoom(
-                  scrollController: _rulerScroll,
-                  onZoomIn: _zoomIn,
-                  onZoomOut: _zoomOut,
-                  height: 24.0,
-                  child: Listener(
-                    onPointerSignal: (event) {
-                      if (event is PointerScrollEvent) {
-                        _handleScrollWheel(event.scrollDelta.dy);
-                      }
-                    },
-                    child: MouseRegion(
-                      cursor: _getNavBarCursor(),
-                      onHover: _handleNavBarHover,
-                      onExit: (_) => setState(() => _navBarHoverSeconds = null),
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onPanStart: _handleNavBarPanStart,
-                        onPanUpdate: _handleNavBarPanUpdate,
-                        onPanEnd: (_) => _endNavBarPan(),
-                        onPanCancel: _endNavBarPan,
-                        child: SizedBox(
-                          width: totalWidth,
-                          height: 24.0,
-                          child: CustomPaint(
-                            size: Size(totalWidth, 24.0),
-                            painter: SamplerRulerPainter(
-                              pixelsPerSecond: _pixelsPerSecond,
-                              sampleDuration: _sampleDuration,
-                              loopEnabled: _loopEnabled,
-                              loopStartSeconds: _loopStartSeconds,
-                              loopEndSeconds: _loopEndSeconds,
-                              colors: colors,
-                              hoverSeconds: _isNearLoopEdge(_navBarHoverSeconds)
-                                  ? _navBarHoverSeconds
-                                  : null,
-                              textScale: MediaQuery.textScalerOf(
-                                context,
-                              ).scale(1.0),
+                  // Navigation bar with loop drag interaction
+                  NavBarWithZoom(
+                    scrollController: _rulerScroll,
+                    onZoomIn: _zoomIn,
+                    onZoomOut: _zoomOut,
+                    height: 24.0,
+                    child: Listener(
+                      onPointerSignal: (event) {
+                        if (event is PointerScrollEvent) {
+                          _handleScrollWheel(event.scrollDelta.dy);
+                        }
+                      },
+                      child: MouseRegion(
+                        cursor: _getNavBarCursor(),
+                        onHover: _handleNavBarHover,
+                        onExit: (_) =>
+                            setState(() => _navBarHoverSeconds = null),
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onPanStart: _handleNavBarPanStart,
+                          onPanUpdate: _handleNavBarPanUpdate,
+                          onPanEnd: (_) => _endNavBarPan(),
+                          onPanCancel: _endNavBarPan,
+                          child: SizedBox(
+                            width: totalWidth,
+                            height: 24.0,
+                            child: CustomPaint(
+                              size: Size(totalWidth, 24.0),
+                              painter: SamplerRulerPainter(
+                                pixelsPerSecond: _pixelsPerSecond,
+                                sampleDuration: _sampleDuration,
+                                loopEnabled: _loopEnabled,
+                                loopStartSeconds: _loopStartSeconds,
+                                loopEndSeconds: _loopEndSeconds,
+                                colors: colors,
+                                hoverSeconds:
+                                    _isNearLoopEdge(_navBarHoverSeconds)
+                                    ? _navBarHoverSeconds
+                                    : null,
+                                textScale: MediaQuery.textScalerOf(
+                                  context,
+                                ).scale(1.0),
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
 
-                // Waveform area with on-waveform loop handles
-                Expanded(child: _buildWaveformArea(colors)),
-
-                // Audition keyboard
-                SamplerKeyboardStrip(
-                  rootNote: _rootNote,
-                  onNoteOn: _startAudition,
-                  onNoteOff: _stopAudition,
-                ),
-              ],
+                  // Waveform area (drag to scroll; loop edits live in the ruler)
+                  Expanded(child: _buildWaveformArea(colors)),
+                ],
+              ),
             ),
           ),
         );
@@ -571,9 +604,19 @@ class _SamplerEditorState extends State<SamplerEditor> {
   }
 
   /// Sampler track selected but no sample loaded yet — the empty state IS the
-  /// load UI: a full-panel drop target with a Browse button.
+  /// load UI: a full-panel drop target (library drags AND Finder file drops)
+  /// with a Browse button.
   Widget _buildDropZone(BoojyColors colors) {
-    final borderColor = _isDropHovering ? colors.accent : colors.surface;
+    return DragTarget<AudioFileItem>(
+      onAcceptWithDetails: (details) => _loadFromPath(details.data.filePath),
+      builder: (context, candidates, rejected) =>
+          _buildDropZoneBody(colors, libraryHover: candidates.isNotEmpty),
+    );
+  }
+
+  Widget _buildDropZoneBody(BoojyColors colors, {required bool libraryHover}) {
+    final hovering = _isDropHovering || libraryHover;
+    final borderColor = hovering ? colors.accent : colors.surface;
 
     return PlatformDropTarget(
       onDragEntered: (_) => setState(() => _isDropHovering = true),
@@ -592,7 +635,7 @@ class _SamplerEditorState extends State<SamplerEditor> {
             decoration: BoxDecoration(
               border: Border.all(color: borderColor, width: 1),
               borderRadius: BorderRadius.circular(BT.radiusMd),
-              color: _isDropHovering
+              color: hovering
                   ? colors.accent.withValues(alpha: 0.06)
                   : Colors.transparent,
             ),
@@ -684,33 +727,25 @@ class _SamplerEditorState extends State<SamplerEditor> {
             controller: _horizontalScroll,
             scrollDirection: Axis.horizontal,
             physics: const ClampingScrollPhysics(),
-            child: MouseRegion(
-              cursor: (_waveHoverEdge != null || _waveDragEdge != null)
-                  ? SystemMouseCursors.resizeLeftRight
-                  : MouseCursor.defer,
-              onHover: _handleWaveformHover,
-              onExit: (_) => setState(() => _waveHoverEdge = null),
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onPanStart: _handleWaveformPanStart,
-                onPanUpdate: _handleWaveformPanUpdate,
-                onPanEnd: (_) => _endWaveformPan(),
-                onPanCancel: _endWaveformPan,
-                child: SizedBox(
-                  width: totalWidth,
-                  height: availableHeight,
-                  child: CustomPaint(
-                    size: Size(totalWidth, availableHeight),
-                    painter: SamplerWaveformPainter(
-                      peaks: _waveformPeaks,
-                      sampleDuration: _sampleDuration,
-                      pixelsPerSecond: _pixelsPerSecond,
-                      loopEnabled: _loopEnabled,
-                      loopStartSeconds: _loopStartSeconds,
-                      loopEndSeconds: _loopEndSeconds,
-                      colors: colors,
-                      highlightedEdge: _waveDragEdge ?? _waveHoverEdge,
-                    ),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanStart: _handleWaveformPanStart,
+              onPanUpdate: _handleWaveformPanUpdate,
+              onPanEnd: (_) => _endWaveformPan(),
+              onPanCancel: _endWaveformPan,
+              child: SizedBox(
+                width: totalWidth,
+                height: availableHeight,
+                child: CustomPaint(
+                  size: Size(totalWidth, availableHeight),
+                  painter: SamplerWaveformPainter(
+                    peaks: _waveformPeaks,
+                    sampleDuration: _sampleDuration,
+                    pixelsPerSecond: _pixelsPerSecond,
+                    loopEnabled: _loopEnabled,
+                    loopStartSeconds: _loopStartSeconds,
+                    loopEndSeconds: _loopEndSeconds,
+                    colors: colors,
                   ),
                 ),
               ),
@@ -730,11 +765,8 @@ class _SamplerEditorState extends State<SamplerEditor> {
     _horizontalScroll.jumpTo(newOffset);
     // Content moved under the stationary pointer; stale edge hover would
     // leave a resize cursor floating over nothing.
-    if (_waveHoverEdge != null || _navBarHoverSeconds != null) {
-      setState(() {
-        _waveHoverEdge = null;
-        _navBarHoverSeconds = null;
-      });
+    if (_navBarHoverSeconds != null) {
+      setState(() => _navBarHoverSeconds = null);
     }
   }
 
@@ -768,59 +800,28 @@ class _SamplerEditorState extends State<SamplerEditor> {
   // On-waveform loop handle drag
   // ============================================================================
 
-  void _handleWaveformHover(PointerHoverEvent event) {
-    final edge = _loopEdgeAt(event.localPosition.dx);
-    if (edge != _waveHoverEdge) {
-      setState(() => _waveHoverEdge = edge);
-    }
-  }
-
+  /// Waveform drags scroll the view (the opaque gesture layer wins the arena
+  /// over the scroll view, so we implement the scroll ourselves).
   void _handleWaveformPanStart(DragStartDetails details) {
-    final edge = _loopEdgeAt(details.localPosition.dx);
-    if (edge == null) {
-      // Not on a handle: treat the drag as scroll navigation, since the
-      // opaque gesture layer wins the arena over the scroll view.
-      _waveScrollDragX = details.globalPosition.dx;
-      return;
-    }
-    setState(() => _waveDragEdge = edge);
-    _beginParamGesture(
-      edge == LoopEdge.start ? 'loop_start_seconds' : 'loop_end_seconds',
-    );
+    _waveScrollDragX = details.globalPosition.dx;
   }
 
   void _handleWaveformPanUpdate(DragUpdateDetails details) {
-    final edge = _waveDragEdge;
-    if (edge == null) {
-      final lastX = _waveScrollDragX;
-      if (lastX != null && _horizontalScroll.hasClients) {
-        final deltaX = details.globalPosition.dx - lastX;
-        _horizontalScroll.jumpTo(
-          (_horizontalScroll.offset - deltaX).clamp(
-            0.0,
-            _horizontalScroll.position.maxScrollExtent,
-          ),
-        );
-        _waveScrollDragX = details.globalPosition.dx;
-      }
-      return;
-    }
-    final seconds = _secondsAtX(details.localPosition.dx);
-    if (edge == LoopEdge.start) {
-      _onLoopStartChanged(seconds);
-    } else {
-      _onLoopEndChanged(seconds);
+    final lastX = _waveScrollDragX;
+    if (lastX != null && _horizontalScroll.hasClients) {
+      final deltaX = details.globalPosition.dx - lastX;
+      _horizontalScroll.jumpTo(
+        (_horizontalScroll.offset - deltaX).clamp(
+          0.0,
+          _horizontalScroll.position.maxScrollExtent,
+        ),
+      );
+      _waveScrollDragX = details.globalPosition.dx;
     }
   }
 
   void _endWaveformPan() {
     _waveScrollDragX = null;
-    final edge = _waveDragEdge;
-    if (edge == null) return;
-    setState(() => _waveDragEdge = null);
-    _endParamGesture(
-      edge == LoopEdge.start ? 'loop_start_seconds' : 'loop_end_seconds',
-    );
   }
 
   // ============================================================================

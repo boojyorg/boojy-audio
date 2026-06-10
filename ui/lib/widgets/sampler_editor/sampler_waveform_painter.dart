@@ -4,7 +4,8 @@ import '../../theme/tokens.dart';
 
 /// Custom painter for sampler waveform display.
 /// Matches the Audio Editor's WaveformEditorPainter visual style:
-/// Grid → Waveform → Loop dimming → draggable loop handles.
+/// Grid → Waveform → Loop dimming. Loop edges are edited in the ruler bar
+/// (same idiom as the Arrangement / Piano Roll loop), not on the waveform.
 class SamplerWaveformPainter extends CustomPainter {
   final List<double> peaks;
   final double sampleDuration; // in seconds
@@ -16,9 +17,6 @@ class SamplerWaveformPainter extends CustomPainter {
   final double originalBpm;
   final int beatsPerBar;
 
-  /// Which loop edge the pointer is near (or dragging), for hover emphasis.
-  final LoopEdge? highlightedEdge;
-
   SamplerWaveformPainter({
     required this.peaks,
     required this.sampleDuration,
@@ -29,7 +27,6 @@ class SamplerWaveformPainter extends CustomPainter {
     required this.colors,
     this.originalBpm = 120.0,
     this.beatsPerBar = 4,
-    this.highlightedEdge,
   });
 
   double get _pixelsPerBeat {
@@ -60,67 +57,10 @@ class SamplerWaveformPainter extends CustomPainter {
     // 2. Draw waveform
     _drawWaveform(canvas, size, totalWidth, centerY);
 
-    // 3. Draw loop dimming overlay + draggable edge handles
+    // 3. Draw loop dimming overlay
     if (loopEnabled) {
       _drawLoopRegion(canvas, size, totalWidth);
-      _drawLoopHandles(canvas, size);
     }
-  }
-
-  /// Vertical edge lines with small grab tabs at the top, pointing into the
-  /// loop region — the on-waveform drag affordance (GarageBand-style).
-  void _drawLoopHandles(Canvas canvas, Size size) {
-    final startX = loopStartSeconds * pixelsPerSecond;
-    final endX = loopEndSeconds * pixelsPerSecond;
-
-    void drawHandle(
-      double x, {
-      required bool pointsRight,
-      required bool highlighted,
-    }) {
-      final linePaint = Paint()
-        ..color = colors.warning
-        ..strokeWidth = highlighted ? 3.0 : 2.0;
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), linePaint);
-
-      // Grab tab: rounded rect hugging the line's top, inside the loop.
-      const tabWidth = 10.0;
-      const tabHeight = 16.0;
-      final tabLeft = pointsRight ? x : x - tabWidth;
-      final tabRect = RRect.fromRectAndCorners(
-        Rect.fromLTWH(tabLeft, 0, tabWidth, tabHeight),
-        bottomLeft: pointsRight ? Radius.zero : const Radius.circular(4),
-        bottomRight: pointsRight ? const Radius.circular(4) : Radius.zero,
-      );
-      canvas.drawRRect(tabRect, Paint()..color = colors.warning);
-
-      // Tiny chevron on the tab so it reads as draggable.
-      final chevronPaint = Paint()
-        ..color = colors.darkest
-        ..strokeWidth = 1.5
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
-      final cx = tabLeft + tabWidth / 2;
-      final dir = pointsRight ? 2.0 : -2.0;
-      canvas.drawPath(
-        Path()
-          ..moveTo(cx - dir, 4)
-          ..lineTo(cx + dir, 8)
-          ..lineTo(cx - dir, 12),
-        chevronPaint,
-      );
-    }
-
-    drawHandle(
-      startX,
-      pointsRight: true,
-      highlighted: highlightedEdge == LoopEdge.start,
-    );
-    drawHandle(
-      endX,
-      pointsRight: false,
-      highlighted: highlightedEdge == LoopEdge.end,
-    );
   }
 
   void _drawTimeGrid(Canvas canvas, Size size, double totalWidth) {
@@ -316,12 +256,11 @@ class SamplerWaveformPainter extends CustomPainter {
         loopEndSeconds != oldDelegate.loopEndSeconds ||
         originalBpm != oldDelegate.originalBpm ||
         beatsPerBar != oldDelegate.beatsPerBar ||
-        highlightedEdge != oldDelegate.highlightedEdge ||
         colors != oldDelegate.colors;
   }
 }
 
-/// Which loop edge a pointer interaction targets.
+/// Which loop edge a (ruler) pointer interaction targets.
 enum LoopEdge { start, end }
 
 /// Beat-based ruler painter for the sampler editor.
