@@ -97,13 +97,17 @@ strip mockup still parked pending a design conversation.
   #3/#4 one real-seconds domain + tempo-change engine sync, #28 metronome phase, #19
   stopped-path lock (→ retest M/S/R lag), #10/#11/#18 time-sig honesty (denominator locked
   /4 — Tyr's call; piano-roll Signature now edits the project sig).
-- [ ] **Batch 3 — drum kit** (branch `fix/v0.6-batch3-drum-kit`, commit `82ab0ba`, NOT pushed):
-  playhead clip-local formula, drag-to-paint (one stroke = one undo), pad fader/M/S undo,
-  autoSelectClip on all creation paths (+ audio→sampler convert rebuilt — its clips were
-  engine-only/invisible), waveform corner artifact. Gates green (analyze, format, 117 scoped
-  tests). **NEW PROCESS (Tyr 2026-06-10): awaiting Tyr's manual walkthrough BEFORE push/PR/CI**
-  — batches 1+2 both shipped walkthrough-found bugs. Follow-up flagged: delete dead mixin
-  duplicates (`convertAudioTrackToSampler` etc.) in a consolidation pass.
+- [x] **Batch 3 — drum kit** (PR #86 MERGED 2026-06-10, squash `c30e609`, Tyr walkthrough-approved
+  pre-PR per the new process): playhead clip-local formula, drag-to-paint (one stroke = one undo),
+  pad fader/M/S undo, autoSelectClip on all creation paths (+ audio→sampler convert rebuilt — its
+  clips were engine-only/invisible), waveform corner artifact. Follow-up flagged: delete dead
+  mixin duplicates (`convertAudioTrackToSampler` etc.) in a consolidation pass.
+- [ ] **M/S/R tap lag — ROOT CAUSE FOUND + FIXED** (branch `fix/v0.6-msr-tap-lag`, commit
+  `c5fa4d5`, NOT pushed — awaiting Tyr's walkthrough): ancestor `onDoubleTap` on
+  TrackHeader/TrackMixerStrip held the gesture arena ~300 ms per tap (proven by widget test;
+  batch 2's engine lock was a separate, real lag). Now manual double-click detection; regression
+  test `track_buttons_latency_test.dart`; rule in `.claude/rules/flutter-ui.md`. Closes the §4.4
+  bug-report decision.
 - [ ] **Batches 4–5** (right-click/favourites sweep · undo-truth/persistence), then the
   low-sweep visual batch; §4-of-bug-report decisions need Tyr (multi-arm, mixer border, M/S/R-lag
   retest after batch 2).
