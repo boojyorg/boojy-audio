@@ -480,14 +480,17 @@ mixin DAWLibraryMixin
         return;
       }
 
-      // For MIDI tracks, create a clip with the specified position and duration
+      // For MIDI tracks, create a clip with the specified position and
+      // duration. Await it so the clip exists (and is selected by its command
+      // callback) before the track selection below — selecting first cleared
+      // the clip selection and raced the create command (flicker, #21).
       if (trackType == 'midi') {
-        createMidiClipWithParams(trackId, startBeats, durationBeats);
+        await createMidiClipWithParams(trackId, startBeats, durationBeats);
       }
       // For audio tracks, they start empty (user will drop audio files)
 
-      // Select the newly created track
-      onTrackSelected(trackId);
+      // Select the newly created track (keeping its fresh clip selected)
+      onTrackSelected(trackId, autoSelectClip: trackType == 'midi');
 
       // Refresh track widgets
       refreshTrackWidgets();

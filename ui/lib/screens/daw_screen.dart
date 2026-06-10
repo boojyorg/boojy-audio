@@ -1242,8 +1242,9 @@ class _DAWScreenState extends State<DAWScreen>
       createDefaultMidiClip(trackId);
 
       refreshTrackWidgets();
-      selectTrack(trackId);
-      uiLayout.isEditorPanelVisible = true;
+      // autoSelectClip so the new 1-bar clip shows selected, matching the
+      // synth path below (also opens the editor panel).
+      _onTrackSelected(trackId, autoSelectClip: true);
       return;
     }
 
@@ -1511,72 +1512,23 @@ class _DAWScreenState extends State<DAWScreen>
     }
   }
 
-  // Drag-to-create handlers
+  // Drag-to-create handlers — forward to the mixin impls (DAWLibraryMixin /
+  // DAWClipMixin), the single, correct copies. The previous divergent private
+  // bodies selected the track *before* the clip-create command ran, so the
+  // selectClip(null) inside the track selection raced the command callback
+  // that selects the new clip — the dropped clip's selection flickered off
+  // then on (bug-hunt #21). The mixin versions await the clip command first.
   Future<void> _onCreateTrackWithClip(
     String trackType,
     double startBeats,
     double durationBeats,
-  ) async {
-    if (audioEngine == null) return;
+  ) => onCreateTrackWithClip(trackType, startBeats, durationBeats);
 
-    try {
-      // Create new track
-      final command = CreateTrackCommand(
-        trackType: trackType,
-        trackName: trackType == 'midi' ? 'MIDI' : 'Audio',
-      );
-
-      await undoRedoManager.execute(command);
-
-      final trackId = command.createdTrackId;
-      if (trackId == null || trackId < 0) {
-        return;
-      }
-
-      // For MIDI tracks, create a clip with the specified position and duration
-      if (trackType == 'midi') {
-        _createMidiClipWithParams(trackId, startBeats, durationBeats);
-      }
-      // For audio tracks, they start empty (user will drop audio files)
-
-      // Select the newly created track
-      _onTrackSelected(trackId);
-
-      // Refresh track widgets
-      refreshTrackWidgets();
-
-      // Disarm other MIDI tracks when creating new MIDI track (exclusive arm)
-      if (trackType == 'midi') {
-        disarmOtherMidiTracks(trackId);
-      }
-    } catch (e) {
-      Log.e('Failed to create track with clip: $e');
-    }
-  }
-
-  void _onCreateClipOnTrack(
+  Future<void> _onCreateClipOnTrack(
     int trackId,
     double startBeats,
     double durationBeats,
-  ) {
-    // Create a new MIDI clip on the specified track
-    _createMidiClipWithParams(trackId, startBeats, durationBeats);
-
-    // Select the track
-    _onTrackSelected(trackId);
-  }
-
-  /// Create a MIDI clip with custom start position and duration
-  // Forwards to DAWClipMixin.createMidiClipWithParams — the single, correct
-  // impl. The mixin version resolves overlaps at the new clip's position (fixes
-  // H-8); the previous divergent private body skipped overlap resolution, so
-  // dragging a clip onto an occupied spot left overlapping, double-triggering
-  // clips (unlike the record/copy paths).
-  void _createMidiClipWithParams(
-    int trackId,
-    double startBeats,
-    double durationBeats,
-  ) => createMidiClipWithParams(trackId, startBeats, durationBeats);
+  ) => onCreateClipOnTrack(trackId, startBeats, durationBeats);
 
   // Library double-click handlers
   void _handleLibraryItemDoubleClick(LibraryItem item) {
@@ -1754,9 +1706,10 @@ class _DAWScreenState extends State<DAWScreen>
     // Create default 1-bar MIDI clip
     createDefaultMidiClip(trackId);
 
-    // Refresh track list and select the new track
+    // Refresh track list, select the new track and its clip (autoSelectClip
+    // so the fresh 1-bar clip shows selected, matching the synth drop path)
     refreshTrackWidgets();
-    selectTrack(trackId);
+    _onTrackSelected(trackId, autoSelectClip: true);
 
     _showSnackBar('Created sampler with "${_truncateName(sampleName, 30)}"');
   }
@@ -1802,7 +1755,9 @@ class _DAWScreenState extends State<DAWScreen>
 
     createDefaultMidiClip(trackId);
     refreshTrackWidgets();
-    selectTrack(trackId);
+    // autoSelectClip so the new 1-bar clip shows selected, matching the synth
+    // drop path (also opens the editor panel on the new kit).
+    _onTrackSelected(trackId, autoSelectClip: true);
     _showSnackBar(
       loadedAll
           ? 'Created drum kit'
@@ -1862,38 +1817,47 @@ class _DAWScreenState extends State<DAWScreen>
       return;
     }
 
-    // Create MIDI clips for each audio clip position
-    // Each audio clip becomes a MIDI note at the same position
+    // Create MIDI clips for each audio clip position — each audio clip
+    // becomes a MIDI note at the same position. Register the clips through
+    // midiPlaybackManager (rescheduleClip creates the engine clip, adds the
+    // note, and places it on the track): the previous direct-FFI loop left
+    // the clips engine-only, so they were invisible to the timeline and
+    // could never be selected or edited (bug-hunt #20).
+    final beatsPerSecond = tempo / 60.0;
+    var nextClipId = DateTime.now().millisecondsSinceEpoch;
     for (final clip in audioClips) {
-      final startTime = clip.startTime;
-      final duration = clip.duration;
+      // ClipData times are seconds; MidiClipData stores beats.
+      final startBeats = clip.startTime * beatsPerSecond;
+      final durationBeats = clip.duration * beatsPerSecond;
 
       // Calculate MIDI note based on transpose (if any)
       // Default root note is 60 (C4), transpose shifts it
       final transpose = clip.editData?.transposeSemitones ?? 0;
       final midiNote = (60 + transpose).clamp(0, 127);
 
-      // Create an empty MIDI clip
-      final clipId = audioEngine!.createMidiClip();
-      if (clipId < 0) continue;
-
-      // Add the MIDI note to the clip
-      // Note: note starts at 0.0 relative to the clip, duration = clip duration
-      audioEngine!.addMidiNoteToClip(
-        clipId,
-        midiNote,
-        100, // velocity
-        0.0, // note starts at beginning of clip
-        duration, // note duration = clip duration
+      final midiClip = MidiClipData(
+        clipId: nextClipId++,
+        trackId: samplerTrackId,
+        startTime: startBeats,
+        duration: durationBeats,
+        loopLength: durationBeats,
+        name: generateClipName(samplerTrackId),
+        notes: [
+          MidiNoteData(
+            note: midiNote,
+            velocity: 100,
+            startTime: 0.0, // note starts at beginning of clip
+            duration: durationBeats, // note duration = clip duration
+          ),
+        ],
       );
-
-      // Add the clip to the sampler track at the correct position
-      audioEngine!.addMidiClipToTrack(samplerTrackId, clipId, startTime);
+      midiPlaybackManager?.addRecordedClip(midiClip);
+      midiPlaybackManager?.rescheduleClip(midiClip, tempo);
     }
 
-    // Refresh tracks and select the new sampler track
+    // Refresh tracks and select the new sampler track + its first clip
     refreshTrackWidgets();
-    selectTrack(samplerTrackId);
+    _onTrackSelected(samplerTrackId, autoSelectClip: true);
 
     // Optionally delete the original audio track (ask user?)
     // For now, keep both tracks so user can compare
