@@ -657,6 +657,135 @@ fn join_audio_clips_renders_selected_span_with_gaps() {
 }
 
 // ============================================================================
+// TEMPO / TIME DOMAIN (v0.6 batch 2: one real-seconds domain for everything)
+// ============================================================================
+
+#[test]
+fn audio_clips_play_at_real_positions_at_any_tempo() {
+    let _guard = engine_lock();
+
+    // A 1 s 440 Hz clip placed at 1.0 s, project at 180 BPM. Clip positions
+    // are real seconds; the legacy tempo/120 playhead scaling made this clip
+    // start at 0.67 s real time AND play 1.5× too fast (pitch-shifted).
+    let dir = temp_dir("tempo_domain_offline");
+    let wav = write_sine_wav(&dir, "tone.wav", 1.0, 0.8);
+    let track_id = create_track("Audio", "Tempo".to_string()).unwrap();
+    load_audio_file_to_track_api(path_str(&wav), track_id, 1.0).unwrap();
+    set_tempo(180.0).unwrap();
+
+    let mix = {
+        let graph = get_audio_graph().unwrap().lock();
+        graph.render_offline(2.5)
+    };
+
+    let peak = |t0: f64, t1: f64| {
+        let a = (t0 * 48_000.0) as usize * 2;
+        let b = (t1 * 48_000.0) as usize * 2;
+        mix[a..b].iter().map(|s| s.abs()).fold(0.0f32, f32::max)
+    };
+    assert!(
+        peak(0.0, 0.95) < 0.01,
+        "silent before the clip's real 1.0 s start"
+    );
+    assert!(
+        peak(1.05, 1.95) > 0.1,
+        "clip audible across its full real 1 s span"
+    );
+    assert!(peak(2.1, 2.4) < 0.01, "silent after the clip ends at 2.0 s");
+
+    // Content speed must be tempo-independent: a 440 Hz sine over 0.5 s has
+    // ≈ 440 zero crossings. The legacy scaling played it at 1.5× → ≈ 660.
+    let a = (1.1 * 48_000.0) as usize;
+    let b = (1.6 * 48_000.0) as usize;
+    let crossings = mix
+        .chunks_exact(2)
+        .map(|f| f[0])
+        .collect::<Vec<f32>>()[a..b]
+        .windows(2)
+        .filter(|w| (w[0] >= 0.0) != (w[1] >= 0.0))
+        .count();
+    assert!(
+        (430..=450).contains(&crossings),
+        "clip content must play at 1× speed regardless of tempo \
+         (440 Hz over 0.5 s ≈ 440 crossings, got {crossings})"
+    );
+}
+
+#[test]
+fn set_tempo_keeps_the_playhead_on_its_beat() {
+    let _guard = engine_lock();
+
+    // Playhead at beat 3 (1.5 s at 120 BPM). After a change to 180 BPM the
+    // same beat sits at 1.0 s — the UI rescales clip positions identically,
+    // so nothing visually jumps.
+    {
+        let graph = get_audio_graph().unwrap().lock();
+        graph.seek(1.5);
+    }
+    set_tempo(180.0).unwrap();
+    let pos = get_playhead_position().unwrap();
+    assert!(
+        (pos - 1.0).abs() < 1e-6,
+        "beat 3 at 180 BPM = 1.0 s, got {pos}"
+    );
+}
+
+#[test]
+fn set_tempo_clamps_before_rescaling_the_playhead() {
+    let _guard = engine_lock();
+
+    {
+        let graph = get_audio_graph().unwrap().lock();
+        graph.seek(1.0);
+    }
+    // 600 BPM clamps to 300 — the playhead rescale must use the clamped
+    // value, or the playhead lands off its beat (48000 × 120/600 ≠ ×120/300).
+    set_tempo(600.0).unwrap();
+    assert!((get_tempo().unwrap() - 300.0).abs() < 1e-6);
+    let pos = get_playhead_position().unwrap();
+    assert!(
+        (pos - 0.4).abs() < 1e-6,
+        "playhead rescaled by the CLAMPED tempo (1.0 s × 120/300), got {pos}"
+    );
+}
+
+#[test]
+fn metronome_stays_in_phase_after_a_live_tempo_change() {
+    let _guard = engine_lock();
+
+    // Park the transport on beat 3 (1.5 s at 120 BPM), then change tempo to
+    // 180 BPM. The playhead rescales to 1.0 s — exactly a beat boundary at
+    // the new tempo — so the very next processed frame must click. The old
+    // code left the metronome counter unscaled (72000 frames ≡ half a beat
+    // at 180 BPM), so every click drifted 8000 frames off the grid until
+    // the transport stopped.
+    {
+        let graph = get_audio_graph().unwrap().lock();
+        graph.recorder.reset_metronome(); // clear state left by other tests
+        graph.seek(1.5);
+    }
+    set_tempo(180.0).unwrap();
+
+    let refs = {
+        let graph = get_audio_graph().unwrap().lock();
+        graph.recorder.get_callback_refs()
+    };
+    let mut first_click = None;
+    for i in 0..20_000 {
+        let (out, _) = refs.process_frame(0.0, 0.0, true, 0.0);
+        if out.abs() > 1e-6 {
+            first_click = Some(i);
+            break;
+        }
+    }
+    let first_click = first_click.expect("metronome must click within 20k frames");
+    assert!(
+        first_click < 100,
+        "click must land on the rescaled beat boundary, not {first_click} frames late"
+    );
+}
+
+// ============================================================================
 // OFFLINE RENDER vs LIVE STREAM RATE (locks Phase 8: the C2 offline pin)
 // ============================================================================
 

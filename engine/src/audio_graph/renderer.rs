@@ -759,11 +759,13 @@ impl AudioGraph {
                 // frames already calculated at top of callback
                 let current_playhead = playhead_samples.load(Ordering::SeqCst);
 
-                // Get current tempo for playback scaling
-                // Timeline positions are tempo-dependent: at 120 BPM, 1 timeline second = 1 real second
-                // At other tempos, the playhead must advance faster/slower through the timeline
-                let current_tempo = *recorder_refs.tempo.lock();
-                let tempo_ratio = current_tempo / 120.0;
+                // Timeline positions live in REAL seconds — the same domain the
+                // playhead, MIDI clips, automation points and the UI all use.
+                // Tempo only changes where the UI *places* things (beats →
+                // seconds), never how fast the engine advances through them.
+                // (A legacy tempo/120 "playhead scaling" here made audio clips
+                // start early/late AND play at the wrong speed at any tempo
+                // other than 120 BPM, while MIDI clips played correctly.)
 
                 // NOTE: Legacy MIDI clip processing removed - all MIDI now handled per-track
 
@@ -927,9 +929,8 @@ impl AudioGraph {
                         if let Some(ref mut synth_manager) = synth_guard {
                             for i in 0..sb_len {
                                 let playhead_frame = current_playhead + (sb_start + i) as u64;
-                                let real_seconds =
+                                let playhead_seconds =
                                     playhead_frame as f64 / f64::from(TARGET_SAMPLE_RATE);
-                                let playhead_seconds = real_seconds * tempo_ratio;
 
                                 let mut track_left = 0.0;
                                 let mut track_right = 0.0;
@@ -1088,9 +1089,8 @@ impl AudioGraph {
                         // previous path for built-in chains.
                         for i in 0..sb_len {
                             let playhead_frame = current_playhead + (sb_start + i) as u64;
-                            let playhead_seconds = (playhead_frame as f64
-                                / f64::from(TARGET_SAMPLE_RATE))
-                                * tempo_ratio;
+                            let playhead_seconds =
+                                playhead_frame as f64 / f64::from(TARGET_SAMPLE_RATE);
 
                             let frame_volume_gain = if track_snap.volume_automation.is_empty() {
                                 track_snap.volume_gain
@@ -1145,9 +1145,8 @@ impl AudioGraph {
 
                         for i in 0..sb_len {
                             let playhead_frame = current_playhead + (sb_start + i) as u64;
-                            let playhead_seconds = (playhead_frame as f64
-                                / f64::from(TARGET_SAMPLE_RATE))
-                                * tempo_ratio;
+                            let playhead_seconds =
+                                playhead_frame as f64 / f64::from(TARGET_SAMPLE_RATE);
                             let frame_volume_gain = if return_snap.volume_automation.is_empty() {
                                 return_snap.volume_gain
                             } else {
@@ -1199,9 +1198,8 @@ impl AudioGraph {
                         for i in 0..sb_len {
                             let frame_idx = sb_start + i;
                             let playhead_frame = current_playhead + frame_idx as u64;
-                            let real_seconds =
+                            let playhead_seconds =
                                 playhead_frame as f64 / f64::from(TARGET_SAMPLE_RATE);
-                            let playhead_seconds = real_seconds * tempo_ratio;
 
                             // Process recording (metronome handled separately below)
                             let (met_left, met_right) = recorder_refs.process_frame(
