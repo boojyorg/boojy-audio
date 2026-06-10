@@ -90,6 +90,12 @@ CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
 - **UI persistence:** new fields saved in `ui_layout.json` must go through
   `ProjectPersistence.collect()` / `applyUILayout()` — don't scatter field lists across project
   managers.
+- **Never read `context.colors` inside an event handler** (onTap/onPressed, a `showMenu().then`,
+  a dialog callback). It's a listening `Provider.of`, which asserts "listen outside build" in
+  DEBUG builds only — release looks fine, but in debug the handler dies silently and the
+  menu/dialog/action just doesn't happen (v0.5.1 right-click Delete; v0.6 found five dead
+  context/signature menus this way). In handlers use `context.themeProvider.colors`
+  (listen:false), or capture the colors in `build()` / inside the menu's item builder.
 - **Use `Log.d()` / `Log.e()` / `Log.i()`** (from `utils/logger.dart`), not `print()`.
 - **File/folder dialogs go through `ui/lib/utils/native_dialogs.dart`**
   (`pickFolder` / `pickSaveFilePath` / `sanitizeFileName`) — never call `osascript` inline.

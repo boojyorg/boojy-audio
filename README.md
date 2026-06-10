@@ -118,7 +118,7 @@ For VST3 plugin support on Windows:
 | Cmd+S | Save |
 | Cmd+E | Split clip |
 | Q | Quantize clip |
-| Cmd+J | Consolidate clips |
+| Cmd+J | Join clips |
 | Cmd+Z / Cmd+Shift+Z | Undo / Redo |
 
 ## License

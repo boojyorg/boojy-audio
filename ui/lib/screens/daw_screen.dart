@@ -753,31 +753,93 @@ class _DAWScreenState extends State<DAWScreen>
     }
   }
 
+  // Tempo drag coalescing: live updates during a vertical drag, one undo
+  // step on release (same pattern as the time-signature control below —
+  // without it every drag tick landed its own BPM on the undo stack, so
+  // undoing a tempo change stepped back through dozens of intermediates).
+  bool _tempoDragging = false;
+  double _tempoDragStartBpm = 120.0;
+
+  /// Apply a tempo to the engine + every dependent (MIDI reschedule, audio
+  /// clip rescale + engine re-push, automation re-push, metadata) WITHOUT
+  /// registering undo. The engine keeps all positions in real seconds, so
+  /// the rescaled values must reach it on every apply — including undo/redo,
+  /// which is why the SetTempoCommand callback is this same method.
+  void _applyTempo(double newBpm) {
+    // Get the current (old) tempo before we change it
+    final currentTempo = recordingController.tempo;
+
+    recordingController.setTempo(newBpm);
+    midiClipController.setTempo(newBpm);
+    midiCaptureBuffer.updateBpm(newBpm);
+    midiPlaybackManager?.rescheduleAllClips(newBpm);
+
+    // Adjust audio clip positions to maintain their beat position
+    // This prevents audio clips from visually shifting when tempo changes
+    timelineKey.currentState?.adjustAudioClipPositionsForTempoChange(
+      currentTempo,
+      newBpm,
+    );
+
+    // Re-push the rescaled positions to the engine — otherwise clips LOOK
+    // right after a tempo change but PLAY from their old positions.
+    final timelineClips = timelineKey.currentState?.clips;
+    if (timelineClips != null) {
+      for (final clip in timelineClips) {
+        audioEngine?.setClipStartTime(
+          clip.trackId,
+          clip.clipId,
+          clip.startTime,
+        );
+      }
+    }
+    syncAllVolumeAutomationToEngine();
+
+    // Keep the metadata BPM in step (the project settings dialog seeds
+    // its BPM field from projectMetadata) — including on undo/redo.
+    setState(() {
+      projectMetadata = projectMetadata.copyWith(bpm: newBpm);
+    });
+  }
+
   Future<void> _onTempoChanged(double bpm) async {
+    // During a drag, apply live (engine must follow the gesture so playback
+    // tracks the scrub); the single undo step is registered on drag end.
+    if (_tempoDragging) {
+      _applyTempo(bpm);
+      return;
+    }
+    // Discrete change (scroll step, typed value, tap-tempo, settings dialog):
+    // one undo step.
     final oldBpm = recordingController.tempo;
     if (oldBpm == bpm) return;
 
     final command = SetTempoCommand(
       newBpm: bpm,
       oldBpm: oldBpm,
-      onTempoChanged: (newBpm) {
-        // Get the current (old) tempo before we change it
-        final currentTempo = recordingController.tempo;
-
-        recordingController.setTempo(newBpm);
-        midiClipController.setTempo(newBpm);
-        midiCaptureBuffer.updateBpm(newBpm);
-        midiPlaybackManager?.rescheduleAllClips(newBpm);
-
-        // Adjust audio clip positions to maintain their beat position
-        // This prevents audio clips from visually shifting when tempo changes
-        timelineKey.currentState?.adjustAudioClipPositionsForTempoChange(
-          currentTempo,
-          newBpm,
-        );
-      },
+      onTempoChanged: _applyTempo,
     );
     await undoRedoManager.execute(command);
+  }
+
+  void _onTempoDragStart() {
+    _tempoDragging = true;
+    _tempoDragStartBpm = recordingController.tempo;
+  }
+
+  Future<void> _onTempoDragEnd() async {
+    _tempoDragging = false;
+    final newBpm = recordingController.tempo;
+    if (newBpm == _tempoDragStartBpm) return;
+    // Value is already applied live; register the whole drag as one undo
+    // step (execute re-applies the same value — idempotent).
+    await undoRedoManager.execute(
+      SetTempoCommand(
+        newBpm: newBpm,
+        oldBpm: _tempoDragStartBpm,
+        onTempoChanged: _applyTempo,
+      ),
+    );
   }
 
   // Time-signature drag coalescing: live updates during a vertical drag, one
@@ -787,11 +849,13 @@ class _DAWScreenState extends State<DAWScreen>
   int _timeSigDragStartUnit = 4;
 
   /// Apply a time signature to the engine + UI metadata WITHOUT registering undo.
+  /// The denominator is locked to /4 in v0.6 — the engine has no beat-unit
+  /// concept, so any other value was display-only theater (6/8 played as 6/4).
   void _applyTimeSignature(int beatsPerBar, int beatUnit) {
     setState(() {
       projectMetadata = projectMetadata.copyWith(
         timeSignatureNumerator: beatsPerBar,
-        timeSignatureDenominator: beatUnit,
+        timeSignatureDenominator: 4,
       );
     });
     audioEngine?.setTimeSignature(beatsPerBar);
@@ -3124,10 +3188,12 @@ class _DAWScreenState extends State<DAWScreen>
       projectMetadata = updatedMetadata;
     });
 
-    // Update audio engine with new BPM
+    // Route the BPM change through the same undoable command as the
+    // transport-bar control — it owns the engine update, MIDI reschedule,
+    // and the audio-clip/automation re-push. Calling setTempo directly here
+    // used to skip all of that (clips visually froze on old positions).
     if (bpmChanged) {
-      audioEngine?.setTempo(updatedMetadata.bpm);
-      recordingController.setTempo(updatedMetadata.bpm);
+      await _onTempoChanged(updatedMetadata.bpm);
     }
 
     // Update project name if changed
@@ -3478,6 +3544,8 @@ class _DAWScreenState extends State<DAWScreen>
           virtualPianoEnabled: uiLayout.isVirtualPianoEnabled,
           tempo: tempo,
           onTempoChanged: _onTempoChanged,
+          onTempoDragStart: _onTempoDragStart,
+          onTempoDragEnd: _onTempoDragEnd,
           onCountInChanged: _setCountInBars,
           countInBars: userSettings.countInBars,
           projectName: projectMetadata.name,
@@ -3497,7 +3565,6 @@ class _DAWScreenState extends State<DAWScreen>
           punchInEnabled: uiLayout.punchInEnabled,
           punchOutEnabled: uiLayout.punchOutEnabled,
           beatsPerBar: projectMetadata.timeSignatureNumerator,
-          beatUnit: projectMetadata.timeSignatureDenominator,
           onTimeSignatureChanged: _onTimeSignatureChanged,
           onTimeSignatureDragStart: _onTimeSignatureDragStart,
           onTimeSignatureDragEnd: _onTimeSignatureDragEnd,
@@ -4308,6 +4375,10 @@ class _DAWScreenState extends State<DAWScreen>
                                   projectMetadata.timeSignatureNumerator,
                               beatUnit:
                                   projectMetadata.timeSignatureDenominator,
+                              onTimeSignatureChanged: _onTimeSignatureChanged,
+                              onTimeSignatureDragStart:
+                                  _onTimeSignatureDragStart,
+                              onTimeSignatureDragEnd: _onTimeSignatureDragEnd,
                               projectTempo: projectMetadata.bpm,
                               onProjectTempoChanged: _onTempoChanged,
                               isRecording: isRecording,

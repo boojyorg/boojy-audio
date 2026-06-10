@@ -263,5 +263,5 @@ Detailed checklist of all features planned for v1.0 and their current status.
 
 - [x] macOS (Intel + Apple Silicon)
 - [x] iOS/iPad (basic support)
-- [ ] Windows
+- [x] Windows
 - [ ] Linux (future)

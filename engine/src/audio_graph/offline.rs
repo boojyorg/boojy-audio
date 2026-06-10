@@ -113,11 +113,9 @@ impl AudioGraph {
 
         dlog!("🎵 [AudioGraph] Starting offline render: {duration_seconds:.2}s ({total_frames} frames)");
 
-        // Get tempo for timeline positioning
-        // Timeline positions are tempo-dependent: at 120 BPM, 1 timeline second = 1 real second
-        let current_tempo = self.recorder.get_tempo();
-        let tempo_ratio = current_tempo / 120.0;
-        dlog!("🎵 [AudioGraph] Using tempo {current_tempo} BPM (ratio: {tempo_ratio:.3})");
+        // Timeline positions live in REAL seconds — same domain as live
+        // playback (renderer.rs); tempo only affects where the UI places
+        // things, never how fast the render advances through them.
 
         let (mut track_snapshots, return_snapshots, has_solo, master_snapshot, return_index) = {
             let tm = self.track_manager.lock();
@@ -269,8 +267,7 @@ impl AudioGraph {
                     let mut synth_manager = self.track_synth_manager.lock();
                     for i in 0..block_len {
                         let frame_idx = block_start + i;
-                        let real_seconds = frame_idx as f64 / f64::from(sample_rate);
-                        let playhead_seconds = real_seconds * tempo_ratio;
+                        let playhead_seconds = frame_idx as f64 / f64::from(sample_rate);
 
                         let mut track_left = 0.0f32;
                         let mut track_right = 0.0f32;
@@ -481,8 +478,7 @@ impl AudioGraph {
                 // is bit-identical to the previous path.
                 for i in 0..block_len {
                     let frame_idx = block_start + i;
-                    let playhead_seconds =
-                        (frame_idx as f64 / f64::from(sample_rate)) * tempo_ratio;
+                    let playhead_seconds = frame_idx as f64 / f64::from(sample_rate);
 
                     let frame_volume_gain = if track_snap.volume_automation.is_empty() {
                         track_snap.volume_gain
@@ -530,8 +526,7 @@ impl AudioGraph {
                 }
                 for i in 0..block_len {
                     let frame_idx = block_start + i;
-                    let playhead_seconds =
-                        (frame_idx as f64 / f64::from(sample_rate)) * tempo_ratio;
+                    let playhead_seconds = frame_idx as f64 / f64::from(sample_rate);
                     let frame_volume_gain = if return_snap.volume_automation.is_empty() {
                         return_snap.volume_gain
                     } else {
@@ -658,9 +653,8 @@ impl AudioGraph {
             ));
         }
 
-        // Audio clip start_time/duration are in the (tempo-warped) playhead
-        // timescale; playback maps real_seconds -> playhead via tempo_ratio.
-        let tempo_ratio = self.recorder.get_tempo() / 120.0;
+        // Audio clip start_time/duration are in real seconds — the same
+        // domain playback renders in (renderer.rs).
         let sr = TARGET_SAMPLE_RATE;
 
         let clip_end = |c: &TimelineClip| -> f64 {
@@ -678,14 +672,12 @@ impl AudioGraph {
             .map(|c| c.start_time)
             .fold(f64::INFINITY, f64::min);
         let end = clips.iter().map(clip_end).fold(f64::NEG_INFINITY, f64::max);
-        let span_playhead = (end - start).max(0.0);
-        let duration_real = span_playhead / tempo_ratio;
+        let duration_real = (end - start).max(0.0);
         let total_frames = (duration_real * f64::from(sr)).ceil() as usize;
 
         let mut samples = Vec::with_capacity(total_frames * 2);
         for i in 0..total_frames {
-            let real = i as f64 / f64::from(sr);
-            let playhead = start + real * tempo_ratio;
+            let playhead = start + i as f64 / f64::from(sr);
             let mut left = 0.0f32;
             let mut right = 0.0f32;
             for clip in &clips {
@@ -736,10 +728,6 @@ impl AudioGraph {
         dlog!(
             "🎚️ [AudioGraph] Starting track {track_id} offline render: {duration_seconds:.2}s ({total_frames} frames)"
         );
-
-        // Get tempo for timeline positioning
-        let current_tempo = self.recorder.get_tempo();
-        let tempo_ratio = current_tempo / 120.0;
 
         let track_snapshot = {
             let tm = self.track_manager.lock();
@@ -810,8 +798,7 @@ impl AudioGraph {
                 let mut synth_manager = self.track_synth_manager.lock();
                 for i in 0..block_len {
                     let frame_idx = block_start + i;
-                    let real_seconds = frame_idx as f64 / f64::from(sample_rate);
-                    let playhead_seconds = real_seconds * tempo_ratio;
+                    let playhead_seconds = frame_idx as f64 / f64::from(sample_rate);
 
                     let mut track_left = 0.0f32;
                     let mut track_right = 0.0f32;
@@ -1003,7 +990,7 @@ impl AudioGraph {
             // `render_offline` — then write interleaved stereo output. (C68)
             for i in 0..block_len {
                 let frame_idx = block_start + i;
-                let playhead_seconds = (frame_idx as f64 / f64::from(sample_rate)) * tempo_ratio;
+                let playhead_seconds = frame_idx as f64 / f64::from(sample_rate);
                 let frame_volume_gain = if track_snap.volume_automation.is_empty() {
                     track_snap.volume_gain
                 } else {

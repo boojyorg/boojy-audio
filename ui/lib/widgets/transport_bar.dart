@@ -189,6 +189,8 @@ class TransportBar extends StatefulWidget {
   final bool virtualPianoEnabled;
   final double tempo;
   final Function(double)? onTempoChanged;
+  final VoidCallback? onTempoDragStart;
+  final VoidCallback? onTempoDragEnd;
   final Function(int)? onCountInChanged;
   final int countInBars;
 
@@ -231,7 +233,6 @@ class TransportBar extends StatefulWidget {
 
   // Time signature
   final int beatsPerBar;
-  final int beatUnit;
   final Function(int beatsPerBar, int beatUnit)? onTimeSignatureChanged;
 
   /// Fired when the time-signature drag gesture starts/ends, so the parent can
@@ -264,6 +265,8 @@ class TransportBar extends StatefulWidget {
     this.virtualPianoEnabled = false,
     this.tempo = 120.0,
     this.onTempoChanged,
+    this.onTempoDragStart,
+    this.onTempoDragEnd,
     this.onCountInChanged,
     this.countInBars = 1,
     this.countInBeat = 0,
@@ -286,7 +289,6 @@ class TransportBar extends StatefulWidget {
     this.punchInEnabled = false,
     this.punchOutEnabled = false,
     this.beatsPerBar = 4,
-    this.beatUnit = 4,
     this.onTimeSignatureChanged,
     this.onTimeSignatureDragStart,
     this.onTimeSignatureDragEnd,
@@ -979,6 +981,8 @@ class _TransportBarState extends State<TransportBar> {
     final tempo = TempoDisplay(
       tempo: widget.tempo,
       onTempoChanged: widget.onTempoChanged,
+      onDragStart: widget.onTempoDragStart,
+      onDragEnd: widget.onTempoDragEnd,
       compact: density.compactReadouts,
       // Shed the "BPM" suffix together with the tool labels — the density
       // math assumes the compact tier already dropped it (M22).
@@ -986,7 +990,6 @@ class _TransportBarState extends State<TransportBar> {
     );
     final signature = SignatureDropdown(
       beatsPerBar: widget.beatsPerBar,
-      beatUnit: widget.beatUnit,
       onChanged: widget.onTimeSignatureChanged,
       onDragStart: widget.onTimeSignatureDragStart,
       onDragEnd: widget.onTimeSignatureDragEnd,
