@@ -50,9 +50,15 @@ mixin DAWTrackMixin
           .toList();
 
       if (clipsForTrack != null && clipsForTrack.isNotEmpty) {
-        // Select the first clip for this track
-        final clip = clipsForTrack.first;
-        midiPlaybackManager?.selectClip(clip.clipId, clip);
+        // Keep an existing selection on this track (e.g. the clip a create
+        // command just selected); otherwise select the first clip.
+        final alreadySelected = clipsForTrack.any(
+          (c) => c.clipId == midiPlaybackManager?.selectedClipId,
+        );
+        if (!alreadySelected) {
+          final clip = clipsForTrack.first;
+          midiPlaybackManager?.selectClip(clip.clipId, clip);
+        }
       } else {
         // No clips for this track - clear selection
         midiPlaybackManager?.selectClip(null, null);

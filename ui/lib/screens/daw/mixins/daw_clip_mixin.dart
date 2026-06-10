@@ -633,24 +633,24 @@ mixin DAWClipMixin
   // ============================================
 
   /// Create a MIDI clip on a track (drag-to-create)
-  void onCreateClipOnTrack(
+  Future<void> onCreateClipOnTrack(
     int trackId,
     double startBeats,
     double durationBeats,
-  ) {
-    // Create a new MIDI clip on the specified track
-    createMidiClipWithParams(trackId, startBeats, durationBeats);
-
-    // Select the track
-    onTrackSelected(trackId);
+  ) async {
+    // Create the clip first — its command callback selects it — then select
+    // the track. Selecting the track before the clip existed cleared the clip
+    // selection and raced the create command (visible flicker, bug-hunt #21).
+    await createMidiClipWithParams(trackId, startBeats, durationBeats);
+    onTrackSelected(trackId, autoSelectClip: true);
   }
 
   /// Create a MIDI clip with custom start position and duration
-  void createMidiClipWithParams(
+  Future<void> createMidiClipWithParams(
     int trackId,
     double startBeats,
     double durationBeats,
-  ) {
+  ) async {
     final clip = MidiClipData(
       clipId: DateTime.now().millisecondsSinceEpoch,
       trackId: trackId,
@@ -692,7 +692,7 @@ mixin DAWClipMixin
         if (mounted) setState(() {});
       },
     );
-    undoRedoManager.execute(command);
+    await undoRedoManager.execute(command);
   }
 
   // ============================================

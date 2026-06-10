@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
 
 import '../../models/drum_kit_info.dart';
@@ -12,11 +15,14 @@ import '../volume_readout_box.dart';
 
 /// The right-hand pane of the Drum Kit editor: one row per pad
 /// (colour swatch + name + compact fader + Mute/Solo) followed by a 1/16 step
-/// grid. Clicking a cell toggles a note at the pad's pinned pitch; the grid
-/// auto-grows in 16-step blocks as the clip lengthens.
+/// grid. Clicking a cell toggles a note at the pad's pinned pitch; dragging
+/// across a row paints (first cell empty) or erases (first cell filled) every
+/// cell crossed. The grid auto-grows in 16-step blocks as the clip lengthens.
 ///
 /// Stateless by design — all mutation flows up through the callbacks so the
 /// editor owns the clip + undo, mirroring how the piano roll persists edits.
+/// Only the transient drag-to-paint gesture keeps local state, inside each
+/// [_PadStepRow].
 ///
 /// Layout note: the left control column is frozen while the ruler and every
 /// step row share a single horizontal scroll, so they can never drift apart.
@@ -40,6 +46,18 @@ class DrumStepSequencer extends StatelessWidget {
   final void Function(int padIndex) onPadSelected;
   final void Function(int padIndex, String filePath) onPadSampleDropped;
   final void Function(int pinnedNote, int stepIndex) onToggleStep;
+
+  /// Live (no-undo) apply of the working clip while a drag-to-paint gesture is
+  /// in progress. Wire together with [onPaintCommitted] so a whole drag
+  /// coalesces into one undo step; when either is null the gesture falls back
+  /// to per-cell [onToggleStep] calls (one undo entry per cell).
+  final void Function(MidiClipData clip)? onPaintClipChanged;
+
+  /// Commit one finished drag-to-paint gesture as a single undo step
+  /// (snapshot `before` → `after`).
+  final void Function(MidiClipData before, MidiClipData after)?
+  onPaintCommitted;
+
   final VoidCallback onAddPad;
   final void Function(int padIndex, double db) onPadVolumeChanged;
   final void Function(int padIndex)? onPadVolumeDragStart;
@@ -66,6 +84,8 @@ class DrumStepSequencer extends StatelessWidget {
     this.playheadNotifier,
     this.onPadVolumeDragStart,
     this.onPadVolumeDragEnd,
+    this.onPaintClipChanged,
+    this.onPaintCommitted,
   });
 
   static const double _rowHeight = 34;
@@ -79,10 +99,10 @@ class DrumStepSequencer extends StatelessWidget {
 
   /// Extra left gap so beats and bars read as visual groups. Shared by the
   /// ruler and every pad row to keep them pixel-aligned.
-  double _leftGapFor(int step) {
+  static double _leftGapFor(int step, int stepsPerBar) {
     if (step == 0) return 0;
-    if (step % _stepsPerBar == 0) return _cellGap * 4; // bar boundary
-    if (step % _stepsPerBeat == 0) return _cellGap * 2; // beat boundary
+    if (step % stepsPerBar == 0) return _cellGap * 4; // bar boundary
+    if (step % 4 == 0) return _cellGap * 2; // beat boundary
     return 0;
   }
 
@@ -99,14 +119,26 @@ class DrumStepSequencer extends StatelessWidget {
   }
 
   /// The playing 1/16 step (wrapped to the clip's loop), or -1 when stopped /
-  /// no playhead. step 0 only lights once playback has advanced past 0, so a
-  /// stopped playhead at the start shows no highlight.
+  /// no playhead / the clip isn't sounding. step 0 only lights once playback
+  /// has advanced past 0, so a stopped playhead at the start shows no
+  /// highlight.
   int _currentStep(double seconds) {
     if (seconds <= 0 || tempo <= 0) return -1;
-    final loopBeats = clipData?.loopLength ?? beatsPerBar.toDouble();
+    final clip = clipData;
+    final loopBeats = clip?.loopLength ?? beatsPerBar.toDouble();
     final loopSteps = (loopBeats * _stepsPerBeat).round();
     if (loopSteps <= 0) return -1;
-    final step = (seconds * tempo / 60.0 * _stepsPerBeat).floor();
+    // Global transport seconds → global beats → clip-relative beats. The clip
+    // only sounds between its arrangement start and end (startTime is in
+    // beats for MIDI clips); outside that window no column is playing.
+    final globalBeats = seconds * tempo / 60.0;
+    final relBeats = globalBeats - (clip?.startTime ?? 0.0);
+    if (relBeats < 0) return -1;
+    if (clip != null && relBeats >= clip.totalDuration) return -1;
+    // Content space: the clip's content starts contentStartOffset beats in,
+    // so shift before mapping to a grid column.
+    final localBeats = relBeats + (clip?.contentStartOffset ?? 0.0);
+    final step = (localBeats * _stepsPerBeat).floor();
     if (step < 0) return -1;
     return step % loopSteps;
   }
@@ -162,11 +194,18 @@ class DrumStepSequencer extends StatelessWidget {
       children: [
         _buildStepRuler(context, currentStep),
         for (final pad in kit.pads)
-          _buildStepRow(
-            context,
-            pad,
-            active[pad.pinnedNote] ?? const {},
-            currentStep,
+          _PadStepRow(
+            key: ValueKey(pad.padIndex),
+            pad: pad,
+            clip: clipData,
+            activeSteps: active[pad.pinnedNote] ?? const {},
+            currentStep: currentStep,
+            stepCount: stepCount,
+            beatsPerBar: beatsPerBar,
+            color: padColor(pad.padIndex),
+            onToggleStep: onToggleStep,
+            onPaintClipChanged: onPaintClipChanged,
+            onPaintCommitted: onPaintCommitted,
           ),
       ],
     );
@@ -376,7 +415,10 @@ class DrumStepSequencer extends StatelessWidget {
           for (int s = 0; s < stepCount; s++)
             Container(
               width: _cellSize,
-              margin: EdgeInsets.only(right: _cellGap, left: _leftGapFor(s)),
+              margin: EdgeInsets.only(
+                right: _cellGap,
+                left: _leftGapFor(s, _stepsPerBar),
+              ),
               alignment: Alignment.bottomCenter,
               child: s == currentStep
                   ? Container(
@@ -404,69 +446,251 @@ class DrumStepSequencer extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildStepRow(
-    BuildContext context,
-    DrumPadInfo pad,
-    Set<int> activeSteps,
-    int currentStep,
-  ) {
+/// One pad's step row: the cells plus the tap / drag-to-paint gesture. The
+/// first cell touched by a drag decides the mode — empty → paint, filled →
+/// erase — and every cell crossed is set to that mode. Holds only the
+/// transient gesture state; the clip itself still lives with the editor.
+class _PadStepRow extends StatefulWidget {
+  final DrumPadInfo pad;
+  final MidiClipData? clip;
+  final Set<int> activeSteps;
+  final int currentStep;
+  final int stepCount;
+  final int beatsPerBar;
+  final Color color;
+  final void Function(int pinnedNote, int stepIndex) onToggleStep;
+  final void Function(MidiClipData clip)? onPaintClipChanged;
+  final void Function(MidiClipData before, MidiClipData after)?
+  onPaintCommitted;
+
+  const _PadStepRow({
+    super.key,
+    required this.pad,
+    required this.clip,
+    required this.activeSteps,
+    required this.currentStep,
+    required this.stepCount,
+    required this.beatsPerBar,
+    required this.color,
+    required this.onToggleStep,
+    required this.onPaintClipChanged,
+    required this.onPaintCommitted,
+  });
+
+  @override
+  State<_PadStepRow> createState() => _PadStepRowState();
+}
+
+class _PadStepRowState extends State<_PadStepRow> {
+  static const double _cellSize = DrumStepSequencer._cellSize;
+  static const double _cellGap = DrumStepSequencer._cellGap;
+
+  /// true = paint, false = erase, null = no drag in progress.
+  bool? _paintMode;
+
+  /// Cells already visited this drag (each is applied at most once).
+  Set<int> _painted = <int>{};
+  int? _lastStep;
+
+  /// Pre-drag snapshot + live working clip, only while the coalescing
+  /// callbacks are wired ([_coalesced]); the whole drag commits as one
+  /// undo step on release.
+  MidiClipData? _dragBefore;
+  MidiClipData? _dragClip;
+
+  int get _stepsPerBar => widget.beatsPerBar * 4;
+
+  bool get _coalesced =>
+      widget.onPaintClipChanged != null && widget.onPaintCommitted != null;
+
+  /// The step under [dx] (row-local), or null on a beat/bar gap.
+  int? _stepAt(double dx) {
+    double x = 0;
+    for (int s = 0; s < widget.stepCount; s++) {
+      x += DrumStepSequencer._leftGapFor(s, _stepsPerBar);
+      if (dx < x) return null; // in the gap before this cell
+      if (dx < x + _cellSize) return s;
+      x += _cellSize + _cellGap;
+    }
+    return null;
+  }
+
+  /// Active steps for this pad computed from [clip] (drag-local view).
+  Set<int> _activeFromClip(MidiClipData clip) => <int>{
+    for (final n in clip.notes)
+      if (n.note == widget.pad.pinnedNote) (n.startTime / 0.25).round(),
+  };
+
+  /// [clip] with this pad's note at [step] set on/off, growing the loop in
+  /// whole-bar blocks on add — mirrors the editor's single-tap toggle.
+  MidiClipData _clipWithStep(MidiClipData clip, int step, bool on) {
+    final stepBeats = step * 0.25;
+    if (!on) {
+      final newNotes = clip.notes
+          .where(
+            (n) =>
+                n.note != widget.pad.pinnedNote ||
+                (n.startTime - stepBeats).abs() >= 0.001,
+          )
+          .toList();
+      return clip.copyWith(notes: newNotes);
+    }
+    final note = MidiNoteData(
+      note: widget.pad.pinnedNote,
+      velocity: 100,
+      startTime: stepBeats,
+      duration: 0.25,
+    );
+    final neededBeats = (step + 1) * 0.25;
+    final bar = widget.beatsPerBar.toDouble();
+    final grown = (neededBeats / bar).ceil() * bar;
+    final newLoopLength = math.max(clip.loopLength, grown);
+    final newDuration = math.max(clip.duration, newLoopLength);
+    return clip.copyWith(
+      notes: [...clip.notes, note],
+      loopLength: newLoopLength,
+      duration: newDuration,
+    );
+  }
+
+  void _beginPaint(double dx) {
+    final step = _stepAt(dx);
+    if (step == null) return;
+    _paintMode = !widget.activeSteps.contains(step);
+    _painted = {step};
+    _lastStep = step;
+    if (_coalesced && widget.clip != null) {
+      _dragBefore = widget.clip;
+      _dragClip = widget.clip;
+    }
+    _applyPaint(step);
+  }
+
+  void _continuePaint(double dx) {
+    if (_paintMode == null) return;
+    final step = _stepAt(dx);
+    // In a beat/bar gap: keep _lastStep as the last real cell. Safe because
+    // the row is 1-D — any later span min(_lastStep, step)..max(_lastStep,
+    // step) only covers cells the pointer physically crossed, and _painted
+    // dedups cells already applied this drag.
+    if (step == null) return;
+    // Fill the whole span since the last event so fast drags can't skip cells.
+    final last = _lastStep ?? step;
+    final lo = math.min(last, step);
+    final hi = math.max(last, step);
+    for (int s = lo; s <= hi; s++) {
+      if (_painted.add(s)) _applyPaint(s);
+    }
+    _lastStep = step;
+  }
+
+  void _applyPaint(int step) {
+    final on = _paintMode;
+    if (on == null) return;
+    final dragClip = _dragClip;
+    if (dragClip != null) {
+      // Coalesced path: mutate the local working clip, live-apply upstream
+      // with no undo entry; one snapshot command is committed on release.
+      if (_activeFromClip(dragClip).contains(step) == on) return;
+      final next = _clipWithStep(dragClip, step, on);
+      setState(() => _dragClip = next);
+      widget.onPaintClipChanged?.call(next);
+    } else {
+      // Fallback: per-cell toggle through the editor (one undo entry each).
+      if (widget.activeSteps.contains(step) == on) return;
+      widget.onToggleStep(widget.pad.pinnedNote, step);
+    }
+  }
+
+  void _endPaint() {
+    if (_paintMode == null) return;
+    final before = _dragBefore;
+    final after = _dragClip;
+    setState(() {
+      _paintMode = null;
+      _painted = <int>{};
+      _lastStep = null;
+      _dragBefore = null;
+      _dragClip = null;
+    });
+    if (before != null && after != null && !identical(before, after)) {
+      widget.onPaintCommitted?.call(before, after);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.colors;
-    final color = padColor(pad.padIndex);
-    return Container(
-      height: _rowHeight,
-      alignment: Alignment.centerLeft,
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: colors.divider, width: 0.5)),
-      ),
-      child: Row(
-        children: [
-          for (int s = 0; s < stepCount; s++)
-            _buildCell(
-              context,
-              pad: pad,
-              step: s,
-              isOn: activeSteps.contains(s),
-              color: color,
-              isPlaying: s == currentStep,
-            ),
-        ],
+    final dragClip = _dragClip;
+    final active = dragClip == null
+        ? widget.activeSteps
+        : _activeFromClip(dragClip);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      // Report the drag from the pointer-down position so the cell the user
+      // first touched — not the one after the drag slop — decides the mode.
+      dragStartBehavior: DragStartBehavior.down,
+      onTapUp: (d) {
+        final step = _stepAt(d.localPosition.dx);
+        if (step != null) widget.onToggleStep(widget.pad.pinnedNote, step);
+      },
+      onPanStart: (d) => _beginPaint(d.localPosition.dx),
+      onPanUpdate: (d) => _continuePaint(d.localPosition.dx),
+      onPanEnd: (_) => _endPaint(),
+      onPanCancel: _endPaint,
+      child: Container(
+        height: DrumStepSequencer._rowHeight,
+        alignment: Alignment.centerLeft,
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: colors.divider, width: 0.5)),
+        ),
+        child: Row(
+          children: [
+            for (int s = 0; s < widget.stepCount; s++)
+              _buildCell(
+                context,
+                step: s,
+                isOn: active.contains(s),
+                isPlaying: s == widget.currentStep,
+              ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildCell(
     BuildContext context, {
-    required DrumPadInfo pad,
     required int step,
     required bool isOn,
-    required Color color,
     required bool isPlaying,
   }) {
     final colors = context.colors;
-    final isDownbeat = step % _stepsPerBeat == 0;
+    final isDownbeat = step % 4 == 0;
     return Padding(
-      padding: EdgeInsets.only(right: _cellGap, left: _leftGapFor(step)),
-      child: GestureDetector(
-        onTap: () => onToggleStep(pad.pinnedNote, step),
-        child: Container(
-          width: _cellSize,
-          height: _cellSize - 6,
-          decoration: BoxDecoration(
-            color: isOn
-                ? color
-                : (isDownbeat
-                      ? colors.surface
-                      : colors.surface.withValues(alpha: 0.5)),
-            borderRadius: BorderRadius.circular(3),
-            // White outline on the playing column (GarageBand-style), else the
-            // pad colour when on, otherwise the faint grid line.
-            border: Border.all(
-              color: isPlaying
-                  ? colors.textPrimary
-                  : (isOn ? color : colors.divider),
-              width: isPlaying ? 1.5 : 0.5,
-            ),
+      padding: EdgeInsets.only(
+        right: _cellGap,
+        left: DrumStepSequencer._leftGapFor(step, _stepsPerBar),
+      ),
+      child: Container(
+        width: _cellSize,
+        height: _cellSize - 6,
+        decoration: BoxDecoration(
+          color: isOn
+              ? widget.color
+              : (isDownbeat
+                    ? colors.surface
+                    : colors.surface.withValues(alpha: 0.5)),
+          borderRadius: BorderRadius.circular(3),
+          // White outline on the playing column (GarageBand-style), else the
+          // pad colour when on, otherwise the faint grid line.
+          border: Border.all(
+            color: isPlaying
+                ? colors.textPrimary
+                : (isOn ? widget.color : colors.divider),
+            width: isPlaying ? 1.5 : 0.5,
           ),
         ),
       ),
