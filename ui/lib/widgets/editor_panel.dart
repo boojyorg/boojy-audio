@@ -9,6 +9,7 @@ import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../models/tool_mode.dart';
 import '../services/tool_mode_resolver.dart';
+import '../utils/logger.dart';
 import '../services/undo_redo_manager.dart';
 import 'drum_kit_editor/drum_kit_editor.dart';
 import 'editor_button_variant.dart';
@@ -252,20 +253,101 @@ class _EditorPanelState extends State<EditorPanel>
     return 'Piano Roll';
   }
 
-  /// Get the first tab icon based on track type
-  IconData get _firstTabIcon {
-    if (_isAudioTrack) return BI.audioFile;
-    if (_isSamplerTrack) return BI.musicNote;
-    return BI.piano;
+  /// The single source of truth for the editor's tabs.
+  ///
+  /// The expanded tab strip, the collapsed tab strip, the TabBarView content,
+  /// and the TabController length are ALL derived from this list, so they can
+  /// never disagree on tab count or order. (The collapsed strip used to build
+  /// its own per-track-type list and drifted: a phantom third "Effects" button
+  /// for MIDI tracks, and no master-track branch at all — both pointed past
+  /// the real controller and threw RangeErrors. Bug-hunt #7.)
+  ///
+  /// Audio:    [Audio Editor] [Effects]
+  /// MIDI:     [Instrument]   [MIDI]
+  /// Sampler:  [Sampler]      [MIDI]
+  /// Drum kit: [Drum Kit]     [MIDI]
+  /// Master:   [Effects]
+  List<_EditorTab> get _tabs {
+    if (_isMasterTrack) {
+      // Master: effects chain only (no instrument, no piano roll)
+      return [
+        _EditorTab(
+          icon: BI.lightning,
+          label: 'Effects',
+          content: _buildChainTab,
+        ),
+      ];
+    }
+
+    if (_isAudioTrack) {
+      return [
+        _EditorTab(
+          icon: BI.audioFile,
+          label: 'Audio',
+          // Collapsed bar has room for the clip filename
+          collapsedLabel: _firstTabLabel,
+          content: _buildAudioEditorTab,
+        ),
+        _EditorTab(
+          icon: BI.lightning,
+          label: 'Effects',
+          content: _buildChainTab,
+        ),
+      ];
+    }
+
+    if (_isSamplerTrack) {
+      // The sampler is an engine-side instrument with no InstrumentData, so
+      // it can't be shown through the DeviceChainView path.
+      return [
+        _EditorTab(
+          icon: BI.musicNote,
+          label: 'Sampler',
+          buttonKey: _instrumentTabKey,
+          content: _buildSamplerTab,
+        ),
+        _EditorTab(icon: BI.piano, label: 'MIDI', content: _buildPianoRollTab),
+      ];
+    }
+
+    if (_isDrumKitTrack) {
+      return [
+        _EditorTab(
+          icon: BI.gridOn,
+          label: 'Drum Kit',
+          buttonKey: _instrumentTabKey,
+          content: _buildDrumKitTab,
+        ),
+        _EditorTab(
+          icon: BI.piano,
+          label: 'MIDI',
+          collapsedLabel: 'Piano Roll',
+          content: _buildPianoRollTab,
+        ),
+      ];
+    }
+
+    // Plain MIDI track: instrument + effects chain, then piano roll
+    return [
+      _EditorTab(
+        icon: _instrumentTabIcon,
+        label: _getInstrumentTabLabel(),
+        buttonKey: _instrumentTabKey,
+        content: _buildChainTab,
+      ),
+      _EditorTab(
+        icon: BI.piano,
+        label: 'MIDI',
+        // Collapsed bar has room for the clip/pattern name
+        collapsedLabel: _firstTabLabel,
+        content: _buildEditorTab,
+      ),
+    ];
   }
 
-  /// Get the number of tabs based on track type
-  /// Audio: 2 tabs (Audio Editor + Effects chain)
-  /// MIDI: 2 tabs (Chain + MIDI)
-  /// Sampler: 2 tabs (Chain + MIDI)
-  int get _tabCount {
-    return _isMasterTrack ? 1 : 2;
-  }
+  /// Number of tabs for the current track type — derived from [_tabs] so the
+  /// TabController length always matches what the strips render.
+  int get _tabCount => _tabs.length;
 
   @override
   void initState() {
@@ -288,9 +370,15 @@ class _EditorPanelState extends State<EditorPanel>
 
   /// Handle user manually tapping a tab.
   /// If already on the instrument tab (index 0) and not audio track,
-  /// open the instrument dropdown instead of no-op.
+  /// open the instrument dropdown instead of no-op. The Master track is
+  /// excluded too: its single Effects tab has no instrument dropdown (and no
+  /// buttonKey to anchor one), so re-tapping it would only do a pointless
+  /// RenderBox lookup that returns silently.
   void _onManualTabTap(int index) {
-    if (_selectedTabIndex == index && index == 0 && !_isAudioTrack) {
+    if (_selectedTabIndex == index &&
+        index == 0 &&
+        !_isAudioTrack &&
+        !_isMasterTrack) {
       _showInstrumentDropdownFromTab();
       return;
     }
@@ -403,6 +491,11 @@ class _EditorPanelState extends State<EditorPanel>
     final isMidiTrack =
         widget.trackContext.selectedTrackType?.toLowerCase() == 'midi';
 
+    // Evaluate the tab list once per frame: the getter runs the FFI-backed
+    // sampler/drum-kit track checks, so each extra read is 2 engine
+    // round-trips.
+    final tabs = _tabs;
+
     // Wrap with DragTargets for instrument swapping
     return DragTarget<Vst3Plugin>(
       onWillAcceptWithDetails: (details) {
@@ -444,7 +537,7 @@ class _EditorPanelState extends State<EditorPanel>
                           bottom: 0,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
-                            children: _buildTabButtons(),
+                            children: _buildTabButtons(tabs),
                           ),
                         ),
                         // Center: Tool buttons (truly centered across full width)
@@ -539,7 +632,7 @@ class _EditorPanelState extends State<EditorPanel>
                   Expanded(
                     child: TabBarView(
                       controller: _tabController,
-                      children: _buildTabContent(),
+                      children: _buildTabContent(tabs),
                     ),
                   ),
                 ],
@@ -553,6 +646,8 @@ class _EditorPanelState extends State<EditorPanel>
 
   /// Build collapsed bar with tab buttons and expand arrow
   Widget _buildCollapsedBar() {
+    // Single per-frame evaluation of the FFI-backed tab list (see build()).
+    final tabs = _tabs;
     return Container(
       height: 40,
       decoration: BoxDecoration(
@@ -568,7 +663,7 @@ class _EditorPanelState extends State<EditorPanel>
             bottom: 0,
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: _buildCollapsedTabButtons(),
+              children: _buildCollapsedTabButtons(tabs),
             ),
           ),
           // Center: Tool buttons (truly centered)
@@ -651,38 +746,21 @@ class _EditorPanelState extends State<EditorPanel>
     );
   }
 
-  /// Build the collapsed tab buttons based on track type
-  List<Widget> _buildCollapsedTabButtons() {
-    if (_isAudioTrack) {
-      return [
-        _buildCollapsedTabButton(0, _firstTabIcon, _firstTabLabel),
-        const SizedBox(width: 4),
-        _buildCollapsedTabButton(1, BI.lightning, 'Effects'),
-      ];
-    }
-
-    if (_isSamplerTrack) {
-      return [
-        _buildCollapsedTabButton(0, BI.musicNote, 'Sampler'),
-        const SizedBox(width: 4),
-        _buildCollapsedTabButton(1, BI.piano, 'MIDI'),
-      ];
-    }
-
-    if (_isDrumKitTrack) {
-      return [
-        _buildCollapsedTabButton(0, BI.gridOn, 'Drum Kit'),
-        const SizedBox(width: 4),
-        _buildCollapsedTabButton(1, BI.piano, 'Piano Roll'),
-      ];
-    }
-
-    // MIDI track: [Instrument] [MIDI] — must mirror _buildTabButtons; a third
-    // "Effects" button here pointed past the 2-tab controller (RangeError).
+  /// Build the collapsed tab buttons — derived from [_tabs] (passed in from
+  /// [_buildCollapsedBar], see [_buildTabButtons]), same list the expanded
+  /// strip and the TabBarView use, so the strips can never disagree.
+  /// (The collapsed buttons deliberately don't carry [_EditorTab.buttonKey]:
+  /// the instrument-dropdown anchor belongs to the expanded strip only.)
+  List<Widget> _buildCollapsedTabButtons(List<_EditorTab> tabs) {
     return [
-      _buildCollapsedTabButton(0, _instrumentTabIcon, _getInstrumentTabLabel()),
-      const SizedBox(width: 4),
-      _buildCollapsedTabButton(1, _firstTabIcon, _firstTabLabel),
+      for (var i = 0; i < tabs.length; i++) ...[
+        if (i > 0) const SizedBox(width: 4),
+        _buildCollapsedTabButton(
+          i,
+          tabs[i].icon,
+          tabs[i].collapsedLabel ?? tabs[i].label,
+        ),
+      ],
     ];
   }
 
@@ -807,7 +885,10 @@ class _EditorPanelState extends State<EditorPanel>
           presets: presets,
         );
       }).toList();
-    } catch (_) {
+    } catch (e) {
+      // A malformed engine preset payload must leave a trace, not just an
+      // unexplained empty preset list.
+      Log.e('EditorPanel: preset folder parse failed: $e');
       _presetFolders = [];
     }
   }
@@ -938,86 +1019,29 @@ class _EditorPanelState extends State<EditorPanel>
     }
   }
 
-  /// Build the tab buttons based on track type
-  /// Audio: [Audio] [Effects]
-  /// MIDI: [Instrument] [MIDI]
-  /// Sampler: [Sampler] [MIDI]
-  List<Widget> _buildTabButtons() {
-    if (_isMasterTrack) {
-      return [_buildTabButton(0, BI.lightning, 'Effects')];
-    }
-
-    if (_isAudioTrack) {
-      return [
-        _buildTabButton(0, BI.audioFile, 'Audio'),
-        const SizedBox(width: 4),
-        _buildTabButton(1, BI.lightning, 'Effects'),
-      ];
-    }
-
-    if (_isSamplerTrack) {
-      return [
-        _buildTabButton(
-          0,
-          BI.musicNote,
-          'Sampler',
-          buttonKey: _instrumentTabKey,
-        ),
-        const SizedBox(width: 4),
-        _buildTabButton(1, BI.piano, 'MIDI'),
-      ];
-    }
-
-    if (_isDrumKitTrack) {
-      return [
-        _buildTabButton(0, BI.gridOn, 'Drum Kit', buttonKey: _instrumentTabKey),
-        const SizedBox(width: 4),
-        _buildTabButton(1, BI.piano, 'MIDI'),
-      ];
-    }
-
-    // MIDI track: [Instrument] [MIDI]
+  /// Build the expanded tab buttons — derived from [_tabs] (evaluated once in
+  /// `build()` and passed in, so the FFI-backed track-type checks behind the
+  /// getter run once per frame), same list the collapsed strip and the
+  /// TabBarView use.
+  List<Widget> _buildTabButtons(List<_EditorTab> tabs) {
     return [
-      _buildTabButton(
-        0,
-        _instrumentTabIcon,
-        _getInstrumentTabLabel(),
-        buttonKey: _instrumentTabKey,
-      ),
-      const SizedBox(width: 4),
-      _buildTabButton(1, BI.piano, 'MIDI'),
+      for (var i = 0; i < tabs.length; i++) ...[
+        if (i > 0) const SizedBox(width: 4),
+        _buildTabButton(
+          i,
+          tabs[i].icon,
+          tabs[i].label,
+          buttonKey: tabs[i].buttonKey,
+        ),
+      ],
     ];
   }
 
-  /// Build the tab content based on track type
-  /// Audio: [Audio Editor (waveform), Chain (effects only)]
-  /// MIDI: [Chain (instrument + effects), MIDI Piano Roll]
-  /// Sampler: [Chain (sampler + effects), MIDI Piano Roll]
-  List<Widget> _buildTabContent() {
-    if (_isMasterTrack) {
-      // Master: effects chain only (no instrument, no piano roll)
-      return [_buildChainTab()];
-    }
-
-    if (_isAudioTrack) {
-      // Tab 0: audio editor (waveform), Tab 1: effects chain
-      return [_buildAudioEditorTab(), _buildChainTab()];
-    }
-
-    if (_isSamplerTrack) {
-      // Tab 0: the sampler editor (waveform + Load + loop/root/attack controls),
-      // Tab 1: piano roll. The sampler is an engine-side instrument with no
-      // InstrumentData, so it can't be shown through the DeviceChainView path.
-      return [_buildSamplerTab(), _buildPianoRollTab()];
-    }
-
-    if (_isDrumKitTrack) {
-      // Tab 0: drum-kit editor (detail + step grid), Tab 1: piano roll
-      return [_buildDrumKitTab(), _buildPianoRollTab()];
-    }
-
-    // MIDI track: Tab 0: instrument + effects chain, Tab 1: piano roll
-    return [_buildChainTab(), _buildEditorTab()];
+  /// Build the TabBarView children — derived from [_tabs] (passed in from
+  /// `build()`, see [_buildTabButtons]), so content always lines up
+  /// index-for-index with both tab strips.
+  List<Widget> _buildTabContent(List<_EditorTab> tabs) {
+    return [for (final tab in tabs) tab.content()];
   }
 
   /// Combined device chain view — instrument (if any) + effects in one row.
@@ -1405,4 +1429,32 @@ class _EditorPanelState extends State<EditorPanel>
       },
     );
   }
+}
+
+/// One editor tab: how it renders in the expanded strip, the collapsed strip,
+/// and what content it shows. See [_EditorPanelState._tabs] — the single list
+/// every tab surface derives from.
+class _EditorTab {
+  final IconData icon;
+
+  /// Label in the expanded tab strip.
+  final String label;
+
+  /// Label in the collapsed bar (falls back to [label]); the collapsed bar
+  /// has room for longer names like the editing clip's filename.
+  final String? collapsedLabel;
+
+  /// Anchor key for the instrument dropdown (expanded strip only).
+  final Key? buttonKey;
+
+  /// Builds the TabBarView child for this tab.
+  final Widget Function() content;
+
+  const _EditorTab({
+    required this.icon,
+    required this.label,
+    this.collapsedLabel,
+    this.buttonKey,
+    required this.content,
+  });
 }

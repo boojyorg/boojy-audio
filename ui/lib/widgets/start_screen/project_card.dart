@@ -5,6 +5,7 @@ import '../../theme/animation_constants.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
+import '../../utils/native_dialogs.dart';
 
 /// A card displaying a recent project with thumbnail, name, and relative time.
 /// Hover shows metadata row. Right-click shows context menu.
@@ -225,7 +226,7 @@ class _ProjectCardState extends State<ProjectCard> {
         PopupMenuItem<String>(
           value: 'finder',
           child: Text(
-            'Show in Finder',
+            revealInFinderLabel,
             style: TextStyle(color: colors.textPrimary, fontSize: BT.fontBody),
           ),
         ),

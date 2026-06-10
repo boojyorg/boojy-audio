@@ -12,7 +12,7 @@ mixin TimelineTrackListMixin
   Widget _buildTracks(
     double width,
     double totalBeats, {
-    double emptyAreaHeight = 100.0,
+    double emptyAreaHeight = UIConstants.trackAreaBottomBuffer,
   }) {
     // Only show empty state if audio engine is not initialized
     // Master track should always exist, so empty tracks means audio engine issue

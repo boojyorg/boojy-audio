@@ -206,7 +206,10 @@ class LibraryPreviewService extends ChangeNotifier {
               notifyListeners();
             });
           }
-        } catch (_) {
+        } catch (e) {
+          // Loud, not silent: a swallowed error here means the user clicks
+          // a sample and simply nothing plays.
+          Log.e('[PREVIEW-DART] Preview load/play failed: $e');
           _isLoading = false;
           _currentFilePath = null;
           _currentFileName = null;
@@ -230,7 +233,8 @@ class LibraryPreviewService extends ChangeNotifier {
         }
 
         notifyListeners();
-      } catch (_) {
+      } catch (e) {
+        Log.e('[PREVIEW-DART] Position poll failed, stopping preview: $e');
         _isPlaying = false;
         _stopPositionTimer();
         notifyListeners();
