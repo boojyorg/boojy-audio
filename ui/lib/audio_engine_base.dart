@@ -85,6 +85,8 @@ class _AudioEngineBase {
   // Sampler functions
   late final _CreateSamplerForTrackFfi _createSamplerForTrack;
   late final _LoadSampleForTrackFfi _loadSampleForTrack;
+  late final _UnloadSampleForTrackFfi _unloadSampleForTrack;
+  late final _GetSamplerSamplePathFfi _getSamplerSamplePath;
   late final _SetSamplerParameterFfi _setSamplerParameter;
   late final _IsSamplerTrackFfi _isSamplerTrack;
   late final _GetSamplerInfoFfi _getSamplerInfo;
@@ -1011,6 +1013,18 @@ class _AudioEngineBase {
       _loadSampleForTrack = _lib
           .lookup<ffi.NativeFunction<_LoadSampleForTrackFfiNative>>(
             'load_sample_for_track_ffi',
+          )
+          .asFunction();
+
+      _unloadSampleForTrack = _lib
+          .lookup<ffi.NativeFunction<_UnloadSampleForTrackFfiNative>>(
+            'unload_sample_for_track_ffi',
+          )
+          .asFunction();
+
+      _getSamplerSamplePath = _lib
+          .lookup<ffi.NativeFunction<_GetSamplerSamplePathFfiNative>>(
+            'get_sampler_sample_path_ffi',
           )
           .asFunction();
 

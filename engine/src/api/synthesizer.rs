@@ -222,6 +222,30 @@ pub fn load_sample_for_track(track_id: u64, path: String, root_note: u8) -> Resu
     }
 }
 
+/// Unload the sample from a sampler track (UI undo of a first sample load)
+pub fn unload_sample_for_track(track_id: u64) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let mut synth_manager = graph.track_synth_manager.lock();
+
+    if synth_manager.unload_sample(track_id) {
+        Ok(format!("Unloaded sample from track {track_id}"))
+    } else {
+        Err(format!("Track {track_id} is not a sampler track"))
+    }
+}
+
+/// Path of the sample currently loaded on a sampler track (empty when none)
+pub fn get_sampler_sample_path(track_id: u64) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let synth_manager = graph.track_synth_manager.lock();
+
+    Ok(synth_manager
+        .sampler_sample_path(track_id)
+        .unwrap_or_default())
+}
+
 /// Set sampler parameter for a track (`root_note`, `attack_ms`, `release_ms`)
 pub fn set_sampler_parameter(
     track_id: u64,
