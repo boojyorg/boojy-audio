@@ -51,8 +51,11 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
       ancestor: overlay,
     );
 
-    // Capture colors before showing menu (to avoid provider access in overlay)
-    final accentColor = context.colors.accent;
+    // Capture colors before showing menu (to avoid provider access in
+    // overlay). Must be a listen:false read — this runs inside the tap
+    // handler, and a listening Provider.of outside build throws in debug
+    // builds, so the menu silently never opened.
+    final accentColor = context.themeProvider.colors.accent;
     final beatsPerBar = widget.beatsPerBar;
 
     PopupMenuItem<int> sigItem(int num) {

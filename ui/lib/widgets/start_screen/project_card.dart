@@ -202,7 +202,8 @@ class _ProjectCardState extends State<ProjectCard> {
   }
 
   void _showContextMenu(BuildContext context, TapUpDetails details) {
-    final colors = context.colors;
+    // listen:false — a listening read inside a tap handler asserts in debug.
+    final colors = context.themeProvider.colors;
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
 
     showMenu<String>(

@@ -3,8 +3,8 @@ import '../../models/scale_data.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
+import '../transport_bar/signature_dropdown.dart';
 import 'loop_time_display.dart';
-import 'time_signature_display.dart';
 
 /// Display mode for responsive icon/label buttons
 enum _ButtonDisplayMode {
@@ -23,11 +23,12 @@ class PianoRollControlsBar extends StatefulWidget {
   final double loopStartBeats;
   final double loopLengthBeats;
   final int beatsPerBar;
-  final int beatUnit;
   final VoidCallback? onLoopToggle;
   final Function(double)? onLoopStartChanged;
   final Function(double)? onLoopLengthChanged;
   final Function(int)? onBeatsPerBarChanged;
+  final VoidCallback? onSignatureDragStart;
+  final VoidCallback? onSignatureDragEnd;
 
   // Grid section
   final bool snapEnabled;
@@ -88,11 +89,12 @@ class PianoRollControlsBar extends StatefulWidget {
     this.loopStartBeats = 0.0,
     this.loopLengthBeats = 4.0,
     this.beatsPerBar = 4,
-    this.beatUnit = 4,
     this.onLoopToggle,
     this.onLoopStartChanged,
     this.onLoopLengthChanged,
     this.onBeatsPerBarChanged,
+    this.onSignatureDragStart,
+    this.onSignatureDragEnd,
     // Grid section
     this.snapEnabled = true,
     this.gridDivision = 0.25,
@@ -349,18 +351,15 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
           style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
         ),
         const SizedBox(width: 4),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-          decoration: BoxDecoration(
-            color: colors.dark,
-            borderRadius: BorderRadius.circular(2),
-            border: Border.all(color: colors.surface, width: 1),
-          ),
-          child: TimeSignatureDisplay(
-            beatsPerBar: widget.beatsPerBar,
-            beatUnit: widget.beatUnit,
-            onBeatsPerBarChanged: widget.onBeatsPerBarChanged,
-          ),
+        // Same control as the transport bar: click anywhere on the box for
+        // the n/4 menu, drag up/down to scrub. The old numerator-only
+        // click-to-type target was ~10px wide and read as "not editable".
+        SignatureDropdown(
+          beatsPerBar: widget.beatsPerBar,
+          onChanged: (numerator, _) =>
+              widget.onBeatsPerBarChanged?.call(numerator),
+          onDragStart: widget.onSignatureDragStart,
+          onDragEnd: widget.onSignatureDragEnd,
         ),
       ],
     );

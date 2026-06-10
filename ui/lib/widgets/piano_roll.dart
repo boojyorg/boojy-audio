@@ -71,6 +71,12 @@ class PianoRoll extends StatefulWidget {
   /// engine all kept the old signature.
   final void Function(int beatsPerBar, int beatUnit)? onTimeSignatureChanged;
 
+  /// Fired around the Signature drag-to-scrub gesture so the parent can
+  /// coalesce the whole drag into a single undo step (same contract as the
+  /// transport bar's signature control).
+  final VoidCallback? onTimeSignatureDragStart;
+  final VoidCallback? onTimeSignatureDragEnd;
+
   /// Whether recording is active (piano roll becomes read-only)
   final bool isRecording;
 
@@ -107,6 +113,8 @@ class PianoRoll extends StatefulWidget {
     this.beatsPerBar = 4,
     this.beatUnit = 4,
     this.onTimeSignatureChanged,
+    this.onTimeSignatureDragStart,
+    this.onTimeSignatureDragEnd,
     this.isRecording = false,
     this.trackColor,
     this.playheadNotifier,
@@ -445,7 +453,6 @@ class _PianoRollState extends State<PianoRoll>
       loopStartBeats: loopStartBeats,
       loopLengthBeats: getLoopLength(),
       beatsPerBar: beatsPerBar,
-      beatUnit: beatUnit,
       onLoopToggle: () {
         if (currentClip == null) return;
         setState(() {
@@ -494,6 +501,8 @@ class _PianoRollState extends State<PianoRoll>
       // has no denominator concept yet, so an editable one was pure theater.
       onBeatsPerBarChanged: (value) =>
           widget.onTimeSignatureChanged?.call(value, 4),
+      onSignatureDragStart: widget.onTimeSignatureDragStart,
+      onSignatureDragEnd: widget.onTimeSignatureDragEnd,
       // Grid section
       snapEnabled: snapEnabled,
       gridDivision: gridDivision,

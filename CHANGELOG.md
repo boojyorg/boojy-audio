@@ -45,6 +45,13 @@ All notable changes to Boojy Audio will be documented in this file.
   yet, the denominator is a read-only /4 instead of a control that did nothing — 6/8 always
   played identically to 6/4, so the compound-signature menu options are gone until they can be
   real.
+- **The piano-roll Signature control is actually clickable now.** Only the ~10px numerator
+  digit was interactive (click-to-type), so the field read as dead. It's now the same control
+  as the transport bar: click anywhere on the box for the n/4 menu, drag up/down to scrub,
+  one undo step per drag. Fixing it also surfaced that the menu itself never opened in debug
+  builds — a theme read inside the tap handler (the recurring listen-outside-build class) —
+  which silently broke the transport signature menu, the audio-editor signature menu, the
+  library right-click menus, and the project-card right-click menu too; all five are fixed.
 - **New instrument tracks play on the first Play press.** The default 1-bar clip created with a
   new sampler/synth/VST3 track was never registered with the engine, so a fresh track produced
   silence until its first piano-roll edit — the headline "sampler makes no sound" bug.

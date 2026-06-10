@@ -4376,6 +4376,9 @@ class _DAWScreenState extends State<DAWScreen>
                               beatUnit:
                                   projectMetadata.timeSignatureDenominator,
                               onTimeSignatureChanged: _onTimeSignatureChanged,
+                              onTimeSignatureDragStart:
+                                  _onTimeSignatureDragStart,
+                              onTimeSignatureDragEnd: _onTimeSignatureDragEnd,
                               projectTempo: projectMetadata.bpm,
                               onProjectTempoChanged: _onTempoChanged,
                               isRecording: isRecording,
