@@ -143,6 +143,12 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
             widget.onDragEnd?.call();
             setState(() => _isDragging = false);
           },
+          // A cancelled drag must still close the coalescing window (same
+          // reason as the tempo control).
+          onVerticalDragCancel: () {
+            widget.onDragEnd?.call();
+            setState(() => _isDragging = false);
+          },
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

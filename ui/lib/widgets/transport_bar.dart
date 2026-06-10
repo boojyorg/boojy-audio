@@ -189,6 +189,8 @@ class TransportBar extends StatefulWidget {
   final bool virtualPianoEnabled;
   final double tempo;
   final Function(double)? onTempoChanged;
+  final VoidCallback? onTempoDragStart;
+  final VoidCallback? onTempoDragEnd;
   final Function(int)? onCountInChanged;
   final int countInBars;
 
@@ -263,6 +265,8 @@ class TransportBar extends StatefulWidget {
     this.virtualPianoEnabled = false,
     this.tempo = 120.0,
     this.onTempoChanged,
+    this.onTempoDragStart,
+    this.onTempoDragEnd,
     this.onCountInChanged,
     this.countInBars = 1,
     this.countInBeat = 0,
@@ -977,6 +981,8 @@ class _TransportBarState extends State<TransportBar> {
     final tempo = TempoDisplay(
       tempo: widget.tempo,
       onTempoChanged: widget.onTempoChanged,
+      onDragStart: widget.onTempoDragStart,
+      onDragEnd: widget.onTempoDragEnd,
       compact: density.compactReadouts,
       // Shed the "BPM" suffix together with the tool labels — the density
       // math assumes the compact tier already dropped it (M22).
