@@ -775,6 +775,29 @@ class _DAWScreenState extends State<DAWScreen>
           currentTempo,
           newBpm,
         );
+
+        // The engine keeps audio-clip and automation positions in real
+        // seconds, so the rescaled values must reach it too — otherwise
+        // clips LOOK right after a tempo change but PLAY from their old
+        // positions. Running inside onTempoChanged covers undo/redo as well
+        // (MIDI gets the same treatment via rescheduleAllClips above).
+        final timelineClips = timelineKey.currentState?.clips;
+        if (timelineClips != null) {
+          for (final clip in timelineClips) {
+            audioEngine?.setClipStartTime(
+              clip.trackId,
+              clip.clipId,
+              clip.startTime,
+            );
+          }
+        }
+        syncAllVolumeAutomationToEngine();
+
+        // Keep the metadata BPM in step (the project settings dialog seeds
+        // its BPM field from projectMetadata) — including on undo/redo.
+        setState(() {
+          projectMetadata = projectMetadata.copyWith(bpm: newBpm);
+        });
       },
     );
     await undoRedoManager.execute(command);
@@ -3124,10 +3147,12 @@ class _DAWScreenState extends State<DAWScreen>
       projectMetadata = updatedMetadata;
     });
 
-    // Update audio engine with new BPM
+    // Route the BPM change through the same undoable command as the
+    // transport-bar control — it owns the engine update, MIDI reschedule,
+    // and the audio-clip/automation re-push. Calling setTempo directly here
+    // used to skip all of that (clips visually froze on old positions).
     if (bpmChanged) {
-      audioEngine?.setTempo(updatedMetadata.bpm);
-      recordingController.setTempo(updatedMetadata.bpm);
+      await _onTempoChanged(updatedMetadata.bpm);
     }
 
     // Update project name if changed

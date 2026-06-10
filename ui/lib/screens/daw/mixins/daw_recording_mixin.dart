@@ -4,7 +4,6 @@ import '../../../models/clip_data.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../models/track_data.dart';
 import '../../../services/commands/clip_commands.dart';
-import '../../../services/commands/project_commands.dart';
 import '../../../services/clip_naming_service.dart';
 import '../../../services/live_recording_notifier.dart';
 import '../../../utils/clip_overlap_handler.dart';
@@ -534,49 +533,10 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     playbackController.setStatusMessage(message);
   }
 
-  // ============================================
-  // TEMPO METHODS
-  // ============================================
-
-  /// Handle tempo change with undo support
-  Future<void> onTempoChanged(double bpm) async {
-    final oldBpm = recordingController.tempo;
-    if (oldBpm == bpm) return;
-
-    final command = SetTempoCommand(
-      newBpm: bpm,
-      oldBpm: oldBpm,
-      onTempoChanged: (newBpm) {
-        // Get the current (old) tempo before we change it
-        final currentTempo = recordingController.tempo;
-
-        recordingController.setTempo(newBpm);
-        midiClipController.setTempo(newBpm);
-        midiCaptureBuffer.updateBpm(newBpm);
-        midiPlaybackManager?.rescheduleAllClips(newBpm);
-
-        // Adjust audio clip positions to maintain their beat position
-        // This prevents audio clips from visually shifting when tempo changes
-        timelineKey.currentState?.adjustAudioClipPositionsForTempoChange(
-          currentTempo,
-          newBpm,
-        );
-      },
-    );
-    await undoRedoManager.execute(command);
-  }
-
-  /// Handle time signature change
-  void onTimeSignatureChanged(int beatsPerBar, int beatUnit) {
-    setState(() {
-      projectMetadata = projectMetadata.copyWith(
-        timeSignatureNumerator: beatsPerBar,
-        timeSignatureDenominator: beatUnit,
-      );
-    });
-    // Update engine time signature
-    audioEngine?.setTimeSignature(beatsPerBar);
-  }
+  // Tempo and time-signature changes live in daw_screen.dart
+  // (_onTempoChanged / _onTimeSignatureChanged) — the copies that used to
+  // live here were dead duplicates (the CLAUDE.md mixin trap) and have been
+  // removed.
 
   // ============================================
   // VIRTUAL PIANO METHODS
