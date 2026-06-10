@@ -51,4 +51,13 @@ removed. Don't reintroduce FRB casually; it's an architecture-level change, not 
   Snapshot what you need (`id`, `fx_chain`, `sends.iter().map(...)`) into locals and drop the
   `MutexGuard` before calling back into `TrackManager`. See `find_return_by_effect_type` and
   `get_track_sends` in `engine/src/api/sends.rs` for the snapshot pattern.
-- **MIDI clips use beats** for startTime/duration; **audio clips use seconds.**
+- **Time domains: the ENGINE is real seconds everywhere; only the UI thinks in beats.**
+  UI-side, MIDI clips/notes use **beats** for startTime/duration and audio clips use **seconds**;
+  every position crossing the FFI is converted to **real seconds at the current tempo**
+  (`seconds = beats × 60 / tempo`). The engine never scales time by tempo — a legacy
+  `tempo/120` playhead ratio in the renderer/export was removed in v0.6 batch 2 after it made
+  audio clips play early *and* pitch-shifted at any tempo ≠ 120. Consequence: **on a tempo
+  change the UI must re-push every engine position** — MIDI via
+  `midiPlaybackManager.rescheduleAllClips`, audio clips via `setClipStartTime`, automation via
+  `syncAllVolumeAutomationToEngine` — all of which live in `_onTempoChanged` (daw_screen.dart);
+  route ANY tempo write through that handler, never bare `audioEngine.setTempo()`.

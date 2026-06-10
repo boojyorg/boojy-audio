@@ -9,8 +9,14 @@ use super::helpers::get_audio_graph;
 // ============================================================================
 
 /// Set tempo in BPM
-/// Adjusts playhead position so visual position stays the same (no jump when tempo changes)
+/// Rescales the playhead so it stays on the same BEAT (the UI rescales all
+/// clip positions the same way, so nothing visually jumps).
 pub fn set_tempo(bpm: f64) -> Result<String, String> {
+    // Match the recorder's stored clamp BEFORE the playhead math below —
+    // rescaling by an out-of-range bpm while the recorder stores the clamped
+    // value would silently shift the playhead off its beat.
+    let bpm = bpm.clamp(20.0, 300.0);
+
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
 
@@ -18,18 +24,22 @@ pub fn set_tempo(bpm: f64) -> Result<String, String> {
     let old_tempo = graph.recorder.get_tempo();
     let current_samples = graph.get_playhead_samples();
 
-    // Calculate ratio adjustment to keep visual position stable
-    // visual_pos = samples * tempo_ratio / sample_rate
-    // To keep visual_pos same: new_samples = samples * old_ratio / new_ratio
-    let old_ratio = old_tempo / 120.0;
-    let new_ratio = bpm / 120.0;
-    let adjusted_samples = (current_samples as f64 * old_ratio / new_ratio) as u64;
+    // A position at beat B sits at B * 60/tempo seconds, so keeping the beat
+    // means scaling the sample position by old_tempo / new_tempo.
+    let adjusted_samples = (current_samples as f64 * old_tempo / bpm) as u64;
 
     // Update tempo
     graph.recorder.set_tempo(bpm);
 
-    // Adjust playhead to maintain visual position
+    // Move playhead to the same beat under the new tempo
     graph.set_playhead_samples(adjusted_samples);
+
+    // Keep the metronome's beat counter on that beat too — it shares the
+    // playhead's sample clock, and its beat length just changed. Without
+    // this, clicks drift out of phase after a live tempo change until the
+    // transport stops (the counter held a position measured in OLD-tempo
+    // beats).
+    graph.recorder.seek_metronome(adjusted_samples);
 
     Ok(format!("Tempo set to {bpm:.1} BPM"))
 }

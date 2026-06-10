@@ -65,6 +65,18 @@ class PianoRoll extends StatefulWidget {
   /// Time signature - beat unit (denominator)
   final int beatUnit;
 
+  /// Commits a time-signature edit to the PROJECT (same undoable command as
+  /// the transport-bar control). The Signature field here used to write
+  /// local state only — the grid changed while the metronome, ruler and
+  /// engine all kept the old signature.
+  final void Function(int beatsPerBar, int beatUnit)? onTimeSignatureChanged;
+
+  /// Fired around the Signature drag-to-scrub gesture so the parent can
+  /// coalesce the whole drag into a single undo step (same contract as the
+  /// transport bar's signature control).
+  final VoidCallback? onTimeSignatureDragStart;
+  final VoidCallback? onTimeSignatureDragEnd;
+
   /// Whether recording is active (piano roll becomes read-only)
   final bool isRecording;
 
@@ -100,6 +112,9 @@ class PianoRoll extends StatefulWidget {
     this.onVirtualPianoToggle,
     this.beatsPerBar = 4,
     this.beatUnit = 4,
+    this.onTimeSignatureChanged,
+    this.onTimeSignatureDragStart,
+    this.onTimeSignatureDragEnd,
     this.isRecording = false,
     this.trackColor,
     this.playheadNotifier,
@@ -438,7 +453,6 @@ class _PianoRollState extends State<PianoRoll>
       loopStartBeats: loopStartBeats,
       loopLengthBeats: getLoopLength(),
       beatsPerBar: beatsPerBar,
-      beatUnit: beatUnit,
       onLoopToggle: () {
         if (currentClip == null) return;
         setState(() {
@@ -481,8 +495,14 @@ class _PianoRollState extends State<PianoRoll>
         });
         notifyClipUpdated();
       },
-      onBeatsPerBarChanged: (value) => setState(() => beatsPerBar = value),
-      onBeatUnitChanged: (value) => setState(() => beatUnit = value),
+      // Route Signature edits to the PROJECT time signature (undoable, same
+      // command as the transport bar); the new value flows back down via
+      // didUpdateWidget. Denominator is locked to /4 in v0.6 — the engine
+      // has no denominator concept yet, so an editable one was pure theater.
+      onBeatsPerBarChanged: (value) =>
+          widget.onTimeSignatureChanged?.call(value, 4),
+      onSignatureDragStart: widget.onTimeSignatureDragStart,
+      onSignatureDragEnd: widget.onTimeSignatureDragEnd,
       // Grid section
       snapEnabled: snapEnabled,
       gridDivision: gridDivision,
@@ -588,6 +608,10 @@ class _PianoRollState extends State<PianoRoll>
       config: UnifiedNavBarConfig(
         pixelsPerBeat: pixelsPerBeat,
         totalBeats: totalBeats,
+        // Bar lines/numbers follow the project signature (this hardcoded to
+        // 4/4 before, so at 3/4 the playhead seemed to move "at the wrong
+        // speed" against the ruler).
+        beatsPerBar: beatsPerBar,
         loopEnabled: loopEnabled,
         loopStart: loopStartBeats,
         loopEnd: loopStartBeats + getLoopLength(),

@@ -16,6 +16,13 @@ class TempoDisplay extends StatefulWidget {
   final double tempo;
   final Function(double)? onTempoChanged;
 
+  /// Fired when the drag-to-nudge gesture starts/ends, letting the parent
+  /// coalesce the whole drag into a single undo step (same pattern as the
+  /// signature control — without it every drag tick landed its own BPM on
+  /// the undo stack).
+  final VoidCallback? onDragStart;
+  final VoidCallback? onDragEnd;
+
   /// When true the number zone shrinks its min width — used at low
   /// transport-bar density so the readout cluster stays compact.
   final bool compact;
@@ -30,6 +37,8 @@ class TempoDisplay extends StatefulWidget {
     super.key,
     required this.tempo,
     this.onTempoChanged,
+    this.onDragStart,
+    this.onDragEnd,
     this.compact = false,
     this.showLabel = true,
   });
@@ -177,6 +186,7 @@ class _TempoDisplayState extends State<TempoDisplay> {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onVerticalDragStart: (details) {
+                      widget.onDragStart?.call();
                       setState(() {
                         _isDragging = true;
                         _dragStartY = details.globalPosition.dy;
@@ -194,8 +204,17 @@ class _TempoDisplayState extends State<TempoDisplay> {
                         widget.onTempoChanged!(newTempo);
                       }
                     },
-                    onVerticalDragEnd: (_) =>
-                        setState(() => _isDragging = false),
+                    onVerticalDragEnd: (_) {
+                      widget.onDragEnd?.call();
+                      setState(() => _isDragging = false);
+                    },
+                    // A cancelled drag must still close the coalescing
+                    // window, or the parent would treat every later edit
+                    // as mid-drag and skip the undo step entirely.
+                    onVerticalDragCancel: () {
+                      widget.onDragEnd?.call();
+                      setState(() => _isDragging = false);
+                    },
                     onDoubleTap: () => _showTempoDialog(context),
                     child: Container(
                       // v:2 (not the split buttons' v:4) so the box height

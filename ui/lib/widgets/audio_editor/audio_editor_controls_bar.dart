@@ -306,7 +306,8 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
   }
 
   void _showSignatureMenu(BuildContext context) {
-    final colors = context.colors;
+    // listen:false — a listening read inside a tap handler asserts in debug.
+    final colors = context.themeProvider.colors;
     final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
 

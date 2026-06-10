@@ -1444,7 +1444,8 @@ class _LibraryPanelState extends State<LibraryPanel> {
   }
 
   void _showItemContextMenu(TapUpDetails details, LibraryItem item) {
-    final colors = context.colors;
+    // listen:false — a listening read inside a tap handler asserts in debug.
+    final colors = context.themeProvider.colors;
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final isFavorite = widget.libraryService.isFavorite(item.id);
     final isAudioFile =
@@ -1551,7 +1552,8 @@ class _LibraryPanelState extends State<LibraryPanel> {
   }
 
   void _showVst3ContextMenu(TapUpDetails details, Vst3Plugin plugin) {
-    final colors = context.colors;
+    // listen:false — a listening read inside a tap handler asserts in debug.
+    final colors = context.themeProvider.colors;
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final itemId = 'vst3_${plugin.path}';
     final isFavorite = widget.libraryService.isFavorite(itemId);

@@ -83,7 +83,10 @@ The full gate set (what CI enforces; run locally only per the split above):
 
 ## Architecture Rules
 
-- **MIDI clips** use **beats** for startTime/duration; **Audio clips** use **seconds**
+- **Time domains**: UI-side, **MIDI clips** use **beats** for startTime/duration and **Audio
+  clips** use **seconds** — but the **engine is real seconds everywhere** (no tempo scaling),
+  so every tempo change must re-push engine positions via `_onTempoChanged` (never bare
+  `setTempo`). Full rule + history → `.claude/rules/ffi.md`
 - **FFI boundary** is raw `dart:ffi`, three layers (`api/` → `ffi/` extern-"C" shim → Dart binding). Adding an engine function is covered by the **`add-ffi` skill** and `.claude/rules/ffi.md`. `flutter_rust_bridge` was deliberately dropped — don't reintroduce it.
 - **Undo/redo** uses the command pattern: `Command`, `CompositeCommand`, `UndoRedoManager`
   - All state-changing user actions should be wrapped in a Command

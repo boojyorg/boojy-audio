@@ -125,6 +125,27 @@ struct TrackSnapshot {
     monitoring_fade_gain: f64,
 }
 
+/// Slim per-track snapshot for the STOPPED path (no timeline clips play, so
+/// cloning the clip/automation vectors would be pure allocator pressure).
+/// Peaks accumulate here during the buffer and are written back to the track
+/// under a brief end-of-buffer lock, exactly like the playing path.
+struct StoppedTrackSnapshot {
+    id: u64,
+    volume_gain: f32,
+    pan_left: f32,
+    pan_right: f32,
+    muted: bool,
+    soloed: bool,
+    fx_chain: Vec<u64>,
+    armed: bool,
+    input_monitoring: bool,
+    input_channel: u32,
+    is_audio_track: bool,
+    monitoring_fade_gain: f64,
+    peak_left: f32,
+    peak_right: f32,
+}
+
 // ── Helper functions for the audio callback ─────────────────────────────
 // These are called from the hot path — no allocations, no panics.
 
@@ -515,6 +536,7 @@ impl AudioGraph {
         let mut snapshot_buf: Vec<TrackSnapshot> = Vec::with_capacity(16);
         let mut return_snapshot_buf: Vec<TrackSnapshot> = Vec::with_capacity(4);
         let mut peak_buf: HashMap<TrackId, (f32, f32)> = HashMap::with_capacity(16);
+        let mut stopped_snapshot_buf: Vec<StoppedTrackSnapshot> = Vec::with_capacity(16);
 
         // Per-buffer (sub-block) scratch buffers for the playing path. The FX chain
         // runs once per sub-block via `process_block` (so VST3 plugins process a whole
@@ -584,14 +606,54 @@ impl AudioGraph {
                             SYNTH_LOCK_CONTENTION.fetch_add(1, Ordering::Relaxed);
                             track_synth_manager.lock()
                         });
-                    let tm = track_manager.lock();
-                    let has_solo = tm.has_solo();
+                    // Snapshot per-track state under a SHORT track_manager
+                    // lock instead of holding it across the whole buffer. The
+                    // stopped path used to keep track_manager locked for every
+                    // frame of the callback, so any UI FFI call that walks the
+                    // track list (mute/solo/arm writes, meter polling) stalled
+                    // behind the audio thread — the suspected root cause of
+                    // the 100–400 ms M/S/R/I button lag while stopped (#19).
+                    // Peaks and monitoring fade gains accumulate in the
+                    // snapshot and are written back under a brief lock after
+                    // the buffer, mirroring the playing path.
+                    stopped_snapshot_buf.clear();
+                    let has_solo = {
+                        let tm = track_manager.lock();
+                        for track_arc in tm.get_all_tracks() {
+                            let track = track_arc.lock();
+                            // Skip master track in per-track processing
+                            if track.track_type == TrackType::Master {
+                                continue;
+                            }
+                            stopped_snapshot_buf.push(StoppedTrackSnapshot {
+                                id: track.id,
+                                volume_gain: track.get_gain(),
+                                pan_left: track.get_pan_gains().0,
+                                pan_right: track.get_pan_gains().1,
+                                muted: track.mute,
+                                soloed: track.solo,
+                                fx_chain: track.fx_chain.clone(),
+                                armed: track.armed,
+                                input_monitoring: track.input_monitoring,
+                                input_channel: track.input_channel,
+                                is_audio_track: track.track_type == TrackType::Audio,
+                                monitoring_fade_gain: track.monitoring_fade_gain,
+                                peak_left: 0.0,
+                                peak_right: 0.0,
+                            });
+                        }
+                        tm.has_solo()
+                    }; // track_manager released — UI calls proceed while we render
+
                     let mut effect_guard = if let Some(guard) = effect_manager.try_lock() {
                         guard
                     } else {
                         EFFECT_LOCK_CONTENTION.fetch_add(1, Ordering::Relaxed);
                         effect_manager.lock()
                     };
+
+                    let mut master_peak_left = 0.0f32;
+                    let mut master_peak_right = 0.0f32;
 
                     for frame_idx in 0..frames {
                         let (input_left, input_right) = read_input_samples(&input_manager);
@@ -603,139 +665,91 @@ impl AudioGraph {
                         // Start with metronome output
                         let mut out_left = met_left;
                         let mut out_right = met_right;
-                        let mut master_peak_left = 0.0f32;
-                        let mut master_peak_right = 0.0f32;
 
                         // Process each track (synth + VST3 instruments + volume/pan + metering)
                         // This is necessary for:
                         // 1. Per-track synthesizer output from MIDI input
                         // 2. VST3 instruments that need continuous process() calls
                         // 3. Track-level metering for level meters in UI
-                        {
+                        for snap in &mut stopped_snapshot_buf {
+                            // Get per-track synth output FIRST
+                            let mut track_left = 0.0f32;
+                            let mut track_right = 0.0f32;
+
+                            if let Some(ref mut synth_manager) = synth_guard {
+                                let (synth_left, synth_right) =
+                                    synth_manager.process_sample_stereo(snap.id);
+                                track_left += synth_left;
+                                track_right += synth_right;
+                            }
+
+                            // Input monitoring: mix live input for armed audio tracks
                             {
-                                for track_arc in tm.get_all_tracks() {
-                                    {
-                                        let mut track = track_arc.lock();
-                                        // Skip master track in per-track processing
-                                        if track.track_type == TrackType::Master {
-                                            continue;
-                                        }
+                                let should_monitor =
+                                    snap.armed && snap.input_monitoring && snap.is_audio_track;
+                                update_monitoring_fade(
+                                    &mut snap.monitoring_fade_gain,
+                                    should_monitor,
+                                    monitoring_ramp_rate,
+                                );
 
-                                        // Get per-track synth output FIRST
-                                        let mut track_left = 0.0f32;
-                                        let mut track_right = 0.0f32;
-
-                                        if let Some(ref mut synth_manager) = synth_guard {
-                                            let (synth_left, synth_right) =
-                                                synth_manager.process_sample_stereo(track.id);
-                                            track_left += synth_left;
-                                            track_right += synth_right;
-                                        }
-
-                                        // Input monitoring: mix live input for armed audio tracks
-                                        {
-                                            let should_monitor = track.armed
-                                                && track.input_monitoring
-                                                && track.track_type == TrackType::Audio;
-                                            update_monitoring_fade(
-                                                &mut track.monitoring_fade_gain,
-                                                should_monitor,
-                                                monitoring_ramp_rate,
-                                            );
-
-                                            if track.monitoring_fade_gain > 0.0 {
-                                                // Only a stereo pair is captured: even
-                                                // channels map to left, odd to right (C9 —
-                                                // previously every channel >= 1 monitored right).
-                                                let ch = track.input_channel as usize;
-                                                let input_sample = if ch.is_multiple_of(2) {
-                                                    input_left
-                                                } else {
-                                                    input_right
-                                                };
-                                                track_left += input_sample
-                                                    * track.monitoring_fade_gain as f32;
-                                                track_right += input_sample
-                                                    * track.monitoring_fade_gain as f32;
-                                            }
-                                        }
-
-                                        // Handle mute/solo
-                                        if track.mute {
-                                            // Process FX with silence to keep VST3 alive
-                                            process_effect_chain(
-                                                &track.fx_chain,
-                                                &mut effect_guard,
-                                                0.0,
-                                                0.0,
-                                                true,
-                                            );
-                                            if frame_idx == frames - 1 {
-                                                track.update_peaks(0.0, 0.0);
-                                            }
-                                            continue;
-                                        }
-                                        if has_solo && !track.solo {
-                                            process_effect_chain(
-                                                &track.fx_chain,
-                                                &mut effect_guard,
-                                                0.0,
-                                                0.0,
-                                                true,
-                                            );
-                                            if frame_idx == frames - 1 {
-                                                track.update_peaks(0.0, 0.0);
-                                            }
-                                            continue;
-                                        }
-
-                                        // Process FX chain for this track
-                                        let (fx_l, fx_r) = process_effect_chain(
-                                            &track.fx_chain,
-                                            &mut effect_guard,
-                                            track_left,
-                                            track_right,
-                                            false,
-                                        );
-                                        track_left = fx_l;
-                                        track_right = fx_r;
-
-                                        // Apply track volume and pan AFTER FX chain
-                                        let volume_gain = track.get_gain();
-                                        let (pan_left, pan_right) = track.get_pan_gains();
-
-                                        track_left *= volume_gain * pan_left;
-                                        track_right *= volume_gain * pan_right;
-
-                                        // Update track peak levels for metering
-                                        // This allows UI to show level meters even when stopped
-                                        let current_peak_left = track.peak_left;
-                                        let current_peak_right = track.peak_right;
-                                        track.update_peaks(
-                                            current_peak_left.max(track_left.abs()),
-                                            current_peak_right.max(track_right.abs()),
-                                        );
-
-                                        // Mix into output
-                                        out_left += track_left;
-                                        out_right += track_right;
-                                    }
-                                }
-
-                                // Update master track peaks
-                                master_peak_left = master_peak_left.max(out_left.abs());
-                                master_peak_right = master_peak_right.max(out_right.abs());
-
-                                // Update master track peaks at end of buffer
-                                if frame_idx == frames - 1 {
-                                    let master_arc = tm.get_master_track();
-                                    {
-                                        let mut master = master_arc.lock();
-                                        master.update_peaks(master_peak_left, master_peak_right);
+                                if snap.monitoring_fade_gain > 0.0 {
+                                    // Only a stereo pair is captured: even
+                                    // channels map to left, odd to right (C9 —
+                                    // previously every channel >= 1 monitored right).
+                                    let ch = snap.input_channel as usize;
+                                    let input_sample = if ch.is_multiple_of(2) {
+                                        input_left
+                                    } else {
+                                        input_right
                                     };
+                                    track_left +=
+                                        input_sample * snap.monitoring_fade_gain as f32;
+                                    track_right +=
+                                        input_sample * snap.monitoring_fade_gain as f32;
                                 }
                             }
+
+                            // Handle mute/solo (FX still run on silence to keep
+                            // VST3 alive; peaks stay at 0)
+                            if snap.muted || (has_solo && !snap.soloed) {
+                                process_effect_chain(
+                                    &snap.fx_chain,
+                                    &mut effect_guard,
+                                    0.0,
+                                    0.0,
+                                    true,
+                                );
+                                continue;
+                            }
+
+                            // Process FX chain for this track
+                            let (fx_l, fx_r) = process_effect_chain(
+                                &snap.fx_chain,
+                                &mut effect_guard,
+                                track_left,
+                                track_right,
+                                false,
+                            );
+
+                            // Apply track volume and pan AFTER FX chain
+                            track_left = fx_l * snap.volume_gain * snap.pan_left;
+                            track_right = fx_r * snap.volume_gain * snap.pan_right;
+
+                            // Accumulate peak levels for metering (written back
+                            // to the track after the buffer)
+                            snap.peak_left = snap.peak_left.max(track_left.abs());
+                            snap.peak_right = snap.peak_right.max(track_right.abs());
+
+                            // Mix into output
+                            out_left += track_left;
+                            out_right += track_right;
                         }
+
+                        // Master peak over the WHOLE buffer (the old per-frame
+                        // variable only ever recorded the final frame's level)
+                        master_peak_left = master_peak_left.max(out_left.abs());
+                        master_peak_right = master_peak_right.max(out_right.abs());
 
                         // Process latency test (if running)
                         let sample_idx = current_playhead.wrapping_add(frame_idx as u64);
@@ -753,17 +767,42 @@ impl AudioGraph {
                         // Output metronome + synths + VST3 + preview when not playing
                         write_frame(data, frame_idx, channels, out_left, out_right);
                     }
+
+                    // Release effect manager BEFORE re-acquiring track_manager
+                    // (the C32 track→effect lock order).
+                    drop(effect_guard);
+
+                    // Brief end-of-buffer lock: write back peaks + monitoring
+                    // fade gains (update_peaks is a running max, so muted
+                    // tracks' 0.0 entries leave their meters untouched —
+                    // matching the old per-frame behaviour).
+                    {
+                        let tm = track_manager.lock();
+                        for snap in &stopped_snapshot_buf {
+                            if let Some(track_arc) = tm.get_track(snap.id) {
+                                let mut track = track_arc.lock();
+                                track.monitoring_fade_gain = snap.monitoring_fade_gain;
+                                track.update_peaks(snap.peak_left, snap.peak_right);
+                            }
+                        }
+                        let master_arc = tm.get_master_track();
+                        master_arc
+                            .lock()
+                            .update_peaks(master_peak_left, master_peak_right);
+                    }
                     return;
                 }
 
                 // frames already calculated at top of callback
                 let current_playhead = playhead_samples.load(Ordering::SeqCst);
 
-                // Get current tempo for playback scaling
-                // Timeline positions are tempo-dependent: at 120 BPM, 1 timeline second = 1 real second
-                // At other tempos, the playhead must advance faster/slower through the timeline
-                let current_tempo = *recorder_refs.tempo.lock();
-                let tempo_ratio = current_tempo / 120.0;
+                // Timeline positions live in REAL seconds — the same domain the
+                // playhead, MIDI clips, automation points and the UI all use.
+                // Tempo only changes where the UI *places* things (beats →
+                // seconds), never how fast the engine advances through them.
+                // (A legacy tempo/120 "playhead scaling" here made audio clips
+                // start early/late AND play at the wrong speed at any tempo
+                // other than 120 BPM, while MIDI clips played correctly.)
 
                 // NOTE: Legacy MIDI clip processing removed - all MIDI now handled per-track
 
@@ -927,9 +966,8 @@ impl AudioGraph {
                         if let Some(ref mut synth_manager) = synth_guard {
                             for i in 0..sb_len {
                                 let playhead_frame = current_playhead + (sb_start + i) as u64;
-                                let real_seconds =
+                                let playhead_seconds =
                                     playhead_frame as f64 / f64::from(TARGET_SAMPLE_RATE);
-                                let playhead_seconds = real_seconds * tempo_ratio;
 
                                 let mut track_left = 0.0;
                                 let mut track_right = 0.0;
@@ -1088,9 +1126,8 @@ impl AudioGraph {
                         // previous path for built-in chains.
                         for i in 0..sb_len {
                             let playhead_frame = current_playhead + (sb_start + i) as u64;
-                            let playhead_seconds = (playhead_frame as f64
-                                / f64::from(TARGET_SAMPLE_RATE))
-                                * tempo_ratio;
+                            let playhead_seconds =
+                                playhead_frame as f64 / f64::from(TARGET_SAMPLE_RATE);
 
                             let frame_volume_gain = if track_snap.volume_automation.is_empty() {
                                 track_snap.volume_gain
@@ -1145,9 +1182,8 @@ impl AudioGraph {
 
                         for i in 0..sb_len {
                             let playhead_frame = current_playhead + (sb_start + i) as u64;
-                            let playhead_seconds = (playhead_frame as f64
-                                / f64::from(TARGET_SAMPLE_RATE))
-                                * tempo_ratio;
+                            let playhead_seconds =
+                                playhead_frame as f64 / f64::from(TARGET_SAMPLE_RATE);
                             let frame_volume_gain = if return_snap.volume_automation.is_empty() {
                                 return_snap.volume_gain
                             } else {
@@ -1199,9 +1235,8 @@ impl AudioGraph {
                         for i in 0..sb_len {
                             let frame_idx = sb_start + i;
                             let playhead_frame = current_playhead + frame_idx as u64;
-                            let real_seconds =
+                            let playhead_seconds =
                                 playhead_frame as f64 / f64::from(TARGET_SAMPLE_RATE);
-                            let playhead_seconds = real_seconds * tempo_ratio;
 
                             // Process recording (metronome handled separately below)
                             let (met_left, met_right) = recorder_refs.process_frame(
