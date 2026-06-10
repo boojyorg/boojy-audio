@@ -879,8 +879,10 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                         regularTracks,
                       );
                     }),
-                    // Buffer spacer at the end
-                    const SizedBox(height: 160),
+                    // Buffer spacer at the end — must match the arrangement's
+                    // bottom buffer or the two sides misalign when scrolled
+                    // to the bottom (see UIConstants.trackAreaBottomBuffer).
+                    const SizedBox(height: UIConstants.trackAreaBottomBuffer),
                   ],
                 ),
                 // Dragged track rendered on top (if dragging)

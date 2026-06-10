@@ -156,6 +156,10 @@ void main() {
     // Regression: a command whose undo/redo throws must NOT be silently
     // dropped from the stacks (C66/C86). The manager peeks rather than pops,
     // so a failed undo leaves the command available to retry.
+    //
+    // Error surfacing contract: tests run in debug mode, where the manager
+    // RETHROWS after logging (so handler bugs like "listen outside build"
+    // can never die silently again). Release keeps swallow-and-return-false.
     group('throwing command does not corrupt history', () {
       late MockAudioEngine engine;
 
@@ -164,13 +168,27 @@ void main() {
         manager.initialize(engine);
       });
 
+      test(
+        'failed execute rethrows in debug and stays off the undo stack',
+        () async {
+          await expectLater(manager.execute(FailingCommand()), throwsException);
+          expect(
+            manager.canUndo,
+            isFalse,
+            reason: 'failed command not recorded',
+          );
+        },
+      );
+
       test('failed undo keeps the command on the undo stack', () async {
         await manager.execute(ThrowOnUndoCommand());
         expect(manager.canUndo, isTrue);
 
-        final result = await manager.undo();
-
-        expect(result, isFalse, reason: 'undo threw → should report failure');
+        await expectLater(
+          manager.undo(),
+          throwsException,
+          reason: 'undo threw → must surface loudly in debug',
+        );
         expect(manager.canUndo, isTrue, reason: 'command must be retained');
         expect(manager.canRedo, isFalse, reason: 'must not move to redo stack');
       });
@@ -181,12 +199,30 @@ void main() {
         await manager.undo(); // undo succeeds → command now on redo stack
         expect(manager.canRedo, isTrue);
 
-        final result = await manager.redo(); // re-execute throws
-
-        expect(result, isFalse, reason: 'redo threw → should report failure');
+        await expectLater(
+          manager.redo(), // re-execute throws
+          throwsException,
+          reason: 'redo threw → must surface loudly in debug',
+        );
         expect(manager.canRedo, isTrue, reason: 'command must be retained');
         expect(manager.canUndo, isFalse, reason: 'must not move to undo stack');
       });
+
+      test(
+        'lock is released after a debug rethrow (next command still runs)',
+        () async {
+          await expectLater(manager.execute(FailingCommand()), throwsException);
+
+          final ok = MockCommand('after failure');
+          await manager.execute(ok);
+          expect(
+            ok.executed,
+            isTrue,
+            reason: 'execution lock must be released',
+          );
+          expect(manager.canUndo, isTrue);
+        },
+      );
     });
   });
 

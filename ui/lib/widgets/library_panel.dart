@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -16,6 +15,7 @@ import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../utils/logger.dart';
+import '../utils/native_dialogs.dart';
 
 /// Library panel widget - two-column layout with categories on left, contents on right
 class LibraryPanel extends StatefulWidget {
@@ -87,6 +87,11 @@ class _LibraryPanelState extends State<LibraryPanel> {
   void initState() {
     super.initState();
     widget.libraryService.addListener(_onLibraryChanged);
+    // The service may have finished loading (and pruning legacy favourites)
+    // before this panel attached its listener — check once after mount.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowLegacyFavoritesNotice();
+    });
   }
 
   @override
@@ -101,6 +106,24 @@ class _LibraryPanelState extends State<LibraryPanel> {
 
   void _onLibraryChanged() {
     setState(() {});
+    _maybeShowLegacyFavoritesNotice();
+  }
+
+  /// One-time upgrade notice: favourites saved before the path-based ID
+  /// format can't be restored (the service prunes them on load), so tell the
+  /// user instead of presenting a mysteriously empty Favorites view.
+  void _maybeShowLegacyFavoritesNotice() {
+    if (!widget.libraryService.takeLegacyFavoritesNotice()) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Your favourites were reset — the library index was upgraded',
+          ),
+        ),
+      );
+    });
   }
 
   /// Toggle an item expanded/collapsed in the right column
@@ -118,7 +141,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
       // Record parent relationships for nested folders
       for (final item in contents) {
         if (item is FolderItem) {
-          final childId = 'nested_folder_${item.folderPath.hashCode}';
+          final childId = 'nested_folder_${item.folderPath}';
           _folderParents[childId] = itemId;
         }
       }
@@ -187,7 +210,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
       'plugins',
     ];
     for (final path in widget.libraryService.userFolderPaths) {
-      ids.add('folder_${path.hashCode}');
+      ids.add('folder_$path');
     }
     return ids;
   }
@@ -197,6 +220,18 @@ class _LibraryPanelState extends State<LibraryPanel> {
     if (_selectedCategory == null) return [];
     final ids = <String>[];
     final builtInCategories = widget.libraryService.getBuiltInCategories();
+    // Favorites view — same order as _buildFavoritesContents
+    if (_selectedCategory == 'favorites') {
+      for (final item in widget.libraryService.getFavoriteItems(
+        builtInCategories,
+      )) {
+        ids.add(item.id);
+      }
+      for (final plugin in _favoriteVst3Plugins()) {
+        ids.add('vst3_${plugin['path']}');
+      }
+      return ids;
+    }
     for (final cat in builtInCategories) {
       if (cat.id != _selectedCategory) continue;
       for (final sub in cat.subcategories) {
@@ -227,7 +262,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
     if (contents == null) return;
     for (final item in contents) {
       if (item is FolderItem) {
-        final nestedId = 'nested_folder_${item.folderPath.hashCode}';
+        final nestedId = 'nested_folder_${item.folderPath}';
         _collectFolderItemIds(nestedId, ids);
       } else {
         ids.add(item.id);
@@ -333,7 +368,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
         !_folderContentsCache.containsKey(categoryId)) {
       final userFolders = widget.libraryService.userFolderPaths;
       for (final path in userFolders) {
-        if ('folder_${path.hashCode}' == categoryId) {
+        if ('folder_$path' == categoryId) {
           widget.libraryService.scanFolder(path).then((contents) {
             if (mounted) {
               setState(() {
@@ -388,11 +423,28 @@ class _LibraryPanelState extends State<LibraryPanel> {
         return;
       }
     }
+
+    // Check favourites (file items reconstructed from path IDs may not be
+    // in any scanned folder cache yet)
+    final favorite = widget.libraryService
+        .getFavoriteItems(builtInCategories)
+        .where((i) => i.id == itemId)
+        .firstOrNull;
+    if (favorite != null) {
+      widget.onItemDoubleClick?.call(favorite);
+    }
   }
 
   void _previewSelectedItem() {
     final itemId = _selectedItemId;
     if (itemId == null) return;
+
+    // VST3 plugins have no audio preview — arrow-nav/Space over a favourited
+    // plugin is deliberately a no-op (Enter still loads it via the explicit
+    // vst3_ branch in _loadSelectedItem). The early return keeps the
+    // asymmetry explicit instead of silently falling through the searches
+    // below.
+    if (itemId.startsWith('vst3_')) return;
 
     // Search built-in categories
     final builtInCategories = widget.libraryService.getBuiltInCategories();
@@ -421,6 +473,15 @@ class _LibraryPanelState extends State<LibraryPanel> {
         return;
       }
     }
+
+    // Search favourites (reconstructed file items)
+    final favorite = widget.libraryService
+        .getFavoriteItems(builtInCategories)
+        .where((i) => i.id == itemId)
+        .firstOrNull;
+    if (favorite != null) {
+      _handleItemClick(favorite);
+    }
   }
 
   /// Recursively find an item by ID in folder contents
@@ -428,7 +489,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
     for (final item in contents) {
       if (item.id == itemId) return item;
       if (item is FolderItem) {
-        final nestedId = 'nested_folder_${item.folderPath.hashCode}';
+        final nestedId = 'nested_folder_${item.folderPath}';
         final nestedContents = _folderContentsCache[nestedId];
         if (nestedContents != null) {
           final found = _findItemInContents(nestedContents, itemId);
@@ -479,7 +540,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
   /// Returns (icon, label) for a category ID, or null for user folders
   (IconData, String)? _categoryMeta(String? id) {
     return switch (id) {
-      'favorites' => (BI.star, 'Favorites'),
+      'favorites' => (BI.starFilled, 'Favorites'),
       'sounds' => (BI.musicNote, 'Sounds'),
       'samples' => (BI.equalizer, 'Samples'),
       'instruments' => (BI.piano, 'Instruments'),
@@ -496,7 +557,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
     // User folder — extract folder name from path
     final userFolders = widget.libraryService.userFolderPaths;
     for (final path in userFolders) {
-      if ('folder_${path.hashCode}' == id) {
+      if ('folder_$path' == id) {
         return path.split('/').last;
       }
     }
@@ -623,7 +684,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
         padding: const EdgeInsets.symmetric(vertical: 4),
         children: [
           // System categories
-          _buildCategoryItem('favorites', BI.star, 'Favorites'),
+          _buildCategoryItem('favorites', BI.starFilled, 'Favorites'),
           _buildCategoryItem('sounds', BI.musicNote, 'Sounds'),
           _buildCategoryItem('samples', BI.equalizer, 'Samples'),
           _buildCategoryItem('instruments', BI.piano, 'Instruments'),
@@ -641,7 +702,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
           // User folders
           ...userFolders.map((path) {
             final name = path.split('/').last;
-            final folderId = 'folder_${path.hashCode}';
+            final folderId = 'folder_$path';
             return _buildCategoryItem(
               folderId,
               BI.folder,
@@ -762,10 +823,10 @@ class _LibraryPanelState extends State<LibraryPanel> {
             children: [
               Icon(BI.folderOpen, size: 16),
               const SizedBox(width: 8),
-              const Text('Show in Finder'),
+              Text(revealInFinderLabel),
             ],
           ),
-          onTap: () => Process.run('open', ['-R', path]),
+          onTap: () => revealInFinder(path),
         ),
         PopupMenuItem(
           child: Row(
@@ -855,14 +916,24 @@ class _LibraryPanelState extends State<LibraryPanel> {
     }
   }
 
+  /// VST3 plugins whose `vst3_<path>` ID is favourited — the plugin list
+  /// lives on this widget, not in LibraryService, so favourites for them
+  /// are resolved here.
+  List<Map<String, String>> _favoriteVst3Plugins() {
+    return widget.availableVst3Plugins
+        .where((p) => widget.libraryService.isFavorite('vst3_${p['path']}'))
+        .toList();
+  }
+
   List<Widget> _buildFavoritesContents(
     List<LibraryCategory> builtInCategories,
   ) {
     final favoriteItems = widget.libraryService.getFavoriteItems(
       builtInCategories,
     );
+    final favoriteVst3 = _favoriteVst3Plugins();
 
-    if (favoriteItems.isEmpty) {
+    if (favoriteItems.isEmpty && favoriteVst3.isEmpty) {
       return [
         _buildEmptyState(
           'No favorites yet.',
@@ -871,7 +942,12 @@ class _LibraryPanelState extends State<LibraryPanel> {
       ];
     }
 
-    return favoriteItems.map((item) => _buildLibraryItem(item)).toList();
+    return [
+      ...favoriteItems.map((item) => _buildLibraryItem(item)),
+      ...favoriteVst3.map(
+        (p) => _buildVst3PluginItem(p, p['is_instrument'] == '1'),
+      ),
+    ];
   }
 
   List<Widget> _buildNestedCategoryContents(LibraryCategory category) {
@@ -1025,7 +1101,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
   }
 
   Widget _buildNestedFolderItem(FolderItem folder) {
-    final folderId = 'nested_folder_${folder.folderPath.hashCode}';
+    final folderId = 'nested_folder_${folder.folderPath}';
     final isExpanded = _expandedItems.contains(folderId);
 
     return Column(
@@ -1503,7 +1579,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
           child: Row(
             children: [
               Icon(
-                isFavorite ? BI.star : BI.star,
+                isFavorite ? BI.starFilled : BI.star,
                 size: 16,
                 color: isFavorite ? colors.textMuted : null,
               ),
@@ -1521,14 +1597,14 @@ class _LibraryPanelState extends State<LibraryPanel> {
               children: [
                 Icon(BI.folderOpen, size: 16),
                 const SizedBox(width: 8),
-                const Text('Show in Finder'),
+                Text(revealInFinderLabel),
               ],
             ),
             onTap: () {
               final path = item is AudioFileItem
                   ? item.filePath
                   : (item as SampleItem).filePath;
-              Process.run('open', ['-R', path]);
+              revealInFinder(path);
             },
           ),
           PopupMenuItem(
@@ -1579,7 +1655,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
           child: Row(
             children: [
               Icon(
-                isFavorite ? BI.star : BI.star,
+                isFavorite ? BI.starFilled : BI.star,
                 size: 16,
                 color: isFavorite ? colors.textMuted : null,
               ),
@@ -1943,7 +2019,9 @@ class _LibraryItemWidgetState extends State<_LibraryItemWidget> {
             if (widget.isFavorite)
               // Quiet grey marker — the favourite star shouldn't be the
               // brightest thing in the panel (was the shared gold `warning`).
-              Icon(BI.star, size: 12, color: colors.textMuted),
+              // Filled (like the Favorites category icon): "this IS a
+              // favourite"; the outline star means "not yet favourited".
+              Icon(BI.starFilled, size: 12, color: colors.textMuted),
           ],
         ),
       ),

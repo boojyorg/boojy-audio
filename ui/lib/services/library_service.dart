@@ -20,6 +20,22 @@ class LibraryService extends ChangeNotifier {
   final List<String> _userFolderPaths = [];
   String _userContentPath = '';
 
+  /// Stale favourite IDs from the old `file_<hashCode>` format (pre path-based
+  /// `file_<path>` IDs). Those favourites can't be mapped back to a file.
+  static final RegExp _legacyFileFavoriteId = RegExp(r'^file_-?\d+$');
+
+  /// Set when [_loadPreferences] pruned old-format favourites; consumed once
+  /// by [takeLegacyFavoritesNotice] so the library panel can tell the user
+  /// instead of showing a mysteriously empty Favorites view.
+  bool _legacyFavoritesPruned = false;
+
+  /// One-shot: true exactly once after a load that pruned legacy favourites.
+  bool takeLegacyFavoritesNotice() {
+    final flag = _legacyFavoritesPruned;
+    _legacyFavoritesPruned = false;
+    return flag;
+  }
+
   // Cached folder contents
   final Map<String, List<LibraryItem>> _folderContents = {};
 
@@ -68,10 +84,24 @@ class LibraryService extends ChangeNotifier {
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Load favorites
+    // Load favorites, pruning entries in the old `file_<hashCode>` format —
+    // they can't be mapped back to a file path, so they would just linger in
+    // SharedPreferences forever while the Favorites view ignores them. The
+    // pruned flag drives a one-time user-visible notice in the library panel.
     final favorites = prefs.getStringList(_favoritesKey) ?? [];
+    final withoutLegacy = favorites
+        .where((id) => !_legacyFileFavoriteId.hasMatch(id))
+        .toList();
+    if (withoutLegacy.length != favorites.length) {
+      Log.i(
+        'LibraryService: pruned ${favorites.length - withoutLegacy.length} '
+        'legacy file_<hashCode> favourites (library index upgraded)',
+      );
+      await prefs.setStringList(_favoritesKey, withoutLegacy);
+      _legacyFavoritesPruned = true;
+    }
     _favoriteIds.clear();
-    _favoriteIds.addAll(favorites);
+    _favoriteIds.addAll(withoutLegacy);
 
     // Load user folders
     final folders = prefs.getStringList(_userFoldersKey) ?? [];
@@ -205,10 +235,14 @@ class LibraryService extends ChangeNotifier {
           final ext = name.split('.').last.toLowerCase();
 
           // Check if audio or MIDI file
+          // IDs embed the full path (not path.hashCode — collisions made
+          // two files share favourite/selection state) and double as the
+          // persisted favourite key, so favourites can be reconstructed
+          // without re-scanning the folder.
           if (_isAudioFile(ext)) {
             items.add(
               AudioFileItem(
-                id: 'file_${entity.path.hashCode}',
+                id: 'file_${entity.path}',
                 name: name,
                 filePath: entity.path,
                 icon: BI.audioFile,
@@ -217,7 +251,7 @@ class LibraryService extends ChangeNotifier {
           } else if (_isMidiFile(ext)) {
             items.add(
               MidiFileItem(
-                id: 'file_${entity.path.hashCode}',
+                id: 'file_${entity.path}',
                 name: name,
                 filePath: entity.path,
               ),
@@ -228,7 +262,7 @@ class LibraryService extends ChangeNotifier {
           // Add subfolder
           items.add(
             FolderItem(
-              id: 'folder_${entity.path.hashCode}',
+              id: 'folder_${entity.path}',
               name: folderName,
               folderPath: entity.path,
               icon: BI.folder,
@@ -395,14 +429,19 @@ class LibraryService extends ChangeNotifier {
     );
   }
 
-  /// Get favorite items from all categories
+  /// Get favorite items from all categories, plus favourited files from
+  /// user folders / bundled-sample folders (reconstructed from their
+  /// path-based `file_<path>` IDs, so they show up without re-scanning
+  /// every folder first). VST3 plugin favourites (`vst3_<path>`) live in
+  /// the panel's plugin list, not here — the panel appends those itself.
   List<LibraryItem> getFavoriteItems(List<LibraryCategory> categories) {
     final favorites = <LibraryItem>[];
+    final seen = <String>{};
 
     void collectFavorites(List<LibraryCategory> cats) {
       for (final cat in cats) {
         for (final item in cat.items) {
-          if (_favoriteIds.contains(item.id)) {
+          if (_favoriteIds.contains(item.id) && seen.add(item.id)) {
             favorites.add(item);
           }
         }
@@ -411,6 +450,45 @@ class LibraryService extends ChangeNotifier {
     }
 
     collectFavorites(categories);
+
+    // File favourites not found in the category tree. Stale entries from
+    // the old `file_<hashCode>` format are pruned at load (with a one-time
+    // notice — see _loadPreferences); _fileItemFromPath still returns null
+    // for anything unrecognisable rather than showing garbage rows.
+    final fileFavorites = <LibraryItem>[];
+    for (final id in _favoriteIds) {
+      if (seen.contains(id) || !id.startsWith('file_')) continue;
+      final item = _fileItemFromPath(id.substring('file_'.length));
+      if (item != null && seen.add(item.id)) {
+        fileFavorites.add(item);
+      }
+    }
+    fileFavorites.sort(
+      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    );
+    favorites.addAll(fileFavorites);
+
     return favorites;
+  }
+
+  /// Rebuild a library item from a favourited file path. Returns null for
+  /// anything that isn't a recognised audio/MIDI file path (e.g. legacy
+  /// hash-based favourite IDs).
+  LibraryItem? _fileItemFromPath(String path) {
+    final name = p.basename(path);
+    if (!name.contains('.')) return null;
+    final ext = name.split('.').last.toLowerCase();
+    if (_isAudioFile(ext)) {
+      return AudioFileItem(
+        id: 'file_$path',
+        name: name,
+        filePath: path,
+        icon: BI.audioFile,
+      );
+    }
+    if (_isMidiFile(ext)) {
+      return MidiFileItem(id: 'file_$path', name: name, filePath: path);
+    }
+    return null;
   }
 }

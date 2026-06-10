@@ -50,6 +50,16 @@ class UIConstants {
   /// Minimum beats shown in timeline (timelineMinBars * beatsPerBar).
   static const int timelineMinBeats = timelineMinBars * beatsPerBar;
 
+  /// Bottom buffer below the last track row (pixels).
+  ///
+  /// Shared by the arrangement (`timeline_view.dart` empty-area floor) and
+  /// the mixer panel (`track_mixer_panel.dart` end spacer). The two vertical
+  /// scroll views run off synced controllers, so the buffers MUST be equal —
+  /// when they differ, the side with the bigger one scrolls past the other at
+  /// the bottom and every strip misaligns from its arrangement row by the
+  /// difference (160 vs 100 was a 60px offset, bug-hunt #12).
+  static const double trackAreaBottomBuffer = 100.0;
+
   // ============================================
   // ZOOM CONSTANTS
   // ============================================

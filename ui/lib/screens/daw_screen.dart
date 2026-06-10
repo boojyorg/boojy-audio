@@ -48,7 +48,6 @@ import '../services/commands/send_commands.dart';
 import '../services/commands/project_commands.dart';
 import '../widgets/fx_picker_dialog.dart';
 import '../services/commands/clip_commands.dart';
-import '../services/bundled_content_service.dart';
 import '../services/library_preview_service.dart';
 import '../services/vst3_plugin_manager.dart';
 import '../services/project_manager.dart';
@@ -1041,46 +1040,10 @@ class _DAWScreenState extends State<DAWScreen>
     _updateArrangementLoopToContent();
   }
 
-  // M9: Instrument methods
-  void _onInstrumentSelected(int trackId, String instrumentId) {
-    // The Sampler is an engine-side instrument (tracked via isSamplerTrack),
-    // not an InstrumentData, so it can't go through the synth path below —
-    // that would silently leave the track a Synthesizer. Swap the existing
-    // track to a sampler instead, mirroring the new-track path.
-    if (instrumentId == 'sampler') {
-      trackController.removeTrackInstrument(trackId);
-      audioEngine?.createSamplerForTrack(trackId);
-      trackController.selectTrack(trackId);
-      uiLayout.isEditorPanelVisible = true;
-      if (!trackController.isTrackNameUserEdited(trackId)) {
-        audioEngine?.setTrackName(trackId, 'Sampler');
-      }
-      return;
-    }
-
-    // A Drum Kit is a whole multi-pad track, not an in-place instrument swap —
-    // always spin up a fresh drum-kit track rather than overwriting this one.
-    if (instrumentId == 'drum_kit') {
-      _createDrumKitTrack();
-      return;
-    }
-
-    // Create default instrument data for the track
-    final instrumentData = InstrumentData.defaultSynthesizer(trackId);
-    trackController.setTrackInstrument(trackId, instrumentData);
-    trackController.selectTrack(trackId);
-    uiLayout.isEditorPanelVisible = true;
-
-    // Auto-populate track name if not user-edited
-    if (!trackController.isTrackNameUserEdited(trackId)) {
-      audioEngine?.setTrackName(trackId, 'Synthesizer');
-    }
-
-    // Call audio engine to set instrument
-    if (audioEngine != null) {
-      audioEngine!.setTrackInstrument(trackId, instrumentId);
-    }
-  }
+  // M9: Instrument selection/swap lives in DAWTrackMixin.onInstrumentSelected
+  // (with the sampler-swap and drum-kit branches). A private duplicate here
+  // diverged from a stale mixin copy that lacked both branches (the daw_screen
+  // mixin trap — see .claude/rules/flutter-ui.md).
 
   // Forwards to DAWTrackMixin.onTrackDeleted — the single, correct impl. The
   // mixin version also closes this track's floating plugin windows (fixes H-9);
@@ -1205,10 +1168,8 @@ class _DAWScreenState extends State<DAWScreen>
     trackController.onTrackDuplicated(sourceTrackId, newTrackId);
   }
 
-  void _onInstrumentDropped(int trackId, Instrument instrument) {
-    // Reuse the same logic as _onInstrumentSelected
-    _onInstrumentSelected(trackId, instrument.id);
-  }
+  // Instrument drop on an existing track lives in
+  // DAWTrackMixin.onInstrumentDropped (forwards to onInstrumentSelected).
 
   // Default-clip creation lives in DAWTrackMixin.createDefaultMidiClip. A
   // private duplicate here predated the mixin and missed the engine
@@ -1230,55 +1191,10 @@ class _DAWScreenState extends State<DAWScreen>
     refreshTrackWidgets();
   }
 
-  Future<void> _onInstrumentDroppedOnEmpty(Instrument instrument) async {
-    if (audioEngine == null) return;
-
-    // Handle Sampler instrument — creates MIDI track with sampler instrument
-    if (instrument.id == 'sampler') {
-      final trackId = audioEngine!.createTrack('midi', 'Sampler');
-      if (trackId < 0) return;
-
-      audioEngine!.createSamplerForTrack(trackId);
-      createDefaultMidiClip(trackId);
-
-      refreshTrackWidgets();
-      // autoSelectClip so the new 1-bar clip shows selected, matching the
-      // synth path below (also opens the editor panel).
-      _onTrackSelected(trackId, autoSelectClip: true);
-      return;
-    }
-
-    // Handle Drum Kit instrument — multi-pad one-shot sampler on a MIDI track
-    if (instrument.id == 'drum_kit') {
-      _createDrumKitTrack();
-      return;
-    }
-
-    // Create a new MIDI track for Synthesizer (and other instruments)
-    final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI 1');
-
-    await undoRedoManager.execute(command);
-
-    final trackId = command.createdTrackId;
-    if (trackId == null || trackId < 0) {
-      return;
-    }
-
-    // Assign instrument BEFORE clip so clip name resolves to instrument name
-    _onInstrumentSelected(trackId, instrument.id);
-
-    // Create default 1-bar empty clip for the new track
-    createDefaultMidiClip(trackId);
-
-    // Select track and highlight the clip (editor stays on Instrument tab)
-    _onTrackSelected(trackId, autoSelectClip: true);
-
-    // Immediately refresh track widgets so the new track appears instantly
-    refreshTrackWidgets();
-
-    // Disarm other MIDI tracks (exclusive arm for new track)
-    disarmOtherMidiTracks(trackId);
-  }
+  // Instrument drop on the empty area lives in
+  // DAWTrackMixin.onInstrumentDroppedOnEmpty (sampler / drum-kit / synth
+  // branches, all with autoSelectClip). A private duplicate here had drifted
+  // ahead of a stale mixin copy that was missing the drum-kit branch.
 
   // VST3 Instrument drop handlers
   Future<void> _onVst3InstrumentDropped(int trackId, Vst3Plugin plugin) async {
@@ -1546,10 +1462,10 @@ class _DAWScreenState extends State<DAWScreen>
         if (instrument != null) {
           if (isMidi) {
             // Swap/add instrument on selected MIDI track
-            _onInstrumentSelected(selectedTrack, instrument.id);
+            onInstrumentSelected(selectedTrack, instrument.id);
           } else {
             // Create new MIDI track with instrument
-            _onInstrumentDroppedOnEmpty(instrument);
+            onInstrumentDroppedOnEmpty(instrument);
           }
         }
         break;
@@ -1561,11 +1477,11 @@ class _DAWScreenState extends State<DAWScreen>
           if (instrument != null) {
             if (isMidi) {
               // Swap/add instrument on selected MIDI track
-              _onInstrumentSelected(selectedTrack, instrument.id);
+              onInstrumentSelected(selectedTrack, instrument.id);
               // Preset loading deferred to v0.5.0 (Stock Instruments milestone)
             } else {
               // Create new MIDI track with instrument
-              _onInstrumentDroppedOnEmpty(instrument);
+              onInstrumentDroppedOnEmpty(instrument);
               // Preset loading deferred to v0.5.0 (Stock Instruments milestone)
             }
           }
@@ -1672,204 +1588,18 @@ class _DAWScreenState extends State<DAWScreen>
     }
 
     // Create a new Sampler track
-    _createSamplerTrackWithSample(filePath, item.name);
+    createSamplerTrackWithSample(filePath, item.name);
   }
 
-  /// Create a new Sampler track and load a sample into it
-  void _createSamplerTrackWithSample(String filePath, String sampleName) {
-    if (audioEngine == null) return;
-
-    // Generate track name based on sample name
-    final trackName = 'Sampler: ${_truncateName(sampleName, 20)}';
-
-    // Create MIDI track with sampler instrument
-    final trackId = audioEngine!.createTrack('midi', trackName);
-    if (trackId < 0) {
-      _showSnackBar('Failed to create sampler track');
-      return;
-    }
-
-    // Create sampler instrument for the track
-    final samplerId = audioEngine!.createSamplerForTrack(trackId);
-    if (samplerId < 0) {
-      _showSnackBar('Failed to create sampler instrument');
-      return;
-    }
-
-    // Load the sample (root note C4 = 60)
-    final success = audioEngine!.loadSampleForTrack(trackId, filePath, 60);
-    if (!success) {
-      _showSnackBar('Failed to load sample');
-      return;
-    }
-
-    // Create default 1-bar MIDI clip
-    createDefaultMidiClip(trackId);
-
-    // Refresh track list, select the new track and its clip (autoSelectClip
-    // so the fresh 1-bar clip shows selected, matching the synth drop path)
-    refreshTrackWidgets();
-    _onTrackSelected(trackId, autoSelectClip: true);
-
-    _showSnackBar('Created sampler with "${_truncateName(sampleName, 30)}"');
-  }
-
-  /// Create a new Drum Kit track seeded with standard empty pads.
-  ///
-  /// Pads are pinned to General-MIDI percussion notes and pre-filled with the
-  /// bundled starter kit (copied out of the asset bundle on first use), so a
-  /// fresh Drum Kit makes sound with zero setup — the one-click first beat.
-  Future<void> _createDrumKitTrack() async {
-    if (audioEngine == null) return;
-
-    final trackId = audioEngine!.createTrack('midi', 'Drum Kit');
-    if (trackId < 0) {
-      _showSnackBar('Failed to create drum kit track');
-      return;
-    }
-
-    final kitId = audioEngine!.createDrumKitForTrack(trackId);
-    if (kitId < 0) {
-      _showSnackBar('Failed to create drum kit');
-      return;
-    }
-
-    // The engine loads samples by filesystem path, so make sure the bundled
-    // kit is installed on disk (no-op after the first call). On failure the
-    // kit still appears, just with empty pads.
-    final drumsRoot = await BundledContentService.ensureInstalled();
-    var loadedAll = drumsRoot != null;
-    for (final (note, sample) in BundledContentService.starterKitPads) {
-      final padIndex = audioEngine!.addDrumPad(trackId, note);
-      if (drumsRoot != null && padIndex >= 0) {
-        final samplePath =
-            '$drumsRoot$pathSeparator'
-            '${sample.split('/').join(pathSeparator)}';
-        loadedAll &= audioEngine!.loadDrumPadSample(
-          trackId,
-          padIndex,
-          samplePath,
-        );
-      }
-    }
-
-    createDefaultMidiClip(trackId);
-    refreshTrackWidgets();
-    // autoSelectClip so the new 1-bar clip shows selected, matching the synth
-    // drop path (also opens the editor panel on the new kit).
-    _onTrackSelected(trackId, autoSelectClip: true);
-    _showSnackBar(
-      loadedAll
-          ? 'Created drum kit'
-          : 'Created drum kit (starter sounds unavailable)',
-    );
-  }
-
-  /// Convert an Audio track to a Sampler track
-  /// Takes the first audio clip on the track and uses it as the sample
-  /// Creates MIDI notes at the position/duration of each audio clip
-  void _convertAudioTrackToSampler(int trackId) {
-    if (audioEngine == null) return;
-
-    // Get audio clips on this track
-    final audioClips = timelineKey.currentState?.getAudioClipsOnTrack(trackId);
-    if (audioClips == null || audioClips.isEmpty) {
-      _showSnackBar('No audio clips on track to convert');
-      return;
-    }
-
-    // Get the first clip's file path (we'll use this as the sample)
-    final firstClip = audioClips.first;
-    final samplePath = firstClip.filePath;
-    if (samplePath.isEmpty) {
-      _showSnackBar('Audio clip has no file path');
-      return;
-    }
-
-    // Get track name for the new sampler track
-    final trackName = _getTrackName(trackId) ?? 'Sampler';
-    final samplerTrackName = trackName.startsWith('Sampler:')
-        ? trackName
-        : 'Sampler: $trackName';
-
-    // Create MIDI track with sampler instrument
-    final samplerTrackId = audioEngine!.createTrack('midi', samplerTrackName);
-    if (samplerTrackId < 0) {
-      _showSnackBar('Failed to create sampler track');
-      return;
-    }
-
-    // Create sampler instrument for the track
-    final samplerId = audioEngine!.createSamplerForTrack(samplerTrackId);
-    if (samplerId < 0) {
-      _showSnackBar('Failed to create sampler instrument');
-      return;
-    }
-
-    // Load the sample (root note C4 = 60)
-    final success = audioEngine!.loadSampleForTrack(
-      samplerTrackId,
-      samplePath,
-      60,
-    );
-    if (!success) {
-      _showSnackBar('Failed to load sample');
-      return;
-    }
-
-    // Create MIDI clips for each audio clip position — each audio clip
-    // becomes a MIDI note at the same position. Register the clips through
-    // midiPlaybackManager (rescheduleClip creates the engine clip, adds the
-    // note, and places it on the track): the previous direct-FFI loop left
-    // the clips engine-only, so they were invisible to the timeline and
-    // could never be selected or edited (bug-hunt #20).
-    final beatsPerSecond = tempo / 60.0;
-    var nextClipId = DateTime.now().millisecondsSinceEpoch;
-    for (final clip in audioClips) {
-      // ClipData times are seconds; MidiClipData stores beats.
-      final startBeats = clip.startTime * beatsPerSecond;
-      final durationBeats = clip.duration * beatsPerSecond;
-
-      // Calculate MIDI note based on transpose (if any)
-      // Default root note is 60 (C4), transpose shifts it
-      final transpose = clip.editData?.transposeSemitones ?? 0;
-      final midiNote = (60 + transpose).clamp(0, 127);
-
-      final midiClip = MidiClipData(
-        clipId: nextClipId++,
-        trackId: samplerTrackId,
-        startTime: startBeats,
-        duration: durationBeats,
-        loopLength: durationBeats,
-        name: generateClipName(samplerTrackId),
-        notes: [
-          MidiNoteData(
-            note: midiNote,
-            velocity: 100,
-            startTime: 0.0, // note starts at beginning of clip
-            duration: durationBeats, // note duration = clip duration
-          ),
-        ],
-      );
-      midiPlaybackManager?.addRecordedClip(midiClip);
-      midiPlaybackManager?.rescheduleClip(midiClip, tempo);
-    }
-
-    // Refresh tracks and select the new sampler track + its first clip
-    refreshTrackWidgets();
-    _onTrackSelected(samplerTrackId, autoSelectClip: true);
-
-    // Optionally delete the original audio track (ask user?)
-    // For now, keep both tracks so user can compare
-
-    _showSnackBar('Converted to Sampler track');
-  }
-
-  /// Truncate a name to max length with ellipsis
-  String _truncateName(String name, int maxLength) {
-    if (name.length <= maxLength) return name;
-    return '${name.substring(0, maxLength - 3)}...';
-  }
+  // Sampler-track creation, drum-kit creation, and audio→sampler conversion
+  // live in the mixins (DAWLibraryMixin.createSamplerTrackWithSample /
+  // DAWTrackMixin.createDrumKitTrack / DAWLibraryMixin
+  // .convertAudioTrackToSampler). Private duplicates here had drifted ahead
+  // of stale mixin copies — the mixin convert path still had the direct-FFI
+  // loop whose clips were engine-only/invisible (bug-hunt #20) and a
+  // selectTrack without autoSelectClip; the consolidated copies keep the
+  // corrected behaviour (the daw_screen mixin trap — see
+  // .claude/rules/flutter-ui.md).
 
   // Helper: Check if track is a MIDI track
   bool _isMidiTrack(int trackId) {
@@ -1899,18 +1629,6 @@ class _DAWScreenState extends State<DAWScreen>
     final hasClips =
         timelineKey.currentState?.hasClipsOnTrack(trackId) ?? false;
     return !hasClips;
-  }
-
-  // Helper: Get track name by ID
-  String? _getTrackName(int trackId) {
-    final info = audioEngine?.getTrackInfo(trackId) ?? '';
-    if (info.isEmpty) return null;
-
-    final parts = info.split(',');
-    if (parts.length < 2) return null;
-
-    // Name is percent-encoded by the engine (C34).
-    return decodeCsvField(parts[1]);
   }
 
   // Helper: Find instrument by name
@@ -3739,8 +3457,8 @@ class _DAWScreenState extends State<DAWScreen>
             onJoinSelected: joinSelectedClips,
           ),
           dragDropCallbacks: DragDropCallbacks(
-            onInstrumentDropped: _onInstrumentDropped,
-            onInstrumentDroppedOnEmpty: _onInstrumentDroppedOnEmpty,
+            onInstrumentDropped: onInstrumentDropped,
+            onInstrumentDroppedOnEmpty: onInstrumentDroppedOnEmpty,
             onVst3InstrumentDropped: _onVst3InstrumentDropped,
             onVst3InstrumentDroppedOnEmpty: _onVst3InstrumentDroppedOnEmpty,
             onMidiFileDroppedOnEmpty: _onMidiFileDroppedOnEmpty,
@@ -3917,12 +3635,12 @@ class _DAWScreenState extends State<DAWScreen>
                       trackController.setTrackIcon(trackId, icon);
                     });
                   },
-                  onConvertToSampler: _convertAudioTrackToSampler,
+                  onConvertToSampler: convertAudioTrackToSampler,
                 ),
                 instrumentCallbacks: MixerInstrumentCallbacks(
-                  onInstrumentSelected: _onInstrumentSelected,
+                  onInstrumentSelected: onInstrumentSelected,
                   onInstrumentDropped:
-                      _onInstrumentDropped, // Swap built-in instrument
+                      onInstrumentDropped, // Swap built-in instrument
                   onVst3InstrumentDropped:
                       _onVst3InstrumentDropped, // Swap VST3 instrument
                   onVst3PluginDropped: _onVst3PluginDropped, // M10
@@ -4310,7 +4028,7 @@ class _DAWScreenState extends State<DAWScreen>
                                   : null,
                               onInstrumentDropped: (instrument) {
                                 if (selectedTrackId != null) {
-                                  _onInstrumentDropped(
+                                  onInstrumentDropped(
                                     selectedTrackId!,
                                     instrument,
                                   );
@@ -4360,7 +4078,7 @@ class _DAWScreenState extends State<DAWScreen>
                                     .last
                                     .split('.')
                                     .first;
-                                _createSamplerTrackWithSample(clipPath, name);
+                                createSamplerTrackWithSample(clipPath, name);
                               },
                             ),
                           ),
