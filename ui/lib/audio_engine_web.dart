@@ -447,6 +447,7 @@ class AudioEngine implements AudioEngineInterface {
   String setSynthOscillatorType(int oscType) => 'OK';
   String setSynthVolume(double volume) => 'OK';
 
+  @override
   String sendMidiNoteOn(int note, int velocity) {
     // Use web synth for immediate audio feedback
     _webSynthNoteOn(note, velocity);
@@ -458,6 +459,7 @@ class AudioEngine implements AudioEngineInterface {
     return 'OK';
   }
 
+  @override
   String sendMidiNoteOff(int note, int velocity) {
     // Use web synth for immediate audio feedback
     _webSynthNoteOff(note);
@@ -502,6 +504,7 @@ class AudioEngine implements AudioEngineInterface {
       -1;
   @override
   int removeMidiClip(int trackId, int clipId) => 0;
+  @override
   String clearMidiClip(int clipId) => 'OK';
 
   /// Get available MIDI input devices (empty on web)
@@ -516,7 +519,9 @@ class AudioEngine implements AudioEngineInterface {
   String getMidiRecorderLiveEvents() => '';
   String quantizeMidiClip(int clipId, int gridDivision) => 'OK';
   String getMidiClipInfo(int clipId) => '{}';
+  @override
   String getAllMidiClipsInfo() => '[]';
+  @override
   String getMidiClipNotes(int clipId) => '[]';
 
   // ============================================================================

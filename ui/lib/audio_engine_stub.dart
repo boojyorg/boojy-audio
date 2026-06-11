@@ -364,11 +364,14 @@ class AudioEngine implements AudioEngineInterface {
   @override
   int removeMidiClip(int trackId, int clipId) => throw UnsupportedError('stub');
 
+  @override
   String clearMidiClip(int clipId) => throw UnsupportedError('stub');
   String quantizeMidiClip(int clipId, int gridDivision) =>
       throw UnsupportedError('stub');
   String getMidiClipInfo(int clipId) => throw UnsupportedError('stub');
+  @override
   String getAllMidiClipsInfo() => throw UnsupportedError('stub');
+  @override
   String getMidiClipNotes(int clipId) => throw UnsupportedError('stub');
 
   // ========================================================================
@@ -379,8 +382,10 @@ class AudioEngine implements AudioEngineInterface {
   String stopMidiInput() => throw UnsupportedError('stub');
   String setSynthOscillatorType(int oscType) => throw UnsupportedError('stub');
   String setSynthVolume(double volume) => throw UnsupportedError('stub');
+  @override
   String sendMidiNoteOn(int note, int velocity) =>
       throw UnsupportedError('stub');
+  @override
   String sendMidiNoteOff(int note, int velocity) =>
       throw UnsupportedError('stub');
   List<Map<String, dynamic>> getMidiInputDevices() =>

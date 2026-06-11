@@ -928,6 +928,30 @@ class _DAWScreenState extends State<DAWScreen>
     );
   }
 
+  /// Apply a track icon override (null key clears it → auto icon).
+  void _applyTrackIcon(int trackId, String? iconKey) {
+    // TrackController notifies its listeners; no setState needed (mirrors
+    // _applyTrackColor — wrapping in setState rebuilt the whole DAW screen).
+    if (iconKey == null) {
+      trackController.clearTrackIcon(trackId);
+    } else {
+      trackController.setTrackIcon(trackId, iconKey);
+    }
+  }
+
+  Future<void> _onTrackIconChanged(int trackId, String iconKey) async {
+    final oldIcon = trackController.getTrackIcon(trackId);
+    if (oldIcon == iconKey) return;
+    await undoRedoManager.execute(
+      SetTrackIconCommand(
+        trackId: trackId,
+        newIconKey: iconKey,
+        oldIconKey: oldIcon,
+        onIconChanged: _applyTrackIcon,
+      ),
+    );
+  }
+
   // M3: Virtual piano methods
   void _toggleVirtualPiano() {
     final success = recordingController.toggleVirtualPiano();
@@ -3630,11 +3654,7 @@ class _DAWScreenState extends State<DAWScreen>
                     );
                   },
                   onColorChanged: _onTrackColorChanged,
-                  onIconChanged: (trackId, icon) {
-                    setState(() {
-                      trackController.setTrackIcon(trackId, icon);
-                    });
-                  },
+                  onIconChanged: _onTrackIconChanged,
                   onConvertToSampler: convertAudioTrackToSampler,
                 ),
                 instrumentCallbacks: MixerInstrumentCallbacks(

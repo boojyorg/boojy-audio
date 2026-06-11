@@ -489,7 +489,9 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
           timelineKey.currentState?.replaceAudioClipsOnTrack(trackId, clips);
         },
         onApplyMidiState: (trackId, clips) {
-          midiPlaybackManager?.replaceClipsOnTrack(trackId, clips);
+          // Reads the tempo at undo/redo time (not capture time) so the
+          // engine reschedule uses the project's current tempo.
+          midiPlaybackManager?.replaceClipsOnTrack(trackId, clips, tempo);
         },
       );
 

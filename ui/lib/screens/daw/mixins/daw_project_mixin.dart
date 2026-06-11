@@ -89,6 +89,10 @@ mixin DAWProjectMixin
     midiPlaybackManager?.clear();
     undoRedoManager.clear();
 
+    // Track ids restart from the same base, so the old project's per-track
+    // colour/icon overrides would attach to the new project's tracks.
+    trackController.clearAllTrackOverrides();
+
     // Reset loop auto-follow for new project
     uiLayout.resetLoopAutoFollow();
 
@@ -194,6 +198,12 @@ mixin DAWProjectMixin
     // Clear MIDI clip ID mappings since Rust side has reset
     midiPlaybackManager?.clearClipIdMappings();
     undoRedoManager.clear();
+
+    // Drop the previous project's per-track colour/icon overrides BEFORE
+    // applying the loaded layout — track ids are reused across projects, so
+    // without this the new project's tracks inherit the old project's
+    // customisations whenever the loaded layout has none of its own.
+    trackController.clearAllTrackOverrides();
 
     // Sync the engine's tempo into the UI before restoring clips. MIDI clip
     // start/end are stored in beats and converted using `tempo`; restoring at
@@ -794,6 +804,13 @@ mixin DAWProjectMixin
       }
     }
 
+    // Restore custom track icon overrides (stable keys, see track_icons.dart)
+    if (layout.trackIcons != null) {
+      for (final entry in layout.trackIcons!.entries) {
+        trackController.setTrackIcon(entry.key, entry.value);
+      }
+    }
+
     // Restore loop region (overrides the default reset)
     if (layout.loopEnabled != null) {
       uiLayout.loopPlaybackEnabled = layout.loopEnabled!;
@@ -911,6 +928,7 @@ mixin DAWProjectMixin
       midiClips: midiPlaybackManager?.persistableMidiClips.toList(),
       automationData: automationController.toJson(),
       trackColorOverrides: trackController.trackColorOverrides,
+      trackIconOverrides: trackController.trackIconOverrides,
       timeSignatureNumerator: projectMetadata.timeSignatureNumerator,
       timeSignatureDenominator: projectMetadata.timeSignatureDenominator,
     );

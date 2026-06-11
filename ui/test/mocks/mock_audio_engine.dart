@@ -38,6 +38,14 @@ class MockAudioEngine implements AudioEngineInterface {
   final List<int> removedClipIds = [];
   final List<List<int>> joinedClipIdLists = [];
 
+  /// (trackId, clipId) pairs passed to [removeMidiClip], in call order. Lets
+  /// recording-undo tests assert the engine-side MIDI clip was actually
+  /// removed (and, after redo, that deletes target the recreated id).
+  final List<({int trackId, int clipId})> removedMidiClips = [];
+
+  /// Clip ids passed to [clearMidiClip], in call order.
+  final List<int> clearedMidiClipIds = [];
+
   /// trackIds passed to deleteTrack, in call order — lets DeleteTrackCommand
   /// redo tests assert it targets the recreated id, not the stale original (C62).
   final List<int> deletedTrackIds = [];
@@ -76,6 +84,8 @@ class MockAudioEngine implements AudioEngineInterface {
     removedEffectIds.clear();
     removedReturnIds.clear();
     removedClipIds.clear();
+    removedMidiClips.clear();
+    clearedMidiClipIds.clear();
     deletedTrackIds.clear();
     lastReorder = null;
     removedEqBands.clear();
@@ -489,7 +499,39 @@ class MockAudioEngine implements AudioEngineInterface {
   @override
   int removeMidiClip(int trackId, int clipId) {
     _record('removeMidiClip');
+    removedMidiClips.add((trackId: trackId, clipId: clipId));
     return 1;
+  }
+
+  @override
+  String clearMidiClip(int clipId) {
+    _record('clearMidiClip');
+    clearedMidiClipIds.add(clipId);
+    return 'OK';
+  }
+
+  @override
+  String getAllMidiClipsInfo() {
+    _record('getAllMidiClipsInfo');
+    return '';
+  }
+
+  @override
+  String getMidiClipNotes(int clipId) {
+    _record('getMidiClipNotes');
+    return '';
+  }
+
+  @override
+  String sendMidiNoteOn(int note, int velocity) {
+    _record('sendMidiNoteOn');
+    return 'OK';
+  }
+
+  @override
+  String sendMidiNoteOff(int note, int velocity) {
+    _record('sendMidiNoteOff');
+    return 'OK';
   }
 
   // --- Project operations ---

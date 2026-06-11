@@ -31,6 +31,7 @@ void main() {
           },
         },
         trackColors: {1: 0xFF112233, 2: 0xFF445566},
+        trackIcons: {1: 'mic', 2: 'guitar'},
         loopEnabled: true,
         loopStartBeats: 0,
         loopEndBeats: 16,
@@ -48,6 +49,7 @@ void main() {
       expect(restored.viewState?.selectedTrackId, 3);
       expect(restored.automationData, isNotNull);
       expect(restored.trackColors, {1: 0xFF112233, 2: 0xFF445566});
+      expect(restored.trackIcons, {1: 'mic', 2: 'guitar'});
       expect(restored.loopEnabled, isTrue);
       expect(restored.loopStartBeats, 0);
       expect(restored.loopEndBeats, 16);
@@ -137,6 +139,26 @@ void main() {
         expect(restored.trackColors, isNull);
       },
     );
+
+    test(
+      'a malformed track_icons entry is skipped, not fatal to the whole layout',
+      () {
+        final json = {
+          'loop_enabled': true,
+          'track_icons': {
+            '1': 'mic', // valid
+            'not_an_int': 'piano', // bad key
+            '2': 42, // bad value (not a string)
+            '3': '', // empty key is meaningless — skipped
+          },
+        };
+
+        final restored = UILayoutData.fromJson(json);
+
+        expect(restored.trackIcons, {1: 'mic'});
+        expect(restored.loopEnabled, isTrue);
+      },
+    );
   });
 
   group('ProjectPersistence.collect', () {
@@ -172,6 +194,60 @@ void main() {
       );
 
       expect(layout.trackColors, isNull);
+    });
+
+    test('includes track icon overrides as string keys', () {
+      final layout = ProjectPersistence.collect(
+        libraryWidth: 200,
+        mixerWidth: 380,
+        bottomHeight: 250,
+        libraryCollapsed: false,
+        mixerCollapsed: false,
+        bottomCollapsed: true,
+        loopEnabled: false,
+        loopStartBeats: 0,
+        loopEndBeats: 4,
+        trackIconOverrides: {5: 'guitar'},
+      );
+
+      expect(layout.trackIcons, {5: 'guitar'});
+    });
+
+    test('omits empty track icon map', () {
+      final layout = ProjectPersistence.collect(
+        libraryWidth: 200,
+        mixerWidth: 380,
+        bottomHeight: 250,
+        libraryCollapsed: false,
+        mixerCollapsed: false,
+        bottomCollapsed: true,
+        loopEnabled: false,
+        loopStartBeats: 0,
+        loopEndBeats: 4,
+        trackIconOverrides: const {},
+      );
+
+      expect(layout.trackIcons, isNull);
+    });
+
+    test('icon overrides round-trip through save JSON and back', () {
+      // save -> reload: the exact path a custom icon takes on project reload.
+      final layout = ProjectPersistence.collect(
+        libraryWidth: 200,
+        mixerWidth: 380,
+        bottomHeight: 250,
+        libraryCollapsed: false,
+        mixerCollapsed: false,
+        bottomCollapsed: true,
+        loopEnabled: false,
+        loopStartBeats: 0,
+        loopEndBeats: 4,
+        trackIconOverrides: {1: 'mic', 7: 'drums'},
+      );
+
+      final restored = UILayoutData.fromJson(layout.toJson());
+
+      expect(restored.trackIcons, {1: 'mic', 7: 'drums'});
     });
   });
 }

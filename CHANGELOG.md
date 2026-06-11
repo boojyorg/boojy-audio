@@ -152,6 +152,22 @@ All notable changes to Boojy Audio will be documented in this file.
   never disagree again.
 - **Arrangement rows and mixer strips stay aligned at the bottom of the scroll.** They drifted
   apart by 60px at full scroll (160 vs 100 bottom padding); both sides now share one constant.
+- **Undoing a recording tells the engine the truth.** Undoing an audio recording that had
+  trimmed a neighbouring clip now restores that clip's offset and duration in the engine, not
+  just on the timeline — playback matches what you see again. Undoing a MIDI recording now
+  actually removes the recorded notes from the engine (they used to keep playing), and redo
+  recreates the clip with a valid engine id, so deleting or moving it afterwards works instead
+  of silently doing nothing.
+- **Custom track icons survive save and reload** — and follow the track through duplicate and
+  delete. They also no longer leak between projects: opening or creating another project used
+  to let the previous project's icons (and colours) attach themselves to the new project's
+  tracks.
+- **Changing a track's icon is now undoable.** Cmd+Z restores the previous icon, or the
+  automatic one if you hadn't customised it.
+- **Changing the auto-save interval takes effect immediately** — it used to need an app
+  relaunch before the new interval (or turning auto-save off) was honoured.
+- **The timeline's navigation bar no longer leaks a scroll controller** each time a project
+  view is opened and closed.
 
 ### Features
 
@@ -213,6 +229,9 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Dead code removed:** the unused legacy `SettingsDialog` (superseded by the app-wide
+  settings dialog), the unused `BarRulerPainter`, and two stub MIDI clip commands whose empty
+  bodies would have silently no-oped if ever called.
 - **The Piano Roll now has a live playhead.** A transport playhead sweeps across the note grid
   and ruler during playback (it was previously static), and dragging the ruler now seeks the
   transport — snapping to the grid, with Alt/Option to drag freely. The old dashed "insert

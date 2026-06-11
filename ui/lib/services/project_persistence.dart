@@ -24,6 +24,10 @@ class UILayoutData {
   final List<MidiClipData>? midiClips;
   final Map<String, dynamic>? automationData;
   final Map<int, int>? trackColors;
+
+  /// Custom track icon overrides, keyed by track id. Values are stable icon
+  /// keys from `utils/track_icons.dart` (e.g. 'mic', 'piano'), never glyphs.
+  final Map<int, String>? trackIcons;
   final bool? loopEnabled;
   final double? loopStartBeats;
   final double? loopEndBeats;
@@ -46,6 +50,7 @@ class UILayoutData {
     this.midiClips,
     this.automationData,
     this.trackColors,
+    this.trackIcons,
     this.loopEnabled,
     this.loopStartBeats,
     this.loopEndBeats,
@@ -74,6 +79,8 @@ class UILayoutData {
       'automation': automationData,
     if (trackColors != null && trackColors!.isNotEmpty)
       'track_colors': trackColors!.map((k, v) => MapEntry(k.toString(), v)),
+    if (trackIcons != null && trackIcons!.isNotEmpty)
+      'track_icons': trackIcons!.map((k, v) => MapEntry(k.toString(), v)),
     if (loopEnabled != null) 'loop_enabled': loopEnabled,
     if (loopStartBeats != null) 'loop_start_beats': loopStartBeats,
     if (loopEndBeats != null) 'loop_end_beats': loopEndBeats,
@@ -92,6 +99,7 @@ class UILayoutData {
     final midiClipsJson = json['midi_clips'] as List<dynamic>?;
     final automationJson = json['automation'] as Map<String, dynamic>?;
     final trackColorsJson = json['track_colors'] as Map<String, dynamic>?;
+    final trackIconsJson = json['track_icons'] as Map<String, dynamic>?;
 
     return UILayoutData(
       libraryWidth: (panelSizes['library_width'] as num?)?.toDouble() ?? 200.0,
@@ -111,6 +119,7 @@ class UILayoutData {
           .toList(),
       automationData: automationJson,
       trackColors: _parseTrackColors(trackColorsJson),
+      trackIcons: _parseTrackIcons(trackIconsJson),
       loopEnabled: json['loop_enabled'] as bool?,
       loopStartBeats: (json['loop_start_beats'] as num?)?.toDouble(),
       loopEndBeats: (json['loop_end_beats'] as num?)?.toDouble(),
@@ -133,6 +142,20 @@ class UILayoutData {
       final trackId = int.tryParse(key);
       if (trackId != null && value is num) {
         result[trackId] = value.toInt();
+      }
+    });
+    return result.isEmpty ? null : result;
+  }
+
+  /// Parse the `track_icons` map defensively, mirroring [_parseTrackColors]:
+  /// a malformed entry is skipped, never fatal to the whole layout (C80).
+  static Map<int, String>? _parseTrackIcons(Map<String, dynamic>? json) {
+    if (json == null) return null;
+    final result = <int, String>{};
+    json.forEach((key, value) {
+      final trackId = int.tryParse(key);
+      if (trackId != null && value is String && value.isNotEmpty) {
+        result[trackId] = value;
       }
     });
     return result.isEmpty ? null : result;
@@ -162,6 +185,7 @@ class ProjectPersistence {
     List<MidiClipData>? midiClips,
     Map<String, dynamic>? automationData,
     Map<int, Color>? trackColorOverrides,
+    Map<int, String>? trackIconOverrides,
     int? timeSignatureNumerator,
     int? timeSignatureDenominator,
   }) {
@@ -170,6 +194,11 @@ class ProjectPersistence {
       trackColors = trackColorOverrides.map(
         (trackId, color) => MapEntry(trackId, color.toARGB32()),
       );
+    }
+
+    Map<int, String>? trackIcons;
+    if (trackIconOverrides != null && trackIconOverrides.isNotEmpty) {
+      trackIcons = Map<int, String>.from(trackIconOverrides);
     }
 
     return UILayoutData(
@@ -184,6 +213,7 @@ class ProjectPersistence {
       midiClips: midiClips,
       automationData: automationData,
       trackColors: trackColors,
+      trackIcons: trackIcons,
       loopEnabled: loopEnabled,
       loopStartBeats: loopStartBeats,
       loopEndBeats: loopEndBeats,
