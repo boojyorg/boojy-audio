@@ -11,16 +11,21 @@
 `docs/archive/plans/v0.6-plan.md`; all six bug-hunt fix batches + the dogfood round-2 wordmark
 batch (#92) merged; dogfood round 2 PASSED (Tyr, 2026-06-11) → tag approved.
 
-**Status (2026-06-11):** Release in flight. Remaining:
+**Status (2026-06-11):** **v0.6.0 RELEASED** (PR #93 merged, tagged, draft built + published
+by Tyr; README hero updated to a v0.6.0 capture, #94). Appcast verified: bare base64
+edSignature in the published appcast.xml — the double-wrap bug is fixed in the wild.
 
-- [ ] Release-prep PR (`release/v0.6.0`): Version Sync done (CHANGELOG v0.6.0, ROADMAP,
-  README, pubspec 0.6.0+10, plan archived, FEATURE_TRACKER sampler note) → CI → merge.
-- [ ] Tag `v0.6.0` on master → CI builds draft DMG/EXE.
-- [ ] **Windows smoke test** (Tyr, 5-step CLAUDE.md checklist) BEFORE publishing the draft.
-- [ ] Publish release → then **Sparkle spot-check** (installed v0.5.4 should offer v0.6.0;
-  verify published appcast.xml edSignature is bare base64 before announcing auto-update fixed).
+Remaining:
+
+- [ ] **Sparkle spot-check** (Tyr, 1 min): open the installed v0.5.4 — it should offer the
+  v0.6.0 update. This is the last live test of the appcast-signature fix.
 - [ ] v0.6.1 scoping: dogfood backlog (hover/press animation sweep in BACKLOG.md, §6.B strip
   mockup still parked) — run the milestone-review step before opening a plan doc.
+- [ ] Housekeeping: delete the staged `docs/reviews/_screenshots/*.png` (staging-only, per
+  that folder's README); prune now-unused brand-source PNGs from `ui/assets/images/`
+  (boojy-logo, boojy_audio_app_udio, boojy_audio_app_triangle_A, boojy_audio_text,
+  boojy_audio_text_Audio — the app uses the derived `*_text_black/white.png`; keep
+  boojy_audio_audi.svg per the standing note).
 
 
 **Carried decisions:** ASIO deferred (WASAPI right for beginners). Windows machine = per-release
