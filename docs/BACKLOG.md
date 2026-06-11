@@ -13,6 +13,12 @@ per-feature status → `FEATURE_TRACKER.md`; new-feature ideas → `IDEAS.md`.
   repro; part of the broader VST3-lifecycle hardening in v0.5).
 
 ## QoL / UX (unscheduled)
+- [ ] Hover/press animation sweep (v0.6.1 candidate, Tyr 2026-06-11) — extend the button-role
+  language with hover-scale (~1.02) + press-scale (~0.98) tokens on `AnimationConstants`,
+  modelled on the recent-projects card grow (first shipped instance, looks good). Apply to
+  navigation/creation surfaces only: start-screen action buttons, Add Track, dialog primary
+  buttons, maybe drum pads. **Never** on performance surfaces (M/S/R/I, transport, tools,
+  faders) — #87 just removed perceived latency there; animation would reintroduce it.
 - [ ] ASIO output support on Windows — the engine already has the code path (`cargo build
   --features asio`, enumeration in `device.rs` behind the feature flag) but release builds don't
   enable it: CI would need the Steinberg ASIO SDK (`CPAL_ASIO_DIR`) + LLVM for bindgen, plus SDK

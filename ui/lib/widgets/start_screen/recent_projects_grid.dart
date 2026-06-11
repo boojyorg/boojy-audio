@@ -79,7 +79,7 @@ class RecentProjectsGrid extends StatelessWidget {
         final itemCount = projects.length + (showPlusCard ? 1 : 0);
 
         return GridView.builder(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          padding: const EdgeInsets.all(12),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
             mainAxisSpacing: 10,

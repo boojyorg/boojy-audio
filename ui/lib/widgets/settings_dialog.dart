@@ -85,8 +85,8 @@ class RecoveryDialog extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Logo — the code-drawn lockup (the old PNGs baked the text
-              // near-black, so the brand vanished on this dark modal — H13).
+              // Logo — brand raster lockup, theme-picked black/white text so
+              // it can't vanish against this dark modal (H13).
               const BoojyWordmarkLockup(scale: 0.75),
               const SizedBox(height: 20),
 
@@ -157,6 +157,9 @@ class RecoveryDialog extends StatelessWidget {
                     child: TextButton(
                       onPressed: () => Navigator.of(context).pop(false),
                       style: TextButton.styleFrom(
+                        // Quiet divider outline so the ghost button reads as a
+                        // button next to the filled Recover pill.
+                        side: BorderSide(color: colors.divider),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),

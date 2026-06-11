@@ -263,6 +263,16 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **The Boojy Audio wordmark is the real brand art everywhere.** The start screen, crash-recovery
+  dialog, settings footer, and the top-bar logo now render the actual brand lettering ("Boojy"
+  with the amber o, "udio" with its grey dot) instead of a system-font approximation — with the
+  "▲" still drawn in code so it keeps following the theme accent and turning red when the audio
+  engine fails to start. Black and white text variants ship so the mark reads on any surface.
+- **Start screen polish:** the brand lockup aligns with the Recent Projects heading; project
+  cards gained a top gap to match their other margins; thumbnails fill the full card width
+  edge-to-edge; hovering a card now grows it slightly with an accent border instead of popping
+  up a file-path footer; and the recovery dialog's "Start fresh" button has a proper outline so
+  it reads as a button.
 - **Dead code removed:** the unused legacy `SettingsDialog` (superseded by the app-wide
   settings dialog), the unused `BarRulerPainter`, and two stub MIDI clip commands whose empty
   bodies would have silently no-oped if ever called.
