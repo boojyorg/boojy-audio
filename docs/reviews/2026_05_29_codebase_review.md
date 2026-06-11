@@ -3,7 +3,7 @@
 **Date:** 2026-05-29
 **Version under review:** v0.3.0 (released 2026-05-25), dogfood phase, no active plan doc
 **Scope:** whole-app audit — repo/process/CI, Rust engine, Flutter UI, testing, bug hunt, placeholder inventory, and a ranked improvement backlog. Improve the app, *not* add features.
-**Extends:** `docs/archive/reviews/codebase_review_2026_05_24.md` (does not repeat it). Architecture is in `docs/ARCHITECTURE.md`; feature status in `docs/FEATURE_TRACKER.md`.
+**Extends:** `docs/archive/reviews/2026_05_24_codebase_review.md` (does not repeat it). Architecture is in `docs/ARCHITECTURE.md`; feature status in `docs/FEATURE_TRACKER.md`.
 
 **How this review was produced:** a deep read of every subsystem by parallel agents, a multi-lens bug hunt, then **adversarial verification** — every candidate defect was re-checked by independent skeptics trying to refute it. 31 of 57 candidates survived; 21 were refuted and dropped; 5 are "disputed" (split verdict, flagged below). The three highest-impact bugs were additionally **verified by hand against the source** for this report. A full build + all test suites were run for the baseline.
 

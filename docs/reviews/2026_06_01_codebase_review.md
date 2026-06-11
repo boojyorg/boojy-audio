@@ -3,7 +3,7 @@
 **Date:** 2026-06-01
 **Version under review:** v0.4.0 (in development, `pubspec 0.4.0+3`; v0.3.2 last released), end of the visual/UX-polish cycle — last item before tag is the piano-roll lane colours
 **Scope:** whole-app correctness audit — engine realtime path, DSP, persistence/export, VST3 hosting, FFI lock safety, UI screens/editors, command/undo layer, round-trip fidelity, testing, and repo/CI. Improve the app, *not* add features.
-**Extends:** `docs/reviews/codebase_review_2026_05_29.md` (the v0.3.x trust/correctness audit). This one is the v0.4-family follow-up: it re-confirms which of those defects are *still live* after the v0.3.1/v0.3.2 hardening, and surfaces a new cluster the polish work never touched (recorder audio-thread blocking, VST3 lifecycle protocol violations, FFI lock-order inversions, DeleteTrack content loss).
+**Extends:** `docs/reviews/2026_05_29_codebase_review.md` (the v0.3.x trust/correctness audit). This one is the v0.4-family follow-up: it re-confirms which of those defects are *still live* after the v0.3.1/v0.3.2 hardening, and surfaces a new cluster the polish work never touched (recorder audio-thread blocking, VST3 lifecycle protocol violations, FFI lock-order inversions, DeleteTrack content loss).
 
 **How this review was produced:** parallel subsystem reads followed by **adversarial verification** — every candidate defect was re-checked by independent skeptics trying to refute it. **51 confirmed; 33 refuted and dropped.** All findings are **code-level confidence**: no GUI reproduction was run, so runtime-repro steps are noted where cheap. The green test suite does not exercise any of these paths.
 

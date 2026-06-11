@@ -149,6 +149,6 @@ Superseded by the active [v0.2.3 plan](../plans/v0.2.3-plan.md). Summary:
 
 | Date | Doc | Scope |
 |------|-----|-------|
-| 2026-03-26 | [ui_review_2026_03_26.md](ui_review_2026_03_26.md) | UI/UX vs competitors |
-| 2026-03-29 | [ui_review_2026_03_29.md](ui_review_2026_03_29.md) | UI/UX follow-up |
+| 2026-03-26 | [2026_03_26_ui_review.md](2026_03_26_ui_review.md) | UI/UX vs competitors |
+| 2026-03-29 | [2026_03_29_ui_review.md](2026_03_29_ui_review.md) | UI/UX follow-up |
 | 2026-05-22 | This doc | Full codebase architecture & engineering |
