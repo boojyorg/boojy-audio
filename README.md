@@ -2,7 +2,7 @@
 
 A modern, cross-platform DAW (Digital Audio Workstation) designed for **speed, simplicity, and collaboration**.
 
-![Boojy Audio Screenshot](docs/screenshots/screenshot_v0.1.0.png)
+![Boojy Audio Screenshot](docs/screenshots/screenshot_v0.6.0.png)
 
 ## Download
 
