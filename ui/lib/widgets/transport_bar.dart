@@ -729,6 +729,10 @@ class _TransportBarState extends State<TransportBar> {
             behavior: HitTestBehavior.opaque,
             child: Row(
               mainAxisSize: MainAxisSize.min,
+              // Bottom-align: the raster's bottom edge IS the letter
+              // baseline, matching the triangle's base (per the brand
+              // lockup; same maths as BoojyWordmark).
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 AnimatedScale(
                   scale: _logoHovered ? AnimationConstants.hoverScale : 1.0,
@@ -743,22 +747,15 @@ class _TransportBarState extends State<TransportBar> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 2),
-                // "udio" wordmark in the UI font (Inter). The fixed left rail
-                // gives it a stable home, so it renders at full size and never
-                // clips.
-                Text(
-                  'udio',
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.clip,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: BT.weightSemiBold,
-                    color: colors.textPrimary,
-                    letterSpacing: -0.5,
-                    height: 1.0,
-                  ),
+                const SizedBox(width: 1.5),
+                // Brand "udio" raster (theme-picked black/white) — height
+                // scaled to the 19.05px triangle at the lockup's 239:266
+                // triangle:art ratio. The fixed left rail gives it a stable
+                // home, so it renders at full size and never clips.
+                Image.asset(
+                  boojyTextAsset(context, 'udio'),
+                  height: 19.05 * (266 / 239),
+                  filterQuality: FilterQuality.medium,
                 ),
               ],
             ),

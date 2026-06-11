@@ -57,133 +57,123 @@ class _ProjectCardState extends State<ProjectCard> {
           }
         },
         cursor: SystemMouseCursors.click,
-        child: AnimatedContainer(
+        child: AnimatedScale(
+          scale: _isHovering ? 1.02 : 1.0,
           duration: AnimationConstants.hoverDuration,
-          decoration: BoxDecoration(
-            color: colors.darkest,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: _isHovering
-                  ? colors.accent.withValues(alpha: 0.6)
-                  : colors.divider,
-              width: borderWidth,
+          child: AnimatedContainer(
+            duration: AnimationConstants.hoverDuration,
+            decoration: BoxDecoration(
+              color: colors.darkest,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _isHovering
+                    ? colors.accent.withValues(alpha: 0.6)
+                    : colors.divider,
+                width: borderWidth,
+              ),
             ),
-          ),
-          // No clipBehavior on the bordered container (ragged-corner artifact;
-          // see .claude/rules/flutter-ui.md) — clip the content at the inner
-          // radius instead.
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8 - borderWidth),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Thumbnail area
-                Expanded(
-                  child: hasThumbnail
-                      ? Image.memory(
-                          thumbnailFile.readAsBytesSync(),
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) =>
-                              _buildPlaceholder(context),
-                        )
-                      : _buildPlaceholder(context),
-                ),
-
-                // Name + metadata area — slightly lighter than thumbnail
-                ColoredBox(
-                  color: colors.dark,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            widget.project.name,
-                            style: TextStyle(
-                              color: colors.textPrimary,
-                              fontSize: BT.fontBody,
-                              fontWeight: BT.weightSemiBold,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _relativeTime(widget.project.openedAt),
-                          style: TextStyle(
-                            color: colors.textMuted,
-                            fontSize: BT.fontLabel,
-                          ),
-                        ),
-                      ],
-                    ),
+            // No clipBehavior on the bordered container (ragged-corner artifact;
+            // see .claude/rules/flutter-ui.md) — clip the content at the inner
+            // radius instead.
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8 - borderWidth),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Thumbnail area
+                  Expanded(
+                    child: hasThumbnail
+                        // cover (not contain) so the preview bleeds to the card
+                        // edges; anchor top-centre so overflow crops the empty
+                        // bottom of the arrangement, not the tracks.
+                        ? Image.memory(
+                            thumbnailFile.readAsBytesSync(),
+                            fit: BoxFit.cover,
+                            alignment: Alignment.topCenter,
+                            errorBuilder: (_, __, ___) =>
+                                _buildPlaceholder(context),
+                          )
+                        : _buildPlaceholder(context),
                   ),
-                ),
 
-                // Track count + BPM row
-                ColoredBox(
-                  color: colors.dark,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-                    child: Row(
-                      children: [
-                        if (widget.project.trackCount != null)
+                  // Name + metadata area — slightly lighter than thumbnail
+                  ColoredBox(
+                    color: colors.dark,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              widget.project.name,
+                              style: TextStyle(
+                                color: colors.textPrimary,
+                                fontSize: BT.fontBody,
+                                fontWeight: BT.weightSemiBold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           Text(
-                            '${widget.project.trackCount} tracks',
+                            _relativeTime(widget.project.openedAt),
                             style: TextStyle(
                               color: colors.textMuted,
                               fontSize: BT.fontLabel,
                             ),
                           ),
-                        if (widget.project.trackCount != null &&
-                            widget.project.bpm != null)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                            child: Text(
-                              '·',
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Track count + BPM row
+                  ColoredBox(
+                    color: colors.dark,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                      child: Row(
+                        children: [
+                          if (widget.project.trackCount != null)
+                            Text(
+                              '${widget.project.trackCount} tracks',
                               style: TextStyle(
                                 color: colors.textMuted,
                                 fontSize: BT.fontLabel,
                               ),
                             ),
-                          ),
-                        if (widget.project.bpm != null)
-                          Text(
-                            '${widget.project.bpm!.round()} BPM',
-                            style: TextStyle(
-                              color: colors.textMuted,
-                              fontSize: BT.fontLabel,
+                          if (widget.project.trackCount != null &&
+                              widget.project.bpm != null)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                              ),
+                              child: Text(
+                                '·',
+                                style: TextStyle(
+                                  color: colors.textMuted,
+                                  fontSize: BT.fontLabel,
+                                ),
+                              ),
                             ),
-                          ),
-                      ],
+                          if (widget.project.bpm != null)
+                            Text(
+                              '${widget.project.bpm!.round()} BPM',
+                              style: TextStyle(
+                                color: colors.textMuted,
+                                fontSize: BT.fontLabel,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
 
-                // Path row (visible on hover). No hairline top border here —
-                // it painted as a stray line mid-crossfade on hover exit; the
-                // dark→darkest row seam already delineates it.
-                AnimatedCrossFade(
-                  firstChild: const SizedBox.shrink(),
-                  secondChild: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    child: Text(
-                      _shortenPath(widget.project.path),
-                      style: TextStyle(color: colors.textMuted, fontSize: 10),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                  ),
-                  crossFadeState: _isHovering
-                      ? CrossFadeState.showSecond
-                      : CrossFadeState.showFirst,
-                  duration: AnimationConstants.hoverDuration,
-                ),
-              ],
+                  // (The hover path row was cut — the path lives behind
+                  // right-click → Reveal; hover feedback is border + scale.)
+                ],
+              ),
             ),
           ),
         ),
@@ -263,15 +253,5 @@ class _ProjectCardState extends State<ProjectCard> {
     if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w';
     if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo';
     return '${(diff.inDays / 365).floor()}y';
-  }
-
-  /// Generate a colour from the project name hash for the card accent bar.
-  /// Shorten a path for display (replace home dir with ~)
-  static String _shortenPath(String path) {
-    final home = Platform.environment['HOME'] ?? '';
-    if (home.isNotEmpty && path.startsWith(home)) {
-      return '~${path.substring(home.length)}';
-    }
-    return path;
   }
 }

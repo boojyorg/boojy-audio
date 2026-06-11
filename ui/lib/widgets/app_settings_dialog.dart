@@ -146,12 +146,14 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                // Same "▲udio" treatment as the top bar (dimmed for the footer)
-                // — replaces the stale boojy_audio_audi.svg lockup.
-                BoojyWordmark(
-                  triangleColor: context.colors.accent.withValues(alpha: 0.7),
-                  textColor: context.colors.textMuted,
-                  fontSize: 16,
+                // Same "▲udio" treatment as the top bar, dimmed for the
+                // footer (raster text can't take textMuted directly).
+                Opacity(
+                  opacity: 0.7,
+                  child: BoojyWordmark(
+                    triangleColor: context.colors.accent,
+                    fontSize: 16,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Text(
