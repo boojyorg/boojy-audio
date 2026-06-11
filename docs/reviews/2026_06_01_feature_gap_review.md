@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-01
 **Version under review:** v0.4.0 (Visual & UX Polish — unreleased, not yet tagged)
-**Scope:** feature-coverage audit only — *what a beginner expects from a GarageBand-class DAW that Boojy does not yet deliver.* This review deliberately does **not** cover correctness bugs (see `codebase_review_2026_06_01.md`) or visual/UX polish (see `ui_ux_review_2026_06_01.md`). A "gap" here is a missing or unreachable *capability*, not a defect in an existing one.
+**Scope:** feature-coverage audit only — *what a beginner expects from a GarageBand-class DAW that Boojy does not yet deliver.* This review deliberately does **not** cover correctness bugs (see `2026_06_01_codebase_review.md`) or visual/UX polish (see `2026_06_01_ui_ux_review.md`). A "gap" here is a missing or unreachable *capability*, not a defect in an existing one.
 **Lens:** beginner-first throughout. Boojy targets beginners and hobbyists on the GarageBand model — "sit down with an idea, hear it in 30 seconds, finish a song without reading a manual." A missing *pro* feature is usually correctly out-of-scope, not a gap.
 **Extends:** `docs/FEATURE_TRACKER.md` (the canonical feature checklist) and `docs/ROADMAP.md` (tiering). Where the tracker and the code disagree, the code wins and the tracker is flagged as drift.
 

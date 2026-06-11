@@ -3,7 +3,7 @@
 **Date:** 2026-06-05
 **Version under review:** v0.5.1 (`pubspec 0.5.1+6`, draft release cut 2026-06-05, not yet tagged/published), dogfood phase. v0.6 "Sound" / drum-kit work already in flight on side branches.
 **Scope:** whole-app correctness audit — Rust engine (realtime, DSP, persistence), VST3 hosting, the FFI/lock boundary, Flutter screens + command/undo layer, round-trip fidelity, testing, and repo/CI. Improve the app, *not* add features.
-**Extends:** `docs/reviews/codebase_review_2026_05_29.md` (the v0.3.0 audit that drove the v0.3.x/v0.5 trust theme). This is the next major-boundary read; it does not repeat that report's resolved items.
+**Extends:** `docs/reviews/2026_05_29_codebase_review.md` (the v0.3.0 audit that drove the v0.3.x/v0.5 trust theme). This is the next major-boundary read; it does not repeat that report's resolved items.
 
 **How this review was produced:** a deep parallel read of every subsystem, a multi-lens bug hunt, then **adversarial verification** — every candidate defect was re-checked by independent skeptics trying to refute it. **41 defects survived; 23 were refuted and dropped.** Each survivor carries a `file:line` and a cheap repro. All findings are **code-confirmed** — confidence is at the source level; no headless GUI click-through was run, so runtime-repro steps are the predicted behaviour from the code, noted for manual confirmation.
 
