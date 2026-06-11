@@ -14,41 +14,6 @@ int _generateUniqueClipId() {
   return DateTime.now().microsecondsSinceEpoch + _clipIdCounter;
 }
 
-/// Command to move a MIDI clip on the timeline
-class MoveMidiClipCommand extends Command {
-  final int clipId;
-  final String clipName;
-  final double newStartTime;
-  final double oldStartTime;
-  final int? newTrackId;
-  final int? oldTrackId;
-
-  MoveMidiClipCommand({
-    required this.clipId,
-    required this.clipName,
-    required this.newStartTime,
-    required this.oldStartTime,
-    this.newTrackId,
-    this.oldTrackId,
-  });
-
-  @override
-  Future<void> execute(AudioEngineInterface engine) async {
-    // Note: This updates the clip position in the engine
-    // The actual implementation depends on your engine API
-    // For now, this is handled in Flutter state
-  }
-
-  @override
-  Future<void> undo(AudioEngineInterface engine) async {
-    // Restore previous position
-  }
-
-  @override
-  String get description =>
-      'Move Clip: $clipName (${oldStartTime.toStringAsFixed(2)}s → ${newStartTime.toStringAsFixed(2)}s)';
-}
-
 /// Command to move an audio clip on the timeline.
 ///
 /// `onClipMoved(clipId, startTime)` syncs the on-screen clip list on
@@ -338,28 +303,6 @@ class ResolveMidiOverlapCommand extends Command {
 
   @override
   String get description => 'Resolve MIDI clip overlap';
-}
-
-/// Command to delete a MIDI clip
-class DeleteMidiClipCommand extends Command {
-  final MidiClipData clipData;
-
-  DeleteMidiClipCommand({required this.clipData});
-
-  @override
-  Future<void> execute(AudioEngineInterface engine) async {
-    // Delete clip from engine
-    // Note: Implement engine.deleteMidiClip() if not exists
-  }
-
-  @override
-  Future<void> undo(AudioEngineInterface engine) async {
-    // Recreate the clip with stored data
-    // This requires storing all clip state
-  }
-
-  @override
-  String get description => 'Delete MIDI Clip: ${clipData.name}';
 }
 
 /// Snapshot-based command for MIDI clip note changes
@@ -1222,7 +1165,7 @@ class DeleteMidiClipFromArrangementCommand extends Command {
   Future<void> execute(AudioEngineInterface engine) async {
     // Remove from engine (stops playback)
     Log.d(
-      '[DeleteMidiClipCommand] Executing delete for clip ${clipData.clipId} on track ${clipData.trackId}',
+      '[DeleteMidiClipFromArrangementCommand] Executing delete for clip ${clipData.clipId} on track ${clipData.trackId}',
     );
     engine.removeMidiClip(clipData.trackId, clipData.clipId);
     // Remove from UI
@@ -1390,10 +1333,15 @@ class RecordingCompleteCommand extends Command {
         }
       }
 
-      // Update positions/durations for clips that exist in both
+      // Update positions/durations for clips that exist in both. Recording
+      // over a neighbor trims its offset/duration, so undo/redo must re-push
+      // all three — start time alone left the engine playing the trimmed
+      // audio while the UI showed the restored clip (#15).
       for (final clip in toAudioClips) {
         if (fromIds.contains(clip.clipId)) {
           engine.setClipStartTime(audioTrackId!, clip.clipId, clip.startTime);
+          engine.setClipOffset(audioTrackId!, clip.clipId, clip.offset);
+          engine.setClipDuration(audioTrackId!, clip.clipId, clip.duration);
         }
       }
 

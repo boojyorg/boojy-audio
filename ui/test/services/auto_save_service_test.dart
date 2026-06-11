@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:boojy_audio/services/auto_save_service.dart';
+import 'package:boojy_audio/services/user_settings.dart';
 
 void main() {
   group('BackupInfo', () {
@@ -181,6 +182,55 @@ void main() {
         service.removeListener(listener);
         service.stop(); // should not notify this listener
         expect(count, 1);
+      });
+    });
+
+    group('restart', () {
+      // #44: changing the auto-save interval in settings must take effect
+      // immediately — restart() reads UserSettings().autoSaveMinutes and
+      // reschedules the timer from now (no relaunch needed).
+      final settings = UserSettings();
+      late int savedMinutes;
+
+      setUp(() {
+        savedMinutes = settings.autoSaveMinutes;
+      });
+
+      tearDown(() {
+        settings.autoSaveMinutes = savedMinutes;
+        service.stop();
+      });
+
+      test('starts the timer when interval becomes non-zero', () async {
+        settings.autoSaveMinutes = 0;
+        await service.restart();
+        expect(service.isRunning, false);
+
+        settings.autoSaveMinutes = 5;
+        await service.restart();
+        expect(service.isRunning, true);
+      });
+
+      test('stops the timer when interval becomes zero (disabled)', () async {
+        settings.autoSaveMinutes = 5;
+        await service.restart();
+        expect(service.isRunning, true);
+
+        settings.autoSaveMinutes = 0;
+        await service.restart();
+        expect(service.isRunning, false);
+      });
+
+      test('reschedules rather than stacking timers', () async {
+        settings.autoSaveMinutes = 5;
+        await service.restart();
+        await service.restart();
+        expect(service.isRunning, true);
+
+        // A single stop() must fully halt auto-save — proves restart()
+        // replaced the old timer instead of leaking a second one.
+        service.stop();
+        expect(service.isRunning, false);
       });
     });
   });

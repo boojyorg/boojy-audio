@@ -1037,4 +1037,123 @@ void main() {
       },
     );
   });
+
+  group('RecordingCompleteCommand', () {
+    // Recording over a neighbor trims it: after the recording the neighbor
+    // keeps its id but has a different offset/duration (#15 scenario).
+    late ClipData neighborBefore;
+    late ClipData neighborAfter;
+    late ClipData recordedClip;
+
+    setUp(() {
+      neighborBefore = ClipData(
+        clipId: 10,
+        trackId: 1,
+        filePath: '/tmp/neighbor.wav',
+        startTime: 0.0,
+        duration: 8.0,
+      );
+      neighborAfter = neighborBefore.copyWith(
+        startTime: 0.0,
+        duration: 4.0,
+        offset: 1.0,
+      );
+      recordedClip = ClipData(
+        clipId: 20,
+        trackId: 1,
+        filePath: '/tmp/recorded.wav',
+        startTime: 4.0,
+        duration: 4.0,
+      );
+    });
+
+    RecordingCompleteCommand build({
+      void Function(int, List<ClipData>)? onApplyAudioState,
+      void Function(int, List<MidiClipData>)? onApplyMidiState,
+      List<MidiClipData> midiBefore = const [],
+      List<MidiClipData> midiAfter = const [],
+    }) {
+      return RecordingCompleteCommand(
+        audioTrackId: 1,
+        audioClipsBefore: [neighborBefore],
+        audioClipsAfter: [neighborAfter, recordedClip],
+        midiTrackId: midiBefore.isEmpty && midiAfter.isEmpty ? null : 1,
+        midiClipsBefore: midiBefore,
+        midiClipsAfter: midiAfter,
+        onApplyAudioState: onApplyAudioState,
+        onApplyMidiState: onApplyMidiState,
+      );
+    }
+
+    test('first execute is a no-op (work already done by recording)', () async {
+      final command = build();
+      await command.execute(mockEngine);
+      expect(mockEngine.calls, isEmpty);
+    });
+
+    test(
+      'undo re-pushes trimmed neighbor offset/duration to the engine (#15)',
+      () async {
+        final command = build();
+        await command.execute(mockEngine); // consume first-execute no-op
+        await command.undo(mockEngine);
+
+        // Recorded clip removed from the engine.
+        expect(mockEngine.calls, contains('removeAudioClip'));
+        // Neighbor restored: start time AND offset AND duration re-pushed —
+        // start time alone left the engine playing the trimmed audio.
+        expect(mockEngine.calls, contains('setClipStartTime'));
+        expect(mockEngine.calls, contains('setClipOffset'));
+        expect(mockEngine.calls, contains('setClipDuration'));
+      },
+    );
+
+    test('redo re-adds the recording and re-trims the neighbor', () async {
+      final command = build();
+      await command.execute(mockEngine);
+      await command.undo(mockEngine);
+      mockEngine.reset();
+
+      await command.execute(mockEngine); // redo
+
+      // Recorded clip re-added with its offset/duration.
+      expect(mockEngine.calls, contains('addExistingClipToTrack'));
+      // Neighbor re-trimmed in the engine, not just the UI.
+      expect(mockEngine.calls, contains('setClipOffset'));
+      expect(mockEngine.calls, contains('setClipDuration'));
+    });
+
+    test('undo/redo hand the matching snapshot to the UI callbacks', () async {
+      List<ClipData>? lastAudioClips;
+      List<MidiClipData>? lastMidiClips;
+      final midiBefore = <MidiClipData>[];
+      final midiAfter = [
+        MidiClipData(
+          clipId: 200,
+          trackId: 1,
+          startTime: 0.0,
+          duration: 4.0,
+          name: 'Recorded',
+          notes: [
+            MidiNoteData(note: 60, velocity: 100, startTime: 0.0, duration: 1),
+          ],
+        ),
+      ];
+      final command = build(
+        onApplyAudioState: (_, clips) => lastAudioClips = clips,
+        onApplyMidiState: (_, clips) => lastMidiClips = clips,
+        midiBefore: midiBefore,
+        midiAfter: midiAfter,
+      );
+
+      await command.execute(mockEngine);
+      await command.undo(mockEngine);
+      expect(lastAudioClips, [neighborBefore]);
+      expect(lastMidiClips, midiBefore);
+
+      await command.execute(mockEngine); // redo
+      expect(lastAudioClips, [neighborAfter, recordedClip]);
+      expect(lastMidiClips, midiAfter);
+    });
+  });
 }

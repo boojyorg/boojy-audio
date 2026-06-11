@@ -56,6 +56,8 @@ class TrackController extends ChangeNotifier {
       Map.unmodifiable(_trackInstruments);
   Map<int, Color> get trackColorOverrides =>
       Map.unmodifiable(_trackColorOverrides);
+  Map<int, String> get trackIconOverrides =>
+      Map.unmodifiable(_trackIconOverrides);
 
   /// Check if track name was manually edited by user
   bool isTrackNameUserEdited(int trackId) {
@@ -184,6 +186,19 @@ class TrackController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Clear every per-track colour and icon override at once.
+  ///
+  /// Called when a project is loaded or a new project is created: the engine
+  /// reuses track ids across projects, so leftover overrides from the previous
+  /// project would silently attach themselves to the next project's tracks
+  /// (project B inheriting project A's icons/colours).
+  void clearAllTrackOverrides() {
+    if (_trackColorOverrides.isEmpty && _trackIconOverrides.isEmpty) return;
+    _trackColorOverrides.clear();
+    _trackIconOverrides.clear();
+    notifyListeners();
+  }
+
   /// Select a track (with optional multi-select via shift key)
   void selectTrack(int? trackId, {bool isShiftHeld = false}) {
     if (trackId == null) {
@@ -283,6 +298,7 @@ class TrackController extends ChangeNotifier {
     _clipHeights.remove(trackId);
     _automationHeights.remove(trackId);
     _trackColorOverrides.remove(trackId);
+    _trackIconOverrides.remove(trackId);
     _trackNameUserEdited.remove(trackId);
     _selectedTrackIds.remove(trackId);
 
@@ -321,6 +337,11 @@ class TrackController extends ChangeNotifier {
       _trackColorOverrides[newTrackId] = _trackColorOverrides[sourceTrackId]!;
     }
 
+    // Copy icon override if present
+    if (_trackIconOverrides.containsKey(sourceTrackId)) {
+      _trackIconOverrides[newTrackId] = _trackIconOverrides[sourceTrackId]!;
+    }
+
     // Copy user-edited name state
     if (_trackNameUserEdited.containsKey(sourceTrackId)) {
       _trackNameUserEdited[newTrackId] = _trackNameUserEdited[sourceTrackId]!;
@@ -337,6 +358,7 @@ class TrackController extends ChangeNotifier {
     _trackSendCounts.clear();
     _automationHeights.clear();
     _trackColorOverrides.clear();
+    _trackIconOverrides.clear();
     _trackInstruments.clear();
     _trackNameUserEdited.clear();
     _trackOrder.clear();
@@ -352,6 +374,7 @@ class TrackController extends ChangeNotifier {
     _trackSendCounts.clear();
     _automationHeights.clear();
     _trackColorOverrides.clear();
+    _trackIconOverrides.clear();
     _trackInstruments.clear();
     _trackNameUserEdited.clear();
     _trackOrder.clear();

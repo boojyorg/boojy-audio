@@ -132,3 +132,36 @@ class SetTrackColorCommand extends Command {
   @override
   String get description => 'Change Track Colour';
 }
+
+/// Command to change a track's icon override (UI-only, persisted in
+/// `ui_layout.json`). Icons are stable string keys from
+/// `utils/track_icons.dart` (e.g. 'mic', 'piano'); a null value means
+/// "no override" (revert to the auto-detected icon).
+class SetTrackIconCommand extends Command {
+  final int trackId;
+  final String newIconKey;
+  final String? oldIconKey;
+
+  /// Applies an icon key to the track (null clears the override).
+  final void Function(int trackId, String? iconKey) onIconChanged;
+
+  SetTrackIconCommand({
+    required this.trackId,
+    required this.newIconKey,
+    required this.oldIconKey,
+    required this.onIconChanged,
+  });
+
+  @override
+  Future<void> execute(AudioEngineInterface engine) async {
+    onIconChanged(trackId, newIconKey);
+  }
+
+  @override
+  Future<void> undo(AudioEngineInterface engine) async {
+    onIconChanged(trackId, oldIconKey);
+  }
+
+  @override
+  String get description => 'Change Track Icon';
+}

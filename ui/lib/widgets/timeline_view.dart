@@ -379,6 +379,7 @@ class TimelineViewState extends State<TimelineView>
     scrollController.removeListener(_onScrollForCulling);
     HardwareKeyboard.instance.removeHandler(_onHardwareKey);
     scrollController.dispose();
+    navBarScrollController.dispose();
     timelineFocusNode.dispose();
     refreshTimer?.cancel();
     previewLoadTimer?.cancel();
