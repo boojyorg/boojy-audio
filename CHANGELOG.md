@@ -4,6 +4,8 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+## v0.6.0 — 2026-06-11
+
 ### Features
 
 - **Recording at bar 1 no longer plays the existing content over the count-in.** When there's
