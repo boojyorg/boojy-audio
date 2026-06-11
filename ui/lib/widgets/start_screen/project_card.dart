@@ -36,6 +36,7 @@ class _ProjectCardState extends State<ProjectCard> {
     final thumbnailPath = '${widget.project.path}/thumbnail.png';
     final thumbnailFile = File(thumbnailPath);
     final hasThumbnail = thumbnailFile.existsSync();
+    final borderWidth = _isHovering ? 1.5 : 1.0;
 
     return GestureDetector(
       onTap: widget.onTap,
@@ -65,123 +66,125 @@ class _ProjectCardState extends State<ProjectCard> {
               color: _isHovering
                   ? colors.accent.withValues(alpha: 0.6)
                   : colors.divider,
-              width: _isHovering ? 1.5 : 1,
+              width: borderWidth,
             ),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Thumbnail area
-              Expanded(
-                child: hasThumbnail
-                    ? Image.memory(
-                        thumbnailFile.readAsBytesSync(),
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) =>
-                            _buildPlaceholder(context),
-                      )
-                    : _buildPlaceholder(context),
-              ),
-
-              // Name + metadata area — slightly lighter than thumbnail
-              ColoredBox(
-                color: colors.dark,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          widget.project.name,
-                          style: TextStyle(
-                            color: colors.textPrimary,
-                            fontSize: BT.fontBody,
-                            fontWeight: BT.weightSemiBold,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _relativeTime(widget.project.openedAt),
-                        style: TextStyle(
-                          color: colors.textMuted,
-                          fontSize: BT.fontLabel,
-                        ),
-                      ),
-                    ],
-                  ),
+          // No clipBehavior on the bordered container (ragged-corner artifact;
+          // see .claude/rules/flutter-ui.md) — clip the content at the inner
+          // radius instead.
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8 - borderWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Thumbnail area
+                Expanded(
+                  child: hasThumbnail
+                      ? Image.memory(
+                          thumbnailFile.readAsBytesSync(),
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) =>
+                              _buildPlaceholder(context),
+                        )
+                      : _buildPlaceholder(context),
                 ),
-              ),
 
-              // Track count + BPM row
-              ColoredBox(
-                color: colors.dark,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-                  child: Row(
-                    children: [
-                      if (widget.project.trackCount != null)
+                // Name + metadata area — slightly lighter than thumbnail
+                ColoredBox(
+                  color: colors.dark,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            widget.project.name,
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: BT.fontBody,
+                              fontWeight: BT.weightSemiBold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Text(
-                          '${widget.project.trackCount} tracks',
+                          _relativeTime(widget.project.openedAt),
                           style: TextStyle(
                             color: colors.textMuted,
                             fontSize: BT.fontLabel,
                           ),
                         ),
-                      if (widget.project.trackCount != null &&
-                          widget.project.bpm != null)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          child: Text(
-                            '·',
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Track count + BPM row
+                ColoredBox(
+                  color: colors.dark,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                    child: Row(
+                      children: [
+                        if (widget.project.trackCount != null)
+                          Text(
+                            '${widget.project.trackCount} tracks',
                             style: TextStyle(
                               color: colors.textMuted,
                               fontSize: BT.fontLabel,
                             ),
                           ),
-                        ),
-                      if (widget.project.bpm != null)
-                        Text(
-                          '${widget.project.bpm!.round()} BPM',
-                          style: TextStyle(
-                            color: colors.textMuted,
-                            fontSize: BT.fontLabel,
+                        if (widget.project.trackCount != null &&
+                            widget.project.bpm != null)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: Text(
+                              '·',
+                              style: TextStyle(
+                                color: colors.textMuted,
+                                fontSize: BT.fontLabel,
+                              ),
+                            ),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Path row (visible on hover)
-              AnimatedCrossFade(
-                firstChild: const SizedBox.shrink(),
-                secondChild: Container(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: colors.divider, width: 0.5),
+                        if (widget.project.bpm != null)
+                          Text(
+                            '${widget.project.bpm!.round()} BPM',
+                            style: TextStyle(
+                              color: colors.textMuted,
+                              fontSize: BT.fontLabel,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  child: Text(
-                    _shortenPath(widget.project.path),
-                    style: TextStyle(color: colors.textMuted, fontSize: 10),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
                 ),
-                crossFadeState: _isHovering
-                    ? CrossFadeState.showSecond
-                    : CrossFadeState.showFirst,
-                duration: AnimationConstants.hoverDuration,
-              ),
-            ],
+
+                // Path row (visible on hover). No hairline top border here —
+                // it painted as a stray line mid-crossfade on hover exit; the
+                // dark→darkest row seam already delineates it.
+                AnimatedCrossFade(
+                  firstChild: const SizedBox.shrink(),
+                  secondChild: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    child: Text(
+                      _shortenPath(widget.project.path),
+                      style: TextStyle(color: colors.textMuted, fontSize: 10),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                  crossFadeState: _isHovering
+                      ? CrossFadeState.showSecond
+                      : CrossFadeState.showFirst,
+                  duration: AnimationConstants.hoverDuration,
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -371,12 +371,15 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
     }
   }
 
-  /// Disarm all MIDI tracks except the specified one.
-  void disarmOtherMidiTracks(int exceptTrackId) {
+  /// Disarm all tracks except the specified one (exclusive arm — audio
+  /// included, same as MIDI; new tracks arm themselves on create, so without
+  /// this every added audio track quietly joined the armed set).
+  void disarmOtherTracks(int exceptTrackId) {
     final tracks = mixerKey.currentState?.tracks ?? [];
     for (final track in tracks) {
-      if (track.type == 'midi' && track.id != exceptTrackId && track.armed) {
+      if (track.id != exceptTrackId && track.armed) {
         track.armed = false;
+        track.inputMonitoring = false; // engine auto-mode mirrors arm
         audioEngine?.setTrackArmed(track.id, armed: false);
       }
     }

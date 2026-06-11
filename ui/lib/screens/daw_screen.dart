@@ -1205,6 +1205,8 @@ class _DAWScreenState extends State<DAWScreen>
   void _onTrackCreatedFromMixer(int trackId, String trackType) {
     _onTrackSelected(trackId);
     refreshTrackWidgets();
+    // New tracks arm themselves — keep arming exclusive (audio included).
+    disarmOtherTracks(trackId);
   }
 
   /// Called when tracks are reordered via drag-and-drop in the mixer panel
@@ -1330,7 +1332,7 @@ class _DAWScreenState extends State<DAWScreen>
       refreshTrackWidgets();
 
       // Disarm other MIDI tracks (exclusive arm for new track)
-      disarmOtherMidiTracks(trackId);
+      disarmOtherTracks(trackId);
     } catch (e) {
       Log.e('Failed to create VST3 instrument track: $e');
     }
@@ -1398,6 +1400,9 @@ class _DAWScreenState extends State<DAWScreen>
 
       // 8. Refresh track widgets
       refreshTrackWidgets();
+
+      // New tracks arm themselves — keep arming exclusive (audio included).
+      disarmOtherTracks(trackId);
     } catch (e) {
       Log.e('Failed to add audio file to new track: $e');
     }

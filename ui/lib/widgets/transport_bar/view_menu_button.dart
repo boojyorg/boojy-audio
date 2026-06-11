@@ -185,13 +185,13 @@ class _ViewMenuOverlay extends StatelessWidget {
                 children: [
                   const SizedBox(height: 4),
                   _ViewMenuItem(
-                    icon: Icons.library_music,
+                    icon: BI.libraryMusic,
                     label: 'Show Library',
                     isChecked: libraryVisible,
                     onTap: onToggleLibrary,
                   ),
                   _ViewMenuItem(
-                    icon: Icons.tune,
+                    icon: BI.sliders,
                     label: 'Show Mixer',
                     isChecked: mixerVisible,
                     onTap: onToggleMixer,

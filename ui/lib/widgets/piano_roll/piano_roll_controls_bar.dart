@@ -308,10 +308,10 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         ),
         const SizedBox(width: 4),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           decoration: BoxDecoration(
             color: colors.dark,
-            borderRadius: BorderRadius.circular(2),
+            borderRadius: BT.borderMd,
             border: Border.all(color: colors.surface, width: 1),
           ),
           child: LoopTimeDisplay(
@@ -330,10 +330,10 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         ),
         const SizedBox(width: 4),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           decoration: BoxDecoration(
             color: colors.dark,
-            borderRadius: BorderRadius.circular(2),
+            borderRadius: BT.borderMd,
             border: Border.all(color: colors.surface, width: 1),
           ),
           child: LoopTimeDisplay(
@@ -411,120 +411,137 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
 
     return DecoratedBox(
       key: _snapButtonKey,
+      // Foreground border so the hover zone fills (painted full-height by the
+      // stretch below) can't cover the stroke — DecoratedBox doesn't inset its
+      // child the way Container does, so a background border would vanish
+      // under them. The bg colour lives on the inner box instead.
+      position: DecorationPosition.foreground,
       decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BT.borderSm,
+        borderRadius: BT.borderMd,
         border: Border.all(
           color: widget.snapEnabled ? colors.selectionBorder : colors.textMuted,
           width: 1,
         ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Left side: Label (clickable for toggle)
-          MouseRegion(
-            onEnter: (_) {
-              if (!_isHoveringSnapLabel) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) setState(() => _isHoveringSnapLabel = true);
-                });
-              }
-            },
-            onExit: (_) {
-              if (_isHoveringSnapLabel) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) setState(() => _isHoveringSnapLabel = false);
-                });
-              }
-            },
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: widget.onSnapToggle,
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _isHoveringSnapLabel
-                      ? (widget.snapEnabled
-                            ? colors.selectionFillHover
-                            : colors.textPrimary.withValues(alpha: 0.1))
-                      : Colors.transparent,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(2),
-                    bottomLeft: Radius.circular(2),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Show icon only in wide mode
-                    if (_displayMode == _ButtonDisplayMode.wide) ...[
-                      Icon(BI.gridOn, size: 13, color: iconColor),
-                      const SizedBox(width: 4),
-                    ],
-                    Text(
-                      label,
-                      style: TextStyle(color: textColor, fontSize: 10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: bgColor, borderRadius: BT.borderMd),
+        // IntrinsicHeight + stretch so the inter-zone divider spans the full
+        // chip height instead of a fixed 15px slug.
+        child: IntrinsicHeight(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left side: Label (clickable for toggle)
+              MouseRegion(
+                onEnter: (_) {
+                  if (!_isHoveringSnapLabel) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _isHoveringSnapLabel = true);
+                    });
+                  }
+                },
+                onExit: (_) {
+                  if (_isHoveringSnapLabel) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _isHoveringSnapLabel = false);
+                    });
+                  }
+                },
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: widget.onSnapToggle,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 5,
                     ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Divider line — selection-border when engaged, like the transport
-          // split button
-          Container(
-            width: 1,
-            height: 15,
-            color: widget.snapEnabled
-                ? colors.selectionBorder
-                : colors.textMuted,
-          ),
-
-          // Right side: Dropdown arrow
-          MouseRegion(
-            onEnter: (_) {
-              if (!_isHoveringSnapDropdown) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    setState(() => _isHoveringSnapDropdown = true);
-                  }
-                });
-              }
-            },
-            onExit: (_) {
-              if (_isHoveringSnapDropdown) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    setState(() => _isHoveringSnapDropdown = false);
-                  }
-                });
-              }
-            },
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: () => _showSnapMenu(context),
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _isHoveringSnapDropdown
-                      ? (widget.snapEnabled
-                            ? colors.selectionFillHover
-                            : colors.textPrimary.withValues(alpha: 0.1))
-                      : Colors.transparent,
-                  borderRadius: const BorderRadius.only(
-                    topRight: Radius.circular(2),
-                    bottomRight: Radius.circular(2),
+                    decoration: BoxDecoration(
+                      color: _isHoveringSnapLabel
+                          ? (widget.snapEnabled
+                                ? colors.selectionFillHover
+                                : colors.textPrimary.withValues(alpha: 0.1))
+                          : Colors.transparent,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(BT.radiusMd - 1),
+                        bottomLeft: Radius.circular(BT.radiusMd - 1),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Show icon only in wide mode
+                        if (_displayMode == _ButtonDisplayMode.wide) ...[
+                          Icon(BI.gridOn, size: 13, color: iconColor),
+                          const SizedBox(width: 4),
+                        ],
+                        Text(
+                          label,
+                          style: TextStyle(color: textColor, fontSize: 10),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                child: Icon(BI.caretDown, size: 15, color: textColor),
               ),
-            ),
+
+              // Divider line — selection-border when engaged, like the transport
+              // split button
+              Container(
+                width: 1,
+                color: widget.snapEnabled
+                    ? colors.selectionBorder
+                    : colors.textMuted,
+              ),
+
+              // Right side: Dropdown arrow
+              MouseRegion(
+                onEnter: (_) {
+                  if (!_isHoveringSnapDropdown) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() => _isHoveringSnapDropdown = true);
+                      }
+                    });
+                  }
+                },
+                onExit: (_) {
+                  if (_isHoveringSnapDropdown) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() => _isHoveringSnapDropdown = false);
+                      }
+                    });
+                  }
+                },
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => _showSnapMenu(context),
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _isHoveringSnapDropdown
+                          ? (widget.snapEnabled
+                                ? colors.selectionFillHover
+                                : colors.textPrimary.withValues(alpha: 0.1))
+                          : Colors.transparent,
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(BT.radiusMd - 1),
+                        bottomRight: Radius.circular(BT.radiusMd - 1),
+                      ),
+                    ),
+                    child: Icon(BI.caretDown, size: 15, color: textColor),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -585,115 +602,136 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
     // instant colour swap rather than a fade.
     return DecoratedBox(
       key: _quantizeButtonKey,
+      // Foreground border for the same reason as the Snap chip: the hover
+      // zone fills would otherwise paint over a background stroke.
+      position: DecorationPosition.foreground,
       decoration: BoxDecoration(
-        color: pulsing ? colors.accent.withValues(alpha: 0.22) : colors.surface,
-        borderRadius: BT.borderSm,
+        borderRadius: BT.borderMd,
         border: Border.all(color: dividerColor, width: 1),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Left side: Icon + Label (clickable for quantize action)
-          MouseRegion(
-            onEnter: (_) {
-              if (!_isHoveringQuantizeLabel) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    setState(() => _isHoveringQuantizeLabel = true);
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: pulsing
+              ? colors.accent.withValues(alpha: 0.22)
+              : colors.surface,
+          borderRadius: BT.borderMd,
+        ),
+        // IntrinsicHeight + stretch so the inter-zone divider spans the full
+        // chip height instead of a fixed 15px slug.
+        child: IntrinsicHeight(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left side: Icon + Label (clickable for quantize action)
+              MouseRegion(
+                onEnter: (_) {
+                  if (!_isHoveringQuantizeLabel) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() => _isHoveringQuantizeLabel = true);
+                      }
+                    });
                   }
-                });
-              }
-            },
-            onExit: (_) {
-              if (_isHoveringQuantizeLabel) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    setState(() => _isHoveringQuantizeLabel = false);
+                },
+                onExit: (_) {
+                  if (_isHoveringQuantizeLabel) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() => _isHoveringQuantizeLabel = false);
+                      }
+                    });
                   }
-                });
-              }
-            },
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: _fireQuantize,
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _isHoveringQuantizeLabel
-                      ? colors.textPrimary.withValues(alpha: 0.1)
-                      : Colors.transparent,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(2),
-                    bottomLeft: Radius.circular(2),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Show icon only in wide mode
-                    if (_displayMode == _ButtonDisplayMode.wide) ...[
-                      Image.asset(
-                        'assets/images/magnet.png',
-                        width: 13,
-                        height: 13,
-                        color: glyphColor,
-                      ),
-                      const SizedBox(width: 4),
-                    ],
-                    Text(
-                      label,
-                      style: TextStyle(color: textColor, fontSize: 10),
+                },
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: _fireQuantize,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 5,
                     ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Divider line
-          Container(width: 1, height: 15, color: dividerColor),
-
-          // Right side: Dropdown arrow
-          MouseRegion(
-            onEnter: (_) {
-              if (!_isHoveringQuantizeDropdown) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    setState(() => _isHoveringQuantizeDropdown = true);
-                  }
-                });
-              }
-            },
-            onExit: (_) {
-              if (_isHoveringQuantizeDropdown) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    setState(() => _isHoveringQuantizeDropdown = false);
-                  }
-                });
-              }
-            },
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: () => _showQuantizeMenu(context),
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _isHoveringQuantizeDropdown
-                      ? colors.textPrimary.withValues(alpha: 0.1)
-                      : Colors.transparent,
-                  borderRadius: const BorderRadius.only(
-                    topRight: Radius.circular(2),
-                    bottomRight: Radius.circular(2),
+                    decoration: BoxDecoration(
+                      color: _isHoveringQuantizeLabel
+                          ? colors.textPrimary.withValues(alpha: 0.1)
+                          : Colors.transparent,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(BT.radiusMd - 1),
+                        bottomLeft: Radius.circular(BT.radiusMd - 1),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Show icon only in wide mode
+                        if (_displayMode == _ButtonDisplayMode.wide) ...[
+                          Image.asset(
+                            'assets/images/magnet.png',
+                            width: 13,
+                            height: 13,
+                            color: glyphColor,
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        Text(
+                          label,
+                          style: TextStyle(color: textColor, fontSize: 10),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                child: Icon(BI.caretDown, size: 15, color: caretColor),
               ),
-            ),
+
+              // Divider line
+              Container(width: 1, color: dividerColor),
+
+              // Right side: Dropdown arrow
+              MouseRegion(
+                onEnter: (_) {
+                  if (!_isHoveringQuantizeDropdown) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() => _isHoveringQuantizeDropdown = true);
+                      }
+                    });
+                  }
+                },
+                onExit: (_) {
+                  if (_isHoveringQuantizeDropdown) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() => _isHoveringQuantizeDropdown = false);
+                      }
+                    });
+                  }
+                },
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => _showQuantizeMenu(context),
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _isHoveringQuantizeDropdown
+                          ? colors.textPrimary.withValues(alpha: 0.1)
+                          : Colors.transparent,
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(BT.radiusMd - 1),
+                        bottomRight: Radius.circular(BT.radiusMd - 1),
+                      ),
+                    ),
+                    child: Icon(BI.caretDown, size: 15, color: caretColor),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -758,7 +796,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
             color: isActive
                 ? colors.accent.withValues(alpha: BT.opacityLight)
                 : colors.surface,
-            borderRadius: BT.borderSm,
+            borderRadius: BT.borderMd,
             border: Border.all(
               color: isActive
                   ? colors.accent.withValues(alpha: 0.7)

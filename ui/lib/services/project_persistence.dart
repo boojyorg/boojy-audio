@@ -10,6 +10,10 @@ import '../models/project_view_state.dart';
 /// See [ProjectPersistence.collect] for the canonical field checklist.
 class UILayoutData {
   final double libraryWidth;
+
+  /// Library panel left (categories) column width. Nullable so layouts saved
+  /// before this field existed fall back to the default split.
+  final double? libraryLeftWidth;
   final double mixerWidth;
   final double bottomHeight;
   final bool libraryCollapsed;
@@ -40,6 +44,7 @@ class UILayoutData {
 
   const UILayoutData({
     this.libraryWidth = 200.0,
+    this.libraryLeftWidth,
     this.mixerWidth = 380.0,
     this.bottomHeight = 250.0,
     this.libraryCollapsed = false,
@@ -62,6 +67,7 @@ class UILayoutData {
     'version': '1.2',
     'panel_sizes': {
       'library_width': libraryWidth,
+      if (libraryLeftWidth != null) 'library_left_width': libraryLeftWidth,
       'mixer_width': mixerWidth,
       'bottom_height': bottomHeight,
     },
@@ -103,6 +109,7 @@ class UILayoutData {
 
     return UILayoutData(
       libraryWidth: (panelSizes['library_width'] as num?)?.toDouble() ?? 200.0,
+      libraryLeftWidth: (panelSizes['library_left_width'] as num?)?.toDouble(),
       mixerWidth: (panelSizes['mixer_width'] as num?)?.toDouble() ?? 380.0,
       bottomHeight: (panelSizes['bottom_height'] as num?)?.toDouble() ?? 250.0,
       libraryCollapsed: panelCollapsed['library'] as bool? ?? false,
@@ -172,6 +179,7 @@ class ProjectPersistence {
   /// Build the full UI layout snapshot for save, auto-save, and crash recovery.
   static UILayoutData collect({
     required double libraryWidth,
+    double? libraryLeftWidth,
     required double mixerWidth,
     required double bottomHeight,
     required bool libraryCollapsed,
@@ -203,6 +211,7 @@ class ProjectPersistence {
 
     return UILayoutData(
       libraryWidth: libraryWidth,
+      libraryLeftWidth: libraryLeftWidth,
       mixerWidth: mixerWidth,
       bottomHeight: bottomHeight,
       libraryCollapsed: libraryCollapsed,

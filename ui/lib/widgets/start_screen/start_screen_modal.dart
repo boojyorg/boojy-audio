@@ -359,9 +359,9 @@ class _ActionButtonState extends State<_ActionButton> {
                 : (_isHovering ? colors.dark : colors.darkest),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: widget.isPrimary
-                  ? Colors.transparent
-                  : (_isHovering ? colors.divider : Colors.transparent),
+              // Outline at rest per the button token spec — only the primary
+              // (filled) button goes borderless.
+              color: widget.isPrimary ? Colors.transparent : colors.divider,
               width: 1,
             ),
           ),

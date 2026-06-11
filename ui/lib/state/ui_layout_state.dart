@@ -547,7 +547,13 @@ class UILayoutState extends ChangeNotifier {
       libraryMinWidth,
       libraryHardMax,
     );
-    _libraryLeftColumnWidth = libraryLeftColumnDefault;
+    // Restore the saved left-column split; layouts saved before the field
+    // existed fall back to the default (it used to reset on every open).
+    _libraryLeftColumnWidth =
+        (layout.libraryLeftWidth ?? libraryLeftColumnDefault).clamp(
+          libraryLeftColumnMin,
+          libraryLeftColumnMax,
+        );
     _libraryRightColumnWidth =
         (totalWidth - _libraryLeftColumnWidth - libraryDividerWidth).clamp(
           libraryRightColumnMin,
@@ -568,6 +574,7 @@ class UILayoutState extends ChangeNotifier {
   UILayoutData getCurrentLayout() {
     return ProjectPersistence.collect(
       libraryWidth: libraryPanelWidth,
+      libraryLeftWidth: _libraryLeftColumnWidth,
       mixerWidth: _mixerPanelWidth,
       bottomHeight: _editorPanelHeight,
       libraryCollapsed: _isLibraryPanelCollapsed,

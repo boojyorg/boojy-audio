@@ -76,8 +76,13 @@ class TrackAutomationLaneWidget extends StatefulWidget {
 }
 
 class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
+  /// Top strip (px) where an empty-space drag resizes the lane. Points still
+  /// win — _onPanStart checks for a clicked point first.
+  static const double _resizeZoneHeight = 6.0;
+
   String? _draggingPointId;
   String? _hoveredPointId;
+  bool _hoverInResizeZone = false;
   bool _isDrawing = false;
   bool _isResizing = false;
   bool _isErasing = false;
@@ -168,7 +173,10 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
               child: MouseRegion(
                 cursor: _getCursor(),
                 onHover: _onHover,
-                onExit: (_) => setState(() => _hoveredPointId = null),
+                onExit: (_) => setState(() {
+                  _hoveredPointId = null;
+                  _hoverInResizeZone = false;
+                }),
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
                   onTapDown: _onTapDown,
@@ -215,42 +223,21 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
               ),
             ),
           ),
-          // Resize handle at top (invisible 6px strip)
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            height: 6,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.resizeRow,
-              child: GestureDetector(
-                onVerticalDragStart: (details) {
-                  _isResizing = true;
-                  _resizeStartY = details.globalPosition.dy;
-                  _resizeStartHeight = widget.laneHeight;
-                },
-                onVerticalDragUpdate: (details) {
-                  if (_isResizing && widget.onHeightChanged != null) {
-                    // Dragging up = increase height (negative delta)
-                    final delta = _resizeStartY - details.globalPosition.dy;
-                    final newHeight = (_resizeStartHeight + delta).clamp(
-                      40.0,
-                      200.0,
-                    );
-                    widget.onHeightChanged!(newHeight);
-                  }
-                },
-                onVerticalDragEnd: (_) => _isResizing = false,
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-          ),
+          // Lane resize lives in the main pan handlers (top 6px, point-aware)
+          // — an invisible overlay strip here used to eat clicks on points
+          // parked near max value.
         ],
       ),
     );
   }
 
   MouseCursor _getCursor() {
+    if (_isResizing ||
+        (_hoverInResizeZone &&
+            _hoveredPointId == null &&
+            _draggingPointId == null)) {
+      return SystemMouseCursors.resizeRow;
+    }
     final toolMode = _effectiveToolMode;
     switch (toolMode) {
       case ToolMode.draw:
@@ -273,9 +260,12 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
   void _onHover(PointerHoverEvent event) {
     final point = _findPointAtPosition(event.localPosition);
     final newHoveredId = point?.id;
-    if (newHoveredId != _hoveredPointId) {
+    final inResizeZone =
+        point == null && event.localPosition.dy <= _resizeZoneHeight;
+    if (newHoveredId != _hoveredPointId || inResizeZone != _hoverInResizeZone) {
       setState(() {
         _hoveredPointId = newHoveredId;
+        _hoverInResizeZone = inResizeZone;
       });
     }
   }
@@ -366,13 +356,13 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
   }
 
   void _duplicatePoint(AutomationPoint point, Offset position) {
-    double time = position.dx / widget.pixelsPerBeat;
-    time = _snapTime(time);
-
-    // Create duplicate slightly offset in time
-    final offset = widget.snapResolution > 0 ? widget.snapResolution : 0.25;
+    // Land the copy at the (snapped) click position; if that rounds onto the
+    // original, nudge one snap step right so the two points don't stack.
+    final step = widget.snapResolution > 0 ? widget.snapResolution : 0.25;
+    double time = _snapTime(position.dx / widget.pixelsPerBeat);
+    if ((time - point.time).abs() < 1e-6) time += step;
     final newPoint = AutomationPoint(
-      time: (point.time + offset).clamp(0.0, widget.totalBeats),
+      time: time.clamp(0.0, widget.totalBeats),
       value: point.value,
     );
     widget.onPointAdded?.call(newPoint);
@@ -400,6 +390,19 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
       return;
     }
 
+    // Top-edge resize — only on empty space, so points parked near max value
+    // stay grabbable (an invisible overlay strip here used to eat them).
+    if (clickedPoint == null &&
+        details.localPosition.dy <= _resizeZoneHeight &&
+        widget.onHeightChanged != null) {
+      setState(() {
+        _isResizing = true;
+        _resizeStartY = details.globalPosition.dy;
+        _resizeStartHeight = widget.laneHeight;
+      });
+      return;
+    }
+
     if (clickedPoint != null) {
       setState(() {
         _draggingPointId = clickedPoint.id;
@@ -419,6 +422,15 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
   }
 
   void _onPanUpdate(DragUpdateDetails details) {
+    if (_isResizing) {
+      // Dragging up = increase height (negative delta)
+      final delta = _resizeStartY - details.globalPosition.dy;
+      widget.onHeightChanged?.call(
+        (_resizeStartHeight + delta).clamp(40.0, 200.0),
+      );
+      return;
+    }
+
     // Eraser drag: delete points as we drag over them
     if (_isErasing) {
       final point = _findPointAtPosition(details.localPosition);
@@ -478,6 +490,7 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
     setState(() {
       _draggingPointId = null;
       _isDrawing = false;
+      _isResizing = false;
       _isErasing = false;
       _erasedPointIds = {};
       // Don't clear _previewPoint here - keep showing preview until
