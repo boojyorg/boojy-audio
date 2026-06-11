@@ -11,11 +11,11 @@
 triage). Work order: starter kit (drum-kit PR3) → sound quick wins (automation/reverse/monitoring)
 → join clips → UI ledger batches → cleanups. **Normalize moved to v1.0 (Tyr, 2026-06-08).**
 
-**Status (2026-06-11):** **All five bug-hunt fix batches MERGED** (reports =
+**Status (2026-06-11):** **All six fix batches MERGED** (reports =
 `docs/reviews/bug_hunt_2026_06_10.md` + `design_recs_2026_06_10.md`, 96 findings): #84 sampler
 rescue, #85 time-is-one-domain, #86 drum kit, #87 M/S/R tap lag, #88 right-click/favourites,
-#89 undo-truth/persistence — details in the milestone list below. **Remaining before the tag
-decision: low-sweep batch (scoped 2026-06-11, see milestone below), then dogfood round 2.**
+#89 undo-truth/persistence, #91 low sweep — details in the milestone list below. **Remaining
+before the tag decision: dogfood round 2 (Tyr, next session), then tag if happy.**
 §4 decisions SETTLED (Tyr, 2026-06-11): audio arming → **exclusive arm like MIDI** (engine
 keeps multi-capture; deliberate multi-arm UI later) · mixer strip border → **unify to one
 weight** (drop the 4px left accent) · count-in at bar 1 → **mute track playback during
@@ -116,9 +116,11 @@ conversation.
   dead stubs gone. Walkthrough-found bonus: recording stop now selects the take (stale
   live-sentinel selection read as a blank clip). Ultracode workflow, batch-3 shape
   (36 agents, ~2.1M tokens; 16 raw → 6 confirmed findings, all fixed pre-walkthrough).
-- [x] **Low-sweep batch** (branch `fix/v0.6-low-sweep`, built 2026-06-11, gates green ×5 —
+- [x] **Low-sweep batch (PR #91, walkthrough PASSED 2026-06-11, gates green ×5** —
   cargo test, clippy -D warnings, analyze --fatal-infos, format, widgets/lint/services/state
-  tests — **awaiting Tyr walkthrough, no PR yet**). Shipped: corner artifacts ×3 (project
+  tests). Walkthrough found + fixed in-batch: Loop/Snap/Metronome outlines eaten by zone
+  fills (Container→DecoratedBox inset trap → foreground-border pattern, rule added to
+  `.claude/rules/flutter-ui.md`) + 2px height mismatch. Shipped: corner artifacts ×3 (project
   card, Loop/Snap splits — metronome pattern), hover-divider crossfade exit, Open/Settings
   rest borders, piano-roll toolbar 4px radius + full-height dividers + control heights,
   EQ per-band ⏻ CUT (design-recs §4: delete+undo covers it), editor-tab hover +
