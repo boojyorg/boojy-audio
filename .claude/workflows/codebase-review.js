@@ -1,7 +1,7 @@
 export const meta = {
   name: 'codebase-review',
   description:
-    'Whole-app correctness audit: parallel subsystem reads → adversarial verification (skeptics try to refute each candidate) → synthesized scorecard + ranked backlog + recommended theme. Model-tiered for cost (readers Sonnet, verifiers Haiku, synthesis Opus). Mirrors docs/reviews/codebase_review_2026_05_29.md.',
+    'Whole-app correctness audit: parallel subsystem reads → adversarial verification (skeptics try to refute each candidate) → synthesized scorecard + ranked backlog + recommended theme. Model-tiered for cost (readers Sonnet, verifiers Haiku, synthesis Opus). Mirrors docs/reviews/2026_05_29_codebase_review.md.',
   whenToUse:
     'At a MAJOR boundary (pre-1.0, or once per minor-version family) to pick the next correctness/hardening theme — not every patch. Heavy (~$30-50 tiered). Run gates green first; save the returned report to docs/reviews/. Tune VERIFIERS/DROP_IF_REFUTED for stricter/looser confirmation.',
   phases: [
@@ -92,7 +92,7 @@ log(`${confirmed.length}/${candidates.length} survived adversarial verification 
 
 phase('Synthesize')
 const report = await agent(
-  `Write a State-of-the-App review for Boojy Audio in the style of docs/reviews/codebase_review_2026_05_29.md. Inputs below are adversarially-verified (code-level confidence; no GUI repro was run).\n\nProduce markdown with: (1) executive summary + a per-area scorecard with letter grades; (2) confirmed bugs grouped by severity, each with file:line and cheap repro; (3) a prioritized improvement backlog ranked by severity × impact ÷ effort (S/M/L/XL) — NO new features, only fixes/hardening/tests/refactors; (4) a recommended next theme, paired with the alternative's cost. State the refuted-and-dropped count so they aren't re-hunted.\n\nSubsystem grades: ${JSON.stringify(grades)}\n\nConfirmed defects: ${JSON.stringify(confirmed.map((c) => ({ id: c.id, title: c.title, severity: c.severity, location: c.location, description: c.description, repro: c.repro, subsystem: c.subsystem })))}\n\nRefuted & dropped: ${dropped.length}.`,
+  `Write a State-of-the-App review for Boojy Audio in the style of docs/reviews/2026_05_29_codebase_review.md. Inputs below are adversarially-verified (code-level confidence; no GUI repro was run).\n\nProduce markdown with: (1) executive summary + a per-area scorecard with letter grades; (2) confirmed bugs grouped by severity, each with file:line and cheap repro; (3) a prioritized improvement backlog ranked by severity × impact ÷ effort (S/M/L/XL) — NO new features, only fixes/hardening/tests/refactors; (4) a recommended next theme, paired with the alternative's cost. State the refuted-and-dropped count so they aren't re-hunted.\n\nSubsystem grades: ${JSON.stringify(grades)}\n\nConfirmed defects: ${JSON.stringify(confirmed.map((c) => ({ id: c.id, title: c.title, severity: c.severity, location: c.location, description: c.description, repro: c.repro, subsystem: c.subsystem })))}\n\nRefuted & dropped: ${dropped.length}.`,
   { label: 'synthesize', phase: 'Synthesize', model: 'opus' }
 )
 

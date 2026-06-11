@@ -1,7 +1,7 @@
 # Boojy Audio — Codebase Review (Delta)
 
 **Date:** 2026-05-24
-**Scope:** Delta since [codebase_review_2026_05_22.md](codebase_review_2026_05_22.md) (~v0.2.4). Covers what landed this cycle — v0.3.0 send/return, the reverb DSP fix, and the Flutter 3.44 / Dart 3.12 upgrade (PR #1, merged). Unchanged areas are not re-litigated.
+**Scope:** Delta since [2026_05_22_codebase_review.md](2026_05_22_codebase_review.md) (~v0.2.4). Covers what landed this cycle — v0.3.0 send/return, the reverb DSP fix, and the Flutter 3.44 / Dart 3.12 upgrade (PR #1, merged). Unchanged areas are not re-litigated.
 
 ---
 
@@ -99,7 +99,7 @@ Two days of work moved three things that the May-22 review was waiting on: **rou
 
 | Date | Doc | Scope |
 |------|-----|-------|
-| 2026-03-26 | [ui_review_2026_03_26.md](ui_review_2026_03_26.md) | UI/UX vs competitors |
-| 2026-03-29 | [ui_review_2026_03_29.md](ui_review_2026_03_29.md) | UI/UX follow-up |
-| 2026-05-22 | [codebase_review_2026_05_22.md](codebase_review_2026_05_22.md) | Full codebase architecture & engineering |
+| 2026-03-26 | [2026_03_26_ui_review.md](2026_03_26_ui_review.md) | UI/UX vs competitors |
+| 2026-03-29 | [2026_03_29_ui_review.md](2026_03_29_ui_review.md) | UI/UX follow-up |
+| 2026-05-22 | [2026_05_22_codebase_review.md](2026_05_22_codebase_review.md) | Full codebase architecture & engineering |
 | 2026-05-24 | This doc | Delta: v0.3.0 send/return, reverb fix, Flutter 3.44 |

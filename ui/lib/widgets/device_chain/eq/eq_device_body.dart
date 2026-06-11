@@ -393,7 +393,7 @@ class _EqDeviceBodyState extends State<EqDeviceBody> {
             onEnd: () => _knobEnd('band_${band!.index}_focus'),
           ),
           const Spacer(),
-          // Per-band power/bypass cut for v0.6 (design_recs_2026_06_10.md §4):
+          // Per-band power/bypass cut for v0.6 (2026_06_10_design_recs.md §4):
           // a bare ⏻ next to a trash can reads as "off vs delete" ambiguity;
           // delete + undo covers beginners. The engine band_*_on param stays.
           _iconButton(

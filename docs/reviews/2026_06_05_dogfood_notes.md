@@ -2,7 +2,7 @@
 
 Captured verbatim-in-spirit from a screenshot walkthrough the day v0.5.1 was tagged. These are
 **ideas, not directives** — Tyr explicitly asked the review chain to do its own thorough analysis
-too. Cross-reference against `ui_ux_review_2026_06_05.md` at triage; agreement = strong signal.
+too. Cross-reference against `2026_06_05_ui_ux_review.md` at triage; agreement = strong signal.
 Screenshots referenced are the dated PNGs staged in `_screenshots/` for the review run.
 
 ## Start screen (`start-screen-2026-06-05.png`)

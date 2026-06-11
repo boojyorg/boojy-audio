@@ -12,7 +12,7 @@ import '../shared/editors/capsule_slider.dart';
 /// The previous bar carried the whole Audio-Editor control set (Start/Length/
 /// Sig, Warp/BPM/÷2/×2, Pitch) — clip-warping concepts that don't fit a
 /// pitched instrument, several of which were stored-but-dead engine params.
-/// They were cut by design (design_recs_2026_06_10.md §5); loop points are now
+/// They were cut by design (2026_06_10_design_recs.md §5); loop points are now
 /// edited with handles on the waveform itself.
 class SamplerControlsBar extends StatefulWidget {
   final bool loopEnabled;

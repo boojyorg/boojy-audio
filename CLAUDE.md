@@ -14,7 +14,8 @@ Docs/memory model (CLAUDE.md / `.claude/rules/` / `dreams.md` / auto-memory / gi
   **`docs/FEATURE_TRACKER.md`** (built-vs-not, v1.0 checklist) split the overflow.
 - **`docs/plans/vX.Y-plan.md`** — detailed spec for the active version (features, mockups, scope).
 - **`docs/reviews/`** — dated deep-review reports that set each version's theme (see Milestone
-  Reviews). **`docs/ARCHITECTURE.md`** — system design, folder structure, FFI patterns.
+  Reviews). Filenames are **date-first** — `YYYY_MM_DD_<topic>.md` — so the folder sorts
+  chronologically. **`docs/ARCHITECTURE.md`** — system design, folder structure, FFI patterns.
 - **`.claude/rules/*.md`** — per-area gotchas with `paths:` frontmatter (`ffi.md`, `audio-export.md`,
   `flutter-ui.md`, `state.md`, `build-and-test.md`). Conditional loading is flaky in early-2026
   Claude Code, so treat these as organization — genuinely global rules live here in `CLAUDE.md`.
