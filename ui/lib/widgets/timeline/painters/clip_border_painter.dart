@@ -143,6 +143,7 @@ class ClipBorderPainter extends CustomPainter {
   @override
   bool shouldRepaint(ClipBorderPainter oldDelegate) {
     return borderColor != oldDelegate.borderColor ||
+        trackColor != oldDelegate.trackColor ||
         borderWidth != oldDelegate.borderWidth ||
         cornerRadius != oldDelegate.cornerRadius ||
         notchRadius != oldDelegate.notchRadius ||

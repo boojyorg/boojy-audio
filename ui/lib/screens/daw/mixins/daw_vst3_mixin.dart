@@ -437,7 +437,7 @@ mixin DAWVst3Mixin
       refreshTrackWidgets();
 
       // Disarm other MIDI tracks (exclusive arm for new track)
-      disarmOtherMidiTracks(trackId);
+      disarmOtherTracks(trackId);
     } catch (e) {
       Log.e('Failed to create VST3 instrument track: $e');
     }

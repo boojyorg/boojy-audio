@@ -913,6 +913,7 @@ mixin DAWProjectMixin
 
     return ProjectPersistence.collect(
       libraryWidth: uiLayout.libraryPanelWidth,
+      libraryLeftWidth: uiLayout.libraryLeftColumnWidth,
       mixerWidth: uiLayout.mixerPanelWidth,
       bottomHeight: uiLayout.editorPanelHeight,
       libraryCollapsed: uiLayout.isLibraryPanelCollapsed,

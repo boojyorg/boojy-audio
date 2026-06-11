@@ -186,6 +186,14 @@ pub fn start_recording() -> Result<String, String> {
     };
     graph.recorder.set_recording_start_seconds(recording_start);
 
+    // Near bar 1 there's no room for a full pre-roll seekback, so (part of)
+    // the count-in plays "in place" — over the very bars being recorded.
+    // Flag it so the renderer mutes track playback during the count-in
+    // (the metronome stays audible).
+    graph
+        .recorder
+        .set_count_in_in_place(count_in_seconds > 0.0 && recording_start < count_in_seconds);
+
     // Seek back by count-in duration for pre-roll
     if punch_in && count_in_seconds > 0.0 {
         // Punch mode: pre-roll before the punch-in point

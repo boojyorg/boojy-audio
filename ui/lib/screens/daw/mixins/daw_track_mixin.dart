@@ -230,11 +230,10 @@ mixin DAWTrackMixin
     trackController.onTrackDuplicated(sourceTrackId, newTrackId);
   }
 
-  /// Called when a track is created from the mixer panel - refresh timeline immediately
-  void onTrackCreatedFromMixer(int trackId, String trackType) {
-    onTrackSelected(trackId);
-    refreshTrackWidgets();
-  }
+  // Mixer-created-track handling lives in daw_screen.dart's private
+  // _onTrackCreatedFromMixer (the live copy the callback actually binds —
+  // see the mixin-trap note in .claude/rules/flutter-ui.md); the dead mixin
+  // duplicate was deleted when exclusive arm landed there.
 
   /// Called when tracks are reordered via drag-and-drop in the mixer panel
   void onTrackReordered(int oldIndex, int newIndex) {
@@ -321,7 +320,7 @@ mixin DAWTrackMixin
     refreshTrackWidgets();
 
     // Disarm other MIDI tracks (exclusive arm for new track)
-    disarmOtherMidiTracks(trackId);
+    disarmOtherTracks(trackId);
   }
 
   /// Create a new Drum Kit track seeded with standard empty pads.

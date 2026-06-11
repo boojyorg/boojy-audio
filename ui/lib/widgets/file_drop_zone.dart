@@ -102,7 +102,7 @@ class _FileDropZoneState extends State<FileDropZone> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              _isDragging ? Icons.cloud_upload : BI.audioFile,
+              _isDragging ? BI.upload : BI.audioFile,
               size: 64,
               color: _isDragging ? colors.success : const Color(0xFF606060),
             ),

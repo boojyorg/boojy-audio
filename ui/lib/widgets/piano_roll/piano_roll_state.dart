@@ -17,8 +17,13 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   /// Horizontal zoom (pixels per beat).
   double pixelsPerBeat = 80.0;
 
-  /// Vertical zoom (height of each piano key) - fixed.
-  final double pixelsPerNote = 16.0;
+  /// Vertical zoom (height of each piano key) — adjusted by dragging the
+  /// piano-key gutter horizontally (see `_handleGutterHeightZoom`).
+  double pixelsPerNote = 16.0;
+
+  /// Vertical zoom limits.
+  static const double minPixelsPerNote = 8.0;
+  static const double maxPixelsPerNote = 40.0;
 
   /// View range constants.
   static const int minMidiNote = 0;

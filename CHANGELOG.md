@@ -6,6 +6,16 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- **Recording at bar 1 no longer plays the existing content over the count-in.** When there's
+  no room for a full pre-roll (the take starts at or near the song start), track playback is
+  muted during the count-in while the metronome keeps clicking — so the count-in counts you in
+  instead of replaying the bars you're about to record over.
+- **The piano roll has vertical zoom.** Drag the piano-key gutter horizontally to make note
+  rows taller or shorter (8–40px), anchored on the row at the centre of the view — previously
+  the gesture existed but did nothing.
+- **Arming is exclusive for every track type.** Arming any track (audio included) disarms the
+  others, so one red button means one thing; new tracks no longer quietly join a growing armed
+  set. Shift+click still multi-arms deliberately for layered/multi-input recording.
 - **The Sampler is now a one-screen instrument (GarageBand Quick Sampler model).** A sampler
   track with no sample shows a drop zone — drag a file from the library or Finder, or hit
   Browse; the empty state *is* the load UI. A hold-to-preview ▶ button next to Root auditions
@@ -21,6 +31,27 @@ All notable changes to Boojy Audio will be documented in this file.
   or returns a first load to the empty drop zone (new engine unload support).
 
 ### Bug Fixes
+
+- **Automation lane polish:** the Duplicate tool places the copy where you click (it always
+  landed one snap step right of the original); points parked at maximum value are grabbable
+  again (an invisible lane-resize strip along the top edge ate clicks on them — resize now
+  only claims empty space); moving a MIDI clip no longer reschedules it in the engine twice
+  per drag.
+- **The library's left column width survives a project reload** instead of resetting to its
+  default on every open.
+- **The synth no longer clicks on dense arpeggios** when more than 8 stolen notes were fading
+  at once — the fade pool now retires the quietest tail instead of always cutting the first.
+- **Visual low sweep** (from the 2026-06-10 bug-hunt Low ledger): ragged corner artifacts fixed
+  on the project card and the Loop/Snap split buttons; the project card's hover row no longer
+  paints a stray divider line mid-fade; Open/Settings buttons on the start screen show their
+  outline at rest; the piano-roll toolbar matches the app-wide 4px corner radius, its
+  split-button dividers span the full chip, and Start/Length/Signature match their neighbours'
+  height; editor tabs gained hover feedback and the drum-kit tab no longer reads "MIDI"
+  expanded but "Piano Roll" collapsed; the EQ's ambiguous per-band ⏻ button is gone (delete +
+  undo covers it); the shortcuts overlay lost its empty ghost key-boxes and now documents all
+  mapped piano keys (including `; ' \ ] =` and Z/X octave shift); clip borders repaint when a
+  track colour changes; mixer strips (Master included) use one uniform 2px border instead of a
+  4px left accent.
 
 - **Stopping a recording selects the take.** The piano roll used to be left pointing at the
   just-removed live-recording clip, so the fresh take could read as an empty clip until you

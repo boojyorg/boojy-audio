@@ -15,11 +15,14 @@ triage). Work order: starter kit (drum-kit PR3) → sound quick wins (automation
 `docs/reviews/bug_hunt_2026_06_10.md` + `design_recs_2026_06_10.md`, 96 findings): #84 sampler
 rescue, #85 time-is-one-domain, #86 drum kit, #87 M/S/R tap lag, #88 right-click/favourites,
 #89 undo-truth/persistence — details in the milestone list below. **Remaining before the tag
-decision: low-sweep visual batch (bug-report Low section), §4 decisions that need Tyr
-(multi-arm vs exclusive arm, mixer border asymmetry, wordmark baseline), then dogfood round.**
-§6.B strip mockup still parked pending a design conversation. Known in-place count-in
-behavior: recording at bar 1 plays existing content during the count-in (no pre-roll room) —
-Tyr noticed it 2026-06-11; mute-during-count-in is an open candidate tweak, not scheduled.
+decision: low-sweep batch (scoped 2026-06-11, see milestone below), then dogfood round 2.**
+§4 decisions SETTLED (Tyr, 2026-06-11): audio arming → **exclusive arm like MIDI** (engine
+keeps multi-capture; deliberate multi-arm UI later) · mixer strip border → **unify to one
+weight** (drop the 4px left accent) · count-in at bar 1 → **mute track playback during
+count-in (metronome stays), riding the low sweep**. Wordmark baseline = Tyr's eyes at 1×/2×
+during dogfood (verifiers split). §4.6 sampler Warp resolved — controls were cut by design in
+the sampler rebuild, nothing to hide. §6.B strip mockup still parked pending a design
+conversation.
 
 ### Milestones
 
@@ -113,10 +116,28 @@ Tyr noticed it 2026-06-11; mute-during-count-in is an open candidate tweak, not 
   dead stubs gone. Walkthrough-found bonus: recording stop now selects the take (stale
   live-sentinel selection read as a blank clip). Ultracode workflow, batch-3 shape
   (36 agents, ~2.1M tokens; 16 raw → 6 confirmed findings, all fixed pre-walkthrough).
-- [ ] **Low-sweep visual batch** (corner artifacts, radii, dividers, button tokens, hover
-  states — bug-report Low section); §4-of-bug-report decisions need Tyr (multi-arm,
-  mixer border).
-- [ ] **Tag decision** after batches land + dogfood round 2.
+- [x] **Low-sweep batch** (branch `fix/v0.6-low-sweep`, built 2026-06-11, gates green ×5 —
+  cargo test, clippy -D warnings, analyze --fatal-infos, format, widgets/lint/services/state
+  tests — **awaiting Tyr walkthrough, no PR yet**). Shipped: corner artifacts ×3 (project
+  card, Loop/Snap splits — metronome pattern), hover-divider crossfade exit, Open/Settings
+  rest borders, piano-roll toolbar 4px radius + full-height dividers + control heights,
+  EQ per-band ⏻ CUT (design-recs §4: delete+undo covers it), editor-tab hover +
+  MIDI/Piano-Roll label unify, shortcuts-overlay ghosts + full piano-key map, `Icons.*`→BI
+  (6 widgets, +radioUnchecked/upload/count* facade entries), vertical note zoom WIRED
+  (8–40px, centre-anchored), `shouldRepaint` trackColor, drag-end double engine reschedule
+  removed, automation Duplicate-at-click + resize-moved-into-pan-handlers (occlusion),
+  dead `_loadTrackVolume` regex deleted, library left-column width persisted
+  (`library_left_width` via ProjectPersistence), voice-steal quietest-tail. Decisions:
+  exclusive arm ALL track types (+ disarm on every create path; dead
+  `onTrackCreatedFromMixer` mixin duplicate deleted), mixer+Master border unified 2px,
+  count-in mute (engine `count_in_in_place` flag → renderer mutes tracks during CountingIn,
+  metronome stays). REFUTED on re-verify: stem-render limiter restore (never set — stems
+  skip master bus). Deferred: automation box-select/Delete (future automation batch),
+  playhead-grabber early-hide (marginal).
+- [ ] **Dogfood round 2** (Tyr): includes wordmark-baseline look at 1×/2×, plus the still-owed
+  macOS Sparkle spot-check.
+- [ ] **Tag decision** → if go: v0.6.0 release flow (Version Sync checklist + Windows smoke
+  test before publishing the draft).
 
 **Carried decisions:** ASIO deferred (WASAPI right for beginners). Windows machine = per-release
 test rig, not a dev machine. No stock instruments in v0.6 (triage). Loop region is orange, not

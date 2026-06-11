@@ -904,17 +904,10 @@ mixin TimelineGestureLayerMixin
                   if (overlapCmd != null) moveCommands.add(overlapCmd);
                 }
 
-                final newStartTimeSeconds = newStartBeats / beatsPerSecond;
-                final rustClipId =
-                    widget.getRustClipId?.call(midiClip.clipId) ??
-                    midiClip.clipId;
-                widget.audioEngine?.setClipStartTime(
-                  midiClip.trackId,
-                  rustClipId,
-                  newStartTimeSeconds,
-                );
-                final updatedClip = midiClip.copyWith(startTime: newStartBeats);
-                widget.midiClipCallbacks.onUpdated?.call(updatedClip);
+                // No direct engine write / onUpdated here: the move command's
+                // execute() below fires onClipMoved → onUpdated, which does a
+                // full engine reschedule. Doing it inline too ran the whole
+                // update (and engine write) twice per drag-end.
                 final midiMove = _buildMidiClipMoveCommand(
                   midiClip,
                   midiClip.startTime,

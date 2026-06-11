@@ -137,6 +137,7 @@ class BoojyIcons {
   static IconData get sliders => Icons.tune;
   static IconData get circle => Icons.circle_outlined;
   static IconData get radioChecked => Icons.radio_button_checked;
+  static IconData get radioUnchecked => Icons.radio_button_off;
   static IconData get checkBox => Icons.check_box;
   static IconData get checkBoxBlank => Icons.check_box_outline_blank;
   static IconData get dotsThree => Icons.more_vert;
@@ -156,6 +157,11 @@ class BoojyIcons {
   // MISC
   // ============================================
   static IconData get keyboard => Icons.keyboard;
+  static IconData get upload => Icons.cloud_upload;
+  // Count-in bar choices (1 / 2 / 4 bars) in the record controls.
+  static IconData get countOne => Icons.looks_one;
+  static IconData get countTwo => Icons.looks_two;
+  static IconData get countFour => Icons.looks_4;
   static IconData get rename => Icons.drive_file_rename_outline;
   static IconData get compress => Icons.compress;
   static IconData get expand => Icons.expand;

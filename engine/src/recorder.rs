@@ -75,6 +75,11 @@ pub struct Recorder {
     click_started_at: Arc<AtomicU64>,
     /// True when the sounding click is a downbeat (1200 Hz vs 800 Hz).
     click_is_downbeat: Arc<AtomicBool>,
+    /// True when the current take's count-in (partly) plays "in place" —
+    /// recording started too close to bar 1 for a full pre-roll seekback.
+    /// The renderer mutes track playback during the count-in in this case
+    /// (the metronome is mixed in later, so it stays audible).
+    count_in_in_place: Arc<AtomicBool>,
 }
 
 /// Sentinel for `click_started_at`: no click is sounding.
@@ -113,7 +118,15 @@ impl Recorder {
             monotonic_frames: Arc::new(AtomicU64::new(0)),
             click_started_at: Arc::new(AtomicU64::new(NO_CLICK)),
             click_is_downbeat: Arc::new(AtomicBool::new(false)),
+            count_in_in_place: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    /// Flag the current take's count-in as playing (partly) in place.
+    /// Set by `api::start_recording` on every take; stale values are harmless
+    /// because the renderer only reads it while the state is `CountingIn`.
+    pub fn set_count_in_in_place(&self, in_place: bool) {
+        self.count_in_in_place.store(in_place, Ordering::SeqCst);
     }
 
     /// Get clones of internal Arcs for use in audio callback
@@ -137,6 +150,7 @@ impl Recorder {
             monotonic_frames: self.monotonic_frames.clone(),
             click_started_at: self.click_started_at.clone(),
             click_is_downbeat: self.click_is_downbeat.clone(),
+            count_in_in_place: self.count_in_in_place.clone(),
         }
     }
 
@@ -449,6 +463,7 @@ pub struct RecorderCallbackRefs {
     pub monotonic_frames: Arc<AtomicU64>,
     pub click_started_at: Arc<AtomicU64>,
     pub click_is_downbeat: Arc<AtomicBool>,
+    pub count_in_in_place: Arc<AtomicBool>,
 }
 
 impl RecorderCallbackRefs {
