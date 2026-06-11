@@ -11,22 +11,15 @@
 triage). Work order: starter kit (drum-kit PR3) → sound quick wins (automation/reverse/monitoring)
 → join clips → UI ledger batches → cleanups. **Normalize moved to v1.0 (Tyr, 2026-06-08).**
 
-**Status (2026-06-10):** #83 (dogfood batch 1) MERGED. **Bug-hunt + design reviews ran
-2026-06-10** (96 confirmed findings; reports = `docs/reviews/bug_hunt_2026_06_10.md` +
-`design_recs_2026_06_10.md`) → verdict: don't tag v0.6 until the headline sound features work.
-Batch 1 (sampler rescue, #84) MERGED. **Batch 2 ("time is one domain") on branch
-`fix/v0.6-batch2-time-domain`, PR opening**: engine unified to one real-seconds time domain
-(dropped legacy tempo/120 playhead scaling — audio clips played displaced AND pitch-shifted at
-tempo≠120, automation/punch too; live + export + stems + join), tempo change/undo now re-pushes
-audio-clip + automation positions to the engine (+ Project Settings BPM routed through the
-undoable command; metadata.bpm kept synced), metronome reseeks on live tempo change (#28),
-stopped-path track-manager lock hold fixed (#19 — Tyr should RETEST the M/S/R lag after this),
-time-sig honesty per Tyr's calls: denominator LOCKED to /4 (settled — don't re-add compound
-sigs until the engine has a beat-unit concept), piano-roll Signature edits the project sig
-(undoable), piano-roll ruler follows the numerator. Time-domain rule codified in
-`.claude/rules/ffi.md` (route all tempo writes through `_onTempoChanged`). Remaining batches
-3–5: drum kit, right-click+favourites sweep, undo-truth+persistence; then visual sweep. §6.B
-strip mockup still parked pending a design conversation.
+**Status (2026-06-11):** **All five bug-hunt fix batches MERGED** (reports =
+`docs/reviews/bug_hunt_2026_06_10.md` + `design_recs_2026_06_10.md`, 96 findings): #84 sampler
+rescue, #85 time-is-one-domain, #86 drum kit, #87 M/S/R tap lag, #88 right-click/favourites,
+#89 undo-truth/persistence — details in the milestone list below. **Remaining before the tag
+decision: low-sweep visual batch (bug-report Low section), §4 decisions that need Tyr
+(multi-arm vs exclusive arm, mixer border asymmetry, wordmark baseline), then dogfood round.**
+§6.B strip mockup still parked pending a design conversation. Known in-place count-in
+behavior: recording at bar 1 plays existing content during the count-in (no pre-roll room) —
+Tyr noticed it 2026-06-11; mute-during-count-in is an open candidate tweak, not scheduled.
 
 ### Milestones
 
@@ -112,10 +105,17 @@ strip mockup still parked pending a design conversation.
   automation-lane menus) + **AST guard test** `ui/test/lint/provider_listen_guard_test.dart` +
   UndoRedoManager debug rethrow, phantom Effects tab via single `_tabs` source (#7, + collapsed
   Master), shared bottom buffer (#12), instrument-drop mixin consolidation (batch-3 debt).
-- [ ] **Batch 5** (undo-truth/persistence — lighter than report scope: recording undo
-  engine-resync #15/#16, icon command+persistence #17/#47, auto-save restart + undo-limit
-  setting #44/#45, navBar dispose #52, dead stubs), then the low-sweep visual batch;
-  §4-of-bug-report decisions need Tyr (multi-arm, mixer border).
+- [x] **Batch 5 — undo-truth/persistence (PR #89 MERGED 2026-06-11, squash `7edc2f4`, CI
+  green ×4, walkthrough passed)**: recording undo engine-resync (#15 trim trio re-push,
+  #16 `replaceClipsOnTrack` engine sync + fresh-id redo), icon undo + persistence (#17/#47
+  SetTrackIconCommand + ProjectPersistence + cross-project leak fix), auto-save live restart
+  (#44), dead SettingsDialog + undo-limit UI DELETED per Tyr (#45), navBar dispose (#52),
+  dead stubs gone. Walkthrough-found bonus: recording stop now selects the take (stale
+  live-sentinel selection read as a blank clip). Ultracode workflow, batch-3 shape
+  (36 agents, ~2.1M tokens; 16 raw → 6 confirmed findings, all fixed pre-walkthrough).
+- [ ] **Low-sweep visual batch** (corner artifacts, radii, dividers, button tokens, hover
+  states — bug-report Low section); §4-of-bug-report decisions need Tyr (multi-arm,
+  mixer border).
 - [ ] **Tag decision** after batches land + dogfood round 2.
 
 **Carried decisions:** ASIO deferred (WASAPI right for beginners). Windows machine = per-release
