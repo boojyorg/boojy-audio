@@ -455,6 +455,12 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
               clipData,
               rustClipId: result.midiClipId!,
             );
+            // Select the recorded clip. During recording the selection points
+            // at the live-recording sentinel (-999), which was just removed —
+            // without re-selecting, the piano roll keeps a stale snapshot of
+            // it and reads as empty until the user clicks the clip. Same rule
+            // as the clip-creation paths (autoSelectClip, v0.6 batch 3).
+            midiPlaybackManager?.selectClip(clipData.clipId, clipData);
             recordedItems.add('MIDI ($noteCount notes)');
           }
         } catch (e) {

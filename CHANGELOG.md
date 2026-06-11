@@ -22,6 +22,9 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Stopping a recording selects the take.** The piano roll used to be left pointing at the
+  just-removed live-recording clip, so the fresh take could read as an empty clip until you
+  clicked it; the recorded clip is now selected on stop, same as every clip-creation path.
 - **The drum-kit playhead highlights the right column wherever the clip sits.** The step grid
   assumed the clip started at bar 1 and ignored its content offset, so the moving highlight was
   wrong for any clip placed later in the arrangement. It now follows the clip's actual position,
