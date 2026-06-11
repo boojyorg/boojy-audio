@@ -121,6 +121,12 @@ For VST3 plugin support on Windows:
 | Cmd+J | Join clips |
 | Cmd+Z / Cmd+Shift+Z | Undo / Redo |
 
+## Contributing
+
+Boojy Audio is in **Early Access** and isn't accepting pull requests yet — contributions will
+open with the v1.0 release. **Bug reports and feedback are very welcome** — see
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 Boojy Audio is licensed under the **GNU General Public License v3.0** — see [LICENSE](LICENSE).
