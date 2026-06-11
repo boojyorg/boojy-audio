@@ -141,6 +141,11 @@ abstract class AudioEngineInterface {
   );
   int addMidiClipToTrack(int trackId, int clipId, double startTimeSeconds);
   int removeMidiClip(int trackId, int clipId);
+  String clearMidiClip(int clipId);
+  String getAllMidiClipsInfo();
+  String getMidiClipNotes(int clipId);
+  String sendMidiNoteOn(int note, int velocity);
+  String sendMidiNoteOff(int note, int velocity);
 
   // Project operations
   void setTempo(double bpm);

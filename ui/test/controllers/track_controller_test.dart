@@ -275,6 +275,29 @@ void main() {
       controller.setTrackIcon(1, 'drums');
       expect(controller.getTrackIcon(1), 'drums');
     });
+
+    test('clearAllTrackOverrides removes every icon and colour override '
+        '(project load/new — no cross-project leak)', () {
+      controller.setTrackIcon(1, 'guitar');
+      controller.setTrackIcon(2, 'piano');
+      controller.setTrackColor(1, const Color(0xFF112233));
+
+      controller.clearAllTrackOverrides();
+
+      expect(controller.getTrackIcon(1), isNull);
+      expect(controller.getTrackIcon(2), isNull);
+      expect(controller.trackIconOverrides, isEmpty);
+      expect(controller.trackColorOverrides, isEmpty);
+    });
+
+    test('clearAllTrackOverrides with nothing set does not notify', () {
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      controller.clearAllTrackOverrides();
+
+      expect(notifications, 0);
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -467,6 +490,13 @@ void main() {
       expect(controller.getTrackColor(1, 'Track', 'audio'), isNot(custom));
     });
 
+    test('removes icon override for deleted track', () {
+      controller.setTrackIcon(1, 'guitar');
+      controller.onTrackDeleted(1);
+      // A new track reusing id 1 must not inherit the old icon
+      expect(controller.getTrackIcon(1), isNull);
+    });
+
     test('removes instrument for deleted track', () {
       controller.setTrackInstrument(
         1,
@@ -553,6 +583,14 @@ void main() {
       controller.setTrackColor(1, custom);
       controller.onTrackDuplicated(1, 2);
       expect(controller.getTrackColor(2, 'Track', 'audio'), custom);
+    });
+
+    test('copies icon override from source to new track', () {
+      controller.setTrackIcon(1, 'guitar');
+      controller.onTrackDuplicated(1, 2);
+      expect(controller.getTrackIcon(2), 'guitar');
+      // Source keeps its own override
+      expect(controller.getTrackIcon(1), 'guitar');
     });
 
     test('copies track name user-edited state from source to new track', () {
@@ -646,6 +684,12 @@ void main() {
       controller.setTrackColor(1, custom);
       controller.clear();
       expect(controller.getTrackColor(1, 'Track', 'audio'), isNot(custom));
+    });
+
+    test('resets icon overrides (no leak into the next project)', () {
+      controller.setTrackIcon(1, 'guitar');
+      controller.clear();
+      expect(controller.getTrackIcon(1), isNull);
     });
 
     test('resets instruments', () {

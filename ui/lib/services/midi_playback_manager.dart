@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import '../audio_engine.dart';
 import '../models/midi_note_data.dart';
+import 'commands/audio_engine_interface.dart';
 
 /// Manages MIDI clip playback, scheduling, and editing state.
 ///
 /// Extracted from daw_screen.dart to improve maintainability.
 class MidiPlaybackManager extends ChangeNotifier {
-  final AudioEngine _audioEngine;
+  final AudioEngineInterface _audioEngine;
 
   // MIDI editing state
   int? _selectedMidiClipId;
@@ -434,26 +434,57 @@ class MidiPlaybackManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Replace all clips on a specific track with a new set.
-  /// Used for undo/redo of recording operations.
-  void replaceClipsOnTrack(int trackId, List<MidiClipData> newClips) {
-    // Remove existing clips for this track
+  /// Replace all clips on a specific track with a new set, keeping the
+  /// engine in sync. Used for undo/redo of recording operations.
+  ///
+  /// Clips that disappear are removed from the engine (not just the UI —
+  /// undoing a recording used to leave the engine playing the recorded
+  /// notes, #16). Clips that remain or reappear are re-pushed via
+  /// [_scheduleMidiClipPlayback]: surviving clips get their notes and start
+  /// time resynced in place, and clips without an engine mapping (e.g. a
+  /// recorded clip restored by redo after undo removed it) get a fresh
+  /// engine clip, so later delete/move operations target a valid id.
+  void replaceClipsOnTrack(
+    int trackId,
+    List<MidiClipData> newClips,
+    double tempo,
+  ) {
     final clipsToRemove = _midiClips
         .where((c) => c.trackId == trackId)
         .toList();
+    final newClipIds = newClips.map((c) => c.clipId).toSet();
+
+    // Remove engine clips for Dart clips that are going away. Survivors keep
+    // their mapping so the reschedule below resyncs them in place.
     for (final clip in clipsToRemove) {
-      _dartToRustClipIds.remove(clip.clipId);
+      if (newClipIds.contains(clip.clipId)) continue;
+      final rustClipId = _dartToRustClipIds.remove(clip.clipId);
+      if (rustClipId != null) {
+        _audioEngine.removeMidiClip(trackId, rustClipId);
+      }
     }
     _midiClips.removeWhere((c) => c.trackId == trackId);
 
-    // Add the new clips
+    // Add the new clips and push them to the engine.
     _midiClips.addAll(newClips);
+    for (final clip in newClips) {
+      _scheduleMidiClipPlayback(clip, tempo);
+    }
 
-    // Clear current editing clip if it was on this track
+    // Clear the current editing clip only if it did NOT survive the
+    // replacement — e.g. undoing a recording removes the recorded clip the
+    // user had open, but a pre-existing clip they were editing stays open
+    // (and the piano roll sees its refreshed copy, not a stale snapshot).
     if (_currentEditingClip != null &&
         _currentEditingClip!.trackId == trackId) {
-      _currentEditingClip = null;
-      _selectedMidiClipId = null;
+      if (newClipIds.contains(_currentEditingClip!.clipId)) {
+        _currentEditingClip = newClips.firstWhere(
+          (c) => c.clipId == _currentEditingClip!.clipId,
+        );
+      } else {
+        _currentEditingClip = null;
+        _selectedMidiClipId = null;
+      }
     }
 
     notifyListeners();

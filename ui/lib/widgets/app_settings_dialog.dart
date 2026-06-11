@@ -1,9 +1,11 @@
+import 'dart:async' show unawaited;
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import '../audio_engine.dart';
+import '../services/auto_save_service.dart';
 import '../services/updater_service.dart';
 import '../theme/animation_constants.dart';
 import '../services/user_settings.dart';
@@ -1232,6 +1234,18 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     );
   }
 
+  /// Reschedule the auto-save timer from the updated settings (#44).
+  ///
+  /// Fired (unawaited) from sync onChanged handlers; logs instead of silently
+  /// dropping the error if the backup directory can't be initialised.
+  Future<void> _restartAutoSave() async {
+    try {
+      await AutoSaveService().restart();
+    } catch (e) {
+      Log.e('Failed to restart auto-save: $e');
+    }
+  }
+
   Widget _buildSavingSettings() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1249,6 +1263,8 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                     widget.settings.autoSaveMinutes = 0; // Disable
                   }
                 });
+                // Apply immediately — reschedules the timer from now (#44).
+                unawaited(_restartAutoSave());
               },
               activeColor: context.colors.accent,
             ),
@@ -1298,6 +1314,9 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                       setState(() {
                         widget.settings.autoSaveMinutes = value;
                       });
+                      // Apply immediately — reschedules the timer from now
+                      // instead of waiting for a relaunch (#44).
+                      unawaited(_restartAutoSave());
                     }
                   },
                 ),

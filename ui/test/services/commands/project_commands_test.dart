@@ -254,4 +254,86 @@ void main() {
       expect(argb, isNull); // null = revert to the auto colour
     });
   });
+
+  group('SetTrackIconCommand', () {
+    test('has correct description', () {
+      final command = SetTrackIconCommand(
+        trackId: 1,
+        newIconKey: 'guitar',
+        oldIconKey: 'mic',
+        onIconChanged: (_, __) {},
+      );
+
+      expect(command.description, 'Change Track Icon');
+    });
+
+    test('execute applies the new icon key', () async {
+      int? trackId;
+      String? iconKey;
+
+      final command = SetTrackIconCommand(
+        trackId: 5,
+        newIconKey: 'guitar',
+        oldIconKey: 'mic',
+        onIconChanged: (id, key) {
+          trackId = id;
+          iconKey = key;
+        },
+      );
+
+      await command.execute(mockEngine);
+
+      expect(trackId, 5);
+      expect(iconKey, 'guitar');
+    });
+
+    test('undo restores the old icon key', () async {
+      String? iconKey;
+
+      final command = SetTrackIconCommand(
+        trackId: 5,
+        newIconKey: 'guitar',
+        oldIconKey: 'mic',
+        onIconChanged: (_, key) => iconKey = key,
+      );
+
+      await command.execute(mockEngine);
+      await command.undo(mockEngine);
+
+      expect(iconKey, 'mic');
+    });
+
+    test('undo clears the override when there was none before', () async {
+      String? iconKey = 'sentinel';
+
+      final command = SetTrackIconCommand(
+        trackId: 5,
+        newIconKey: 'guitar',
+        oldIconKey: null,
+        onIconChanged: (_, key) => iconKey = key,
+      );
+
+      await command.execute(mockEngine);
+      await command.undo(mockEngine);
+
+      expect(iconKey, isNull); // null = revert to the auto icon
+    });
+
+    test('survives undo -> redo (re-execute applies the new key)', () async {
+      final applied = <String?>[];
+
+      final command = SetTrackIconCommand(
+        trackId: 5,
+        newIconKey: 'guitar',
+        oldIconKey: null,
+        onIconChanged: (_, key) => applied.add(key),
+      );
+
+      await command.execute(mockEngine);
+      await command.undo(mockEngine);
+      await command.execute(mockEngine); // redo re-runs execute
+
+      expect(applied, ['guitar', null, 'guitar']);
+    });
+  });
 }
