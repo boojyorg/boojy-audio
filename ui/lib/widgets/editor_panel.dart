@@ -176,6 +176,9 @@ class _EditorPanelState extends State<EditorPanel>
   // tint, matching the top-bar split buttons). Null when nothing is hovered.
   ToolMode? _hoveredTool;
 
+  // Same for the editor tab buttons — inactive tabs had no hover feedback.
+  int? _hoveredTabIndex;
+
   // Highlighted note from Virtual Piano (for Piano Roll sync)
   int? _highlightedNote;
 
@@ -320,8 +323,9 @@ class _EditorPanelState extends State<EditorPanel>
         ),
         _EditorTab(
           icon: BI.piano,
+          // Same label expanded and collapsed — it read "MIDI" in one bar and
+          // "Piano Roll" in the other for the same tab.
           label: 'MIDI',
-          collapsedLabel: 'Piano Roll',
           content: _buildPianoRollTab,
         ),
       ];
@@ -1095,40 +1099,65 @@ class _EditorPanelState extends State<EditorPanel>
       inactiveBackground: context.colors.surface.withValues(alpha: 0.5),
       inactiveBorder: context.colors.divider.withValues(alpha: 0.5),
     );
+    // Inactive tabs gain the same hover tint the tool buttons use; the
+    // selected tab already carries its accent fill.
+    var background = style.background;
+    if (_hoveredTabIndex == index && !isSelected) {
+      background = Color.alphaBlend(
+        context.colors.textPrimary.withValues(alpha: BT.opacitySubtle),
+        background,
+      );
+    }
     return Tooltip(
       key: buttonKey,
       message: label,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            _onManualTabTap(index);
-          },
-          borderRadius: BorderRadius.circular(6),
-          child: AnimatedContainer(
-            duration: AnimationConstants.hoverDuration,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: style.background,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: style.border),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 16, color: style.content),
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected
-                        ? BT.weightSemiBold
-                        : BT.weightMedium,
-                    color: style.content,
+      child: MouseRegion(
+        onEnter: (_) {
+          if (_hoveredTabIndex != index) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _hoveredTabIndex = index);
+            });
+          }
+        },
+        onExit: (_) {
+          if (_hoveredTabIndex == index) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _hoveredTabIndex = null);
+            });
+          }
+        },
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              _onManualTabTap(index);
+            },
+            borderRadius: BorderRadius.circular(6),
+            child: AnimatedContainer(
+              duration: AnimationConstants.hoverDuration,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: background,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: style.border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 16, color: style.content),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isSelected
+                          ? BT.weightSemiBold
+                          : BT.weightMedium,
+                      color: style.content,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

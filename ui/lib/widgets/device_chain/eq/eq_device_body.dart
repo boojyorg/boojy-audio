@@ -393,14 +393,9 @@ class _EqDeviceBodyState extends State<EqDeviceBody> {
             onEnd: () => _knobEnd('band_${band!.index}_focus'),
           ),
           const Spacer(),
-          _iconButton(
-            colors,
-            icon: BI.power,
-            tooltip: 'Bypass this band',
-            active: hasSel && band.on,
-            enabled: hasSel,
-            onTap: () => _toggle('band_${band!.index}_on'),
-          ),
+          // Per-band power/bypass cut for v0.6 (design_recs_2026_06_10.md §4):
+          // a bare ⏻ next to a trash can reads as "off vs delete" ambiguity;
+          // delete + undo covers beginners. The engine band_*_on param stays.
           _iconButton(
             colors,
             icon: BI.delete,

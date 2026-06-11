@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/library_item.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 
 /// Whether the user wants an insert effect or a shared send bus.
@@ -116,11 +117,7 @@ class _FxPickerDialogState extends State<_FxPickerDialog> {
               decoration: InputDecoration(
                 hintText: 'Search effects...',
                 hintStyle: TextStyle(color: colors.textMuted, fontSize: 12),
-                prefixIcon: Icon(
-                  Icons.search,
-                  size: 18,
-                  color: colors.textMuted,
-                ),
+                prefixIcon: Icon(BI.search, size: 18, color: colors.textMuted),
                 isDense: true,
                 filled: true,
                 fillColor: colors.dark,
@@ -195,7 +192,7 @@ class _ModeOptionTile extends StatelessWidget {
       dense: true,
       contentPadding: EdgeInsets.zero,
       leading: Icon(
-        selected ? Icons.radio_button_checked : Icons.radio_button_off,
+        selected ? BI.radioChecked : BI.radioUnchecked,
         size: 18,
         color: selected ? colors.accent : colors.textMuted,
       ),

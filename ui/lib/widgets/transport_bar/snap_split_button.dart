@@ -142,11 +142,14 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
 
     return Tooltip(
       message: tooltip,
-      child: Container(
+      child: DecoratedBox(
         key: _buttonKey,
-        // Clip so the rounded corners never show a grey sliver of the bar
-        // behind the zone fills. The outline turns a soft accent when engaged.
-        clipBehavior: Clip.antiAlias,
+        // Foreground border, no clip: clipping shaves the stroke at the
+        // corner arcs, and a background border gets painted over by the
+        // opaque zone fills (DecoratedBox doesn't inset its child the way
+        // Container does). Painting the stroke ON TOP keeps it visible over
+        // the fills without changing the button's height.
+        position: DecorationPosition.foreground,
         decoration: BoxDecoration(
           borderRadius: BT.borderMd,
           border: Border.all(
@@ -196,8 +199,8 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                                   ))
                           : leftBg,
                       borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(BT.radiusMd),
-                        bottomLeft: Radius.circular(BT.radiusMd),
+                        topLeft: Radius.circular(BT.radiusMd - 1),
+                        bottomLeft: Radius.circular(BT.radiusMd - 1),
                       ),
                     ),
                     child: Row(
@@ -259,8 +262,8 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                                   ))
                           : leftBg,
                       borderRadius: const BorderRadius.only(
-                        topRight: Radius.circular(BT.radiusMd),
-                        bottomRight: Radius.circular(BT.radiusMd),
+                        topRight: Radius.circular(BT.radiusMd - 1),
+                        bottomRight: Radius.circular(BT.radiusMd - 1),
                       ),
                     ),
                     child: Text(

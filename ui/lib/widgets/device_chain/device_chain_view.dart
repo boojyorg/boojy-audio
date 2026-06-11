@@ -252,7 +252,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
       }
 
       // Read track volume for instrument strip thumb
-      _loadTrackVolume();
+      _syncTrackVolume();
 
       // Only clear overrides where the engine has caught up to the user's value
       _localParamOverrides.removeWhere((key, localVal) {
@@ -275,15 +275,9 @@ class _DeviceChainViewState extends State<DeviceChainView>
     }
   }
 
-  void _loadTrackVolume() {
-    if (widget.audioEngine == null || widget.selectedTrackId == null) return;
-    final info = widget.audioEngine!.getTrackInfo(widget.selectedTrackId!);
-    // Format: "id:X,name:...,volume:Y,..." — parse volume
-    final volumeMatch = RegExp(r'volume:([-\d.]+)').firstMatch(info);
-    if (volumeMatch != null) {
-      _trackVolumeDb = double.tryParse(volumeMatch.group(1)!) ?? 0.0;
-    }
-  }
+  // (_loadTrackVolume deleted — it regex-parsed a "volume:Y" format the
+  // engine never emits, so it silently left _trackVolumeDb at 0.0;
+  // _syncTrackVolume does the real positional-CSV parse.)
 
   // --- Effect operations ---
 

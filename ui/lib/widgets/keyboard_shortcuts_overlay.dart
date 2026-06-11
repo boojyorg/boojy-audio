@@ -135,8 +135,9 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
                     ]),
                     const SizedBox(height: 20),
                     _buildSection(context, 'Virtual Piano', [
-                      _Shortcut('A S D F G H J K L', 'White Keys'),
-                      _Shortcut('W E  T Y U  O P', 'Black Keys'),
+                      _Shortcut("A S D F G H J K L ; ' \\", 'White Keys'),
+                      _Shortcut('W E T Y U O P ] =', 'Black Keys'),
+                      _Shortcut('Z X', 'Octave Down / Up'),
                     ]),
                   ],
                 ),
@@ -220,8 +221,9 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
   }
 
   Widget _buildKeyCombo(BuildContext context, String keys) {
-    // Split by spaces to handle multi-key combos
-    final parts = keys.split(' ');
+    // Split by spaces to handle multi-key combos. Drop empty parts — a double
+    // space used to render as a bordered ghost badge with nothing in it.
+    final parts = keys.split(' ').where((key) => key.isNotEmpty);
     return Wrap(
       spacing: 4,
       children: parts.map((key) => _buildKeyBadge(context, key)).toList(),

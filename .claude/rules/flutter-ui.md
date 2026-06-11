@@ -66,6 +66,13 @@ CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
   visible on the metronome button and every device card). Instead: bordered container with NO
   clip, and either round the inner fills to `radius - borderWidth` (metronome pattern) or wrap
   the child in `ClipRRect` at the inner radius (DeviceBox pattern).
+  - **Container→DecoratedBox loses the border inset.** A `Container` with a border decoration
+    silently pads its child by the border width; `DecoratedBox` paints the border *behind* a
+    full-size child, so opaque child fills cover the stroke entirely (the `use_decorated_box`
+    lint pushes you straight into this — it broke the Loop/Snap outlines in v0.6). For a
+    bordered box whose children paint their own fills, put the border on a
+    `DecoratedBox(position: DecorationPosition.foreground)` so the stroke paints on top —
+    same height, fills can't eat it (Loop/Snap split buttons, piano-roll Snap/Quantize chips).
 - **Track icons are BI icons keyed by string** (`utils/track_icons.dart`): `customIcon` persists
   a key like `'mic'`; legacy emoji strings from old projects map through the legacy-emoji table.
   Don't reintroduce emoji glyphs in track chrome.

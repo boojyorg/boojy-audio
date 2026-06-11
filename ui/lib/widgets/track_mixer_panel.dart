@@ -514,15 +514,16 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     }
   }
 
-  /// Handle arm button toggle with exclusive arm behavior for MIDI tracks.
-  /// Clicking arm on a MIDI track disarms all other MIDI tracks (Ableton-style).
+  /// Handle arm button toggle with exclusive arm behavior — arming any track
+  /// disarms all others (audio included; one red button means one thing).
+  /// Shift+click (_handleArmShiftClick) is the deliberate multi-arm path.
   void _handleArmToggle(TrackData track, List<TrackData> allTracks) {
     final disarmedIds = <int>[];
     setState(() {
       if (!track.armed) {
-        // Arming this track - disarm all other MIDI tracks (exclusive arm)
+        // Arming this track - disarm all other tracks (exclusive arm)
         for (final t in allTracks) {
-          if (t.type == 'midi' && t.id != track.id && t.armed) {
+          if (t.id != track.id && t.armed) {
             t.armed = false;
             t.inputMonitoring = false; // engine auto-mode mirrors arm
             disarmedIds.add(t.id);

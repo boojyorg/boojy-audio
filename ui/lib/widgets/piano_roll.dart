@@ -1421,10 +1421,35 @@ class _PianoRollState extends State<PianoRoll>
 
   /// Handle note height zoom from InteractiveGutter horizontal drag.
   void _handleGutterHeightZoom(double factor) {
-    // Note: pixelsPerNote is currently fixed in PianoRollStateMixin.
-    // To enable vertical zoom, we would need to make it mutable.
-    // For now, this is a no-op placeholder for future implementation.
-    // Future: Vertical zoom via mutable pixelsPerNote (v0.3.0)
+    final oldValue = pixelsPerNote;
+    final newValue = (oldValue * factor).clamp(
+      PianoRollStateMixin.minPixelsPerNote,
+      PianoRollStateMixin.maxPixelsPerNote,
+    );
+    if (newValue == oldValue) return;
+
+    // Capture which row sits at the viewport centre, so the zoom anchors
+    // there instead of drifting toward the top of the canvas.
+    double? centerRow;
+    double viewportCenter = 0;
+    if (verticalScroll.hasClients) {
+      viewportCenter = verticalScroll.position.viewportDimension / 2;
+      centerRow = (verticalScroll.offset + viewportCenter) / oldValue;
+    }
+
+    setState(() => pixelsPerNote = newValue);
+
+    if (centerRow != null) {
+      final anchorRow = centerRow;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!verticalScroll.hasClients) return;
+        final target = (anchorRow * pixelsPerNote - viewportCenter).clamp(
+          0.0,
+          verticalScroll.position.maxScrollExtent,
+        );
+        verticalScroll.jumpTo(target);
+      });
+    }
   }
 
   /// Handle tap on piano key (audition note).

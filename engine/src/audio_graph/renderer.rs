@@ -1227,6 +1227,17 @@ impl AudioGraph {
                         );
                     }
 
+                    // In-place count-in (recording at/near bar 1, no room for
+                    // a full pre-roll): mute track playback so the count-in
+                    // isn't accompanied by the very bars being recorded over.
+                    // The metronome is mixed in after the limiter, so it stays.
+                    if recorder_refs.count_in_in_place.load(Ordering::Relaxed)
+                        && *recorder_refs.state.lock() == crate::recorder::RecordingState::CountingIn
+                    {
+                        master_l[..sb_len].fill(0.0);
+                        master_r[..sb_len].fill(0.0);
+                    }
+
                     // --- Per-sample tail: recording/metronome, limiter, metering,
                     // latency test, preview, output write. These stay strictly per-frame
                     // and in order (recorder + latency + preview advance per sample). ---

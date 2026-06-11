@@ -240,6 +240,9 @@ mixin DAWLibraryMixin
 
       // 8. Refresh track widgets
       refreshTrackWidgets();
+
+      // New tracks arm themselves — keep arming exclusive (audio included).
+      disarmOtherTracks(trackId);
     } catch (e) {
       Log.e('Failed to add audio file to new track: $e');
     }
@@ -371,7 +374,7 @@ mixin DAWLibraryMixin
 
       // Disarm other MIDI tracks when creating new MIDI track (exclusive arm)
       if (trackType == 'midi') {
-        disarmOtherMidiTracks(trackId);
+        disarmOtherTracks(trackId);
       }
     } catch (e) {
       Log.e('Failed to create track with clip: $e');

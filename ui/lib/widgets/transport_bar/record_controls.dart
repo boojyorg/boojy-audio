@@ -103,33 +103,33 @@ class _RecordButtonState extends State<RecordButton>
             ],
           ),
         ),
-        const PopupMenuItem<int>(
+        PopupMenuItem<int>(
           value: 1,
           child: Row(
             children: [
-              Icon(Icons.looks_one, size: BT.iconMd),
-              SizedBox(width: 8),
-              Text('Count-in: 1 Bar'),
+              Icon(BI.countOne, size: BT.iconMd),
+              const SizedBox(width: 8),
+              const Text('Count-in: 1 Bar'),
             ],
           ),
         ),
-        const PopupMenuItem<int>(
+        PopupMenuItem<int>(
           value: 2,
           child: Row(
             children: [
-              Icon(Icons.looks_two, size: BT.iconMd),
-              SizedBox(width: 8),
-              Text('Count-in: 2 Bars'),
+              Icon(BI.countTwo, size: BT.iconMd),
+              const SizedBox(width: 8),
+              const Text('Count-in: 2 Bars'),
             ],
           ),
         ),
-        const PopupMenuItem<int>(
+        PopupMenuItem<int>(
           value: 4,
           child: Row(
             children: [
-              Icon(Icons.looks_4, size: BT.iconMd),
-              SizedBox(width: 8),
-              Text('Count-in: 4 Bars'),
+              Icon(BI.countFour, size: BT.iconMd),
+              const SizedBox(width: 8),
+              const Text('Count-in: 4 Bars'),
             ],
           ),
         ),

@@ -114,11 +114,14 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
       link: _layerLink,
       child: Tooltip(
         message: tooltip,
-        child: Container(
+        child: DecoratedBox(
           key: _buttonKey,
-          // Clip so the rounded corners never show a grey sliver of the bar
-          // behind the zone fills. The outline turns a soft accent when engaged.
-          clipBehavior: Clip.antiAlias,
+          // Foreground border, no clip: clipping shaves the stroke at the
+          // corner arcs, and a background border gets painted over by the
+          // opaque zone fills (DecoratedBox doesn't inset its child the way
+          // Container does). Painting the stroke ON TOP keeps it visible over
+          // the fills without changing the button's height.
+          position: DecorationPosition.foreground,
           decoration: BoxDecoration(
             borderRadius: BT.borderMd,
             border: Border.all(
@@ -171,12 +174,14 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
                         // When loop is off the button is a single plain pill
                         // (rounds all corners); when on, only the left corners
                         // round so the punch zone joins seamlessly on the right.
+                        // Inner radius (radiusMd - 1) keeps the fill inside the
+                        // 1px border stroke.
                         borderRadius: isActive
                             ? const BorderRadius.only(
-                                topLeft: Radius.circular(BT.radiusMd),
-                                bottomLeft: Radius.circular(BT.radiusMd),
+                                topLeft: Radius.circular(BT.radiusMd - 1),
+                                bottomLeft: Radius.circular(BT.radiusMd - 1),
                               )
-                            : BT.borderMd,
+                            : BorderRadius.circular(BT.radiusMd - 1),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -235,8 +240,8 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
                                       ))
                               : leftBg,
                           borderRadius: const BorderRadius.only(
-                            topRight: Radius.circular(BT.radiusMd),
-                            bottomRight: Radius.circular(BT.radiusMd),
+                            topRight: Radius.circular(BT.radiusMd - 1),
+                            bottomRight: Radius.circular(BT.radiusMd - 1),
                           ),
                         ),
                         child: _hasPunch

@@ -298,11 +298,23 @@ impl Synth {
     /// immediately while the old one ramps to silence.
     fn start_steal_fade(&mut self, mut stolen: Voice) {
         stolen.enter_release();
+        // Prefer a free tail; when all are busy, overwrite the quietest one
+        // (always clobbering slot 0 clicked audibly on dense arps).
         let slot = self
             .steal_tails
             .iter()
             .position(|t| !t.is_active)
-            .unwrap_or(0);
+            .unwrap_or_else(|| {
+                self.steal_tails
+                    .iter()
+                    .enumerate()
+                    .min_by(|(_, a), (_, b)| {
+                        a.env_level
+                            .partial_cmp(&b.env_level)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    })
+                    .map_or(0, |(i, _)| i)
+            });
         self.steal_tails[slot] = stolen;
     }
 

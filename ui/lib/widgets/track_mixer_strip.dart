@@ -331,7 +331,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     final scale = _scaleFactor;
 
     // Available height for content
-    // Border: 4px left, 2px top/right/bottom - vertical offset is top + bottom = 4px
+    // Border: uniform 2px - vertical offset is top + bottom = 4px
     const double borderOffset = 4.0;
     final availableHeight = baseHeight - borderOffset;
 
@@ -1201,40 +1201,18 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                     color: isHovered
                         ? context.colors.accent.withValues(alpha: 0.3)
                         : _getTintedBackgroundColor(),
-                    // Asymmetric border: 4px left, 2px top/right/bottom (like Master track)
-                    // When selected, border changes to white
-                    border: isHovered
-                        ? Border.all(color: context.colors.accent, width: 2)
-                        : Border(
-                            left: BorderSide(
-                              color: widget.isSelected
-                                  ? Colors.white.withValues(alpha: 0.9)
-                                  : (widget.trackColor ??
-                                        context.colors.textSecondary),
-                              width: 4,
-                            ),
-                            top: BorderSide(
-                              color: widget.isSelected
-                                  ? Colors.white.withValues(alpha: 0.9)
-                                  : (widget.trackColor ??
-                                        context.colors.textSecondary),
-                              width: 2,
-                            ),
-                            right: BorderSide(
-                              color: widget.isSelected
-                                  ? Colors.white.withValues(alpha: 0.9)
-                                  : (widget.trackColor ??
-                                        context.colors.textSecondary),
-                              width: 2,
-                            ),
-                            bottom: BorderSide(
-                              color: widget.isSelected
-                                  ? Colors.white.withValues(alpha: 0.9)
-                                  : (widget.trackColor ??
-                                        context.colors.textSecondary),
-                              width: 2,
-                            ),
-                          ),
+                    // One uniform 2px border (the old 4px left accent was the
+                    // lone asymmetric treatment left in the app — unified per
+                    // Tyr, 2026-06-11). Selected = white, else track colour.
+                    border: Border.all(
+                      color: isHovered
+                          ? context.colors.accent
+                          : (widget.isSelected
+                                ? Colors.white.withValues(alpha: 0.9)
+                                : (widget.trackColor ??
+                                      context.colors.textSecondary)),
+                      width: 2,
+                    ),
                   ),
                   // When the automation lane is visible, the strip grows by
                   // automationHeight — but the normal controls stay pinned in
@@ -1999,12 +1977,9 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
               clipBehavior: Clip.hardEdge,
               decoration: BoxDecoration(
                 color: _getTintedBackgroundColor(context),
-                border: Border(
-                  left: BorderSide(color: borderColor, width: 4),
-                  top: BorderSide(color: borderColor, width: 2),
-                  right: BorderSide(color: borderColor, width: 2),
-                  bottom: BorderSide(color: borderColor, width: 2),
-                ),
+                // Uniform 2px border, matching the track strips (the 4px left
+                // accent was unified away — Tyr, 2026-06-11).
+                border: Border.all(color: borderColor, width: 2),
               ),
               child: Padding(
                 padding: EdgeInsets.only(

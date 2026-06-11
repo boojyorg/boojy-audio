@@ -93,7 +93,7 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
             Row(
               children: [
                 Icon(
-                  Icons.library_music,
+                  BI.libraryMusic,
                   color: context.colors.textSecondary,
                   size: 24,
                 ),
