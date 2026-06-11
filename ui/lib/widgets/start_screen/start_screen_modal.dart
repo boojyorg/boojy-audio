@@ -179,14 +179,14 @@ class _StartScreenModalState extends State<StartScreenModal> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 16),
+        // 3 (not 16) so the top of "Boojy" lines up with the Recent Projects
+        // heading; the extra 13 goes below so the action buttons don't shift.
+        const SizedBox(height: 3),
 
-        // App logo — rebuilt in code (the old PNGs baked the text near-black, so
-        // it vanished on the dark modal). "Boojy" in white with the brand amber
-        // dot; "▲udio" reuses the live top-bar wordmark so it can't drift.
+        // App logo — the brand raster lockup (theme-picked black/white text).
         const BoojyWordmarkLockup(),
 
-        const SizedBox(height: 40),
+        const SizedBox(height: 53),
 
         // Action buttons
         _ActionButton(

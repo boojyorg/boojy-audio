@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../theme/theme_extension.dart';
-import '../../theme/tokens.dart';
 
 /// Paints the filled equilateral "▲" that doubles as the "A" in the Boojy Audio
-/// wordmark. Shared so the top bar, start screen, and settings footer all draw
-/// the identical mark — no raster asset, theme-aware via [color].
+/// wordmark. Kept code-drawn (not part of the raster text assets) so it stays
+/// theme-aware — the top bar tints it with the accent, or [error] red when the
+/// engine fails to start.
 class BoojyTrianglePainter extends CustomPainter {
   const BoojyTrianglePainter(this.color);
 
@@ -29,121 +29,102 @@ class BoojyTrianglePainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
-/// The "▲udio" wordmark: a brand-accent triangle ("A") + "udio" in the UI font.
+/// The brand text is raster art (the lettering is not Inter, so it can't be
+/// faithfully reproduced with Text). Black originals were exported from the
+/// design source; the *_white.png twins are script-recolored copies
+/// (near-black → white) that keep the grey i/j tittles and the amber "o"
+/// untouched. Picks per theme: light text on a dark theme → the white asset.
+/// [mark] is 'boojy' or 'udio'. Shared with the top bar's logo.
+String boojyTextAsset(BuildContext context, String mark) {
+  final light = context.colors.textPrimary.computeLuminance() > 0.5;
+  return 'assets/images/${mark}_text_${light ? 'white' : 'black'}.png';
+}
+
+// Proportions measured from the brand lockup (boojy_audio_text_Audio_v2.png,
+// which contains the udio art at 1:1): triangle 268×239 sits bottom-aligned
+// with the letters, 18px gap; the trimmed udio asset is 670×266 with the
+// letters 241 tall (the i-tittle accounts for the top 25px).
+const double _kTriW = 268, _kTriH = 239, _kGap = 18;
+const double _kUdioH = 266;
+
+/// The "▲udio" wordmark: a brand-accent code-drawn triangle ("A") + the brand
+/// "udio" raster art.
 ///
-/// This is the single source of truth for the treatment shown in the top bar's
-/// logo. Reused in the start screen and the settings footer so they can't drift
-/// from a stale raster/SVG asset again. Triangle and gap scale with [fontSize].
+/// [fontSize] keeps the old Inter-based sizing anchor (24 → the top bar's
+/// 22×19 triangle) so existing call sites keep their visual size. To dim the
+/// whole mark (e.g. the settings footer), wrap it in [Opacity] — raster text
+/// can't take an arbitrary colour the way the old [Text] could.
 class BoojyWordmark extends StatelessWidget {
   const BoojyWordmark({
     super.key,
     required this.triangleColor,
-    required this.textColor,
     this.fontSize = 24,
   });
 
-  /// Colour of the "▲" (the "A"). Pass the brand accent, or [error] to signal a
-  /// failed engine, exactly as the top bar does.
+  /// Colour of the "▲" (the "A"). Pass the brand accent, or [error] to signal
+  /// a failed engine, exactly as the top bar does.
   final Color triangleColor;
 
-  /// Colour of the "udio" text.
-  final Color textColor;
-
-  /// Size of the "udio" text; the triangle and gap scale proportionally to keep
-  /// the same proportions as the 24px top-bar lockup.
+  /// Nominal size; the triangle scales as fontSize 24 → 19px tall, matching
+  /// the pre-raster lockup, and the udio art scales with the triangle.
   final double fontSize;
 
   @override
   Widget build(BuildContext context) {
-    // Match the top bar's 24px → Size(22, 19.05) triangle (equilateral, so
-    // height = base * √3/2 ≈ base * 0.866) and 2px gap.
-    final triWidth = fontSize * (22 / 24);
-    final triHeight = triWidth * (19.05 / 22);
+    final triHeight = fontSize * (19.05 / 24);
+    final triWidth = triHeight * (_kTriW / _kTriH);
     return Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         CustomPaint(
           size: Size(triWidth, triHeight),
           painter: BoojyTrianglePainter(triangleColor),
         ),
-        SizedBox(width: fontSize * (2 / 24)),
-        Text(
-          'udio',
-          maxLines: 1,
-          softWrap: false,
-          overflow: TextOverflow.clip,
-          style: TextStyle(
-            fontSize: fontSize,
-            fontWeight: BT.weightSemiBold,
-            color: textColor,
-            letterSpacing: -0.5,
-            height: 1.0,
-          ),
+        SizedBox(width: triHeight * (_kGap / _kTriH)),
+        Image.asset(
+          boojyTextAsset(context, 'udio'),
+          height: triHeight * (_kUdioH / _kTriH),
+          filterQuality: FilterQuality.medium,
         ),
       ],
     );
   }
 }
 
-/// The stacked "Boojy / ▲udio" brand lockup.
-///
-/// Rebuilt in code rather than served from PNGs: the old `boojy-logo.png` /
-/// `boojy_audio_text.png` baked the lettering in near-black, so it disappeared
-/// against dark modals. "Boojy" is white with the brand amber dot for the
-/// second "o"; "▲udio" reuses [BoojyWordmark] — the same treatment as the live
-/// top-bar logo — so the two can never drift. Shown on the start screen and
+/// The stacked "Boojy / ▲udio" brand lockup, shown on the start screen and
 /// the crash-recovery dialog; [scale] shrinks the whole lockup proportionally.
+///
+/// "Boojy" is the brand raster art (amber "o", grey j-tittle baked in); the
+/// "▲udio" line reuses [BoojyWordmark]. Both pick black/white text per theme,
+/// so the lettering can't vanish against dark modals the way the original
+/// dark-only PNGs did (H13).
 class BoojyWordmarkLockup extends StatelessWidget {
   const BoojyWordmarkLockup({super.key, this.scale = 1.0});
 
   /// Multiplies every dimension (1.0 = the 46px/32px start-screen lockup).
   final double scale;
 
-  // The warm amber of the logo dot (sampled from the original asset). Not a
-  // theme token — it's a fixed brand colour, like the accent blue.
-  static const Color _brandAmber = Color(0xFFFBB034);
-
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text.rich(
-          TextSpan(
-            style: TextStyle(
-              fontSize: 46 * scale,
-              fontWeight: FontWeight.w700,
-              color: colors.textPrimary,
-              letterSpacing: -1 * scale,
-              height: 1.0,
-            ),
-            children: [
-              const TextSpan(text: 'Bo'),
-              WidgetSpan(
-                alignment: PlaceholderAlignment.middle,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 1.5 * scale),
-                  child: Container(
-                    width: 24 * scale,
-                    height: 24 * scale,
-                    decoration: const BoxDecoration(
-                      color: _brandAmber,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ),
-              const TextSpan(text: 'jy'),
-            ],
+        // Nudged right so the B's stem optically aligns with the ▲'s left
+        // slope below it (Tyr-tuned).
+        Padding(
+          padding: EdgeInsets.only(left: 4 * scale),
+          child: Image.asset(
+            boojyTextAsset(context, 'boojy'),
+            height: 47 * scale,
+            filterQuality: FilterQuality.medium,
           ),
         ),
         SizedBox(height: 6 * scale),
         BoojyWordmark(
-          triangleColor: colors.accent,
-          textColor: colors.textPrimary,
-          fontSize: 32 * scale,
+          triangleColor: context.colors.accent,
+          fontSize: 40 * scale,
         ),
       ],
     );
