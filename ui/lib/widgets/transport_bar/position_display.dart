@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/theme_extension.dart';
@@ -48,6 +49,8 @@ class _PositionDisplayState extends State<PositionDisplay> {
   bool _isHovered = false;
   bool _isScrubbing = false;
   double _scrubBeats = 0;
+  DateTime? _lastTapAt;
+  PositionDisplayMode? _modeBeforeTap;
   late TextEditingController _editController;
   late FocusNode _focusNode;
 
@@ -99,6 +102,28 @@ class _PositionDisplayState extends State<PositionDisplay> {
     });
     // Persist globally so the chosen readout mode survives restarts.
     UserSettings().positionDisplayMode = _mode.name;
+  }
+
+  // Double-click is detected manually from single taps: a real onDoubleTap
+  // recognizer holds the gesture arena for ~300 ms after every tap-up, which
+  // made every mode-cycle tap land late (X1). The first tap of a double-click
+  // cycles immediately; the second tap reverts that cycle and opens the edit.
+  void _handleTap() {
+    final now = DateTime.now();
+    final last = _lastTapAt;
+    if (last != null && now.difference(last) < kDoubleTapTimeout) {
+      _lastTapAt = null;
+      final revert = _modeBeforeTap;
+      if (revert != null && revert != _mode) {
+        setState(() => _mode = revert);
+        UserSettings().positionDisplayMode = _mode.name;
+      }
+      _startEdit();
+    } else {
+      _lastTapAt = now;
+      _modeBeforeTap = _mode;
+      _toggleMode();
+    }
   }
 
   static PositionDisplayMode _nextMode(PositionDisplayMode m) {
@@ -223,7 +248,7 @@ class _PositionDisplayState extends State<PositionDisplay> {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         decoration: BoxDecoration(
           color: colors.darkest,
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BT.borderMd,
           border: Border.all(color: colors.accent, width: 1),
         ),
         child: TextField(
@@ -264,8 +289,7 @@ class _PositionDisplayState extends State<PositionDisplay> {
           }
         },
         child: GestureDetector(
-          onTap: _toggleMode,
-          onDoubleTap: _startEdit,
+          onTap: _handleTap,
           // Horizontal drag scrubs the playhead (same seek path as the ruler).
           onHorizontalDragStart: (_) => setState(() {
             _isScrubbing = true;
@@ -292,7 +316,7 @@ class _PositionDisplayState extends State<PositionDisplay> {
                 ? null
                 : BoxDecoration(
                     color: colors.darkest,
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BT.borderMd,
                     border: Border.all(
                       color: (_isHovered || _isScrubbing)
                           ? colors.accent

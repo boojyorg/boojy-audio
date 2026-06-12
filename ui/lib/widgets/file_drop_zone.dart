@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
+import 'shared/boojy_button.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -44,22 +46,18 @@ class _FileDropZoneState extends State<FileDropZone> {
     if (widget.hasFile) {
       // Show minimal UI when file is loaded
       return Container(
-        padding: const EdgeInsets.all(8),
-        child: ElevatedButton.icon(
-          onPressed: _pickFile,
-          icon: Icon(BI.folderOpen, size: 16),
-          label: const Text('Load Different File'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF404040),
-            foregroundColor: const Color(0xFFA0A0A0),
-          ),
+        padding: const EdgeInsets.all(BT.sm),
+        child: BoojyButton(
+          icon: BI.folderOpen,
+          label: 'Load Different File',
+          onTap: _pickFile,
         ),
       );
     }
 
     // On iOS/mobile, show file picker button only (no drag-drop support)
     if (Platform.isIOS || Platform.isAndroid) {
-      return _buildMobileFilePicker();
+      return _buildMobileFilePicker(colors);
     }
 
     // Show drop zone when no file loaded (desktop only)
@@ -90,13 +88,13 @@ class _FileDropZoneState extends State<FileDropZone> {
         decoration: BoxDecoration(
           color: _isDragging
               ? colors.success.withValues(alpha: 0.1)
-              : const Color(0xFF2B2B2B),
+              : colors.dark,
           border: Border.all(
-            color: _isDragging ? colors.success : const Color(0xFF404040),
+            color: _isDragging ? colors.success : colors.divider,
             width: 2,
             strokeAlign: BorderSide.strokeAlignInside,
           ),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BT.borderLg,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -104,46 +102,38 @@ class _FileDropZoneState extends State<FileDropZone> {
             Icon(
               _isDragging ? BI.upload : BI.audioFile,
               size: 64,
-              color: _isDragging ? colors.success : const Color(0xFF606060),
+              color: _isDragging ? colors.success : colors.textMuted,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: BT.lg),
             Text(
               _isDragging
                   ? 'Drop audio file here'
                   : 'Drag & drop audio file here',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: BT.fontDisplay,
                 fontWeight: BT.weightMedium,
-                color: _isDragging ? colors.success : const Color(0xFF808080),
+                color: _isDragging ? colors.success : colors.textSecondary,
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
+            const SizedBox(height: BT.sm),
+            Text(
               'Supports: WAV, MP3, FLAC, AIF',
               style: TextStyle(
-                fontSize: 14,
-                color: Color(0xFF606060),
+                fontSize: BT.fontBody,
+                color: colors.textMuted,
                 fontStyle: FontStyle.italic,
               ),
             ),
-            const SizedBox(height: 24),
-            const Text(
+            const SizedBox(height: BT.xl),
+            Text(
               'or',
-              style: TextStyle(fontSize: 14, color: Color(0xFF606060)),
+              style: TextStyle(fontSize: BT.fontBody, color: colors.textMuted),
             ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _pickFile,
-              icon: Icon(BI.folderOpen),
-              label: const Text('Browse Files'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFA0A0A0),
-                foregroundColor: const Color(0xFF2B2B2B),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
-              ),
+            const SizedBox(height: BT.lg),
+            BoojyButton(
+              icon: BI.folderOpen,
+              label: 'Browse Files',
+              onTap: _pickFile,
             ),
           ],
         ),
@@ -152,51 +142,46 @@ class _FileDropZoneState extends State<FileDropZone> {
   }
 
   /// Mobile-friendly file picker UI (no drag-drop)
-  Widget _buildMobileFilePicker() {
+  Widget _buildMobileFilePicker(BoojyColors colors) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(48),
       decoration: BoxDecoration(
-        color: const Color(0xFF2B2B2B),
+        color: colors.dark,
         border: Border.all(
-          color: const Color(0xFF404040),
+          color: colors.divider,
           width: 2,
           strokeAlign: BorderSide.strokeAlignInside,
         ),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BT.borderLg,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(BI.audioFile, size: 64, color: const Color(0xFF606060)),
-          const SizedBox(height: 16),
-          const Text(
+          Icon(BI.audioFile, size: 64, color: colors.textMuted),
+          const SizedBox(height: BT.lg),
+          Text(
             'Import Audio File',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: BT.fontDisplay,
               fontWeight: BT.weightMedium,
-              color: Color(0xFF808080),
+              color: colors.textSecondary,
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
+          const SizedBox(height: BT.sm),
+          Text(
             'Supports: WAV, MP3, FLAC, AIF',
             style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF606060),
+              fontSize: BT.fontBody,
+              color: colors.textMuted,
               fontStyle: FontStyle.italic,
             ),
           ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: _pickFile,
-            icon: Icon(BI.folderOpen),
-            label: const Text('Browse Files'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFA0A0A0),
-              foregroundColor: const Color(0xFF2B2B2B),
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-            ),
+          const SizedBox(height: BT.xl),
+          BoojyButton(
+            icon: BI.folderOpen,
+            label: 'Browse Files',
+            onTap: _pickFile,
           ),
         ],
       ),

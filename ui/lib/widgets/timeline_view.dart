@@ -1177,6 +1177,7 @@ class TimelineViewState extends State<TimelineView>
             minorGridColor: widget.canvasBgVariant.liftGrid(
               context.colors.standard,
             ),
+            loopDimColor: context.colors.loopDim,
           ),
         ),
       );
@@ -1197,6 +1198,7 @@ class TimelineViewState extends State<TimelineView>
         minorGridColor: widget.canvasBgVariant.liftGrid(
           context.colors.standard,
         ),
+        loopDimColor: context.colors.loopDim,
       ),
     );
   }

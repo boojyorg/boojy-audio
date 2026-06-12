@@ -37,17 +37,27 @@ void main() {
       expect(count, equals(0));
     });
 
-    test('cycleTheme cycles through all themes', () {
+    test('cycleTheme cycles through the selectable themes only', () {
+      // High Contrast variants render broken surfaces and are excluded from
+      // the picker — the dev cycle shortcut must skip them too (T3).
       expect(provider.currentTheme, equals(BoojyTheme.dark));
-      provider.cycleTheme();
-      expect(provider.currentTheme, equals(BoojyTheme.highContrastDark));
       provider.cycleTheme();
       expect(provider.currentTheme, equals(BoojyTheme.light));
       provider.cycleTheme();
-      expect(provider.currentTheme, equals(BoojyTheme.highContrastLight));
-      provider.cycleTheme();
       expect(provider.currentTheme, equals(BoojyTheme.dark)); // wraps
     });
+
+    test(
+      'cycleTheme from a non-selectable theme lands on a selectable one',
+      () {
+        provider.setTheme(BoojyTheme.highContrastDark);
+        provider.cycleTheme();
+        expect(
+          BoojyThemeExtension.selectable.contains(provider.currentTheme),
+          isTrue,
+        );
+      },
+    );
 
     test('themeKey returns correct key', () {
       expect(provider.themeKey, equals('dark'));

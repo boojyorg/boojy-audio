@@ -109,7 +109,7 @@ class _DeviceBoxState extends State<DeviceBox> {
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: widget.isSelected
-                  ? const Color(0xFFE8EAF0)
+                  ? colors.accent
                   : _isHovered
                   ? colors.hover
                   : colors.divider,

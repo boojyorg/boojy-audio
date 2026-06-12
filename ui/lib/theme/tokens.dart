@@ -88,8 +88,11 @@ class BoojyTokens {
   /// 0.50 — strong tint (active+hover border, emphasis)
   static const double opacityStrong = 0.50;
 
-  /// 0.65 — near-opaque (active+hover border accent)
-  static const double opacityFull = 0.65;
+  /// 0.65 — near-opaque border (active+hover border accent)
+  static const double opacityBorder = 0.65;
+
+  /// 1.0 — fully opaque (explicit "no tint" endpoint of the scale)
+  static const double opacityFull = 1.0;
 
   // ============================================
   // FONT SIZES

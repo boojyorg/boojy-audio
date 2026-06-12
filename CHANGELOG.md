@@ -6,6 +6,17 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **The position and tempo readouts respond instantly.** Both readouts carried a double-click
+  gesture that made every single click (cycle the position mode, start a tempo drag) wait
+  ~300 ms for a possible second click. Double-click still works (jump to bar / type a tempo) —
+  it's just detected manually now, so the first click lands immediately.
+- **A single click on a mixer fader no longer teleports the volume.** Clicking the fader body
+  used to jump the volume straight to the click point — one misclick and your level was gone.
+  Volume now only changes by dragging (or double-click to reset to 0 dB).
+- **The Light theme renders correctly in more places.** The audio-file drop zone, the selected
+  device border, the piano-roll Snap/Quantize menus, the loop-region dimming, and the virtual
+  piano's resize handle all hardcoded dark-theme colours; they now follow the active theme. The
+  dev theme-cycle shortcut also skips the two broken High Contrast variants.
 - **Saving or loading a project can no longer freeze the app.** The save/load path took the
   engine's internal locks in the opposite order to the audio callback, so a save landing in a
   microsecond-wide window deadlocked the engine silently — no crash, no error, the app just
@@ -33,6 +44,12 @@ All notable changes to Boojy Audio will be documented in this file.
   number (the published v0.6.0 entry is hot-fixed too, so v0.5.4 installs get the offer), each
   entry's download link is pinned to its own release instead of `latest`, and the app's feed URL
   points at the current repo name instead of relying on GitHub's rename redirect.
+
+### Improvements
+
+- Transport Pause/Stop colours, the timeline/piano-roll grid painters, and the note painter now
+  come from theme tokens instead of hardcoded values, and the transport's play/stop/record
+  buttons and readout gestures gained regression tests.
 
 ## v0.6.0 — 2026-06-11
 

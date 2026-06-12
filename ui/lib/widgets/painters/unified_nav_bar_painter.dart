@@ -104,17 +104,17 @@ class UnifiedNavBarPainter extends CustomPainter {
     if (hasPunch && loopEnabled) {
       // Mode 3: Loop + Punch — solid red (lit)
       fillColor = colors.recordActive;
-      borderColor = colors.recordActive.withValues(alpha: 0.8);
+      borderColor = colors.recordActive.withValues(alpha: BT.opacityBorder);
       hoverColor = colors.error;
     } else if (hasPunch) {
       // Mode 4: Punch only (no loop) — faded red (dim)
-      fillColor = colors.recordActive.withValues(alpha: 0.4);
-      borderColor = colors.recordActive.withValues(alpha: 0.53);
-      hoverColor = colors.error.withValues(alpha: 0.67);
+      fillColor = colors.recordActive.withValues(alpha: BT.opacityMedium);
+      borderColor = colors.recordActive.withValues(alpha: BT.opacityStrong);
+      hoverColor = colors.error.withValues(alpha: BT.opacityBorder);
     } else if (loopEnabled) {
       // Mode 2: Loop only — muted amber (dim warning)
-      fillColor = colors.warning.withValues(alpha: 0.35);
-      borderColor = colors.warning.withValues(alpha: 0.78);
+      fillColor = colors.warning.withValues(alpha: BT.opacityMedium);
+      borderColor = colors.warning.withValues(alpha: BT.opacityBorder);
       hoverColor = colors.warning;
     } else {
       // Mode 1: All off — grey bar with darker grey edge

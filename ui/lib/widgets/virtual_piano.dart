@@ -413,8 +413,8 @@ class _VirtualPianoState extends State<VirtualPiano>
 
   Widget _buildResizeHandle() {
     // Colors matching ResizableDivider style
-    const idleColor = Color(0xFF505050);
-    const activeColor = Color(0xFF38BDF8);
+    final idleColor = context.colors.divider;
+    final activeColor = context.colors.accent;
 
     final isActive = _isResizeHovered || _isResizeDragging;
     final lineHeight = isActive ? 3.0 : 1.0;

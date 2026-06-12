@@ -55,6 +55,21 @@ class _TempoDisplayState extends State<TempoDisplay> {
   bool _numHovered = false;
   bool _bpmHovered = false;
 
+  DateTime? _lastNumTapAt;
+
+  // Double-click is detected manually from single taps: a real onDoubleTap
+  // recognizer holds the gesture arena for ~300 ms after every tap-up, which
+  // made every drag-to-nudge start sticky (X2).
+  void _handleNumberTap() {
+    final now = DateTime.now();
+    final last = _lastNumTapAt;
+    _lastNumTapAt = now;
+    if (last != null && now.difference(last) < kDoubleTapTimeout) {
+      _lastNumTapAt = null;
+      _showTempoDialog(context);
+    }
+  }
+
   // Tap-tempo state: timestamps of recent taps + a brief accent flash.
   final List<DateTime> _tapTimes = [];
   bool _flash = false;
@@ -155,7 +170,7 @@ class _TempoDisplayState extends State<TempoDisplay> {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: colors.darkest,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BT.borderMd,
         border: Border.all(
           color: _isDragging ? colors.accent : colors.divider,
           width: 1,
@@ -215,7 +230,7 @@ class _TempoDisplayState extends State<TempoDisplay> {
                       widget.onDragEnd?.call();
                       setState(() => _isDragging = false);
                     },
-                    onDoubleTap: () => _showTempoDialog(context),
+                    onTap: _handleNumberTap,
                     child: Container(
                       // v:2 (not the split buttons' v:4) so the box height
                       // matches the 1.1.1 / 4/4 readouts exactly.
