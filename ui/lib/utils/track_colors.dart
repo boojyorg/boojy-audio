@@ -15,17 +15,22 @@ enum TrackColorCategory {
 
 /// Track color utilities for assigning colors to tracks
 class TrackColors {
-  /// Category-based colors for auto-detection
+  /// Category-based colors for auto-detection.
+  ///
+  /// Invariant: every value MUST be a member of [manualPalette] — a default
+  /// the picker can't reproduce reads as a bug (a track whose colour "isn't
+  /// on the palette"). Categories map to the vibrant row, keeping each
+  /// category's hue.
   static const Map<TrackColorCategory, Color> categoryColors = {
-    TrackColorCategory.drums: Color(0xFFEF4444), // Red
-    TrackColorCategory.bass: Color(0xFFF97316), // Orange
-    TrackColorCategory.synth: Color(0xFF22C55E), // Green
-    TrackColorCategory.guitar: Color(0xFF3B82F6), // Blue
-    TrackColorCategory.vocals: Color(0xFF9775FA), // Purple
-    TrackColorCategory.orchestral: Color(0xFF3B82F6), // Blue (same as guitar)
-    TrackColorCategory.fx: Color(0xFFEC4899), // Pink
-    TrackColorCategory.audio: Color(0xFF9CA3AF), // Grey
-    TrackColorCategory.master: Color(0xFF3B82F6), // Blue
+    TrackColorCategory.drums: Color(0xFFF03E3E), // True Red
+    TrackColorCategory.bass: Color(0xFFFF922B), // Tangerine
+    TrackColorCategory.synth: Color(0xFF69DB7C), // Lime Green
+    TrackColorCategory.guitar: Color(0xFF40B3E8), // Boojy Blue
+    TrackColorCategory.vocals: Color(0xFF9775FA), // Violet
+    TrackColorCategory.orchestral: Color(0xFF40B3E8), // Boojy Blue (as guitar)
+    TrackColorCategory.fx: Color(0xFFF06595), // Hot Pink
+    TrackColorCategory.audio: Color(0xFF868E96), // Slate Grey
+    TrackColorCategory.master: Color(0xFF40B3E8), // Boojy Blue
   };
 
   /// 16-color manual palette for user override (2 rows of 8)
@@ -35,37 +40,39 @@ class TrackColors {
     // Row 1: Softer variants (rainbow order + pink before grey)
     Color(0xFFFFA8A8), // Salmon (soft red)
     Color(0xFFFFC078), // Peach (soft orange)
-    Color(0xFFFFF3BF), // Butter (soft yellow)
+    Color(0xFFFFE066), // Butter (soft yellow — deepened, #FFF3BF read as cream)
     Color(0xFF96F2D7), // Mint (soft green)
     Color(0xFF74C0FC), // Sky Blue (soft blue)
     Color(0xFFB197FC), // Lavender (soft purple)
     Color(0xFFFCC2D7), // Light Pink
     Color(0xFFCED4DA), // Silver (soft grey)
     // Row 2: Vibrant colors (rainbow order + pink before grey)
-    Color(0xFFFF6B6B), // Coral Red
+    Color(0xFFF03E3E), // True Red (deepened from coral — read too pink)
     Color(0xFFFF922B), // Tangerine
     Color(0xFFFFD43B), // Sunflower
     Color(0xFF69DB7C), // Lime Green
-    Color(0xFF4DABF7), // Ocean Blue
+    Color(0xFF40B3E8), // Boojy Blue (matches the brand accent / Master)
     Color(0xFF9775FA), // Violet
     Color(0xFFF06595), // Hot Pink
     Color(0xFF868E96), // Slate Grey
   ];
 
-  /// Legacy palette for backwards compatibility (cycles through for index-based access)
+  /// Legacy palette for backwards compatibility (cycles through for
+  /// index-based access). Same invariant as [categoryColors]: members of
+  /// [manualPalette] only.
   static const List<Color> palette = [
-    Color(0xFF4DABF7), // Ocean Blue
-    Color(0xFFF06ACD), // Hot Pink
+    Color(0xFF40B3E8), // Boojy Blue
+    Color(0xFFF06595), // Hot Pink
     Color(0xFF69DB7C), // Lime Green
     Color(0xFFFFD43B), // Sunflower
     Color(0xFF9775FA), // Violet
     Color(0xFFFF922B), // Tangerine
     Color(0xFF868E96), // Slate Grey
-    Color(0xFFFF6B6B), // Coral Red
+    Color(0xFFF03E3E), // True Red
   ];
 
-  /// Master track color
-  static const Color masterColor = Color(0xFF3B82F6); // Blue
+  /// Master track color (the brand accent blue — also a manualPalette swatch)
+  static const Color masterColor = Color(0xFF40B3E8); // Boojy Blue
 
   /// Detect category from track name, type, instrument, and plugin
   static TrackColorCategory detectCategory(

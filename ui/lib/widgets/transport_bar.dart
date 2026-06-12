@@ -698,10 +698,12 @@ class _TransportBarState extends State<TransportBar> {
     // Nudge the whole wordmark up ~2px so its optical centre lines up with the
     // smaller siblings (project name, undo/redo) in the centre-aligned row.
     //
-    // The ENTIRE wordmark (▲ + "udio") is the Settings button — a ~20px
-    // triangle alone was too small a target (user testing). The triangle's
-    // hover-scale is the affordance, and it still doubles as the
-    // engine-health light (red ⇒ engine didn't start).
+    // The ENTIRE wordmark (▲ + "udio") is the home button — it opens the
+    // Start screen (Settings lives on the gear; a logo that opened Settings
+    // confounded users, v0.6 dogfood A9). A ~20px triangle alone was too
+    // small a target (user testing). The triangle's hover-scale is the
+    // affordance, and it still doubles as the engine-health light
+    // (red ⇒ engine didn't start).
     return Transform.translate(
       offset: const Offset(0, -2),
       child: MouseRegion(
@@ -722,10 +724,10 @@ class _TransportBarState extends State<TransportBar> {
         },
         child: Tooltip(
           message: widget.engineFailed
-              ? "Audio engine didn't start — open Settings"
-              : 'Settings',
+              ? "Audio engine didn't start — check Settings (gear)"
+              : 'Start screen',
           child: GestureDetector(
-            onTap: () => widget.fileMenu.onAppSettings?.call(),
+            onTap: () => widget.fileMenu.onStartScreen?.call(),
             behavior: HitTestBehavior.opaque,
             child: Row(
               mainAxisSize: MainAxisSize.min,

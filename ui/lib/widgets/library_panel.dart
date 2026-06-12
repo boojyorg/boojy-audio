@@ -774,28 +774,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
   }
 
   Widget _buildAddFolderButton() {
-    final colors = context.colors;
-    return GestureDetector(
-      onTap: _addUserFolder,
-      child: Container(
-        margin: const EdgeInsets.only(left: 5, right: 3),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        child: Row(
-          children: [
-            Icon(BI.add, size: 16, color: colors.textMuted),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Add Folder',
-                style: TextStyle(fontSize: 12, color: colors.textMuted),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return _AddFolderButton(onTap: _addUserFolder);
   }
 
   Future<void> _addUserFolder() async {
@@ -1702,6 +1681,90 @@ class _LibraryPanelState extends State<LibraryPanel> {
   }
 }
 
+/// "+ Add Folder" action row — same hover pill as the category items above
+/// it, with a press state so the click visibly lands (v0.6 dogfood A10).
+class _AddFolderButton extends StatefulWidget {
+  final VoidCallback onTap;
+
+  const _AddFolderButton({required this.onTap});
+
+  @override
+  State<_AddFolderButton> createState() => _AddFolderButtonState();
+}
+
+class _AddFolderButtonState extends State<_AddFolderButton> {
+  bool _isHovered = false;
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    Color bgColor;
+    if (_isPressed) {
+      bgColor = colors.accent.withValues(alpha: 0.2);
+    } else if (_isHovered) {
+      bgColor = colors.accent.withValues(alpha: 0.12);
+    } else {
+      bgColor = Colors.transparent;
+    }
+    final fgColor = _isHovered || _isPressed
+        ? colors.textPrimary
+        : colors.textMuted;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) {
+        if (!_isHovered) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _isHovered = true);
+          });
+        }
+      },
+      onExit: (_) {
+        if (_isHovered || _isPressed) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _isHovered = false;
+                _isPressed = false;
+              });
+            }
+          });
+        }
+      },
+      child: GestureDetector(
+        onTap: widget.onTap,
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) => setState(() => _isPressed = false),
+        onTapCancel: () => setState(() => _isPressed = false),
+        child: Container(
+          margin: const EdgeInsets.only(left: 5, right: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            children: [
+              Icon(BI.add, size: 16, color: fgColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Add Folder',
+                  style: TextStyle(fontSize: 12, color: fgColor),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Category item widget with hover and selection pill
 class _CategoryItemWidget extends StatefulWidget {
   final IconData icon;
@@ -1753,6 +1816,7 @@ class _CategoryItemWidgetState extends State<_CategoryItemWidget> {
     }
 
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) {
         if (!_isHovered) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1835,6 +1899,7 @@ class _ExpandableHeaderWidgetState extends State<_ExpandableHeaderWidget> {
     final colors = context.colors;
 
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) {
         if (!_isHovered) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
