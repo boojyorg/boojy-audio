@@ -65,6 +65,32 @@ class PlaybackController extends ChangeNotifier {
     }
   }
 
+  /// Re-anchor playback bookkeeping to a new tempo. The ENGINE already moves
+  /// the playhead to the same beat inside set_tempo (api/timing.rs) — do NOT
+  /// seek here: that double-scales the position (a seek landed the playhead
+  /// at beat × old/new — visibly back on speed-up, forward on slow-down).
+  /// This only keeps the Dart-side caches in step: the loop tempo (otherwise
+  /// the loop kept wrapping at the OLD tempo's wall-clock bounds — past the
+  /// region when sped up, short of it when slowed down) and the stop-return /
+  /// auto-stop positions.
+  void handleTempoChange(double oldBpm, double newBpm) {
+    if (oldBpm <= 0 || newBpm <= 0 || oldBpm == newBpm) return;
+    _loopTempo = newBpm;
+
+    final scale = oldBpm / newBpm;
+    _playStartPosition *= scale;
+    _recordStartPosition *= scale;
+    _playheadDisplayOffset *= scale;
+    if (_clipDuration != null) _clipDuration = _clipDuration! * scale;
+
+    if (_audioEngine == null) return;
+    // Reflect the engine's rescaled playhead now instead of waiting for the
+    // next 16 ms timer tick.
+    _playheadPosition =
+        _audioEngine!.getPlayheadPosition() - _playheadDisplayOffset;
+    playheadNotifier.value = _playheadPosition;
+  }
+
   // Callback for auto-stop at end of clip
   VoidCallback? onAutoStop;
 

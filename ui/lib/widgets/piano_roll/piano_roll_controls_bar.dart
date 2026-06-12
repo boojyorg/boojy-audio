@@ -895,6 +895,7 @@ class _SnapMenuOverlayState extends State<_SnapMenuOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     const divisions = [1.0, 0.5, 0.25, 0.125];
 
     return Stack(
@@ -916,9 +917,9 @@ class _SnapMenuOverlayState extends State<_SnapMenuOverlay> {
             child: Container(
               constraints: const BoxConstraints(minWidth: 100),
               decoration: BoxDecoration(
-                color: const Color(0xFF2A2A2A),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: const Color(0xFF404040)),
+                color: colors.elevated,
+                borderRadius: BT.borderMd,
+                border: Border.all(color: colors.divider),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.4),
@@ -940,7 +941,7 @@ class _SnapMenuOverlayState extends State<_SnapMenuOverlay> {
                       widget.onDivisionChanged(null);
                     },
                   ),
-                  const Divider(height: 1, color: Color(0xFF404040)),
+                  Divider(height: 1, color: colors.divider),
                   // Division options
                   for (final div in divisions)
                     _buildMenuItem(
@@ -954,7 +955,7 @@ class _SnapMenuOverlayState extends State<_SnapMenuOverlay> {
                         widget.onDivisionChanged(div);
                       },
                     ),
-                  const Divider(height: 1, color: Color(0xFF404040)),
+                  Divider(height: 1, color: colors.divider),
                   // Triplet checkbox
                   _buildMenuItem(
                     label: 'Triplet',
@@ -980,7 +981,7 @@ class _SnapMenuOverlayState extends State<_SnapMenuOverlay> {
     bool isCheckbox = false,
     required VoidCallback onTap,
   }) {
-    const menuTextColor = Colors.white70;
+    final menuTextColor = context.colors.textPrimary;
 
     return InkWell(
       onTap: onTap,
@@ -1002,10 +1003,7 @@ class _SnapMenuOverlayState extends State<_SnapMenuOverlay> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: const TextStyle(
-                color: menuTextColor,
-                fontSize: BT.fontLabel,
-              ),
+              style: TextStyle(color: menuTextColor, fontSize: BT.fontLabel),
             ),
           ],
         ),
@@ -1060,6 +1058,7 @@ class _QuantizeMenuOverlayState extends State<_QuantizeMenuOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     const divisions = [4, 8, 16, 32];
 
     return Stack(
@@ -1081,9 +1080,9 @@ class _QuantizeMenuOverlayState extends State<_QuantizeMenuOverlay> {
             child: Container(
               constraints: const BoxConstraints(minWidth: 100),
               decoration: BoxDecoration(
-                color: const Color(0xFF2A2A2A),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: const Color(0xFF404040)),
+                color: colors.elevated,
+                borderRadius: BT.borderMd,
+                border: Border.all(color: colors.divider),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.4),
@@ -1105,7 +1104,7 @@ class _QuantizeMenuOverlayState extends State<_QuantizeMenuOverlay> {
                       widget.onDivisionChanged(0);
                     },
                   ),
-                  const Divider(height: 1, color: Color(0xFF404040)),
+                  Divider(height: 1, color: colors.divider),
                   // Division options
                   for (final div in divisions)
                     _buildMenuItem(
@@ -1118,7 +1117,7 @@ class _QuantizeMenuOverlayState extends State<_QuantizeMenuOverlay> {
                     ),
                   // Only show triplet when NOT on Grid
                   if (_division != 0) ...[
-                    const Divider(height: 1, color: Color(0xFF404040)),
+                    Divider(height: 1, color: colors.divider),
                     _buildMenuItem(
                       label: 'Triplet',
                       isSelected: _tripletEnabled,
@@ -1144,7 +1143,7 @@ class _QuantizeMenuOverlayState extends State<_QuantizeMenuOverlay> {
     bool isCheckbox = false,
     required VoidCallback onTap,
   }) {
-    const menuTextColor = Colors.white70;
+    final menuTextColor = context.colors.textPrimary;
 
     return InkWell(
       onTap: onTap,
@@ -1166,10 +1165,7 @@ class _QuantizeMenuOverlayState extends State<_QuantizeMenuOverlay> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: const TextStyle(
-                color: menuTextColor,
-                fontSize: BT.fontLabel,
-              ),
+              style: TextStyle(color: menuTextColor, fontSize: BT.fontLabel),
             ),
           ],
         ),

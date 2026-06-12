@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../theme/tokens.dart';
 
 /// Visual language for the editor toolbar's *selection* controls — the
 /// Instrument/MIDI tabs and the draw/select/erase/duplicate/slice tool palette.
@@ -105,8 +106,8 @@ EditorButtonStyle resolveEditorButtonStyle(
       );
     case EditorButtonVariant.softFill:
       return EditorButtonStyle(
-        background: colors.accent.withValues(alpha: 0.24),
-        border: colors.accent.withValues(alpha: 0.85),
+        background: colors.accent.withValues(alpha: BT.opacityMedium),
+        border: colors.accent.withValues(alpha: BT.opacityFull),
         content: colors.accent,
       );
   }

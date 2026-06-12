@@ -297,4 +297,33 @@ void main() {
       expect(() => controller.stopPlayheadPolling(), returnsNormally);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // handleTempoChange — engine is real-seconds, so cached second-positions
+  // must rescale to keep their musical (beat) position on tempo change
+  // ---------------------------------------------------------------------------
+  group('handleTempoChange', () {
+    test('rescales clipDuration to preserve its beat length', () {
+      controller.setClipDuration(8.0); // 16 beats at 120 BPM
+      controller.handleTempoChange(120.0, 240.0);
+      expect(controller.clipDuration, closeTo(4.0, 1e-9));
+    });
+
+    test('is a no-op for the same tempo', () {
+      controller.setClipDuration(8.0);
+      controller.handleTempoChange(120.0, 120.0);
+      expect(controller.clipDuration, 8.0);
+    });
+
+    test('ignores invalid tempos', () {
+      controller.setClipDuration(8.0);
+      controller.handleTempoChange(0.0, 240.0);
+      controller.handleTempoChange(120.0, -1.0);
+      expect(controller.clipDuration, 8.0);
+    });
+
+    test('does not crash without an engine', () {
+      expect(() => controller.handleTempoChange(120.0, 90.0), returnsNormally);
+    });
+  });
 }

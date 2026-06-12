@@ -42,6 +42,7 @@ import '../models/clip_data.dart';
 import '../models/library_item.dart';
 import '../models/track_data.dart';
 import '../services/commands/command.dart';
+import '../services/user_settings.dart';
 import '../services/commands/track_commands.dart';
 import '../services/commands/effect_commands.dart';
 import '../services/commands/send_commands.dart';
@@ -108,6 +109,14 @@ class _DAWScreenState extends State<DAWScreen>
       setState(() => _showPaletteEditor = !_showPaletteEditor);
       return true;
     }());
+  }
+
+  // Cmd+Shift+T cycles Dark ↔ Light (the selectable themes only), persisted
+  // exactly like the Settings picker so a relaunch keeps the choice.
+  void _cycleAppTheme() {
+    final themeProvider = context.themeProvider;
+    themeProvider.cycleTheme();
+    UserSettings().theme = themeProvider.themeKey;
   }
 
   // UI Labs top-bar switcher (debug only) + the live A/B selections it drives.
@@ -772,6 +781,12 @@ class _DAWScreenState extends State<DAWScreen>
     midiClipController.setTempo(newBpm);
     midiCaptureBuffer.updateBpm(newBpm);
     midiPlaybackManager?.rescheduleAllClips(newBpm);
+
+    // Re-anchor the playback caches (loop tempo, stop-return positions) so a
+    // mid-playback tempo change keeps looping at the same BEAT — without this
+    // the loop kept wrapping at the old tempo's wall-clock bounds. The engine
+    // itself moves the playhead to the same beat inside set_tempo.
+    playbackController.handleTempoChange(currentTempo, newBpm);
 
     // Adjust audio clip positions to maintain their beat position
     // This prevents audio clips from visually shifting when tempo changes
@@ -3872,6 +3887,12 @@ class _DAWScreenState extends State<DAWScreen>
             meta: true,
             shift: true,
           ): _togglePlayheadLab,
+          // Cmd+Shift+T cycles the app theme (Dark ↔ Light)
+          const SingleActivator(
+            LogicalKeyboardKey.keyT,
+            meta: true,
+            shift: true,
+          ): _cycleAppTheme,
         },
         // Transport keys (Space, L, M, I, O) are handled globally via
         // HardwareKeyboard (_handleGlobalTransportKey) so they survive focus

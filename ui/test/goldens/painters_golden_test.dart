@@ -69,6 +69,7 @@ void main() {
         subdivisionGridLine: colors.surface,
         beatGridLine: colors.hover,
         barGridLine: colors.textMuted,
+        loopDimColor: colors.loopDim,
         // The legibility features the v0.5 pass is tuning.
         scaleHighlightEnabled: true,
         scaleRootMidi: 0,
@@ -111,6 +112,7 @@ void main() {
       beatLineColor: colors.divider,
       subBeatLineColor: colors.surface,
       minorGridColor: colors.standard,
+      loopDimColor: colors.loopDim,
     );
 
     await tester.pumpWidget(host(const Size(960, 120), painter));

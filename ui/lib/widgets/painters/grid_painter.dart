@@ -29,6 +29,7 @@ class GridPainter extends CustomPainter {
   final Color subdivisionGridLine;
   final Color beatGridLine;
   final Color barGridLine;
+  final Color loopDimColor;
 
   // Scale highlighting
   final bool scaleHighlightEnabled;
@@ -66,6 +67,7 @@ class GridPainter extends CustomPainter {
     required this.subdivisionGridLine,
     required this.beatGridLine,
     required this.barGridLine,
+    required this.loopDimColor,
     this.scaleHighlightEnabled = false,
     this.scaleRootMidi = 0,
     this.scaleIntervals = const [0, 2, 4, 5, 7, 9, 11], // Major scale default
@@ -178,10 +180,9 @@ class GridPainter extends CustomPainter {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
 
-    // STEP 3: Draw loop region dimming overlay (30% darker outside loop)
+    // STEP 3: Draw loop region dimming overlay outside the loop
     if (loopEnabled) {
-      final dimPaint = Paint()
-        ..color = const Color(0x4D000000); // 30% black overlay
+      final dimPaint = Paint()..color = loopDimColor;
 
       final loopStartX = loopStart * pixelsPerBeat;
       final loopEndX = loopEnd * pixelsPerBeat;
@@ -246,6 +247,7 @@ class GridPainter extends CustomPainter {
         subdivisionGridLine != oldDelegate.subdivisionGridLine ||
         beatGridLine != oldDelegate.beatGridLine ||
         barGridLine != oldDelegate.barGridLine ||
+        loopDimColor != oldDelegate.loopDimColor ||
         scaleHighlightEnabled != oldDelegate.scaleHighlightEnabled ||
         scaleRootMidi != oldDelegate.scaleRootMidi ||
         activeRow != oldDelegate.activeRow ||

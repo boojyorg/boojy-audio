@@ -161,7 +161,7 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: context.colors.darkest,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BT.borderMd,
                   border: Border.all(
                     color: (_isHovered || _isDragging)
                         ? context.colors.accent

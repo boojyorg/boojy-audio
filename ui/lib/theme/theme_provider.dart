@@ -70,10 +70,12 @@ class ThemeProvider extends ChangeNotifier {
   /// Get the current theme key for persistence
   String get themeKey => _currentTheme.key;
 
-  /// Cycle to the next theme
+  /// Cycle to the next selectable theme. High Contrast variants are excluded
+  /// (their tokens render broken surfaces — see BoojyThemeExtension.selectable).
   void cycleTheme() {
-    const values = BoojyTheme.values;
+    const values = BoojyThemeExtension.selectable;
     final currentIndex = values.indexOf(_currentTheme);
+    // A non-selectable current theme (-1) cycles to the first selectable one.
     final nextIndex = (currentIndex + 1) % values.length;
     setTheme(values[nextIndex]);
   }

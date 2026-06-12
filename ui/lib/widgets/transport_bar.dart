@@ -908,7 +908,7 @@ class _TransportBarState extends State<TransportBar> {
             // and stays distinct from the orange Stop button sitting right next
             // to it — green when stopped (the play affordance).
             enabledColor: transportRolling
-                ? const Color(0xFFF59E0B)
+                ? colors.transportPause
                 : colors.success,
             onPressed: () {
               if (widget.isRecording || widget.isCountingIn) {
@@ -928,7 +928,7 @@ class _TransportBarState extends State<TransportBar> {
             icon: BI.stop,
             enabled:
                 widget.canPlay || widget.isRecording || widget.isCountingIn,
-            enabledColor: const Color(0xFFF97316),
+            enabledColor: colors.transportStop,
             onPressed: () {
               if (widget.isRecording || widget.isCountingIn) {
                 widget.transport.onStopRecording?.call();

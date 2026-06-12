@@ -65,18 +65,10 @@ class _CapsuleFaderState extends State<CapsuleFader> {
             setState(() => _isDragging = false);
             widget.onDragEnd?.call();
           },
-          onTapDown: (details) {
-            if (widget.onVolumeChanged == null) return;
-            widget.onDragStart?.call();
-            final sliderValue =
-                (details.localPosition.dx / constraints.maxWidth).clamp(
-                  0.0,
-                  1.0,
-                );
-            final newVolumeDb = _sliderToVolumeDb(sliderValue);
-            widget.onVolumeChanged!(newVolumeDb);
-            widget.onDragEnd?.call();
-          },
+          // No onTapDown: a single click on the body used to teleport the
+          // volume to the click point (M1) — the only recovery was
+          // double-tap-reset or undo. Volume changes are deliberate now:
+          // drag, or double-tap to reset to 0 dB.
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             child: CustomPaint(

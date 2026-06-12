@@ -788,7 +788,11 @@ class TimelineViewState extends State<TimelineView>
         onKeyEvent: _handleKeyEvent,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: widget.canvasBgVariant.background,
+            // The canvas-bg candidates are dark-theme fills (Cmd+Shift+B dev
+            // cycle); on Light the canvas uses the theme's editor colour.
+            color: context.isDarkTheme
+                ? widget.canvasBgVariant.background
+                : context.colors.editor,
             border: Border.all(color: context.colors.divider),
           ),
           child: Stack(
@@ -1156,6 +1160,13 @@ class TimelineViewState extends State<TimelineView>
   }
 
   Widget _buildGrid(double width, double duration, double height) {
+    // The toward-white grid lift compensates for the brightened DARK canvas
+    // candidates; on Light the tokens are already tuned for the light editor
+    // fill, so the lines pass through unlifted.
+    final isDark = context.isDarkTheme;
+    Color lift(Color base) =>
+        isDark ? widget.canvasBgVariant.liftGrid(base) : base;
+
     // When height is infinite, let the CustomPaint fill available space
     if (height == double.infinity) {
       return SizedBox(
@@ -1167,16 +1178,11 @@ class TimelineViewState extends State<TimelineView>
             loopEnabled: widget.loopPlaybackEnabled,
             loopStart: widget.loopStartBeats,
             loopEnd: widget.loopEndBeats,
-            barLineColor: widget.canvasBgVariant.liftGrid(context.colors.hover),
-            beatLineColor: widget.canvasBgVariant.liftGrid(
-              context.colors.divider,
-            ),
-            subBeatLineColor: widget.canvasBgVariant.liftGrid(
-              context.colors.surface,
-            ),
-            minorGridColor: widget.canvasBgVariant.liftGrid(
-              context.colors.standard,
-            ),
+            barLineColor: lift(context.colors.hover),
+            beatLineColor: lift(context.colors.divider),
+            subBeatLineColor: lift(context.colors.surface),
+            minorGridColor: lift(context.colors.standard),
+            loopDimColor: context.colors.loopDim,
           ),
         ),
       );
@@ -1189,14 +1195,11 @@ class TimelineViewState extends State<TimelineView>
         loopEnabled: widget.loopPlaybackEnabled,
         loopStart: widget.loopStartBeats,
         loopEnd: widget.loopEndBeats,
-        barLineColor: widget.canvasBgVariant.liftGrid(context.colors.hover),
-        beatLineColor: widget.canvasBgVariant.liftGrid(context.colors.divider),
-        subBeatLineColor: widget.canvasBgVariant.liftGrid(
-          context.colors.surface,
-        ),
-        minorGridColor: widget.canvasBgVariant.liftGrid(
-          context.colors.standard,
-        ),
+        barLineColor: lift(context.colors.hover),
+        beatLineColor: lift(context.colors.divider),
+        subBeatLineColor: lift(context.colors.surface),
+        minorGridColor: lift(context.colors.standard),
+        loopDimColor: context.colors.loopDim,
       ),
     );
   }

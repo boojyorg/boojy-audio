@@ -872,6 +872,7 @@ class _PianoRollState extends State<PianoRoll>
                                     subdivisionGridLine: context.colors.surface,
                                     beatGridLine: context.colors.hover,
                                     barGridLine: context.colors.textMuted,
+                                    loopDimColor: context.colors.loopDim,
                                     scaleHighlightEnabled:
                                         scaleHighlightEnabled,
                                     scaleRootMidi: ScaleRoot.midiNoteFromName(

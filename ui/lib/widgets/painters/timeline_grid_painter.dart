@@ -7,10 +7,14 @@ class TimelineGridPainter extends CustomPainter {
   final double loopStart;
   final double loopEnd;
   final int beatsPerBar;
+
+  // Theme-sourced colours — required so a call site can never silently fall
+  // back to dark-theme literals (broke on Light).
   final Color barLineColor;
   final Color beatLineColor;
   final Color subBeatLineColor;
   final Color minorGridColor;
+  final Color loopDimColor;
 
   TimelineGridPainter({
     required this.pixelsPerBeat,
@@ -18,10 +22,11 @@ class TimelineGridPainter extends CustomPainter {
     this.loopStart = 0.0,
     this.loopEnd = 4.0,
     this.beatsPerBar = 4,
-    this.barLineColor = const Color(0xFF555868),
-    this.beatLineColor = const Color(0xFF454860),
-    this.subBeatLineColor = const Color(0xFF3A3D50),
-    this.minorGridColor = const Color(0xFF303345),
+    required this.barLineColor,
+    required this.beatLineColor,
+    required this.subBeatLineColor,
+    required this.minorGridColor,
+    required this.loopDimColor,
   });
 
   /// Get the smallest grid subdivision to show based on zoom level
@@ -75,9 +80,9 @@ class TimelineGridPainter extends CustomPainter {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
 
-    // Draw loop region dimming overlay (30% darker outside loop)
+    // Draw loop region dimming overlay outside the loop
     if (loopEnabled) {
-      final dimPaint = Paint()..color = const Color(0x4D000000);
+      final dimPaint = Paint()..color = loopDimColor;
 
       final loopStartX = loopStart * pixelsPerBeat;
       final loopEndX = loopEnd * pixelsPerBeat;
@@ -107,6 +112,7 @@ class TimelineGridPainter extends CustomPainter {
         oldDelegate.barLineColor != barLineColor ||
         oldDelegate.beatLineColor != beatLineColor ||
         oldDelegate.subBeatLineColor != subBeatLineColor ||
-        oldDelegate.minorGridColor != minorGridColor;
+        oldDelegate.minorGridColor != minorGridColor ||
+        oldDelegate.loopDimColor != loopDimColor;
   }
 }

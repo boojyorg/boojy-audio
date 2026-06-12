@@ -23,7 +23,8 @@ class NotePainter extends CustomPainter {
   /// Used for calculating Y coordinates in fold view
   final List<int>? foldedPitches;
 
-  /// Base color for notes — defaults to cyan, but can be set to track color.
+  /// Base color for notes — track colour, falling back to the theme accent at
+  /// the call site. Required so it can never fall back to an unthemed literal.
   final Color noteColor;
 
   /// Active theme colours (for theme-aware borders/labels).
@@ -44,7 +45,7 @@ class NotePainter extends CustomPainter {
     this.ghostNotes = const [],
     this.showGhostNotes = false,
     this.foldedPitches,
-    this.noteColor = const Color(0xFF00BCD4),
+    required this.noteColor,
     this.textScale = 1.0,
   });
 

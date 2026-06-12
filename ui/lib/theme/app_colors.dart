@@ -182,6 +182,12 @@ class BoojyColors {
   /// Record count-in indicator - Amber
   Color get countInActive => const Color(0xFFFFA600);
 
+  /// Transport Pause (rolling) state - Amber, reads as "hold"
+  Color get transportPause => const Color(0xFFF59E0B);
+
+  /// Transport Stop button - Orange, distinct from the amber Pause beside it
+  Color get transportStop => const Color(0xFFF97316);
+
   /// Inactive button background
   Color get buttonInactive => const Color(0xFF909090);
 
@@ -199,6 +205,11 @@ class BoojyColors {
 
   /// Grid lines
   Color get gridLine => divider.withValues(alpha: 0.5);
+
+  /// Dim overlay for outside-the-loop grid regions. Scrims toward the editor
+  /// background so the out-of-loop area recedes on dark AND light themes
+  /// (a hardcoded black scrim read wrong on Light).
+  Color get loopDim => editor.withValues(alpha: 0.35);
 
   /// Waveform color
   Color get waveform => accent;
