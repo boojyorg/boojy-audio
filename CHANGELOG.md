@@ -4,6 +4,15 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Bug Fixes
+
+- **In-app updates now actually offer new versions.** Sparkle compares build numbers, but the
+  appcast advertised the semver string — so every install compared e.g. `9` against `0.6.0`,
+  decided it was newer, and reported "You're up to date." The appcast now carries the build
+  number (the published v0.6.0 entry is hot-fixed too, so v0.5.4 installs get the offer), each
+  entry's download link is pinned to its own release instead of `latest`, and the app's feed URL
+  points at the current repo name instead of relying on GitHub's rename redirect.
+
 ## v0.6.0 — 2026-06-11
 
 ### Features
