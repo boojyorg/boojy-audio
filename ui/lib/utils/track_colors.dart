@@ -40,7 +40,7 @@ class TrackColors {
     // Row 1: Softer variants (rainbow order + pink before grey)
     Color(0xFFFFA8A8), // Salmon (soft red)
     Color(0xFFFFC078), // Peach (soft orange)
-    Color(0xFFFFF3BF), // Butter (soft yellow)
+    Color(0xFFFFE066), // Butter (soft yellow — deepened, #FFF3BF read as cream)
     Color(0xFF96F2D7), // Mint (soft green)
     Color(0xFF74C0FC), // Sky Blue (soft blue)
     Color(0xFFB197FC), // Lavender (soft purple)
