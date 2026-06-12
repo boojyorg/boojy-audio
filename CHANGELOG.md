@@ -15,8 +15,12 @@ All notable changes to Boojy Audio will be documented in this file.
   Volume now only changes by dragging (or double-click to reset to 0 dB).
 - **The Light theme renders correctly in more places.** The audio-file drop zone, the selected
   device border, the piano-roll Snap/Quantize menus, the loop-region dimming, and the virtual
-  piano's resize handle all hardcoded dark-theme colours; they now follow the active theme. The
-  dev theme-cycle shortcut also skips the two broken High Contrast variants.
+  piano's resize handle all hardcoded dark-theme colours; they now follow the active theme. A
+  new Cmd+Shift+T shortcut cycles Dark ↔ Light (persisted like the Settings picker).
+- **Changing the tempo during loop playback keeps the loop in time.** The loop kept wrapping at
+  the old tempo's wall-clock bounds — speed up and the playhead sailed past the loop end, slow
+  down and it cut back early, until you stopped and replayed. The loop bounds, playhead, and
+  stop-return positions now re-anchor to the same beat on every tempo change.
 - **Saving or loading a project can no longer freeze the app.** The save/load path took the
   engine's internal locks in the opposite order to the audio callback, so a save landing in a
   microsecond-wide window deadlocked the engine silently — no crash, no error, the app just

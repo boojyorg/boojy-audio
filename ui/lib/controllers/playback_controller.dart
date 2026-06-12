@@ -65,6 +65,42 @@ class PlaybackController extends ChangeNotifier {
     }
   }
 
+  /// Re-anchor playback to a new tempo. The engine runs in real seconds, so a
+  /// tempo change moves every musical position's wall-clock time. The caller
+  /// (_applyTempo) re-pushes the rescaled clips; this keeps the playback side
+  /// in step: the cached loop tempo (otherwise the loop kept wrapping at the
+  /// OLD tempo's seconds — past the visible region when sped up, short of it
+  /// when slowed down), the playhead (seeked to the same beat), and the
+  /// stop-return / auto-stop positions.
+  /// [seekPlayhead] is false during a recording take — repositioning the
+  /// transport mid-record would corrupt the take, so only the cached values
+  /// are rescaled then.
+  void handleTempoChange(
+    double oldBpm,
+    double newBpm, {
+    bool seekPlayhead = true,
+  }) {
+    if (oldBpm <= 0 || newBpm <= 0 || oldBpm == newBpm) return;
+    _loopTempo = newBpm;
+
+    final scale = oldBpm / newBpm;
+    _playStartPosition *= scale;
+    _recordStartPosition *= scale;
+    _playheadDisplayOffset *= scale;
+    if (_clipDuration != null) _clipDuration = _clipDuration! * scale;
+
+    if (_audioEngine == null || !seekPlayhead) return;
+    // Keep the playhead on the same beat. While playing, read the live engine
+    // position so the seek lands where the playhead actually is.
+    final pos = _isPlaying
+        ? _audioEngine!.getPlayheadPosition()
+        : _playheadPosition;
+    final newPos = pos * scale;
+    _audioEngine!.transportSeek(newPos);
+    _playheadPosition = newPos - (_isPlaying ? _playheadDisplayOffset : 0.0);
+    playheadNotifier.value = _playheadPosition;
+  }
+
   // Callback for auto-stop at end of clip
   VoidCallback? onAutoStop;
 
