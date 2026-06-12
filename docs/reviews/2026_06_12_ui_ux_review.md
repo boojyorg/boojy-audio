@@ -159,31 +159,31 @@ Do these first — most are an afternoon, and several are visible trust/legibili
 ## 5. How Boojy compares to the four DAWs
 
 ### 5.1 Top bar & time readout
-- **GarageBand — steal:** the isolated, protected transport zone (Boojy already does this — *protect* it); the time readout treated as a first-class instrument display, not a label. **Avoid:** seven-segment LCD skeuomorphism — Boojy's flat readout is already right.
-- **Ableton — steal:** the minimal slim strip; segment-editable position fields; dropping whole *groups* at narrow width rather than micro-shrinking (fixes N8). **Avoid:** the Session/Arrangement two-view split entirely — Boojy's arrangement-only model is a beginner advantage.
-- **FL Studio — steal:** the labelled mode indicator on the readout; the dual bars+clock readout. **Avoid:** the toolbar cemetery (30+ ungrouped icons) and detachable/floating windows — Boojy's single-panel layout is strictly better; require a *removal* before any toolbar addition.
-- **Logic — steal:** the "Beats & Time" dual mode and click-to-toggle; the dark inset LCD frame that reads as a measurement device; scrub-to-adjust tempo (already half-there). **Avoid:** customisable toolbars; overflow-by-cramming (shed a label, then a control — never overlap).
+- **GarageBand — take inspiration:** the isolated, protected transport zone (Boojy already does this — *protect* it); the time readout treated as a first-class instrument display, not a label. **Avoid:** seven-segment LCD skeuomorphism — Boojy's flat readout is already right.
+- **Ableton — take inspiration:** the minimal slim strip; segment-editable position fields; dropping whole *groups* at narrow width rather than micro-shrinking (fixes N8). **Avoid:** the Session/Arrangement two-view split entirely — Boojy's arrangement-only model is a beginner advantage.
+- **FL Studio — take inspiration:** the labelled mode indicator on the readout; the dual bars+clock readout. **Avoid:** the toolbar cemetery (30+ ungrouped icons) and detachable/floating windows — Boojy's single-panel layout is strictly better; require a *removal* before any toolbar addition.
+- **Logic — take inspiration:** the "Beats & Time" dual mode and click-to-toggle; the dark inset LCD frame that reads as a measurement device; scrub-to-adjust tempo (already half-there). **Avoid:** customisable toolbars; overflow-by-cramming (shed a label, then a control — never overlap).
 
 **→ For Boojy:** the readout family is already a coherent LCD trio — the work is (a) fixing the lag (X1/X2) so it *feels* like a precise instrument, (b) the dual-mode persistence and a quiet `BARS/TIME/BOTH` tag (X4, X9), and (c) group-priority dropping at narrow width (N8) instead of starving the readout.
 
 ### 5.2 Piano roll
-- **FL — steal:** explicit tool modes — resize only on the right edge with a wide move deadzone (directly fixes the resize-vs-move ambiguity); value-on-hover instead of always-on labels. **Avoid:** maximal density and detached piano-roll windows.
-- **Ableton — steal:** the **root note gets its own distinct band** for at-a-glance "home." **Avoid:** clip envelopes drawn inside clip bodies by default — show automation only where it exists.
-- **GarageBand — steal:** clickable keyboard sidebar that auditions the note on the current instrument; the always-visible tool strip; velocity-as-note-brightness (Boojy has the ramp). **Avoid:** mode-implicit tool selection ("I deleted a note and don't know why") and collapsed-sliver default heights.
-- **Logic — steal:** subtle per-octave background tint for orientation; ellipsis truncation (`C…`) so a note never reads empty.
+- **FL — take inspiration:** explicit tool modes — resize only on the right edge with a wide move deadzone (directly fixes the resize-vs-move ambiguity); value-on-hover instead of always-on labels. **Avoid:** maximal density and detached piano-roll windows.
+- **Ableton — take inspiration:** the **root note gets its own distinct band** for at-a-glance "home." **Avoid:** clip envelopes drawn inside clip bodies by default — show automation only where it exists.
+- **GarageBand — take inspiration:** clickable keyboard sidebar that auditions the note on the current instrument; the always-visible tool strip; velocity-as-note-brightness (Boojy has the ramp). **Avoid:** mode-implicit tool selection ("I deleted a note and don't know why") and collapsed-sliver default heights.
+- **Logic — take inspiration:** subtle per-octave background tint for orientation; ellipsis truncation (`C…`) so a note never reads empty.
 
 **→ For Boojy:** the lane *structure* is the gap, not the colour. Make the white-key separators visible (P1), deepen the black-key contrast (P2), gate the root band on its toggle (P3), keep the accidental (P5), and add a persistent tool badge (P7). That's GarageBand-grade legibility for ≤S–M effort each.
 
 ### 5.3 Mixer
-- **GarageBand / Logic — steal:** the **unity-gain tick** (the single cheapest metering win — M3); **peak-hold** line (M2); **M/S/R as icons** with state colours (speaker-off / headphones / record-dot — fixes the "M = Mute/Mono/MIDI?" guessing, M4); track colour carried into the strip as a swatch (Boojy's headers already do this — keep it). **Avoid:** hiding the mixer behind a separate window/view — Boojy's always-visible coupled-scroll sidebar is *better than all four DAWs*; never add a "show/hide mixer" toggle that defaults hidden.
-- **FL — steal:** strict uniform strip geometry (don't let name length reflow). **Avoid:** fader + volume-knob duplication — one volume control per channel.
+- **GarageBand / Logic — take inspiration:** the **unity-gain tick** (the single cheapest metering win — M3); **peak-hold** line (M2); **M/S/R as icons** with state colours (speaker-off / headphones / record-dot — fixes the "M = Mute/Mono/MIDI?" guessing, M4); track colour carried into the strip as a swatch (Boojy's headers already do this — keep it). **Avoid:** hiding the mixer behind a separate window/view — Boojy's always-visible coupled-scroll sidebar is *better than all four DAWs*; never add a "show/hide mixer" toggle that defaults hidden.
+- **FL — take inspiration:** strict uniform strip geometry (don't let name length reflow). **Avoid:** fader + volume-knob duplication — one volume control per channel.
 
 **→ For Boojy:** the mixer is the area with the biggest beginner-payoff per unit effort — M1/M2/M3/M4/M5 are all S–M and each removes a "why doesn't this make sense?" moment.
 
 ### 5.4 Effects / devices
-- **Logic / GarageBand — steal:** Smart Controls — lead with 2–3 key parameters, full detail behind a disclosure; one consistent device header (name + power dot + collapse triangle); a per-device collapse to header strip (fixes the EQ-squeeze E8 without a hard min-height). **Avoid:** skeuomorphic rotary knobs as the default; floating plugin windows — Boojy's inline cards are the cleaner model.
-- **Ableton — steal:** identical device shell across every built-in; the fold triangle; EQ curve-over-spectrum (the best "*why* am I cutting" teaching tool); a universal Dry/Wet **MIX knob in a fixed corner**. **Avoid:** dense 40–60-param grids (Operator) and mod matrices — keep the synth at one oscillator + ADSR.
-- **FL — steal:** numbered insert slots; consistent power-LED chrome. **Avoid:** value-readouts that are illegibly small (E3 is exactly this today).
+- **Logic / GarageBand — take inspiration:** Smart Controls — lead with 2–3 key parameters, full detail behind a disclosure; one consistent device header (name + power dot + collapse triangle); a per-device collapse to header strip (fixes the EQ-squeeze E8 without a hard min-height). **Avoid:** skeuomorphic rotary knobs as the default; floating plugin windows — Boojy's inline cards are the cleaner model.
+- **Ableton — take inspiration:** identical device shell across every built-in; the fold triangle; EQ curve-over-spectrum (the best "*why* am I cutting" teaching tool); a universal Dry/Wet **MIX knob in a fixed corner**. **Avoid:** dense 40–60-param grids (Operator) and mod matrices — keep the synth at one oscillator + ADSR.
+- **FL — take inspiration:** numbered insert slots; consistent power-LED chrome. **Avoid:** value-readouts that are illegibly small (E3 is exactly this today).
 
 **→ For Boojy:** the device chrome is the headline v0.7 opportunity (see §7) — one shared shell (header glyph + name + power dot + collapse + visualizer + 2–3 hero params + fixed MIX knob) unifies Synth / Drum Kit / Sampler / EQ / Reverb and fixes E1–E9 structurally rather than one card at a time.
 
@@ -250,7 +250,7 @@ The north star is unchanged: **Logic's discipline × GarageBand's friendliness**
  F5 ┃     ▭▭▭                                      
  C5 ┃     (root band ONLY when Scale Highlight is on; label keeps accidental: "C#5" not "C")
 ```
-*Notes:* P1 (separator colour), P2 (0.35 alpha), P3 (gate on `scaleHighlightEnabled`), P5 (keep `#`). Optional: clickable key gutter auditions the note (GarageBand steal).
+*Notes:* P1 (separator colour), P2 (0.35 alpha), P3 (gate on `scaleHighlightEnabled`), P5 (keep `#`). Optional: clickable key gutter auditions the note (inspired by GarageBand).
 
 ### 7.3 Device shell — one chrome for every built-in (the v0.7 headline)
 
@@ -324,7 +324,7 @@ Two threads, sequenced: first **close the trust + legibility gaps** that make a 
 - **The synth/instrument visual overhaul beyond the shared shell** — the shell header lands here; a full Synth/Sampler face redesign is its own pass once the shell exists.
 - **Full `fontSize`-literal migration (T10) + `canvas_bg_variant` resolution (T11)** — low-risk mechanical follow-ups; don't gate the visible wins.
 - **The CC-lane palette (T7) and grid-painter `required`-param tightening (T8/L7)** beyond the Light-theme-critical ones — finish the user-visible Light breaks first; the painter-default hardening is a regression-prevention follow-on.
-- **EQ spectrum-over-curve (Ableton steal) + clickable piano-roll key audition (GarageBand steal)** — both excellent, both additive; earn the shell + the lane re-treat first.
+- **EQ spectrum-over-curve (inspired by Ableton) + clickable piano-roll key audition (inspired by GarageBand)** — both excellent, both additive; earn the shell + the lane re-treat first.
 - **`HorizontalLevelMeter` / `EffectParameterPanel` audit beyond deletion (M8/E6/E7/E10)** — confirm-and-delete is in; any salvage is a separate call.
 
 **Effort:** large, ~6–9 focused days. Theme correctness + the three footgun fixes are ~1.5 days (high trust-per-hour). Mixer cues ~1.5 days. Piano-roll re-treat ~1 day. The device shell is the bulk (~3–4 days incl. wiring every built-in through it). Settings unify ~0.5 day.
