@@ -22,10 +22,16 @@ impl AudioGraph {
         use base64::Engine as _;
         use std::collections::HashMap;
 
-        // Get all tracks
+        // Lock order: synth → track → effect — the same order as the audio
+        // callback, which holds track_synth_manager across the whole buffer
+        // and only then takes track_manager/effect_manager. Acquiring
+        // synth_manager LAST here (while already holding the other two)
+        // deadlocks against a concurrent callback: it holds synth and waits
+        // for track, we hold track+effect and wait for synth. parking_lot
+        // freezes silently — every save was a tiny-window dice roll.
+        let synth_manager = self.track_synth_manager.lock();
         let track_manager = self.track_manager.lock();
         let effect_manager = self.effect_manager.lock();
-        let synth_manager = self.track_synth_manager.lock();
 
         let all_tracks = track_manager.get_all_tracks();
         let tracks_data: Vec<TrackData> = all_tracks
@@ -404,8 +410,13 @@ impl AudioGraph {
 
         // Recreate tracks and effects
         for track_data in project_data.tracks {
+            // effect_manager is deliberately NOT locked for the whole
+            // iteration: the synth-restore section below acquires
+            // track_synth_manager, and holding effect_manager across that
+            // inverts the callback's synth → track → effect lock order
+            // (same deadlock as the save path above). create_effect calls
+            // take short scoped locks instead.
             let track_manager = self.track_manager.lock();
-            let mut effect_manager = self.effect_manager.lock();
 
             // Parse track type
             let track_type = match track_data.track_type.as_str() {
@@ -628,8 +639,8 @@ impl AudioGraph {
                     }
                 };
 
-                // Add effect to effect manager
-                let effect_id = effect_manager.create_effect(effect);
+                // Add effect to effect manager (scoped lock — see loop-top note)
+                let effect_id = self.effect_manager.lock().create_effect(effect);
 
                 // Add to track's FX chain
                 let tm = self.track_manager.lock();
@@ -702,9 +713,9 @@ impl AudioGraph {
                                 }
                             }
 
-                            // Add to effect manager
+                            // Add to effect manager (scoped lock — see loop-top note)
                             let effect = EffectType::VST3(vst3_effect);
-                            let effect_id = effect_manager.create_effect(effect);
+                            let effect_id = self.effect_manager.lock().create_effect(effect);
 
                             // Add to track's FX chain
                             let tm = self.track_manager.lock();

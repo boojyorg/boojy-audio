@@ -44,6 +44,15 @@ removed. Don't reintroduce FRB casually; it's an architecture-level change, not 
 
 - **App stuck on "initializing"** → a missing FFI symbol. The Dart `lookupFunction` name must match
   the Rust `#[no_mangle]` function name exactly.
+- **Manager lock order is `synth → track → effect`.** The audio callback holds
+  `track_synth_manager` across the whole buffer and only then takes `track_manager` /
+  `effect_manager` — so any API path that holds either of those and *then* locks
+  `track_synth_manager` can deadlock against a concurrent callback (silent freeze, no panic —
+  this froze `save_project` twice in CI on 2026-06-12). API-vs-API can't deadlock (every FFI
+  call serialises on the global graph mutex); the callback is the only concurrent thread.
+  Acquire managers in callback order, or snapshot what you need and drop the guard before
+  locking `track_synth_manager`. Canonical examples: `export_to_project_data` /
+  `restore_from_project_data` in `engine/src/audio_graph/project.rs`.
 - **Track locks are non-reentrant.** The engine uses `parking_lot::Mutex`, which does **not** support
   recursive locking. `TrackManager::get_track`, `get_master_track`, and `remove_track` each walk the
   track list and `.lock()` every track to compare ids — so calling any of them while already holding
