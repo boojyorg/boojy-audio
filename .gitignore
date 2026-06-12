@@ -63,6 +63,8 @@ engine/vst3_host/.cache/
 ui/macos/*.py
 ui/macos/libengine.dylib
 ui/macos/Frameworks/
+ui/ios/Frameworks/
+ui/assets/libengine.dylib
 
 # Third-party SDKs (cloned separately)
 engine/vst3sdk/
