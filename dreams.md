@@ -7,25 +7,43 @@
 
 ## §1 Active Engineering Target
 
-**Target:** **release v0.6.0, then scope v0.6.1.** v0.6 "Sound" shipped: spec archived at
-`docs/archive/plans/v0.6-plan.md`; all six bug-hunt fix batches + the dogfood round-2 wordmark
-batch (#92) merged; dogfood round 2 PASSED (Tyr, 2026-06-11) → tag approved.
+**Target:** **scope v0.7 via the review chain.** v0.6.0 RELEASED 2026-06-11 (appcast signature
+verified bare base64 in the wild). Review-doc rename shipped (PR #97 — date-first
+`YYYY_MM_DD_<topic>.md`, convention now in CLAUDE.md).
 
-**Status (2026-06-11):** **v0.6.0 RELEASED** (PR #93 merged, tagged, draft built + published
-by Tyr; README hero updated to a v0.6.0 capture, #94). Appcast verified: bare base64
-edSignature in the published appcast.xml — the double-wrap bug is fixed in the wild.
+**Status (2026-06-11):** Tyr's big dogfood pass on v0.6.0 is captured + fact-checked in
+**`docs/reviews/2026_06_11_dogfood_notes.md`** (UNCOMMITTED, on disk — Tyr may extend; commit
+with the review reports). Read it first — it holds the bug list (MIDI hot-plug index-staleness,
+zoom, note-resize, add-FX [+] popup, editor overflow, off-palette default colors, Windows
+updater unwired), the design directions (black value chips, device chrome, action-role
+Quantize, hover/motion spec awaiting Tyr's approval), v0.7 candidates (Capture MIDI, legato,
+EQ spectrum, reverb, sampler fix), and the strategy calls (Linux/web OUT of v0.7, i18n → v1.0).
+Mockups shown 2026-06-11; Tyr owes a dropdown-style pick (quiet-text / pill / filled-chip —
+recommended filled-chip).
 
-Remaining:
+Review chain (2026-06-12) — DONE, three reports in `docs/reviews/2026_06_12_*`:
 
-- [ ] **Sparkle spot-check** (Tyr, 1 min): open the installed v0.5.4 — it should offer the
-  v0.6.0 update. This is the last live test of the appcast-signature fix.
-- [ ] v0.6.1 scoping: dogfood backlog (hover/press animation sweep in BACKLOG.md, §6.B strip
-  mockup still parked) — run the milestone-review step before opening a plan doc.
-- [ ] Housekeeping: delete the staged `docs/reviews/_screenshots/*.png` (staging-only, per
-  that folder's README); prune now-unused brand-source PNGs from `ui/assets/images/`
-  (boojy-logo, boojy_audio_app_udio, boojy_audio_app_triangle_A, boojy_audio_text,
-  boojy_audio_text_Audio — the app uses the derived `*_text_black/white.png`; keep
-  boojy_audio_audi.svg per the standing note).
+- [x] Tyr retook the screenshots on installed v0.6.0 (12 staged; archived to
+  `docs/screenshots/v0.6.0/` — new per-release convention)
+- [x] `ui-ux-review` → **B−**, proposes v0.7 = **"Devices & Feel"** (theme-token finish,
+  onDoubleTap footguns, mixer legibility, one device shell)
+- [x] `feature-gap-review` → proposes v0.7 = **"First Sound"** (thin synth presets, effect
+  patches, Capture-MIDI wiring B4 ~5min, guided first song; "Feel & Fidelity" = right SECOND
+  cycle). (codebase-review deliberately SKIPPED — ran 2026-06-05, too recent)
+- [x] BONUS: custom `eng-health-review` (CI/testing/release health) → **B**; hardening =
+  background track not theme; guardrails EH-2..5/EH-9 = half-day inside v0.7; artifact purge
+  EH-12 before v1.0
+- [x] **Sparkle spot-check** → FOUND THE REAL BUG: appcast carried semver in `sparkle:version`
+  but Sparkle compares build numbers (9 vs "0.6.0" → "up to date"). Fixed + hot-fixed published
+  appcast in **PR #98 (merged)**. Awaiting Tyr's retest: v0.5.4 should now offer 0.6.0.
+- [ ] **Triage together** → `docs/plans/v0.7-plan.md`. The decision: reconcile "Devices & Feel"
+  (ui-ux) vs **"First Sound"** (feature-gap) — they agree on the device-shell/presets overlap;
+  feature-gap argues First Sound closes the beginner-acquisition wall first.
+- [ ] Housekeeping: staged `_screenshots/*.png` deleted (archived) ✓; still owed: prune unused
+  brand-source PNGs from `ui/assets/images/` (boojy-logo, boojy_audio_app_udio,
+  boojy_audio_app_triangle_A, boojy_audio_text, boojy_audio_text_Audio — app uses the derived
+  `*_text_black/white.png`; keep boojy_audio_audi.svg per the standing note); decide whether
+  `docs/screenshots/social-preview.png` gets committed or gitignored (EH-17).
 
 
 **Carried decisions:** ASIO deferred (WASAPI right for beginners). Windows machine = per-release
