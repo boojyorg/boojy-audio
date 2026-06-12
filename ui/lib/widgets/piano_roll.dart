@@ -1941,7 +1941,18 @@ class _PianoRollState extends State<PianoRoll>
     focusNode.requestFocus();
 
     dragStart = details.localPosition;
-    final clickedNote = _findNoteAtPosition(details.localPosition);
+    final hitNote = _findNoteAtPosition(details.localPosition);
+    // Honour the resize affordance the hover cursor promised. Right at a
+    // note's edge the pan only starts after ~2px of movement, so the
+    // pan-start position can land just OUTSIDE the note — the hit test
+    // misses and the drag dies (or box-selects) while the cursor shows <|>.
+    // If hover marked an edge, resolve the drag to that note. (`final` so
+    // the null checks below keep promoting inside the setState closures.)
+    final clickedNote =
+        hitNote ??
+        (hoveredNoteId != null && hoveredEdge != null
+            ? currentClip?.notes.where((n) => n.id == hoveredNoteId).firstOrNull
+            : null);
     final modifiers = ModifierKeyState.current();
     // Get effective tool mode using resolver (handles modifier key overrides)
     final toolMode = ToolModeResolver.resolve(widget.toolMode);

@@ -14,7 +14,9 @@ All notable changes to Boojy Audio will be documented in this file.
   the editor panel because the popup anchored to the whole chain view instead of the [+] itself.
 - **New tracks only get colours you can pick.** Auto-detected track colours came from a separate
   9-colour map (plus a legacy 8-colour list) that didn't match the 16-colour picker — every
-  default now uses a picker colour, guarded by a test.
+  default now uses a picker colour, guarded by a test. Two swatches were tuned along the way:
+  the vibrant red is now a true red (the old coral read pink), and the vibrant blue is now the
+  Boojy accent blue, so the Master track's colour is a pickable swatch too.
 - **Clicking the ▲udio wordmark opens the Start screen** (it used to open Settings — Settings
   lives on the menu and the Start screen's gear). The triangle still turns red if the audio
   engine fails to start.

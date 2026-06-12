@@ -22,15 +22,15 @@ class TrackColors {
   /// on the palette"). Categories map to the vibrant row, keeping each
   /// category's hue.
   static const Map<TrackColorCategory, Color> categoryColors = {
-    TrackColorCategory.drums: Color(0xFFFF6B6B), // Coral Red
+    TrackColorCategory.drums: Color(0xFFF03E3E), // True Red
     TrackColorCategory.bass: Color(0xFFFF922B), // Tangerine
     TrackColorCategory.synth: Color(0xFF69DB7C), // Lime Green
-    TrackColorCategory.guitar: Color(0xFF4DABF7), // Ocean Blue
+    TrackColorCategory.guitar: Color(0xFF40B3E8), // Boojy Blue
     TrackColorCategory.vocals: Color(0xFF9775FA), // Violet
-    TrackColorCategory.orchestral: Color(0xFF4DABF7), // Ocean Blue (as guitar)
+    TrackColorCategory.orchestral: Color(0xFF40B3E8), // Boojy Blue (as guitar)
     TrackColorCategory.fx: Color(0xFFF06595), // Hot Pink
     TrackColorCategory.audio: Color(0xFF868E96), // Slate Grey
-    TrackColorCategory.master: Color(0xFF4DABF7), // Ocean Blue
+    TrackColorCategory.master: Color(0xFF40B3E8), // Boojy Blue
   };
 
   /// 16-color manual palette for user override (2 rows of 8)
@@ -47,11 +47,11 @@ class TrackColors {
     Color(0xFFFCC2D7), // Light Pink
     Color(0xFFCED4DA), // Silver (soft grey)
     // Row 2: Vibrant colors (rainbow order + pink before grey)
-    Color(0xFFFF6B6B), // Coral Red
+    Color(0xFFF03E3E), // True Red (deepened from coral — read too pink)
     Color(0xFFFF922B), // Tangerine
     Color(0xFFFFD43B), // Sunflower
     Color(0xFF69DB7C), // Lime Green
-    Color(0xFF4DABF7), // Ocean Blue
+    Color(0xFF40B3E8), // Boojy Blue (matches the brand accent / Master)
     Color(0xFF9775FA), // Violet
     Color(0xFFF06595), // Hot Pink
     Color(0xFF868E96), // Slate Grey
@@ -61,18 +61,18 @@ class TrackColors {
   /// index-based access). Same invariant as [categoryColors]: members of
   /// [manualPalette] only.
   static const List<Color> palette = [
-    Color(0xFF4DABF7), // Ocean Blue
+    Color(0xFF40B3E8), // Boojy Blue
     Color(0xFFF06595), // Hot Pink
     Color(0xFF69DB7C), // Lime Green
     Color(0xFFFFD43B), // Sunflower
     Color(0xFF9775FA), // Violet
     Color(0xFFFF922B), // Tangerine
     Color(0xFF868E96), // Slate Grey
-    Color(0xFFFF6B6B), // Coral Red
+    Color(0xFFF03E3E), // True Red
   ];
 
-  /// Master track color
-  static const Color masterColor = Color(0xFF4DABF7); // Ocean Blue
+  /// Master track color (the brand accent blue — also a manualPalette swatch)
+  static const Color masterColor = Color(0xFF40B3E8); // Boojy Blue
 
   /// Detect category from track name, type, instrument, and plugin
   static TrackColorCategory detectCategory(
