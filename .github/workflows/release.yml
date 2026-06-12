@@ -331,7 +331,15 @@ jobs:
         run: |
           VERSION="${{ github.ref_name }}"
           VERSION_NUM="${VERSION#v}"
+          # Sparkle compares the app's CFBundleVersion (the pubspec build number,
+          # the part after '+') against sparkle:version — NOT the semver string.
+          BUILD_NUM=$(grep '^version:' ui/pubspec.yaml | sed 's/.*+//' | tr -d '[:space:]')
+          if ! [[ "$BUILD_NUM" =~ ^[0-9]+$ ]]; then
+            echo "Could not read build number from ui/pubspec.yaml (got '$BUILD_NUM')" >&2
+            exit 1
+          fi
           echo "version=$VERSION_NUM" >> $GITHUB_OUTPUT
+          echo "build=$BUILD_NUM" >> $GITHUB_OUTPUT
 
       - name: Generate appcast.xml
         run: |
@@ -348,11 +356,11 @@ jobs:
               <item>
                 <title>Version ${{ steps.version.outputs.version }}</title>
                 <pubDate>DATE_PLACEHOLDER</pubDate>
-                <sparkle:version>${{ steps.version.outputs.version }}</sparkle:version>
+                <sparkle:version>${{ steps.version.outputs.build }}</sparkle:version>
                 <sparkle:shortVersionString>${{ steps.version.outputs.version }}</sparkle:shortVersionString>
                 <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
                 <enclosure
-                  url="https://github.com/${{ github.repository }}/releases/latest/download/Boojy-Audio-mac.dmg"
+                  url="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Boojy-Audio-mac.dmg"
                   sparkle:edSignature="${{ steps.sparkle.outputs.signature }}"
                   length="${{ steps.sparkle.outputs.size }}"
                   type="application/octet-stream"
