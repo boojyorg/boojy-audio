@@ -3157,6 +3157,7 @@ class _DAWScreenState extends State<DAWScreen>
             onAppSettings: _appSettings,
             onProjectSettings: _openProjectSettings,
             onCloseProject: _closeProject,
+            onStartScreen: _showStartScreen,
           ),
           transport: TransportCallbacks(
             onPlay: _playWithLoopCheck,
