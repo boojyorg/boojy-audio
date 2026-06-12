@@ -1,8 +1,9 @@
 # Boojy Audio Roadmap
 
 **Current Version:** v0.6.0
-**Working On:** v0.6.1 (bug-fix patch: dogfood items A4/A5/A8/A9/A10 + the live auto-update
-delivery test) → **v0.7 "Devices & Feel"** — spec: [plans/v0.7-plan.md](plans/v0.7-plan.md),
+**Working On:** **v0.7.0 "Devices & Feel"** (the v0.6.1 patch was folded in unreleased — its
+five dogfood fixes merged via PR #101 and ship with v0.7.0) — spec:
+[plans/v0.7-plan.md](plans/v0.7-plan.md),
 scoped by the [2026-06-12 triage](reviews/2026_06_12_triage.md) of the ui-ux / feature-gap /
 eng-health review chain. v0.8 theme already chosen: **"First Sound"** (thin synth presets,
 effect patches, guided first song, Capture Audio, EQ spectrum + reverb pass). Shipped v0.6

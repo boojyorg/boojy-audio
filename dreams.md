@@ -7,20 +7,20 @@
 
 ## §1 Active Engineering Target
 
-**Target:** **ship v0.6.1 (patch), then v0.7 "Devices & Feel".** Triage DONE 2026-06-12 →
+**Target:** **v0.7.0 "Devices & Feel".** Triage DONE 2026-06-12 →
 **`docs/reviews/2026_06_12_triage.md`** is the canonical per-item disposition of the three
 06-12 reviews + dogfood notes; **`docs/plans/v0.7-plan.md`** is the active plan. Updater fix
 (PR #98) live-verified: v0.5.4 offered 0.6.0 and updated — Sparkle works end-to-end.
 
 Sequence:
 
-- [ ] **v0.6.1 bug-fix patch** (branch off origin/master): A4 piano-roll resize-vs-move ·
-  A5 add-FX [+] popup position (repro first; punt to v0.7 if deep) · A8 default track colors
-  only from the 16 `manualPalette` · A9 wordmark click → Start screen (Settings via gear; keep
-  red-triangle health) · A10 library cursor/hover. Release = the first live auto-update
-  delivery test (v0.6.0 installs should be OFFERED 0.6.1).
-- [ ] **EH-12 repo purge** — standalone session right after v0.6.1 ships (Tyr's call at
-  triage): `git rm --cached` iOS `.a` libs + `build_win/` tree, gitignore, git-filter-repo,
+- [x] **v0.6.1 fixes** (PR #101, walkthrough passed ×2, CI green): A4 resize-vs-move (+
+  edge-drag hit-test) · A5 add-FX popup anchor · A8 palette-only defaults (+ red/blue/yellow
+  swatch tuning; Master = Boojy Blue, now pickable) · A9 wordmark → Start screen · A10 library
+  hover. **The v0.6.1 release itself is SKIPPED** (Tyr, 2026-06-12) — the fixes ride v0.7.0;
+  the v0.6.0→next update-offer check happens at the v0.7.0 tag instead.
+- [ ] **EH-12 repo purge** — standalone session, do FIRST before v0.7 branches pile up:
+  `git rm --cached` iOS `.a` libs + `build_win/` tree, gitignore, git-filter-repo,
   force-push, reclone check. ~68 MB.
 - [ ] **v0.7 slices** per the plan: 1 Trust (Light-theme token finish + X1/X2/M1 footguns) →
   2 Legibility (mixer cues + piano-roll lanes + BoojyTooltip) → 3 Feel chrome (filled-chip
