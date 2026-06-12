@@ -65,21 +65,15 @@ class PlaybackController extends ChangeNotifier {
     }
   }
 
-  /// Re-anchor playback to a new tempo. The engine runs in real seconds, so a
-  /// tempo change moves every musical position's wall-clock time. The caller
-  /// (_applyTempo) re-pushes the rescaled clips; this keeps the playback side
-  /// in step: the cached loop tempo (otherwise the loop kept wrapping at the
-  /// OLD tempo's seconds — past the visible region when sped up, short of it
-  /// when slowed down), the playhead (seeked to the same beat), and the
-  /// stop-return / auto-stop positions.
-  /// [seekPlayhead] is false during a recording take — repositioning the
-  /// transport mid-record would corrupt the take, so only the cached values
-  /// are rescaled then.
-  void handleTempoChange(
-    double oldBpm,
-    double newBpm, {
-    bool seekPlayhead = true,
-  }) {
+  /// Re-anchor playback bookkeeping to a new tempo. The ENGINE already moves
+  /// the playhead to the same beat inside set_tempo (api/timing.rs) — do NOT
+  /// seek here: that double-scales the position (a seek landed the playhead
+  /// at beat × old/new — visibly back on speed-up, forward on slow-down).
+  /// This only keeps the Dart-side caches in step: the loop tempo (otherwise
+  /// the loop kept wrapping at the OLD tempo's wall-clock bounds — past the
+  /// region when sped up, short of it when slowed down) and the stop-return /
+  /// auto-stop positions.
+  void handleTempoChange(double oldBpm, double newBpm) {
     if (oldBpm <= 0 || newBpm <= 0 || oldBpm == newBpm) return;
     _loopTempo = newBpm;
 
@@ -89,15 +83,11 @@ class PlaybackController extends ChangeNotifier {
     _playheadDisplayOffset *= scale;
     if (_clipDuration != null) _clipDuration = _clipDuration! * scale;
 
-    if (_audioEngine == null || !seekPlayhead) return;
-    // Keep the playhead on the same beat. While playing, read the live engine
-    // position so the seek lands where the playhead actually is.
-    final pos = _isPlaying
-        ? _audioEngine!.getPlayheadPosition()
-        : _playheadPosition;
-    final newPos = pos * scale;
-    _audioEngine!.transportSeek(newPos);
-    _playheadPosition = newPos - (_isPlaying ? _playheadDisplayOffset : 0.0);
+    if (_audioEngine == null) return;
+    // Reflect the engine's rescaled playhead now instead of waiting for the
+    // next 16 ms timer tick.
+    _playheadPosition =
+        _audioEngine!.getPlayheadPosition() - _playheadDisplayOffset;
     playheadNotifier.value = _playheadPosition;
   }
 

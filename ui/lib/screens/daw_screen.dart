@@ -782,17 +782,11 @@ class _DAWScreenState extends State<DAWScreen>
     midiCaptureBuffer.updateBpm(newBpm);
     midiPlaybackManager?.rescheduleAllClips(newBpm);
 
-    // Re-anchor playback (cached loop tempo, playhead, stop-return positions)
-    // so a mid-playback tempo change keeps looping/playing at the same BEAT —
-    // the engine is real-seconds, so without this the loop kept wrapping at
-    // the old tempo's wall-clock bounds. No seek mid-take or mid-count-in —
-    // repositioning the transport there would corrupt the recording.
-    playbackController.handleTempoChange(
-      currentTempo,
-      newBpm,
-      seekPlayhead:
-          !recordingController.isRecording && !recordingController.isCountingIn,
-    );
+    // Re-anchor the playback caches (loop tempo, stop-return positions) so a
+    // mid-playback tempo change keeps looping at the same BEAT — without this
+    // the loop kept wrapping at the old tempo's wall-clock bounds. The engine
+    // itself moves the playhead to the same beat inside set_tempo.
+    playbackController.handleTempoChange(currentTempo, newBpm);
 
     // Adjust audio clip positions to maintain their beat position
     // This prevents audio clips from visually shifting when tempo changes

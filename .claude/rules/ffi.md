@@ -68,5 +68,11 @@ removed. Don't reintroduce FRB casually; it's an architecture-level change, not 
   audio clips play early *and* pitch-shifted at any tempo ≠ 120. Consequence: **on a tempo
   change the UI must re-push every engine position** — MIDI via
   `midiPlaybackManager.rescheduleAllClips`, audio clips via `setClipStartTime`, automation via
-  `syncAllVolumeAutomationToEngine` — all of which live in `_onTempoChanged` (daw_screen.dart);
-  route ANY tempo write through that handler, never bare `audioEngine.setTempo()`.
+  `syncAllVolumeAutomationToEngine`, playback caches (loop tempo, stop-return) via
+  `playbackController.handleTempoChange` — all of which live in `_onTempoChanged`
+  (daw_screen.dart); route ANY tempo write through that handler, never bare
+  `audioEngine.setTempo()`. **Exception: the PLAYHEAD.** Engine `set_tempo`
+  (`engine/src/api/timing.rs`) already rescales the playhead samples (and the metronome's beat
+  counter) to keep the same beat — do **not** also `transportSeek` on tempo change from Dart:
+  that double-scales and visibly drags the playhead back on speed-up / forward on slow-down
+  (caught in the v0.7 slice-1 walkthrough).
