@@ -91,6 +91,9 @@ class FileMenuCallbacks {
   final VoidCallback? onProjectSettings;
   final VoidCallback? onCloseProject;
 
+  /// Open the Start screen (the wordmark's home action).
+  final VoidCallback? onStartScreen;
+
   const FileMenuCallbacks({
     this.onNewProject,
     this.onOpenProject,
@@ -105,6 +108,7 @@ class FileMenuCallbacks {
     this.onAppSettings,
     this.onProjectSettings,
     this.onCloseProject,
+    this.onStartScreen,
   });
 }
 

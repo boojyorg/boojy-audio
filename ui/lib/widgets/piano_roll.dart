@@ -1906,6 +1906,13 @@ class _PianoRollState extends State<PianoRoll>
   void _onTapUp(TapUpDetails details) {
     stopAudition();
 
+    // The create-gesture is over. justCreatedNoteId must not outlive it:
+    // _onPanStart checks it BEFORE the edge check, so a stale id makes the
+    // next drag on the new note's edge MOVE it while the cursor shows <|>
+    // (the v0.6 resize-vs-move dogfood bug). Same-gesture create-then-drag
+    // still works — pan winning the arena fires onTapCancel, not onTapUp.
+    justCreatedNoteId = null;
+
     // If we had a pending tap selection (clicked on already-selected note),
     // now reduce to single selection since no drag occurred
     if (pendingNoteTapSelection != null) {

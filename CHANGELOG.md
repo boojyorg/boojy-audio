@@ -6,6 +6,20 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Resizing a freshly drawn note no longer moves it.** After drawing a note, dragging its edge
+  showed the resize cursor but moved the note instead — the "just created" drag-to-move tracking
+  survived past the creating click and hijacked the next gesture. It's now cleared when the
+  click ends, so create-then-drag in one gesture still moves, and a new drag on the edge resizes.
+- **The add-effect [+] menu opens at the button.** It used to appear at the far-right edge of
+  the editor panel because the popup anchored to the whole chain view instead of the [+] itself.
+- **New tracks only get colours you can pick.** Auto-detected track colours came from a separate
+  9-colour map (plus a legacy 8-colour list) that didn't match the 16-colour picker — every
+  default now uses a picker colour, guarded by a test.
+- **Clicking the ▲udio wordmark opens the Start screen** (it used to open Settings — Settings
+  lives on the menu and the Start screen's gear). The triangle still turns red if the audio
+  engine fails to start.
+- **Library polish:** clickable folders and section headers show a pointer cursor, and
+  "+ Add Folder" has proper hover and press states.
 - **In-app updates now actually offer new versions.** Sparkle compares build numbers, but the
   appcast advertised the semver string — so every install compared e.g. `9` against `0.6.0`,
   decided it was newer, and reported "You're up to date." The appcast now carries the build

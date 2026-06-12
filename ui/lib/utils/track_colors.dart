@@ -15,17 +15,22 @@ enum TrackColorCategory {
 
 /// Track color utilities for assigning colors to tracks
 class TrackColors {
-  /// Category-based colors for auto-detection
+  /// Category-based colors for auto-detection.
+  ///
+  /// Invariant: every value MUST be a member of [manualPalette] — a default
+  /// the picker can't reproduce reads as a bug (a track whose colour "isn't
+  /// on the palette"). Categories map to the vibrant row, keeping each
+  /// category's hue.
   static const Map<TrackColorCategory, Color> categoryColors = {
-    TrackColorCategory.drums: Color(0xFFEF4444), // Red
-    TrackColorCategory.bass: Color(0xFFF97316), // Orange
-    TrackColorCategory.synth: Color(0xFF22C55E), // Green
-    TrackColorCategory.guitar: Color(0xFF3B82F6), // Blue
-    TrackColorCategory.vocals: Color(0xFF9775FA), // Purple
-    TrackColorCategory.orchestral: Color(0xFF3B82F6), // Blue (same as guitar)
-    TrackColorCategory.fx: Color(0xFFEC4899), // Pink
-    TrackColorCategory.audio: Color(0xFF9CA3AF), // Grey
-    TrackColorCategory.master: Color(0xFF3B82F6), // Blue
+    TrackColorCategory.drums: Color(0xFFFF6B6B), // Coral Red
+    TrackColorCategory.bass: Color(0xFFFF922B), // Tangerine
+    TrackColorCategory.synth: Color(0xFF69DB7C), // Lime Green
+    TrackColorCategory.guitar: Color(0xFF4DABF7), // Ocean Blue
+    TrackColorCategory.vocals: Color(0xFF9775FA), // Violet
+    TrackColorCategory.orchestral: Color(0xFF4DABF7), // Ocean Blue (as guitar)
+    TrackColorCategory.fx: Color(0xFFF06595), // Hot Pink
+    TrackColorCategory.audio: Color(0xFF868E96), // Slate Grey
+    TrackColorCategory.master: Color(0xFF4DABF7), // Ocean Blue
   };
 
   /// 16-color manual palette for user override (2 rows of 8)
@@ -52,10 +57,12 @@ class TrackColors {
     Color(0xFF868E96), // Slate Grey
   ];
 
-  /// Legacy palette for backwards compatibility (cycles through for index-based access)
+  /// Legacy palette for backwards compatibility (cycles through for
+  /// index-based access). Same invariant as [categoryColors]: members of
+  /// [manualPalette] only.
   static const List<Color> palette = [
     Color(0xFF4DABF7), // Ocean Blue
-    Color(0xFFF06ACD), // Hot Pink
+    Color(0xFFF06595), // Hot Pink
     Color(0xFF69DB7C), // Lime Green
     Color(0xFFFFD43B), // Sunflower
     Color(0xFF9775FA), // Violet
@@ -65,7 +72,7 @@ class TrackColors {
   ];
 
   /// Master track color
-  static const Color masterColor = Color(0xFF3B82F6); // Blue
+  static const Color masterColor = Color(0xFF4DABF7); // Ocean Blue
 
   /// Detect category from track name, type, instrument, and plugin
   static TrackColorCategory detectCategory(

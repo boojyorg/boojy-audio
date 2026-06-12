@@ -1592,20 +1592,30 @@ class _DeviceChainViewState extends State<DeviceChainView>
   // --- Add effect button ---
 
   Widget _buildAddButton(BoojyColors colors, double chainHeight) {
-    return GestureDetector(
-      onTap: () => _showAddEffectMenu(context, colors),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          width: 40,
-          // Full chain height so the empty slot lines up with the device
-          // cards beside it (a shorter pill read as a different control).
-          height: chainHeight,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: colors.divider, style: BorderStyle.solid),
+    // Builder gives the menu the BUTTON's context — the State's `context` is
+    // the whole chain view, which anchored the popup to the panel's far-right
+    // edge instead of the [+] (v0.6 dogfood A5).
+    return Builder(
+      builder: (buttonContext) => GestureDetector(
+        onTap: () => _showAddEffectMenu(buttonContext, colors),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Container(
+            width: 40,
+            // Full chain height so the empty slot lines up with the device
+            // cards beside it (a shorter pill read as a different control).
+            height: chainHeight,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: colors.divider,
+                style: BorderStyle.solid,
+              ),
+            ),
+            child: Center(
+              child: Icon(BI.add, size: 16, color: colors.textMuted),
+            ),
           ),
-          child: Center(child: Icon(BI.add, size: 16, color: colors.textMuted)),
         ),
       ),
     );
@@ -1613,16 +1623,26 @@ class _DeviceChainViewState extends State<DeviceChainView>
 
   void _showAddEffectMenu(BuildContext menuContext, BoojyColors colors) {
     final RenderBox button = menuContext.findRenderObject()! as RenderBox;
-    final position = button.localToGlobal(Offset.zero);
+    final RenderBox overlay =
+        Overlay.of(menuContext).context.findRenderObject()! as RenderBox;
+
+    // Anchor the menu to the tapped control itself (standard PopupMenuButton
+    // maths). RelativeRect.fromLTRB was being fed coordinates as right/bottom
+    // INSETS, which is also why the old menu drifted.
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(
+          button.size.bottomRight(Offset.zero),
+          ancestor: overlay,
+        ),
+      ),
+      Offset.zero & overlay.size,
+    );
 
     showMenu<String>(
       context: menuContext,
-      position: RelativeRect.fromLTRB(
-        position.dx + button.size.width - 150,
-        position.dy,
-        position.dx + button.size.width,
-        position.dy,
-      ),
+      position: position,
       items: [
         PopupMenuItem(
           value: 'eq',
