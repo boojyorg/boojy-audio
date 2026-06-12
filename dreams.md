@@ -36,9 +36,15 @@ Review chain (2026-06-12) — DONE, three reports in `docs/reviews/2026_06_12_*`
 - [x] **Sparkle spot-check** → FOUND THE REAL BUG: appcast carried semver in `sparkle:version`
   but Sparkle compares build numbers (9 vs "0.6.0" → "up to date"). Fixed + hot-fixed published
   appcast in **PR #98 (merged)**. Awaiting Tyr's retest: v0.5.4 should now offer 0.6.0.
-- [ ] **Triage together** → `docs/plans/v0.7-plan.md`. The decision: reconcile "Devices & Feel"
-  (ui-ux) vs **"First Sound"** (feature-gap) — they agree on the device-shell/presets overlap;
-  feature-gap argues First Sound closes the beginner-acquisition wall first.
+- [ ] **Triage** → `2026_06_12_triage.md` + `docs/plans/v0.7-plan.md`. **Theme DECIDED (Tyr,
+  2026-06-12): v0.7 = "Devices & Feel" (consistent design/maintainability first), v0.8 =
+  "First Sound"** (sounds/presets/tutorial land on the stabilized UX — don't relitigate).
+  Settled scope calls: **v0.6.1 bug-fix patch ships FIRST** (dogfood bugs; doubles as the live
+  delivery test of the PR #98 updater fix); v0.7 size = **medium** (4 pillars + 16 quick wins +
+  riders B4 Capture-MIDI / B6 audio Cmd+D / EH-2..5+EH-9 guardrails); **Light theme ships
+  working** (token pillar's definition of done); dropdown style = **filled-chip** (Tyr's pick
+  from the 06-11 mockups). Triage still sorts: the rest of the 76-item ui-ux ledger, feature-gap
+  B/C lists, EH-list remainder (incl. EH-12 purge timing), per-item v0.6.1-vs-v0.7 split.
 - [ ] Housekeeping: staged `_screenshots/*.png` deleted (archived) ✓; still owed: prune unused
   brand-source PNGs from `ui/assets/images/` (boojy-logo, boojy_audio_app_udio,
   boojy_audio_app_triangle_A, boojy_audio_text, boojy_audio_text_Audio — app uses the derived
