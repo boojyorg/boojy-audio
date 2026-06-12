@@ -23,11 +23,15 @@ Sequence:
   `ui/assets/libengine.dylib`) stripped from all history via git-filter-repo; all 50 branches +
   21 tags rewritten & force-pushed; releases/assets intact; fresh clone 31 MB → 15 MB. Backup
   mirror at `../boojy-audio-pre-eh12-backup.git` (delete once confident).
-- [ ] **v0.7 slices** per the plan: 1 Trust (Light-theme token finish + X1/X2/M1 footguns) →
-  2 Legibility (mixer cues + piano-roll lanes + BoojyTooltip) → 3 Feel chrome (filled-chip
-  dropdowns/menus, settings unify, overflow) → 4 Devices (shared shell, sampler package, MIDI
-  hot-plug by name, Windows updater). Riders: Capture MIDI, audio Cmd+D, Legato, CC-lane
-  toggle, swing/ghost-notes keep-or-hide. Guardrails half-day: EH-2..5/EH-15/EH-1-grep/EH-17.
+- [x] **Slice 1 Trust** — DONE 2026-06-12 (PR #106, walkthrough ×3): Light-theme tokens
+  (T1–T6, T8/L7 full-required, T9, P4, L4, N7 + arrangement canvas on Light) + footguns
+  (X1/X2/M1) + EH-11 tests + Cmd+Shift+T wired + loop-tracks-tempo fix (engine set_tempo
+  already re-anchors the playhead — rule in `.claude/rules/ffi.md`).
+- [ ] **v0.7 slices remaining**: 2 Legibility (mixer cues + piano-roll lanes + BoojyTooltip) →
+  3 Feel chrome (filled-chip dropdowns/menus, settings unify, overflow) → 4 Devices (shared
+  shell, sampler package, MIDI hot-plug by name, Windows updater). Riders: Capture MIDI, audio
+  Cmd+D, Legato, CC-lane toggle, swing/ghost-notes keep-or-hide. Guardrails half-day:
+  EH-2..5/EH-15/EH-1-grep/EH-17.
 - [ ] **Tyr owes (gates v0.7 slices):** zoom spec session (C1 — then A2/A3) · sampler research
   (C2) · hover/motion spec sign-off (B7) + B9 overflow pick · EH-9 branch-protection click.
 - [ ] Housekeeping (in EH-17 batch): prune unused brand-source PNGs from `ui/assets/images/`
