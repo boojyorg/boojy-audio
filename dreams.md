@@ -19,9 +19,10 @@ Sequence:
   swatch tuning; Master = Boojy Blue, now pickable) · A9 wordmark → Start screen · A10 library
   hover. **The v0.6.1 release itself is SKIPPED** (Tyr, 2026-06-12) — the fixes ride v0.7.0;
   the v0.6.0→next update-offer check happens at the v0.7.0 tag instead.
-- [ ] **EH-12 repo purge** — standalone session, do FIRST before v0.7 branches pile up:
-  `git rm --cached` iOS `.a` libs + `build_win/` tree, gitignore, git-filter-repo,
-  force-push, reclone check. ~68 MB.
+- [x] **EH-12 repo purge** — DONE 2026-06-12: iOS `.a` libs + `build_win/` tree (+ historical
+  `ui/assets/libengine.dylib`) stripped from all history via git-filter-repo; all 50 branches +
+  21 tags rewritten & force-pushed; releases/assets intact; fresh clone 31 MB → 15 MB. Backup
+  mirror at `../boojy-audio-pre-eh12-backup.git` (delete once confident).
 - [ ] **v0.7 slices** per the plan: 1 Trust (Light-theme token finish + X1/X2/M1 footguns) →
   2 Legibility (mixer cues + piano-roll lanes + BoojyTooltip) → 3 Feel chrome (filled-chip
   dropdowns/menus, settings unify, overflow) → 4 Devices (shared shell, sampler package, MIDI
