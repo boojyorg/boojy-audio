@@ -6,6 +6,11 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Saving or loading a project can no longer freeze the app.** The save/load path took the
+  engine's internal locks in the opposite order to the audio callback, so a save landing in a
+  microsecond-wide window deadlocked the engine silently — no crash, no error, the app just
+  hung. Rare on fast machines, but it froze CI twice in a row. Both paths now follow the
+  callback's lock order.
 - **Resizing a freshly drawn note no longer moves it.** After drawing a note, dragging its edge
   showed the resize cursor but moved the note instead — the "just created" drag-to-move tracking
   survived past the creating click and hijacked the next gesture. It's now cleared when the
