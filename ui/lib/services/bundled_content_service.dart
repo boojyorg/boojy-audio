@@ -13,7 +13,7 @@ class BundledContentService {
   BundledContentService._();
 
   /// Bump when the bundled sample set changes to force a re-copy on update.
-  static const int contentRevision = 1;
+  static const int contentRevision = 2;
 
   /// Asset root for the bundled drum samples (see LICENSES.md alongside them).
   static const String drumsAssetRoot = 'assets/samples/drums';
@@ -24,18 +24,24 @@ class BundledContentService {
     'Kicks/808 Kick.wav',
     'Kicks/House Kick.wav',
     'Kicks/Techno Kick.wav',
+    'Kicks/Analog Kick.wav',
     'Snares/Electro Snare.wav',
     'Snares/Bright Snare.wav',
     'Snares/Fat Snare.wav',
+    'Snares/Analog Snare.wav',
+    'Snares/Lo-Fi Snare.wav',
     'Hats/Closed Hat.wav',
     'Hats/Tight Hat.wav',
     'Hats/Soft Hat.wav',
     'Hats/Open Hat.wav',
     'Hats/Metal Hat.wav',
     'Hats/Noise Hat.wav',
+    'Hats/Analog Hat.wav',
+    'Hats/Lo-Fi Hat.wav',
     'Claps/909 Clap.wav',
     'Claps/Snap.wav',
     'Claps/Snap 2.wav',
+    'Claps/Lo-Fi Clap.wav',
     'Toms/Low Tom.wav',
     'Toms/Low Tom Soft.wav',
     'Toms/Fuzz Tom.wav',

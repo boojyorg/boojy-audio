@@ -60,6 +60,10 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- **Six new bundled drum one-shots.** A small "Analog" set (kick, snare, closed hat) generated
+  entirely by DSP synthesis, plus a "Lo-Fi" set (snare, hat, clap) with a bit-crushed vintage
+  character — all CC0, migrated from Boojy's synthesised-drums prototype. They appear alongside
+  the existing samples when picking sounds for a Drum Kit pad or the Sampler.
 - **Recording at bar 1 no longer plays the existing content over the count-in.** When there's
   no room for a full pre-roll (the take starts at or near the song start), track playback is
   muted during the count-in while the metronome keeps clicking — so the count-in counts you in
