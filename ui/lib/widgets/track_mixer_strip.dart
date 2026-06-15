@@ -21,6 +21,7 @@ import '../utils/track_icons.dart';
 import 'instrument_browser.dart';
 import 'pan_knob.dart';
 import 'capsule_fader.dart';
+import 'shared/boojy_tooltip.dart';
 import 'volume_readout_box.dart';
 import 'input_selector_dropdown.dart';
 import '../models/track_send_data.dart';
@@ -412,7 +413,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                   _buildControlButtons(
                     buttonSize: buttonSize,
                     spacing: buttonSpacing,
-                    fontSize: buttonFontSize,
                   ),
                   if (widget.onFxButtonPressed != null) ...[
                     const SizedBox(width: 4),
@@ -674,7 +674,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  send.amountPercentLabel,
+                  send.amountDbLabel,
                   style: TextStyle(
                     color: colors.textMuted,
                     fontSize: 9,
@@ -845,6 +845,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
       children: [
         _miniButton(
           'M',
+          'Mute',
+          'Silence this track',
           widget.isMuted,
           colors.muteActive,
           widget.onMuteToggle,
@@ -853,6 +855,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         const SizedBox(width: 2),
         _miniButton(
           'S',
+          'Solo',
+          'Hear only soloed tracks',
           widget.isSoloed,
           colors.soloActive,
           widget.onSoloToggle,
@@ -862,6 +866,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           const SizedBox(width: 2),
           _miniButton(
             'R',
+            'Record Arm',
+            'Arm this track to record',
             widget.isArmed,
             colors.recordActive,
             widget.onArmToggle,
@@ -874,28 +880,34 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
 
   Widget _miniButton(
     String label,
+    String tipTitle,
+    String tipDescription,
     bool active,
     Color activeColor,
     VoidCallback? onTap,
     double size,
   ) {
     final colors = context.colors;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: size,
-        height: size,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: active ? activeColor : colors.dark,
-          borderRadius: BT.borderSm,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: active ? colors.darkest : colors.textMuted,
-            fontSize: size * 0.55,
-            fontWeight: BT.weightSemiBold,
+    return BoojyTooltip(
+      title: tipTitle,
+      description: tipDescription,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: size,
+          height: size,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: active ? activeColor : colors.dark,
+            borderRadius: BT.borderSm,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: active ? colors.darkest : colors.textMuted,
+              fontSize: size * 0.55,
+              fontWeight: BT.weightSemiBold,
+            ),
           ),
         ),
       ),
@@ -1534,11 +1546,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     );
   }
 
-  Widget _buildControlButtons({
-    double buttonSize = 22,
-    double spacing = 4,
-    double fontSize = 10,
-  }) {
+  Widget _buildControlButtons({double buttonSize = 22, double spacing = 4}) {
     // Show arm button only for Audio and MIDI tracks (not master, return, group)
     final canArm =
         !widget.isReturnTrack &&
@@ -1549,27 +1557,29 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
       children: [
         // Mute button - Yellow/Amber when active
         _buildControlButton(
-          'M',
+          BI.speakerSlash,
+          'Mute',
+          'Silence this track',
           widget.isMuted,
           context.colors.muteActive,
           widget.onMuteToggle,
           buttonSize,
-          fontSize,
         ),
         SizedBox(width: spacing),
         // Solo button - Blue when active
         _buildControlButton(
-          'S',
+          BI.headphones,
+          'Solo',
+          'Hear only soloed tracks',
           widget.isSoloed,
           context.colors.soloActive,
           widget.onSoloToggle,
           buttonSize,
-          fontSize,
         ),
         if (!widget.isReturnTrack) ...[
           SizedBox(width: spacing),
           // Record arm button - Red when active
-          _buildArmButton(canArm, buttonSize, fontSize),
+          _buildArmButton(canArm, buttonSize),
         ],
         // Input monitoring button - audio tracks only (the engine only
         // monitors audio input; MIDI tracks have nothing to pass through).
@@ -1581,12 +1591,13 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             widget.onMonitorToggle != null) ...[
           SizedBox(width: spacing),
           _buildControlButton(
-            'I',
+            BI.speakerHigh,
+            'Input Monitor',
+            'Hear live input while armed',
             widget.inputMonitoring,
             context.colors.success,
             widget.onMonitorToggle,
             buttonSize,
-            fontSize,
           ),
         ],
       ],
@@ -1594,35 +1605,37 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   }
 
   Widget _buildControlButton(
-    String label,
+    IconData icon,
+    String tipTitle,
+    String tipDescription,
     bool isActive,
     Color activeColor,
     VoidCallback? onPressed,
     double size,
-    double fontSize,
   ) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: MouseRegion(
-        cursor: onPressed != null
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: isActive ? activeColor : context.colors.surface,
-            shape: BoxShape.circle,
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TextStyle(
+    return BoojyTooltip(
+      title: tipTitle,
+      description: tipDescription,
+      child: GestureDetector(
+        onTap: onPressed,
+        child: MouseRegion(
+          cursor: onPressed != null
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: isActive ? activeColor : context.colors.surface,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              icon,
+              size: size * 0.56,
               color: isActive
                   ? context.colors.darkest
                   : context.colors.textSecondary,
-              fontSize: fontSize,
-              fontWeight: BT.weightSemiBold,
             ),
           ),
         ),
@@ -1632,38 +1645,39 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
 
   /// Build arm button with Shift+click support for multi-arm mode
   /// Matches M/S button style but uses red when armed
-  Widget _buildArmButton(bool canArm, double size, double fontSize) {
-    return GestureDetector(
-      onTap: canArm
-          ? () {
-              final shiftPressed = HardwareKeyboard.instance.isShiftPressed;
-              if (shiftPressed && widget.onArmShiftClick != null) {
-                widget.onArmShiftClick!();
-              } else {
-                widget.onArmToggle?.call();
+  Widget _buildArmButton(bool canArm, double size) {
+    return BoojyTooltip(
+      title: 'Record Arm',
+      description: 'Arm this track to record · Shift-click to multi-arm',
+      child: GestureDetector(
+        onTap: canArm
+            ? () {
+                final shiftPressed = HardwareKeyboard.instance.isShiftPressed;
+                if (shiftPressed && widget.onArmShiftClick != null) {
+                  widget.onArmShiftClick!();
+                } else {
+                  widget.onArmToggle?.call();
+                }
               }
-            }
-          : null,
-      child: MouseRegion(
-        cursor: canArm ? SystemMouseCursors.click : SystemMouseCursors.basic,
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: widget.isArmed
-                ? context.colors.recordActive
-                : context.colors.surface,
-            shape: BoxShape.circle,
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            'R',
-            style: TextStyle(
+            : null,
+        child: MouseRegion(
+          cursor: canArm ? SystemMouseCursors.click : SystemMouseCursors.basic,
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: widget.isArmed
+                  ? context.colors.recordActive
+                  : context.colors.surface,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              BI.record,
+              size: size * 0.56,
               color: widget.isArmed
                   ? context.colors.darkest
                   : context.colors.textSecondary,
-              fontSize: fontSize,
-              fontWeight: BT.weightSemiBold,
             ),
           ),
         ),
@@ -1886,6 +1900,12 @@ class MasterTrackMixerStrip extends StatefulWidget {
   // Strip width (for responsive layout)
   final double stripWidth;
 
+  // Rename + recolour (v0.7)
+  final String trackName;
+  final Color? trackColor;
+  final Function(String)? onNameChanged;
+  final Function(Color)? onColorChanged;
+
   const MasterTrackMixerStrip({
     super.key,
     required this.volumeDb,
@@ -1904,6 +1924,10 @@ class MasterTrackMixerStrip extends StatefulWidget {
     this.trackHeight = kDefaultHeight,
     this.onHeightChanged,
     this.stripWidth = 380.0,
+    this.trackName = 'Master',
+    this.trackColor,
+    this.onNameChanged,
+    this.onColorChanged,
   });
 
   @override
@@ -1916,6 +1940,233 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
   double _resizeStartY = 0.0;
   double _resizeStartHeight = 0.0;
 
+  // Inline rename state (v0.7)
+  bool _isEditing = false;
+  late TextEditingController _nameController;
+  late FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.trackName);
+    _focusNode = FocusNode();
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void didUpdateWidget(MasterTrackMixerStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.trackName != widget.trackName && !_isEditing) {
+      _nameController.text = widget.trackName;
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (!_focusNode.hasFocus && _isEditing) {
+      _submitName();
+    }
+  }
+
+  void _startEditing() {
+    setState(() {
+      _isEditing = true;
+      _nameController.text = widget.trackName;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+      _nameController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _nameController.text.length,
+      );
+    });
+  }
+
+  void _submitName() {
+    final newName = _nameController.text.trim();
+    setState(() {
+      _isEditing = false;
+    });
+    if (newName.isNotEmpty && newName != widget.trackName) {
+      widget.onNameChanged?.call(newName);
+    }
+  }
+
+  void _showContextMenu(BuildContext context, Offset position) {
+    // Capture colors in build context before entering the async gap.
+    final colors = Provider.of<ThemeProvider>(context, listen: false).colors;
+    final currentColor = widget.trackColor;
+
+    final menuItems = <PopupMenuEntry<String>>[
+      PopupMenuItem<String>(
+        value: 'rename',
+        child: Row(
+          children: [
+            Icon(BI.pencil, size: 16, color: colors.textPrimary),
+            const SizedBox(width: 8),
+            Text('Rename', style: TextStyle(color: colors.textPrimary)),
+          ],
+        ),
+      ),
+      PopupMenuItem<String>(
+        value: 'color',
+        child: Row(
+          children: [
+            Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                color: currentColor ?? colors.accent,
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(color: colors.hover),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text('Change Color', style: TextStyle(color: colors.textPrimary)),
+          ],
+        ),
+      ),
+    ];
+
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
+      items: menuItems,
+    ).then((value) {
+      if (!mounted) return;
+      if (value == 'rename') {
+        _startEditing();
+      } else if (value == 'color') {
+        _showColorPicker(this.context, position);
+      }
+    });
+  }
+
+  void _showColorPicker(BuildContext context, Offset position) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: dialogContext.colors.standard,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Track Color',
+                style: TextStyle(
+                  color: dialogContext.colors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: BT.weightSemiBold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Row 1: Vibrant colors (first 8)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(8, (index) {
+                      final color = TrackColors.manualPalette[index];
+                      final isSelected = widget.trackColor == color;
+                      return Padding(
+                        padding: EdgeInsets.only(right: index < 7 ? 6 : 0),
+                        child: GestureDetector(
+                          onTap: () {
+                            widget.onColorChanged?.call(color);
+                            Navigator.of(dialogContext).pop();
+                          },
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: isSelected
+                                    ? dialogContext.colors.textPrimary
+                                    : dialogContext.colors.hover,
+                                width: isSelected ? 2 : 1,
+                              ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: color.withValues(alpha: 0.5),
+                                        blurRadius: 4,
+                                        spreadRadius: 1,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 6),
+                  // Row 2: Softer variants (last 8)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(8, (index) {
+                      final color = TrackColors.manualPalette[index + 8];
+                      final isSelected = widget.trackColor == color;
+                      return Padding(
+                        padding: EdgeInsets.only(right: index < 7 ? 6 : 0),
+                        child: GestureDetector(
+                          onTap: () {
+                            widget.onColorChanged?.call(color);
+                            Navigator.of(dialogContext).pop();
+                          },
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: isSelected
+                                    ? dialogContext.colors.textPrimary
+                                    : dialogContext.colors.hover,
+                                width: isSelected ? 2 : 1,
+                              ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: color.withValues(alpha: 0.5),
+                                        blurRadius: 4,
+                                        spreadRadius: 1,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Calculate scale factor based on track height (0.0 at 40px, 1.0 at 76px+)
   double get _scaleFactor {
     const minHeight = MasterTrackMixerStrip.kMinHeight;
@@ -1927,18 +2178,18 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
   /// Lerp helper for scaling values
   double _lerp(double min, double max, double t) => min + (max - min) * t;
 
-  /// Get tinted background color (accent color at 20% opacity)
+  /// Get tinted background color (trackColor or accent color at 20% opacity)
   Color _getTintedBackgroundColor(BuildContext context) {
-    final masterColor = context.colors.accent;
+    final baseColor = widget.trackColor ?? context.colors.accent;
     return Color.alphaBlend(
-      masterColor.withValues(alpha: 0.2),
+      baseColor.withValues(alpha: 0.2),
       context.colors.standard,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final masterColor = context.colors.accent;
+    final masterColor = widget.trackColor ?? context.colors.accent;
     // When selected, the border goes white to match the regular track strips.
     final borderColor = widget.isSelected
         ? Colors.white.withValues(alpha: 0.9)
@@ -1964,6 +2215,11 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
 
     return GestureDetector(
       onTap: widget.onTap,
+      onSecondaryTapUp: (details) {
+        if (widget.onNameChanged != null || widget.onColorChanged != null) {
+          _showContextMenu(context, details.globalPosition);
+        }
+      },
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
         width: widget.stripWidth,
@@ -1992,7 +2248,7 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Row 1: Icon + "Master" text + Pan knob
+                    // Row 1: Icon + name (editable) + Pan knob
                     SizedBox(
                       height: rowHeight,
                       child: Row(
@@ -2000,18 +2256,35 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                           // Icon (headphones)
                           Icon(BI.headphones, size: 14, color: masterColor),
                           const SizedBox(width: 6),
-                          // "Master" text
+                          // Name: inline rename TextField or static Text
                           Expanded(
-                            child: Text(
-                              'Master',
-                              style: TextStyle(
-                                color: masterColor,
-                                fontSize: fontSize,
-                                fontWeight: BT.weightSemiBold,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            child: _isEditing
+                                ? TextField(
+                                    controller: _nameController,
+                                    focusNode: _focusNode,
+                                    style: TextStyle(
+                                      color: masterColor,
+                                      fontSize: fontSize,
+                                      fontWeight: BT.weightSemiBold,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      border: InputBorder.none,
+                                    ),
+                                    onSubmitted: (_) => _submitName(),
+                                    autofocus: false,
+                                  )
+                                : Text(
+                                    widget.trackName,
+                                    style: TextStyle(
+                                      color: masterColor,
+                                      fontSize: fontSize,
+                                      fontWeight: BT.weightSemiBold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                           ),
                           const SizedBox(width: 6),
                           if (widget.onFxButtonPressed != null)
