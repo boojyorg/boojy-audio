@@ -4,6 +4,7 @@
 // inside by that long. Double-click is now detected manually from single
 // taps, so button taps must land immediately while double-click-to-open
 // keeps working.
+import 'package:boojy_audio/theme/boojy_icons.dart';
 import 'package:boojy_audio/theme/theme_provider.dart';
 import 'package:boojy_audio/widgets/track_header.dart';
 import 'package:boojy_audio/widgets/track_mixer_strip.dart';
@@ -120,7 +121,8 @@ void main() {
       var muteCount = 0;
       await tester.pumpWidget(strip(onMuteToggle: () => muteCount++));
       await tester.pump();
-      await tester.tap(find.text('M').first, warnIfMissed: false);
+      // Mute is now an icon (M4), no longer the letter 'M'.
+      await tester.tap(find.byIcon(BI.speakerSlash).first, warnIfMissed: false);
       await tester.pump(const Duration(milliseconds: 50));
       expect(
         muteCount,

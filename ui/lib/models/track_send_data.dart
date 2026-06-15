@@ -68,6 +68,14 @@ class TrackSendData {
     if (amountLinear <= 0.0) return '0%';
     return '${(amountLinear * 100).round()}%';
   }
+
+  /// Format linear amount as dB for display (e.g. 0.1 → "-20.0 dB"), matching
+  /// the fader readout. Floors to "-∞ dB" at silence.
+  String get amountDbLabel {
+    final db = linearToDb(amountLinear);
+    if (db <= -96.0) return '-∞ dB';
+    return '${db.toStringAsFixed(1)} dB';
+  }
 }
 
 /// A return bus track (mixer-only in v0.3).

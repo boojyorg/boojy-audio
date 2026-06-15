@@ -21,6 +21,7 @@ import '../utils/track_icons.dart';
 import 'instrument_browser.dart';
 import 'pan_knob.dart';
 import 'capsule_fader.dart';
+import 'shared/boojy_tooltip.dart';
 import 'volume_readout_box.dart';
 import 'input_selector_dropdown.dart';
 import '../models/track_send_data.dart';
@@ -43,6 +44,8 @@ class TrackMixerStrip extends StatefulWidget {
   final bool isSoloed;
   final double peakLevelLeft; // 0.0 to 1.0
   final double peakLevelRight; // 0.0 to 1.0
+  final double peakHoldLeft; // 0.0 to 1.0, frozen peak tick (M2)
+  final double peakHoldRight; // 0.0 to 1.0, frozen peak tick (M2)
   final Color? trackColor; // Optional track color for left border
   final AudioEngine? audioEngine;
 
@@ -137,6 +140,8 @@ class TrackMixerStrip extends StatefulWidget {
     required this.isSoloed,
     this.peakLevelLeft = 0.0,
     this.peakLevelRight = 0.0,
+    this.peakHoldLeft = 0.0,
+    this.peakHoldRight = 0.0,
     this.trackColor,
     this.audioEngine,
     this.onVolumeChanged,
@@ -412,7 +417,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                   _buildControlButtons(
                     buttonSize: buttonSize,
                     spacing: buttonSpacing,
-                    fontSize: buttonFontSize,
                   ),
                   if (widget.onFxButtonPressed != null) ...[
                     const SizedBox(width: 4),
@@ -452,6 +456,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                   child: CapsuleFader(
                     leftLevel: widget.peakLevelLeft,
                     rightLevel: widget.peakLevelRight,
+                    peakHoldLeft: widget.peakHoldLeft,
+                    peakHoldRight: widget.peakHoldRight,
                     volumeDb: widget.volumeDb,
                     onVolumeChanged: widget.onVolumeChanged,
                     onDragStart: widget.onVolumeDragStart,
@@ -674,7 +680,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  send.amountPercentLabel,
+                  send.amountDbLabel,
                   style: TextStyle(
                     color: colors.textMuted,
                     fontSize: 9,
@@ -772,6 +778,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             child: CapsuleFader(
               leftLevel: widget.peakLevelLeft,
               rightLevel: widget.peakLevelRight,
+              peakHoldLeft: widget.peakHoldLeft,
+              peakHoldRight: widget.peakHoldRight,
               volumeDb: displayVolumeDb,
               onVolumeChanged: widget.onVolumeChanged,
               onDragStart: widget.onVolumeDragStart,
@@ -845,6 +853,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
       children: [
         _miniButton(
           'M',
+          'Mute',
+          'Silence this track',
           widget.isMuted,
           colors.muteActive,
           widget.onMuteToggle,
@@ -853,6 +863,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         const SizedBox(width: 2),
         _miniButton(
           'S',
+          'Solo',
+          'Hear only soloed tracks',
           widget.isSoloed,
           colors.soloActive,
           widget.onSoloToggle,
@@ -862,6 +874,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           const SizedBox(width: 2),
           _miniButton(
             'R',
+            'Record Arm',
+            'Arm this track to record',
             widget.isArmed,
             colors.recordActive,
             widget.onArmToggle,
@@ -874,28 +888,34 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
 
   Widget _miniButton(
     String label,
+    String tipTitle,
+    String tipDescription,
     bool active,
     Color activeColor,
     VoidCallback? onTap,
     double size,
   ) {
     final colors = context.colors;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: size,
-        height: size,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: active ? activeColor : colors.dark,
-          borderRadius: BT.borderSm,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: active ? colors.darkest : colors.textMuted,
-            fontSize: size * 0.55,
-            fontWeight: BT.weightSemiBold,
+    return BoojyTooltip(
+      title: tipTitle,
+      description: tipDescription,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: size,
+          height: size,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: active ? activeColor : colors.dark,
+            borderRadius: BT.borderSm,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: active ? colors.darkest : colors.textMuted,
+              fontSize: size * 0.55,
+              fontWeight: BT.weightSemiBold,
+            ),
           ),
         ),
       ),
@@ -1534,11 +1554,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     );
   }
 
-  Widget _buildControlButtons({
-    double buttonSize = 22,
-    double spacing = 4,
-    double fontSize = 10,
-  }) {
+  Widget _buildControlButtons({double buttonSize = 22, double spacing = 4}) {
     // Show arm button only for Audio and MIDI tracks (not master, return, group)
     final canArm =
         !widget.isReturnTrack &&
@@ -1549,27 +1565,29 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
       children: [
         // Mute button - Yellow/Amber when active
         _buildControlButton(
-          'M',
+          BI.speakerSlash,
+          'Mute',
+          'Silence this track',
           widget.isMuted,
           context.colors.muteActive,
           widget.onMuteToggle,
           buttonSize,
-          fontSize,
         ),
         SizedBox(width: spacing),
         // Solo button - Blue when active
         _buildControlButton(
-          'S',
+          BI.headphones,
+          'Solo',
+          'Hear only soloed tracks',
           widget.isSoloed,
           context.colors.soloActive,
           widget.onSoloToggle,
           buttonSize,
-          fontSize,
         ),
         if (!widget.isReturnTrack) ...[
           SizedBox(width: spacing),
           // Record arm button - Red when active
-          _buildArmButton(canArm, buttonSize, fontSize),
+          _buildArmButton(canArm, buttonSize),
         ],
         // Input monitoring button - audio tracks only (the engine only
         // monitors audio input; MIDI tracks have nothing to pass through).
@@ -1581,12 +1599,13 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             widget.onMonitorToggle != null) ...[
           SizedBox(width: spacing),
           _buildControlButton(
-            'I',
+            BI.speakerHigh,
+            'Input Monitor',
+            'Hear live input while armed',
             widget.inputMonitoring,
             context.colors.success,
             widget.onMonitorToggle,
             buttonSize,
-            fontSize,
           ),
         ],
       ],
@@ -1594,35 +1613,37 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   }
 
   Widget _buildControlButton(
-    String label,
+    IconData icon,
+    String tipTitle,
+    String tipDescription,
     bool isActive,
     Color activeColor,
     VoidCallback? onPressed,
     double size,
-    double fontSize,
   ) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: MouseRegion(
-        cursor: onPressed != null
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: isActive ? activeColor : context.colors.surface,
-            shape: BoxShape.circle,
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TextStyle(
+    return BoojyTooltip(
+      title: tipTitle,
+      description: tipDescription,
+      child: GestureDetector(
+        onTap: onPressed,
+        child: MouseRegion(
+          cursor: onPressed != null
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: isActive ? activeColor : context.colors.surface,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              icon,
+              size: size * 0.56,
               color: isActive
                   ? context.colors.darkest
                   : context.colors.textSecondary,
-              fontSize: fontSize,
-              fontWeight: BT.weightSemiBold,
             ),
           ),
         ),
@@ -1632,38 +1653,39 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
 
   /// Build arm button with Shift+click support for multi-arm mode
   /// Matches M/S button style but uses red when armed
-  Widget _buildArmButton(bool canArm, double size, double fontSize) {
-    return GestureDetector(
-      onTap: canArm
-          ? () {
-              final shiftPressed = HardwareKeyboard.instance.isShiftPressed;
-              if (shiftPressed && widget.onArmShiftClick != null) {
-                widget.onArmShiftClick!();
-              } else {
-                widget.onArmToggle?.call();
+  Widget _buildArmButton(bool canArm, double size) {
+    return BoojyTooltip(
+      title: 'Record Arm',
+      description: 'Arm this track to record · Shift-click to multi-arm',
+      child: GestureDetector(
+        onTap: canArm
+            ? () {
+                final shiftPressed = HardwareKeyboard.instance.isShiftPressed;
+                if (shiftPressed && widget.onArmShiftClick != null) {
+                  widget.onArmShiftClick!();
+                } else {
+                  widget.onArmToggle?.call();
+                }
               }
-            }
-          : null,
-      child: MouseRegion(
-        cursor: canArm ? SystemMouseCursors.click : SystemMouseCursors.basic,
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: widget.isArmed
-                ? context.colors.recordActive
-                : context.colors.surface,
-            shape: BoxShape.circle,
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            'R',
-            style: TextStyle(
+            : null,
+        child: MouseRegion(
+          cursor: canArm ? SystemMouseCursors.click : SystemMouseCursors.basic,
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: widget.isArmed
+                  ? context.colors.recordActive
+                  : context.colors.surface,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              BI.record,
+              size: size * 0.56,
               color: widget.isArmed
                   ? context.colors.darkest
                   : context.colors.textSecondary,
-              fontSize: fontSize,
-              fontWeight: BT.weightSemiBold,
             ),
           ),
         ),
@@ -1867,6 +1889,8 @@ class MasterTrackMixerStrip extends StatefulWidget {
   final double pan;
   final double peakLevelLeft;
   final double peakLevelRight;
+  final double peakHoldLeft; // 0.0 to 1.0, frozen peak tick (M2)
+  final double peakHoldRight; // 0.0 to 1.0, frozen peak tick (M2)
   final Function(double)? onVolumeChanged;
   final Function(double)? onPanChanged;
   final VoidCallback? onVolumeDragStart;
@@ -1892,6 +1916,8 @@ class MasterTrackMixerStrip extends StatefulWidget {
     required this.pan,
     this.peakLevelLeft = 0.0,
     this.peakLevelRight = 0.0,
+    this.peakHoldLeft = 0.0,
+    this.peakHoldRight = 0.0,
     this.onVolumeChanged,
     this.onPanChanged,
     this.onVolumeDragStart,
@@ -2057,6 +2083,8 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                             child: CapsuleFader(
                               leftLevel: widget.peakLevelLeft,
                               rightLevel: widget.peakLevelRight,
+                              peakHoldLeft: widget.peakHoldLeft,
+                              peakHoldRight: widget.peakHoldRight,
                               volumeDb: widget.volumeDb,
                               onVolumeChanged: widget.onVolumeChanged,
                               onDragStart: widget.onVolumeDragStart,

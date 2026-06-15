@@ -15,6 +15,8 @@ class CapsuleFader extends StatefulWidget {
   final VoidCallback? onDragStart;
   final VoidCallback? onDragEnd;
   final double? inputLevel; // 0.0 to 1.0, shown as faded overlay when armed
+  final double? peakHoldLeft; // 0.0 to 1.0, frozen peak tick (M2)
+  final double? peakHoldRight; // 0.0 to 1.0, frozen peak tick (M2)
 
   const CapsuleFader({
     super.key,
@@ -26,6 +28,8 @@ class CapsuleFader extends StatefulWidget {
     this.onDragStart,
     this.onDragEnd,
     this.inputLevel,
+    this.peakHoldLeft,
+    this.peakHoldRight,
   });
 
   @override
@@ -78,6 +82,8 @@ class _CapsuleFaderState extends State<CapsuleFader> {
                 rightLevel: widget.rightLevel,
                 volumeSliderValue: _volumeDbToSlider(widget.volumeDb),
                 inputLevel: widget.inputLevel,
+                peakHoldLeft: widget.peakHoldLeft,
+                peakHoldRight: widget.peakHoldRight,
                 isDragging: _isDragging,
                 accentColor: accentColor,
                 colors: context.colors,
@@ -151,15 +157,23 @@ class _CapsuleFaderPainter extends CustomPainter {
   final double rightLevel;
   final double volumeSliderValue; // 0.0 to 1.0
   final double? inputLevel; // 0.0 to 1.0, faded overlay when armed
+  final double? peakHoldLeft; // 0.0 to 1.0, frozen peak tick (M2)
+  final double? peakHoldRight; // 0.0 to 1.0, frozen peak tick (M2)
   final bool isDragging;
   final Color accentColor;
   final BoojyColors colors;
+
+  /// Slider position of unity (0 dB) on the Boojy volume curve — the handle
+  /// sits here at 0 dB, so the unity mark (M3) draws at the same x.
+  static const double _kUnitySlider = 0.70;
 
   _CapsuleFaderPainter({
     required this.leftLevel,
     required this.rightLevel,
     required this.volumeSliderValue,
     this.inputLevel,
+    this.peakHoldLeft,
+    this.peakHoldRight,
     required this.isDragging,
     required this.accentColor,
     required this.colors,
@@ -215,6 +229,7 @@ class _CapsuleFaderPainter extends CustomPainter {
       meterWidth,
       meterHeight,
       leftLevel,
+      peakHoldLeft,
     );
 
     // Draw right channel meter (bottom half)
@@ -224,12 +239,30 @@ class _CapsuleFaderPainter extends CustomPainter {
       meterWidth,
       meterHeight,
       rightLevel,
+      peakHoldRight,
     );
 
     canvas.restore();
 
-    // Draw volume handle/thumb
+    // Unity (0 dB) reference mark, then the handle on top of it.
+    _drawUnityMark(canvas, size);
     _drawVolumeHandle(canvas, size);
+  }
+
+  /// Faint vertical hairline marking where the handle sits at 0 dB (M3).
+  void _drawUnityMark(Canvas canvas, Size size) {
+    final handleRadius = size.height / 2;
+    final usableWidth = size.width - handleRadius * 2;
+    final x = handleRadius + _kUnitySlider * usableWidth;
+    final paint = Paint()
+      ..color = colors.textMuted.withValues(alpha: 0.5)
+      ..strokeWidth = 1;
+    // Inset from the capsule edges so it reads as a tick, not a full divider.
+    canvas.drawLine(
+      Offset(x, size.height * 0.20),
+      Offset(x, size.height * 0.80),
+      paint,
+    );
   }
 
   void _drawMeterRow(
@@ -238,6 +271,7 @@ class _CapsuleFaderPainter extends CustomPainter {
     double width,
     double height,
     double level,
+    double? peakHold,
   ) {
     // Draw background track (dark)
     final bgRect = RRect.fromRectAndRadius(
@@ -276,6 +310,19 @@ class _CapsuleFaderPainter extends CustomPainter {
         ).createShader(Rect.fromLTWH(offset.dx, offset.dy, width, height));
 
       canvas.drawRRect(levelRect, levelPaint);
+    }
+
+    // Peak-hold tick (M2): a thin bright marker frozen at the recent peak.
+    if (peakHold != null && peakHold > 0.01) {
+      final tickX = offset.dx + width * peakHold.clamp(0.0, 1.0);
+      final tickPaint = Paint()
+        ..color = colors.textPrimary.withValues(alpha: 0.85)
+        ..strokeWidth = 1.5;
+      canvas.drawLine(
+        Offset(tickX, offset.dy),
+        Offset(tickX, offset.dy + height),
+        tickPaint,
+      );
     }
   }
 
@@ -339,6 +386,8 @@ class _CapsuleFaderPainter extends CustomPainter {
         oldDelegate.rightLevel != rightLevel ||
         oldDelegate.volumeSliderValue != volumeSliderValue ||
         oldDelegate.inputLevel != inputLevel ||
+        oldDelegate.peakHoldLeft != peakHoldLeft ||
+        oldDelegate.peakHoldRight != peakHoldRight ||
         oldDelegate.isDragging != isDragging ||
         oldDelegate.accentColor != accentColor ||
         oldDelegate.colors != colors;

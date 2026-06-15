@@ -20,8 +20,9 @@ void main() {
       expect(sends[0].label, 'Reverb');
       expect(sends[0].effectType, 'reverb');
       expect(sends[0].amountLinear, closeTo(0.1, 0.001));
+      expect(sends[0].amountDbLabel, '-20.0 dB');
       expect(sends[1].returnId, 11);
-      expect(sends[1].amountPercentLabel, '32%');
+      expect(sends[1].amountDbLabel, '-10.0 dB');
     });
 
     test('decodes a percent-encoded return name (C34)', () {
