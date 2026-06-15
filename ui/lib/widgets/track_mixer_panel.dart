@@ -704,6 +704,35 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     );
   }
 
+  void _confirmDeleteReturn(ReturnTrackData returnTrack) {
+    // Read theme from the dialog's own build context (see _confirmDeleteTrack).
+    showDialog(
+      context: context,
+      builder: (context) {
+        final colors = context.colors;
+        return AlertDialog(
+          title: const Text('Delete Return'),
+          content: Text(
+            'Are you sure you want to delete "${returnTrack.name}"?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _handleDeleteReturn(returnTrack);
+              },
+              child: Text('Delete', style: TextStyle(color: colors.error)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PlatformDropTarget(
@@ -996,6 +1025,36 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
               trackHeight: widget.trackHeightState.masterTrackHeight,
               onHeightChanged: widget.onMasterTrackHeightChanged,
               stripWidth: widget.config.panelWidth,
+              trackName: masterTrack.name,
+              trackColor: widget.getTrackColor?.call(
+                masterTrack.id,
+                masterTrack.name,
+                masterTrack.type,
+              ),
+              onNameChanged: (newName) async {
+                final oldName = masterTrack.name;
+                if (oldName == newName) return;
+                final command = RenameTrackCommand(
+                  trackId: masterTrack.id,
+                  oldName: oldName,
+                  newName: newName,
+                  onTrackRenamed: (trackId, name) {
+                    if (mounted) {
+                      setState(() {
+                        masterTrack.name = name;
+                      });
+                      widget.trackCallbacks.onNameChanged?.call(trackId, name);
+                    }
+                  },
+                );
+                await UndoRedoManager().execute(command);
+              },
+              onColorChanged: widget.trackCallbacks.onColorChanged != null
+                  ? (color) => widget.trackCallbacks.onColorChanged!(
+                      masterTrack.id,
+                      color,
+                    )
+                  : null,
               onVolumeChanged: (volumeDb) {
                 setState(() {
                   masterTrack.volumeDb = volumeDb;
@@ -1313,7 +1372,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         );
       },
       onDeleteReturn: returnMeta != null
-          ? () => _handleDeleteReturn(returnMeta)
+          ? () => _confirmDeleteReturn(returnMeta)
           : null,
       onClipHeightChanged: (height) {
         widget.trackHeightState.onClipHeightChanged?.call(track.id, height);
