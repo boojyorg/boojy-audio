@@ -95,6 +95,10 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   final Map<int, (DateTime, DateTime)> _peakHoldAt = {};
   // How long a peak tick freezes before it starts decaying.
   static const int _peakHoldFreezeMs = 1500;
+  // M6: pixels each stacked strip shifts up so its top border overlaps the
+  // strip above's bottom border, collapsing the doubled inter-strip seam.
+  // Tune here if the seam still reads thick (1px halves it; 2px overlaps fully).
+  static const double _stripBorderOverlap = 1.0;
   bool _isAudioFileDragging = false;
   bool _forceDecayToZero = false; // When true, decay all meters to zero
 
@@ -994,99 +998,110 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           ),
         ),
 
-        // Return tracks pinned before master (not scrollable, not draggable)
+        // Return tracks pinned before master (not scrollable, not draggable).
+        // -1px overlap collapses the seam with the strip above (M6).
         if (returnTracks.isNotEmpty)
           ...returnTracks.map(
-            (track) => ValueListenableBuilder<Map<int, (double, double)>>(
-              valueListenable: _displayLevelsNotifier,
-              builder: (context, levels, _) => _buildReturnTrackStrip(
-                track,
-                levels[track.id]?.$1 ?? 0.0,
-                levels[track.id]?.$2 ?? 0.0,
+            (track) => Transform.translate(
+              offset: const Offset(0, -_stripBorderOverlap),
+              child: ValueListenableBuilder<Map<int, (double, double)>>(
+                valueListenable: _displayLevelsNotifier,
+                builder: (context, levels, _) => _buildReturnTrackStrip(
+                  track,
+                  levels[track.id]?.$1 ?? 0.0,
+                  levels[track.id]?.$2 ?? 0.0,
+                ),
               ),
             ),
           ),
 
-        // Master track pinned at bottom (outside scroll area)
+        // Master track pinned at bottom (outside scroll area).
+        // -1px overlap collapses the seam with the strip above (M6).
         if (masterTrack.id != -1)
-          ValueListenableBuilder<Map<int, (double, double)>>(
-            valueListenable: _displayLevelsNotifier,
-            builder: (context, levels, _) => MasterTrackMixerStrip(
-              volumeDb: masterTrack.volumeDb,
-              pan: masterTrack.pan,
-              isSelected:
-                  widget.selectionState.selectedTrackId == masterTrack.id,
-              onTap: () =>
-                  widget.selectionState.onTrackSelected?.call(masterTrack.id),
-              peakLevelLeft: levels[masterTrack.id]?.$1 ?? 0.0,
-              peakLevelRight: levels[masterTrack.id]?.$2 ?? 0.0,
-              peakHoldLeft: _peakHold[masterTrack.id]?.$1 ?? 0.0,
-              peakHoldRight: _peakHold[masterTrack.id]?.$2 ?? 0.0,
-              trackHeight: widget.trackHeightState.masterTrackHeight,
-              onHeightChanged: widget.onMasterTrackHeightChanged,
-              stripWidth: widget.config.panelWidth,
-              trackName: masterTrack.name,
-              trackColor: widget.getTrackColor?.call(
-                masterTrack.id,
-                masterTrack.name,
-                masterTrack.type,
+          Transform.translate(
+            offset: const Offset(0, -_stripBorderOverlap),
+            child: ValueListenableBuilder<Map<int, (double, double)>>(
+              valueListenable: _displayLevelsNotifier,
+              builder: (context, levels, _) => MasterTrackMixerStrip(
+                volumeDb: masterTrack.volumeDb,
+                pan: masterTrack.pan,
+                isSelected:
+                    widget.selectionState.selectedTrackId == masterTrack.id,
+                onTap: () =>
+                    widget.selectionState.onTrackSelected?.call(masterTrack.id),
+                peakLevelLeft: levels[masterTrack.id]?.$1 ?? 0.0,
+                peakLevelRight: levels[masterTrack.id]?.$2 ?? 0.0,
+                peakHoldLeft: _peakHold[masterTrack.id]?.$1 ?? 0.0,
+                peakHoldRight: _peakHold[masterTrack.id]?.$2 ?? 0.0,
+                trackHeight: widget.trackHeightState.masterTrackHeight,
+                onHeightChanged: widget.onMasterTrackHeightChanged,
+                stripWidth: widget.config.panelWidth,
+                trackName: masterTrack.name,
+                trackColor: widget.getTrackColor?.call(
+                  masterTrack.id,
+                  masterTrack.name,
+                  masterTrack.type,
+                ),
+                onNameChanged: (newName) async {
+                  final oldName = masterTrack.name;
+                  if (oldName == newName) return;
+                  final command = RenameTrackCommand(
+                    trackId: masterTrack.id,
+                    oldName: oldName,
+                    newName: newName,
+                    onTrackRenamed: (trackId, name) {
+                      if (mounted) {
+                        setState(() {
+                          masterTrack.name = name;
+                        });
+                        widget.trackCallbacks.onNameChanged?.call(
+                          trackId,
+                          name,
+                        );
+                      }
+                    },
+                  );
+                  await UndoRedoManager().execute(command);
+                },
+                onColorChanged: widget.trackCallbacks.onColorChanged != null
+                    ? (color) => widget.trackCallbacks.onColorChanged!(
+                        masterTrack.id,
+                        color,
+                      )
+                    : null,
+                onVolumeChanged: (volumeDb) {
+                  setState(() {
+                    masterTrack.volumeDb = volumeDb;
+                  });
+                  widget.audioEngine?.setTrackVolume(masterTrack.id, volumeDb);
+                },
+                onVolumeDragStart: () =>
+                    _beginVolumeDrag(masterTrack.id, masterTrack.volumeDb),
+                onVolumeDragEnd: () => _commitVolumeChange(
+                  masterTrack.id,
+                  masterTrack.name,
+                  masterTrack.volumeDb,
+                ),
+                onPanChanged: (pan) {
+                  setState(() {
+                    masterTrack.pan = pan;
+                  });
+                  widget.audioEngine?.setTrackPan(masterTrack.id, pan);
+                },
+                onPanDragStart: () =>
+                    _beginPanDrag(masterTrack.id, masterTrack.pan),
+                onPanDragEnd: () => _commitPanChange(
+                  masterTrack.id,
+                  masterTrack.name,
+                  masterTrack.pan,
+                ),
+                onFxButtonPressed:
+                    widget.instrumentCallbacks.onFxButtonPressed != null
+                    ? () => widget.instrumentCallbacks.onFxButtonPressed!(
+                        masterTrack.id,
+                      )
+                    : null,
               ),
-              onNameChanged: (newName) async {
-                final oldName = masterTrack.name;
-                if (oldName == newName) return;
-                final command = RenameTrackCommand(
-                  trackId: masterTrack.id,
-                  oldName: oldName,
-                  newName: newName,
-                  onTrackRenamed: (trackId, name) {
-                    if (mounted) {
-                      setState(() {
-                        masterTrack.name = name;
-                      });
-                      widget.trackCallbacks.onNameChanged?.call(trackId, name);
-                    }
-                  },
-                );
-                await UndoRedoManager().execute(command);
-              },
-              onColorChanged: widget.trackCallbacks.onColorChanged != null
-                  ? (color) => widget.trackCallbacks.onColorChanged!(
-                      masterTrack.id,
-                      color,
-                    )
-                  : null,
-              onVolumeChanged: (volumeDb) {
-                setState(() {
-                  masterTrack.volumeDb = volumeDb;
-                });
-                widget.audioEngine?.setTrackVolume(masterTrack.id, volumeDb);
-              },
-              onVolumeDragStart: () =>
-                  _beginVolumeDrag(masterTrack.id, masterTrack.volumeDb),
-              onVolumeDragEnd: () => _commitVolumeChange(
-                masterTrack.id,
-                masterTrack.name,
-                masterTrack.volumeDb,
-              ),
-              onPanChanged: (pan) {
-                setState(() {
-                  masterTrack.pan = pan;
-                });
-                widget.audioEngine?.setTrackPan(masterTrack.id, pan);
-              },
-              onPanDragStart: () =>
-                  _beginPanDrag(masterTrack.id, masterTrack.pan),
-              onPanDragEnd: () => _commitPanChange(
-                masterTrack.id,
-                masterTrack.name,
-                masterTrack.pan,
-              ),
-              onFxButtonPressed:
-                  widget.instrumentCallbacks.onFxButtonPressed != null
-                  ? () => widget.instrumentCallbacks.onFxButtonPressed!(
-                      masterTrack.id,
-                    )
-                  : null,
             ),
           ),
       ],
@@ -1102,29 +1117,36 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     final trackHeight = widget.trackHeightState.clipHeights[track.id] ?? 100.0;
     final isDragging = _draggingIndex == index;
 
-    return KeyedSubtree(
-      key: ValueKey(track.id),
-      child: MouseRegion(
-        cursor: _dragActivated
-            ? SystemMouseCursors.grabbing
-            : SystemMouseCursors.grab,
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          // Reorder is vertical-only; using onVerticalDrag (not onPan) lets the
-          // fader's horizontal-drag recognizer win the gesture arena.
-          onVerticalDragStart: (details) => _onDragStart(index, details),
-          onVerticalDragUpdate: (details) => _onDragUpdate(details, allTracks),
-          onVerticalDragEnd: (details) => _onDragEnd(allTracks),
-          onVerticalDragCancel: _onDragCancel, // CRITICAL: Handle arena loss
-          child: isDragging && _dragActivated
-              ? SizedBox(
-                  height: trackHeight,
-                  width: 380,
-                ) // Placeholder for dragged track
-              : IgnorePointer(
-                  ignoring: _dragActivated, // Disable controls during any drag
-                  child: _buildTrackStrip(track, index, allTracks),
-                ),
+    // Shift every strip after the first up so its top border overlaps the
+    // previous strip's bottom border — collapses the 4px doubled seam (M6).
+    return Transform.translate(
+      offset: Offset(0, index == 0 ? 0 : -_stripBorderOverlap),
+      child: KeyedSubtree(
+        key: ValueKey(track.id),
+        child: MouseRegion(
+          cursor: _dragActivated
+              ? SystemMouseCursors.grabbing
+              : SystemMouseCursors.grab,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            // Reorder is vertical-only; using onVerticalDrag (not onPan) lets the
+            // fader's horizontal-drag recognizer win the gesture arena.
+            onVerticalDragStart: (details) => _onDragStart(index, details),
+            onVerticalDragUpdate: (details) =>
+                _onDragUpdate(details, allTracks),
+            onVerticalDragEnd: (details) => _onDragEnd(allTracks),
+            onVerticalDragCancel: _onDragCancel, // CRITICAL: Handle arena loss
+            child: isDragging && _dragActivated
+                ? SizedBox(
+                    height: trackHeight,
+                    width: 380,
+                  ) // Placeholder for dragged track
+                : IgnorePointer(
+                    ignoring:
+                        _dragActivated, // Disable controls during any drag
+                    child: _buildTrackStrip(track, index, allTracks),
+                  ),
+          ),
         ),
       ),
     );
