@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
+import '../shared/boojy_tooltip.dart';
 
 /// Metronome split button with value-text design:
 ///   Left zone: metronome icon — toggles metronome on/off
@@ -122,12 +123,10 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
     final leftBg = widget.isActive ? colors.selectionFill : colors.surface;
     final iconColor = widget.isActive ? colors.accent : colors.textSecondary;
 
-    final tooltip = widget.isActive
-        ? 'Metronome On (M) · Count-in: $_countInText'
-        : 'Metronome Off (M)';
-
-    return Tooltip(
-      message: tooltip,
+    return BoojyTooltip(
+      title: widget.isActive ? 'Metronome On' : 'Metronome Off',
+      description: widget.isActive ? 'Count-in: $_countInText' : null,
+      shortcut: 'M',
       child: DecoratedBox(
         key: _buttonKey,
         // Foreground border, no clip: clipping shaves the stroke at the

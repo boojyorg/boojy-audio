@@ -6,6 +6,7 @@
 /// ```
 library;
 
+export 'boojy_tooltip.dart';
 export 'circular_toggle_button.dart';
 export 'compact_dropdown.dart';
 export 'context_menu_item.dart';

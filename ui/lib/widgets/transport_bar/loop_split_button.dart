@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
+import '../shared/boojy_tooltip.dart';
 
 /// Loop split button with value-text design:
 ///   Left zone: icon + "Loop" label — toggles loop on/off
@@ -106,14 +107,12 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
     final iconColor = isActive ? colors.accent : colors.textSecondary;
     final textColor = isActive ? colors.textPrimary : colors.textSecondary;
 
-    final tooltip = isActive
-        ? 'Loop On (L) · Click right for punch options'
-        : 'Loop Off (L)';
-
     return CompositedTransformTarget(
       link: _layerLink,
-      child: Tooltip(
-        message: tooltip,
+      child: BoojyTooltip(
+        title: isActive ? 'Loop On' : 'Loop Off',
+        description: isActive ? 'Click right for punch options' : null,
+        shortcut: 'L',
         child: DecoratedBox(
           key: _buttonKey,
           // Foreground border, no clip: clipping shaves the stroke at the

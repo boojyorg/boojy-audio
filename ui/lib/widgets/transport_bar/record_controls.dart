@@ -4,6 +4,7 @@ import '../../theme/animation_constants.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
+import '../shared/boojy_tooltip.dart';
 
 /// Record button states for the CustomPainter
 enum _RecordButtonVisualState { idle, disabled, countingIn, recording }
@@ -151,11 +152,15 @@ class _RecordButtonState extends State<RecordButton>
     final recordColor = context.colors.recordActive;
     final countInColor = context.colors.countInActive;
 
-    String tooltip = widget.isRecording
-        ? 'Stop Recording (R)'
-        : (widget.isCountingIn ? 'Counting In...' : 'Record (R)');
-
-    if (!widget.isRecording && !widget.isCountingIn) {
+    final String tipTitle;
+    String? tipDescription;
+    String? tipShortcut;
+    if (widget.isRecording) {
+      tipTitle = 'Stop Recording';
+      tipShortcut = 'R';
+    } else if (widget.isCountingIn) {
+      tipTitle = 'Counting In…';
+    } else {
       final countInText = widget.countInBars == 0
           ? 'Off'
           : widget.countInBars == 1
@@ -163,7 +168,11 @@ class _RecordButtonState extends State<RecordButton>
           : widget.countInBars == 2
           ? '2 Bars'
           : '4 Bars';
-      tooltip += ' | Right-click: Count-in ($countInText)';
+      tipTitle = 'Record';
+      tipDescription =
+          'Capture to the armed track · Right-click: count-in '
+          '($countInText)';
+      tipShortcut = 'R';
     }
 
     final visualState = widget.isRecording
@@ -174,8 +183,10 @@ class _RecordButtonState extends State<RecordButton>
               ? _RecordButtonVisualState.idle
               : _RecordButtonVisualState.disabled);
 
-    return Tooltip(
-      message: tooltip,
+    return BoojyTooltip(
+      title: tipTitle,
+      description: tipDescription,
+      shortcut: tipShortcut,
       child: MouseRegion(
         onEnter: (_) {
           if (!_isHovered) {
