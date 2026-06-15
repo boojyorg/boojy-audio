@@ -3,6 +3,7 @@ import '../../state/ui_layout_state.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
+import '../shared/boojy_tooltip.dart';
 import '../shared/pill_toggle_button.dart' show ButtonDisplayMode;
 
 /// Snap split button: icon toggles on/off, chevron opens grid size menu
@@ -136,12 +137,11 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
     final iconColor = isActive ? colors.accent : colors.textSecondary;
     final textColor = isActive ? colors.textPrimary : colors.textSecondary;
 
-    final tooltip = isActive
-        ? 'Snap: ${widget.value.displayName} (click to toggle)'
-        : 'Snap Off (click to enable)';
-
-    return Tooltip(
-      message: tooltip,
+    return BoojyTooltip(
+      title: isActive ? 'Snap On' : 'Snap Off',
+      description: isActive
+          ? 'Grid: ${widget.value.displayName} · Click to toggle, ▾ to change'
+          : 'Click to snap edits to the grid',
       child: DecoratedBox(
         key: _buttonKey,
         // Foreground border, no clip: clipping shaves the stroke at the
