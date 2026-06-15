@@ -87,14 +87,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   final ValueNotifier<Map<int, (double, double)>> _displayLevelsNotifier =
       ValueNotifier({}); // Smoothed stereo peak levels with decay
   DateTime _lastLevelUpdate = DateTime.now();
-  // Peak-hold tick state (M2): held (left,right) value per track, plus the
-  // timestamp each channel's hold was last refreshed. Plain fields, not a
-  // notifier — they're recomputed in the same _updatePeakLevels tick that
-  // bumps _displayLevelsNotifier, so the meter builders pick them up for free.
-  final Map<int, (double, double)> _peakHold = {};
-  final Map<int, (DateTime, DateTime)> _peakHoldAt = {};
-  // How long a peak tick freezes before it starts decaying.
-  static const int _peakHoldFreezeMs = 1500;
   // M6: pixels each stacked strip shifts up so its top border overlaps the
   // strip above's bottom border, collapsing the doubled inter-strip seam.
   // Tune here if the seam still reads thick (1px halves it; 2px overlaps fully).
@@ -248,8 +240,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     final decayPerFrame = (deltaMs / 1000.0) * 0.33;
 
     final newLevels = <int, (double, double)>{};
-    final newPeakHold = <int, (double, double)>{};
-    final newPeakHoldAt = <int, (DateTime, DateTime)>{};
 
     for (final track in _tracks) {
       try {
@@ -285,27 +275,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
             : (prevRight - decayPerFrame).clamp(0.0, 1.0);
 
         newLevels[track.id] = (displayLeft, displayRight);
-
-        // Peak-hold (M2): bump to a new peak instantly; otherwise freeze for
-        // _peakHoldFreezeMs, then let the tick decay at the meter's rate.
-        final prevHold = _peakHold[track.id] ?? (0.0, 0.0);
-        final prevAt = _peakHoldAt[track.id] ?? (now, now);
-        final holdLeft = _holdChannel(
-          displayLeft,
-          prevHold.$1,
-          prevAt.$1,
-          now,
-          decayPerFrame,
-        );
-        final holdRight = _holdChannel(
-          displayRight,
-          prevHold.$2,
-          prevAt.$2,
-          now,
-          decayPerFrame,
-        );
-        newPeakHold[track.id] = (holdLeft.$1, holdRight.$1);
-        newPeakHoldAt[track.id] = (holdLeft.$2, holdRight.$2);
       } catch (e) {
         // Silently fail for level polling
       }
@@ -337,31 +306,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     }
 
     if (mounted && (newLevels.isNotEmpty || newInputLevels.isNotEmpty)) {
-      _peakHold
-        ..clear()
-        ..addAll(newPeakHold);
-      _peakHoldAt
-        ..clear()
-        ..addAll(newPeakHoldAt);
       _displayLevelsNotifier.value = newLevels;
       _inputLevelsNotifier.value = newInputLevels;
     }
-  }
-
-  /// One channel's peak-hold step: jump up to a new peak (resetting the freeze
-  /// timer), hold flat during the freeze window, then decay at [decay] per tick.
-  (double, DateTime) _holdChannel(
-    double level,
-    double prevHold,
-    DateTime prevAt,
-    DateTime now,
-    double decay,
-  ) {
-    if (level >= prevHold) return (level, now);
-    if (now.difference(prevAt).inMilliseconds > _peakHoldFreezeMs) {
-      return ((prevHold - decay).clamp(0.0, 1.0), prevAt);
-    }
-    return (prevHold, prevAt);
   }
 
   String _sendKey(int sourceTrackId, int returnTrackId) =>
@@ -786,11 +733,19 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                   // Header (24px to match timeline nav bar)
                   _buildHeader(),
 
-                  // Track strips (vertically scrollable)
+                  // Track strips (vertically scrollable). A translucent tap
+                  // layer behind the strips deselects on empty-area clicks;
+                  // strip taps win the arena (inner recognizer) and still
+                  // select normally.
                   Expanded(
-                    child: _tracks.isEmpty
-                        ? _buildEmptyState()
-                        : _buildTrackStrips(),
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: () =>
+                          widget.selectionState.onTrackSelected?.call(null),
+                      child: _tracks.isEmpty
+                          ? _buildEmptyState()
+                          : _buildTrackStrips(),
+                    ),
                   ),
                 ],
               ),
@@ -1031,8 +986,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                     widget.selectionState.onTrackSelected?.call(masterTrack.id),
                 peakLevelLeft: levels[masterTrack.id]?.$1 ?? 0.0,
                 peakLevelRight: levels[masterTrack.id]?.$2 ?? 0.0,
-                peakHoldLeft: _peakHold[masterTrack.id]?.$1 ?? 0.0,
-                peakHoldRight: _peakHold[masterTrack.id]?.$2 ?? 0.0,
                 trackHeight: widget.trackHeightState.masterTrackHeight,
                 onHeightChanged: widget.onMasterTrackHeightChanged,
                 stripWidth: widget.config.panelWidth,
@@ -1317,8 +1270,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       isSoloed: track.solo,
       peakLevelLeft: peakLeft,
       peakLevelRight: peakRight,
-      peakHoldLeft: _peakHold[track.id]?.$1 ?? 0.0,
-      peakHoldRight: _peakHold[track.id]?.$2 ?? 0.0,
       trackColor: trackColor,
       isReturnTrack: true,
       isSelected:
@@ -1432,8 +1383,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
               isSoloed: track.solo,
               peakLevelLeft: levels[track.id]?.$1 ?? 0.0,
               peakLevelRight: levels[track.id]?.$2 ?? 0.0,
-              peakHoldLeft: _peakHold[track.id]?.$1 ?? 0.0,
-              peakHoldRight: _peakHold[track.id]?.$2 ?? 0.0,
               trackColor: trackColor,
               audioEngine: widget.audioEngine,
               isSelected:

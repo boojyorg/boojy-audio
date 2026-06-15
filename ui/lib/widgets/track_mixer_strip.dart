@@ -44,8 +44,6 @@ class TrackMixerStrip extends StatefulWidget {
   final bool isSoloed;
   final double peakLevelLeft; // 0.0 to 1.0
   final double peakLevelRight; // 0.0 to 1.0
-  final double peakHoldLeft; // 0.0 to 1.0, frozen peak tick (M2)
-  final double peakHoldRight; // 0.0 to 1.0, frozen peak tick (M2)
   final Color? trackColor; // Optional track color for left border
   final AudioEngine? audioEngine;
 
@@ -140,8 +138,6 @@ class TrackMixerStrip extends StatefulWidget {
     required this.isSoloed,
     this.peakLevelLeft = 0.0,
     this.peakLevelRight = 0.0,
-    this.peakHoldLeft = 0.0,
-    this.peakHoldRight = 0.0,
     this.trackColor,
     this.audioEngine,
     this.onVolumeChanged,
@@ -456,8 +452,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                   child: CapsuleFader(
                     leftLevel: widget.peakLevelLeft,
                     rightLevel: widget.peakLevelRight,
-                    peakHoldLeft: widget.peakHoldLeft,
-                    peakHoldRight: widget.peakHoldRight,
                     volumeDb: widget.volumeDb,
                     onVolumeChanged: widget.onVolumeChanged,
                     onDragStart: widget.onVolumeDragStart,
@@ -778,8 +772,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             child: CapsuleFader(
               leftLevel: widget.peakLevelLeft,
               rightLevel: widget.peakLevelRight,
-              peakHoldLeft: widget.peakHoldLeft,
-              peakHoldRight: widget.peakHoldRight,
               volumeDb: displayVolumeDb,
               onVolumeChanged: widget.onVolumeChanged,
               onDragStart: widget.onVolumeDragStart,
@@ -1889,8 +1881,6 @@ class MasterTrackMixerStrip extends StatefulWidget {
   final double pan;
   final double peakLevelLeft;
   final double peakLevelRight;
-  final double peakHoldLeft; // 0.0 to 1.0, frozen peak tick (M2)
-  final double peakHoldRight; // 0.0 to 1.0, frozen peak tick (M2)
   final Function(double)? onVolumeChanged;
   final Function(double)? onPanChanged;
   final VoidCallback? onVolumeDragStart;
@@ -1922,8 +1912,6 @@ class MasterTrackMixerStrip extends StatefulWidget {
     required this.pan,
     this.peakLevelLeft = 0.0,
     this.peakLevelRight = 0.0,
-    this.peakHoldLeft = 0.0,
-    this.peakHoldRight = 0.0,
     this.onVolumeChanged,
     this.onPanChanged,
     this.onVolumeDragStart,
@@ -2342,8 +2330,6 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                             child: CapsuleFader(
                               leftLevel: widget.peakLevelLeft,
                               rightLevel: widget.peakLevelRight,
-                              peakHoldLeft: widget.peakHoldLeft,
-                              peakHoldRight: widget.peakHoldRight,
                               volumeDb: widget.volumeDb,
                               onVolumeChanged: widget.onVolumeChanged,
                               onDragStart: widget.onVolumeDragStart,
