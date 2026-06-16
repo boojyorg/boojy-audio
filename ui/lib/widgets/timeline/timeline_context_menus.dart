@@ -8,6 +8,7 @@ import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../context_menus/clip_context_menu.dart';
 import '../../utils/track_colors.dart';
+import '../shared/boojy_dropdown.dart';
 import 'timeline_state.dart';
 import 'timeline_selection.dart';
 import '../timeline_view.dart';
@@ -117,109 +118,69 @@ mixin TimelineContextMenusMixin
 
   /// Show context menu for the time ruler
   void showRulerContextMenu(Offset globalPosition, Offset localPosition) {
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
+    // listen:false — reading context.colors in a handler asserts in debug.
+    final colors = context.themeProvider.colors;
 
-    // Calculate beat position from click
+    // Calculate beat position from click (ruler is outside scroll → add offset)
     final scrollOffset = scrollController.hasClients
         ? scrollController.offset
         : 0.0;
     final xInContent = localPosition.dx + scrollOffset;
     final clickedBeat = xInContent / pixelsPerBeat;
+    // Snap to bar boundary up-front so we can capture it in the .then closure.
+    final snappedBeat = (clickedBeat / 4.0).floor() * 4.0;
 
-    showMenu<String>(
+    showBoojyMenu<String>(
       context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(globalPosition.dx, globalPosition.dy, 0, 0),
-        Offset.zero & overlay.size,
-      ),
+      anchor: Rect.fromLTWH(globalPosition.dx, globalPosition.dy, 0, 0),
       items: [
-        PopupMenuItem<String>(
+        BoojyMenuItem(
           value: 'set_loop_start',
-          child: Row(
-            children: [
-              Icon(BI.skipBack, size: 18, color: context.colors.textSecondary),
-              const SizedBox(width: 8),
-              const Text('Set Loop Start Here'),
-            ],
-          ),
+          icon: BI.skipBack,
+          label: 'Set Loop Start Here',
         ),
-        PopupMenuItem<String>(
+        BoojyMenuItem(
           value: 'set_loop_end',
-          child: Row(
-            children: [
-              Icon(
-                BI.skipForward,
-                size: 18,
-                color: context.colors.textSecondary,
-              ),
-              const SizedBox(width: 8),
-              const Text('Set Loop End Here'),
-            ],
-          ),
+          icon: BI.skipForward,
+          label: 'Set Loop End Here',
         ),
-        const PopupMenuDivider(),
-        PopupMenuItem<String>(
+        const BoojyMenuDivider<String>(),
+        BoojyMenuItem(
           value: 'set_loop_1_bar',
-          child: Row(
-            children: [
-              Icon(BI.selection, size: 18, color: context.colors.textSecondary),
-              const SizedBox(width: 8),
-              const Text('Set 1 Bar Loop Here'),
-            ],
-          ),
+          icon: BI.selection,
+          label: 'Set 1 Bar Loop Here',
         ),
-        PopupMenuItem<String>(
+        BoojyMenuItem(
           value: 'set_loop_4_bars',
-          child: Row(
-            children: [
-              Icon(BI.gridOn, size: 18, color: context.colors.textSecondary),
-              const SizedBox(width: 8),
-              const Text('Set 4 Bar Loop Here'),
-            ],
-          ),
+          icon: BI.gridOn,
+          label: 'Set 4 Bar Loop Here',
         ),
-        const PopupMenuDivider(),
-        PopupMenuItem<String>(
+        const BoojyMenuDivider<String>(),
+        BoojyMenuItem(
           value: 'add_marker',
-          enabled: false, // Placeholder for future feature
-          child: Row(
-            children: [
-              Icon(BI.bookmark, size: 18, color: context.colors.textMuted),
-              const SizedBox(width: 8),
-              Text(
-                'Add Marker',
-                style: TextStyle(color: context.colors.textMuted),
-              ),
-            ],
-          ),
+          icon: BI.bookmark,
+          label: 'Add Marker',
+          enabled: false,
         ),
       ],
+      selectedValue: null,
+      colors: colors,
     ).then((value) {
       if (value == null) return;
-
-      // Snap to bar boundary
-      final snappedBeat = (clickedBeat / 4.0).floor() * 4.0;
-
       switch (value) {
         case 'set_loop_start':
           widget.onLoopRegionChanged?.call(snappedBeat, widget.loopEndBeats);
-          break;
         case 'set_loop_end':
           widget.onLoopRegionChanged?.call(
             widget.loopStartBeats,
             snappedBeat + 4.0,
           );
-          break;
         case 'set_loop_1_bar':
           widget.onLoopRegionChanged?.call(snappedBeat, snappedBeat + 4.0);
-          break;
         case 'set_loop_4_bars':
           widget.onLoopRegionChanged?.call(snappedBeat, snappedBeat + 16.0);
-          break;
         case 'add_marker':
-          // Future: Timeline markers (v0.3.0)
-          break;
+          break; // Future: Timeline markers
       }
     });
   }
@@ -231,105 +192,54 @@ mixin TimelineContextMenusMixin
     TimelineTrackData track,
     bool isMidiTrack,
   ) {
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
+    // listen:false — reading context.colors in a handler asserts in debug.
+    final colors = context.themeProvider.colors;
 
-    // Calculate beat position from click
     final beatPosition = calculateBeatPosition(localPosition);
     final snappedBeat = snapToGrid(beatPosition);
+    final canPaste = clipboardMidiClip != null;
 
-    showMenu<String>(
+    showBoojyMenu<String>(
       context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(globalPosition.dx, globalPosition.dy, 0, 0),
-        Offset.zero & overlay.size,
-      ),
+      anchor: Rect.fromLTWH(globalPosition.dx, globalPosition.dy, 0, 0),
       items: [
         if (isMidiTrack)
-          PopupMenuItem<String>(
+          BoojyMenuItem(
             value: 'create_clip',
-            child: Row(
-              children: [
-                Icon(BI.add, size: 18, color: context.colors.textSecondary),
-                const SizedBox(width: 8),
-                const Text('Create MIDI Clip Here'),
-                const Spacer(),
-                Text(
-                  'Double-click',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: context.colors.textMuted,
-                  ),
-                ),
-              ],
-            ),
+            icon: BI.add,
+            label: 'Create MIDI Clip Here',
+            shortcut: 'Double-click',
           ),
-        PopupMenuItem<String>(
+        BoojyMenuItem(
           value: 'paste',
-          enabled: clipboardMidiClip != null,
-          child: Row(
-            children: [
-              Icon(
-                BI.paste,
-                size: 18,
-                color: clipboardMidiClip != null
-                    ? context.colors.textSecondary
-                    : context.colors.textMuted,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Paste',
-                style: TextStyle(
-                  color: clipboardMidiClip != null
-                      ? null
-                      : context.colors.textMuted,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '⌘V',
-                style: TextStyle(fontSize: 12, color: context.colors.textMuted),
-              ),
-            ],
-          ),
+          icon: BI.paste,
+          label: 'Paste',
+          shortcut: '⌘V',
+          enabled: canPaste,
         ),
-        const PopupMenuDivider(),
-        PopupMenuItem<String>(
+        const BoojyMenuDivider<String>(),
+        BoojyMenuItem(
           value: 'select_all',
-          child: Row(
-            children: [
-              Icon(BI.selectAll, size: 18, color: context.colors.textSecondary),
-              const SizedBox(width: 8),
-              const Text('Select All Clips'),
-              const Spacer(),
-              Text(
-                '⌘A',
-                style: TextStyle(fontSize: 12, color: context.colors.textMuted),
-              ),
-            ],
-          ),
+          icon: BI.selectAll,
+          label: 'Select All Clips',
+          shortcut: '⌘A',
         ),
       ],
+      selectedValue: null,
+      colors: colors,
     ).then((value) {
       if (value == null) return;
-
       switch (value) {
         case 'create_clip':
-          // Create a 1-bar MIDI clip at the clicked position
           widget.dragDropCallbacks.onCreateClipOnTrack?.call(
             track.id,
             snappedBeat,
             4.0,
           );
-          break;
         case 'paste':
-          if (clipboardMidiClip != null) {
-            pasteMidiClip(track.id);
-          }
-          break;
+          if (canPaste) pasteMidiClip(track.id);
         case 'select_all':
           selectAllClips();
-          break;
       }
     });
   }
@@ -341,38 +251,18 @@ mixin TimelineContextMenusMixin
     double startBeats,
     double durationBeats,
   ) {
-    final RenderBox overlay =
-        Overlay.of(ctx).context.findRenderObject() as RenderBox;
+    // listen:false — reading context.colors in a handler asserts in debug.
+    final colors = ctx.themeProvider.colors;
 
-    showMenu<String>(
+    showBoojyMenu<String>(
       context: ctx,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(globalPosition.dx, globalPosition.dy, 0, 0),
-        Offset.zero & overlay.size,
-      ),
+      anchor: Rect.fromLTWH(globalPosition.dx, globalPosition.dy, 0, 0),
       items: [
-        PopupMenuItem<String>(
-          value: 'midi',
-          child: Row(
-            children: [
-              Icon(BI.piano, size: 18, color: context.colors.textSecondary),
-              const SizedBox(width: 8),
-              const Text('MIDI Track'),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'audio',
-          child: Row(
-            children: [
-              Icon(BI.musicNote, size: 18, color: context.colors.textSecondary),
-              const SizedBox(width: 8),
-              const Text('Audio Track'),
-            ],
-          ),
-        ),
+        BoojyMenuItem(value: 'midi', icon: BI.piano, label: 'MIDI Track'),
+        BoojyMenuItem(value: 'audio', icon: BI.musicNote, label: 'Audio Track'),
       ],
-      color: context.colors.elevated,
+      selectedValue: null,
+      colors: colors,
     ).then((value) {
       if (value != null) {
         widget.dragDropCallbacks.onCreateTrackWithClip?.call(
