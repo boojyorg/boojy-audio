@@ -522,15 +522,14 @@ class _PianoRollState extends State<PianoRoll>
           }
         });
       },
-      onSnapTripletToggle: () =>
-          setState(() => snapTripletEnabled = !snapTripletEnabled),
+      onSnapTripletChanged: (v) => setState(() => snapTripletEnabled = v),
       onQuantize: quantizeSelectedNotes,
       quantizeDivision: quantizeDivision,
       quantizeTripletEnabled: quantizeTripletEnabled,
       onQuantizeDivisionChanged: (div) =>
           setState(() => quantizeDivision = div),
-      onQuantizeTripletToggle: () =>
-          setState(() => quantizeTripletEnabled = !quantizeTripletEnabled),
+      onQuantizeTripletChanged: (v) =>
+          setState(() => quantizeTripletEnabled = v),
       // View section
       foldEnabled: foldViewEnabled,
       ghostNotesEnabled: ghostNotesEnabled,
