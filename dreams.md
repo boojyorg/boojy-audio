@@ -27,7 +27,8 @@ Sequence:
   (T1–T6, T8/L7 full-required, T9, P4, L4, N7 + arrangement canvas on Light) + footguns
   (X1/X2/M1) + EH-11 tests + Cmd+Shift+T wired + loop-tracks-tempo fix (engine set_tempo
   already re-anchors the playhead — rule in `.claude/rules/ffi.md`).
-- [ ] **v0.7 slices remaining**: 2 Legibility (mixer cues + piano-roll lanes + BoojyTooltip) →
+- [ ] **v0.7 slices remaining**: ~~2 Legibility~~ ✅ DONE (mixer cues + piano-roll lanes +
+  BoojyTooltip; P7 tool-badge chip dropped — toolbar already shows the active tool) →
   3 Feel chrome (filled-chip dropdowns/menus, settings unify, overflow) → 4 Devices (shared
   shell, sampler package, MIDI hot-plug by name, Windows updater). Riders: Capture MIDI, audio
   Cmd+D, Legato, CC-lane toggle, swing/ghost-notes keep-or-hide. Guardrails half-day:
