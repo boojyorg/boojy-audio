@@ -5,7 +5,8 @@ import '../shared/boojy_dropdown.dart';
 
 /// Shows a swap/reset/delete dropdown for a device in the chain.
 ///
-/// For instruments: reset, swap (built-in list + plugins hint), delete.
+/// For instruments: reset + swap (built-in list). No delete — every track
+/// needs exactly one instrument; the right verb is swap, not delete.
 /// For effects: reset, swap (built-in effects), delete.
 class DeviceDropdown {
   /// Show dropdown for an instrument device.
@@ -46,15 +47,8 @@ class DeviceDropdown {
         ),
         BoojyMenuItem(
           value: const DeviceAction.swap('sampler'),
-          icon: BI.piano,
+          icon: BI.waveform,
           label: 'Sampler',
-        ),
-        const BoojyMenuSection(label: 'Plugins'),
-        BoojyMenuItem(
-          value: const DeviceAction.swap(''),
-          icon: BI.info,
-          label: 'Use library to add plugins',
-          enabled: false,
         ),
       ] else ...[
         const BoojyMenuSection(label: 'Built-in'),
@@ -89,13 +83,16 @@ class DeviceDropdown {
           label: 'Limiter',
         ),
       ],
-      const BoojyMenuDivider(),
-      BoojyMenuItem(
-        value: const DeviceAction.delete(),
-        icon: BI.delete,
-        label: 'Delete',
-        destructive: true,
-      ),
+      // Delete only makes sense for effects — instruments are never removed.
+      if (!isInstrument) ...[
+        const BoojyMenuDivider(),
+        BoojyMenuItem(
+          value: const DeviceAction.delete(),
+          icon: BI.delete,
+          label: 'Delete',
+          destructive: true,
+        ),
+      ],
     ];
 
     return showBoojyMenu<DeviceAction>(

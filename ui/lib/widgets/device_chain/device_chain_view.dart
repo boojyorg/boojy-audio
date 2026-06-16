@@ -471,12 +471,16 @@ class _DeviceChainViewState extends State<DeviceChainView>
     switch (action) {
       case ResetAction():
         _resetPluginToDefault?.call();
-      case SwapAction():
-        // Future: swap instrument implementation
-        break;
+      case SwapAction(:final type):
+        // Reuse the same path a library drag uses so the DAW-screen mixin
+        // handles synth / sampler / drum_kit branching correctly.
+        final instrument = availableInstruments.firstWhere(
+          (i) => i.id == type,
+          orElse: () => availableInstruments.first,
+        );
+        widget.onInstrumentDropped?.call(instrument);
       case DeleteAction():
-        // Future: remove instrument from track
-        break;
+        break; // instruments are never deleted — every track needs one
     }
   }
 
