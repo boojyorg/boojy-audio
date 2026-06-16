@@ -6,6 +6,11 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Project Settings dialog redesigned.** Slimmed to the essentials: project name, time signature,
+  sample rate, and read-only created/modified dates. BPM (already in the transport bar), key/scale,
+  style tag, and the versions panel have all been removed. Dialog chrome now matches the App
+  Settings dialog (rounded border, elevation, barrier tint).
+
 - **All remaining Material `DropdownButton` sites migrated to `BoojyDropdown`.** Project Settings
   (time signature, root note, scale, sample rate), Export (MP3 bitrate, WAV bit depth, sample
   rate), Capture MIDI duration, Synth waveform type, and Mixer automation parameter now all use
