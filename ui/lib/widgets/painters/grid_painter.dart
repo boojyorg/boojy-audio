@@ -111,7 +111,11 @@ class GridPainter extends CustomPainter {
       // Root band: a faint accent wash marking root-note rows so "home"
       // (the tonic, default C) is glanceable. Drawn after the scale overlay
       // since the root is always in-scale and should never be dimmed.
-      if (rootBandColor.a != 0 && (note % 12) == scaleRootMidi) {
+      // Gated on the Scale Highlight toggle — otherwise beginners see an
+      // unexplained cyan tint on every C with no way to relate it to a scale.
+      if (scaleHighlightEnabled &&
+          rootBandColor.a != 0 &&
+          (note % 12) == scaleRootMidi) {
         canvas.drawRect(
           Rect.fromLTWH(0, y, size.width, pixelsPerNote),
           Paint()..color = rootBandColor,

@@ -864,11 +864,15 @@ class _PianoRollState extends State<PianoRoll>
                                     // gap survives the Light / High-Contrast
                                     // themes too (was a fixed #15171C).
                                     blackKeyBackground: Color.alphaBlend(
-                                      Colors.black.withValues(alpha: 0.20),
+                                      Colors.black.withValues(alpha: 0.35),
                                       context.colors.elevated,
                                     ),
                                     whiteKeyBackground: context.colors.elevated,
-                                    separatorLine: context.colors.elevated,
+                                    // Separator must be distinct from the white-
+                                    // key bg (was `elevated` — same colour, so the
+                                    // row dividers vanished); `surface` is the
+                                    // grid-line tier and reads as a hairline.
+                                    separatorLine: context.colors.surface,
                                     subdivisionGridLine: context.colors.surface,
                                     beatGridLine: context.colors.hover,
                                     barGridLine: context.colors.textMuted,

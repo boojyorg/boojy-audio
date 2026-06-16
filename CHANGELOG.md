@@ -6,6 +6,12 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Deselecting a track no longer slams the editor shut.** Clicking an empty area of the mixer
+  to deselect used to collapse the whole bottom editor panel (a 250px→40px reflow on every
+  click). The panel now stays open at its height: the toolbar (Draw/Select tools + the collapse
+  chevron) stays put and the content area shows a "No track selected" hint. Pick a track and its
+  instrument/notes return. Manual collapse via the panel chevron still works.
+
 - **The position and tempo readouts respond instantly.** Both readouts carried a double-click
   gesture that made every single click (cycle the position mode, start a tempo drag) wait
   ~300 ms for a possible second click. Double-click still works (jump to bar / type a tempo) —
@@ -52,6 +58,20 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **The piano-roll keyboard lanes are readable again.** Row separators were drawn in the same
+  colour as the white-key background, so you couldn't tell where one note ended and the next
+  began; the black-key lanes were barely a shade darker. Separators are now a visible hairline
+  and the black-key shading is deeper, so the lanes read as a keyboard at a glance.
+- **A "Scale" toggle in the piano-roll toolbar highlights the scale.** Turning it on marks the
+  root-note rows and dims out-of-scale notes (the scale-highlight rendering existed but had no
+  on-screen control). With it off, the root-row tint no longer appears — previously every C
+  showed an unexplained cyan band whether or not you wanted scale highlighting.
+- **Note labels keep their sharps when zoomed out.** At intermediate zoom a note like C♯ showed
+  just "C", making chromatic runs look diatonic; the label now keeps the accidental and only
+  drops the octave number.
+- **The "drag an instrument" prompt shows for return-only projects too.** A project containing
+  only the Master and return tracks (no user tracks) now shows the empty-state prompt instead of
+  floating it over what looked like a populated arrangement.
 - Transport Pause/Stop colours, the timeline/piano-roll grid painters, and the note painter now
   come from theme tokens instead of hardcoded values, and the transport's play/stop/record
   buttons and readout gestures gained regression tests.

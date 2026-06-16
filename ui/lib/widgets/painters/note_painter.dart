@@ -194,7 +194,10 @@ class NotePainter extends CustomPainter {
     if (width > 30) {
       label = note.noteName; // e.g., "G5", "D#4", "C3"
     } else if (width > 15) {
-      label = note.noteName.isNotEmpty ? note.noteName[0] : null; // e.g. "G"
+      // Drop the octave digits but KEEP the accidental — taking noteName[0]
+      // turned "C#5" into "C", making chromatic runs read as diatonic.
+      final stripped = note.noteName.replaceAll(RegExp(r'-?\d+$'), '');
+      label = stripped.isNotEmpty ? stripped : null; // e.g. "C#", "G"
     }
     if (label != null) {
       final textPainter = TextPainter(
