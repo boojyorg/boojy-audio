@@ -490,6 +490,14 @@ class _EditorPanelState extends State<EditorPanel>
       return _buildCollapsedBar();
     }
 
+    // Expanded but nothing selected (e.g. after deselecting via an empty mixer
+    // click): keep the panel open at its height and show a placeholder rather
+    // than the tabs/content, which assume a track. No tab bar or tools here —
+    // there's nothing to act on until a track is picked.
+    if (widget.trackContext.selectedTrackId == null) {
+      return _buildNoSelectionState();
+    }
+
     // Check if current track is MIDI (can accept instrument drops)
     // Note: selectedTrackType can be 'MIDI', 'midi', 'Audio', etc.
     final isMidiTrack =
@@ -545,44 +553,7 @@ class _EditorPanelState extends State<EditorPanel>
                           ),
                         ),
                         // Center: Tool buttons (truly centered across full width)
-                        Positioned.fill(
-                          child: Center(
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _buildToolButton(
-                                  ToolMode.draw,
-                                  BI.pencil,
-                                  'Draw (Z)',
-                                ),
-                                const SizedBox(width: 4),
-                                _buildToolButton(
-                                  ToolMode.select,
-                                  BI.selection,
-                                  'Select (X)',
-                                ),
-                                const SizedBox(width: 4),
-                                _buildToolButton(
-                                  ToolMode.eraser,
-                                  BI.eraser,
-                                  'Erase (C) • Hold Alt',
-                                ),
-                                const SizedBox(width: 4),
-                                _buildToolButton(
-                                  ToolMode.duplicate,
-                                  BI.copy,
-                                  'Duplicate (V) • Cmd+Drag',
-                                ),
-                                const SizedBox(width: 4),
-                                _buildToolButton(
-                                  ToolMode.slice,
-                                  BI.cut,
-                                  'Slice (B) • Cmd+Click',
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                        Positioned.fill(child: Center(child: _buildToolRow())),
                         // Right side: Preset nav + Piano toggle + Collapse button
                         Positioned(
                           right: 8,
@@ -649,6 +620,95 @@ class _EditorPanelState extends State<EditorPanel>
   }
 
   /// Build collapsed bar with tab buttons and expand arrow
+  /// The centered Draw/Select/Erase/Duplicate/Slice tool buttons. Shared by the
+  /// expanded editor and the no-selection state — the tools aren't track-bound,
+  /// so they stay available (and keep their active mode) even with no selection.
+  Widget _buildToolRow() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildToolButton(ToolMode.draw, BI.pencil, 'Draw (Z)'),
+        const SizedBox(width: 4),
+        _buildToolButton(ToolMode.select, BI.selection, 'Select (X)'),
+        const SizedBox(width: 4),
+        _buildToolButton(ToolMode.eraser, BI.eraser, 'Erase (C) • Hold Alt'),
+        const SizedBox(width: 4),
+        _buildToolButton(
+          ToolMode.duplicate,
+          BI.copy,
+          'Duplicate (V) • Cmd+Drag',
+        ),
+        const SizedBox(width: 4),
+        _buildToolButton(ToolMode.slice, BI.cut, 'Slice (B) • Cmd+Click'),
+      ],
+    );
+  }
+
+  /// Shown when the panel is open but no track is selected. Keeps the toolbar
+  /// (tool buttons + collapse chevron) so the panel stays put and the tools stay
+  /// reachable; the tabs and preset nav are track-specific, so they're omitted.
+  /// The content area below shows a centered "pick a track" hint.
+  Widget _buildNoSelectionState() {
+    final colors = context.colors;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.dark,
+        border: Border(top: BorderSide(color: colors.divider)),
+      ),
+      child: Column(
+        children: [
+          // Toolbar — same 40px bar as the expanded view, minus tabs/preset nav.
+          Container(
+            height: 40,
+            decoration: BoxDecoration(
+              color: colors.dark,
+              border: Border(bottom: BorderSide(color: colors.surface)),
+            ),
+            child: Stack(
+              children: [
+                Positioned.fill(child: Center(child: _buildToolRow())),
+                Positioned(
+                  right: 8,
+                  top: 0,
+                  bottom: 0,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [_buildCollapseChevron(isCollapsed: false)],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Empty content area with a centered hint.
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(BI.musicNote, size: 28, color: colors.textMuted),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No track selected',
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 15,
+                      fontWeight: BT.weightSemiBold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Select a track to edit its instrument and notes',
+                    style: TextStyle(color: colors.textMuted, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCollapsedBar() {
     // Single per-frame evaluation of the FFI-backed tab list (see build()).
     final tabs = _tabs;

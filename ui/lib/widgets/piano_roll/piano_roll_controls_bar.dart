@@ -270,6 +270,10 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
 
                     // === GRID GROUP ===
                     _buildGridGroup(context),
+                    _buildSeparator(context),
+
+                    // === SCALE GROUP ===
+                    _buildScaleGroup(context),
                   ],
                 ),
               ),
@@ -360,6 +364,28 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
               widget.onBeatsPerBarChanged?.call(numerator),
           onDragStart: widget.onSignatureDragStart,
           onDragEnd: widget.onSignatureDragEnd,
+        ),
+      ],
+    );
+  }
+
+  // ============ SCALE GROUP ============
+  // Minimal Scale Highlight toggle. The root/type pickers and Lock are still
+  // plumbed through this widget but not yet rendered — this one toggle makes
+  // the existing scale-highlight rendering (root band + out-of-scale dimming)
+  // reachable, keyed to the default root/scale (C major).
+  Widget _buildScaleGroup(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildToggleButton(
+          context,
+          icon: BI.piano,
+          label: 'Scale',
+          isActive: widget.highlightEnabled,
+          onTap: widget.onHighlightToggle,
+          tooltip:
+              'Highlight the scale: mark root-note rows and dim out-of-scale notes',
         ),
       ],
     );

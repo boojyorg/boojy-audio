@@ -29,10 +29,14 @@ mixin DAWTrackMixin
     bool autoSelectClip = false,
   }) {
     if (trackId == null) {
+      // Deselecting clears the selection but leaves the editor panel open at
+      // its current height — it shows a "no track selected" empty state rather
+      // than slamming shut (collapsing on every empty-space click was jarring).
+      // Manual collapse via the panel chevron still works.
       setState(() {
         selectTrack(null);
-        uiLayout.isEditorPanelVisible = false;
       });
+      midiPlaybackManager?.selectClip(null, null);
       return;
     }
 

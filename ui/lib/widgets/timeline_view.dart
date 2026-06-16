@@ -1230,9 +1230,12 @@ class TimelineViewState extends State<TimelineView>
   // EMPTY TIMELINE PROMPT
   // ============================================
 
-  /// Show empty state when no user tracks exist (only master track).
-  bool get _shouldShowEmptyPrompt =>
-      tracks.where((t) => t.type != 'Master').isEmpty;
+  /// Show empty state when no user tracks exist (only master / return tracks,
+  /// which the user can't create directly — a return-only project is still
+  /// "empty" and should show the drag-an-instrument prompt).
+  bool get _shouldShowEmptyPrompt => tracks
+      .where((t) => t.type != 'Master' && t.type.toLowerCase() != 'return')
+      .isEmpty;
 
   /// Centered prompt over star field with add-track buttons. Lights up when a
   /// library instrument/sample is dragged over the empty arrangement.
