@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../theme/boojy_icons.dart';
-import '../../theme/theme_extension.dart';
-import '../../theme/tokens.dart';
+import 'boojy_dropdown.dart';
 
 /// A compact dropdown widget for selecting from a list of items.
 ///
-/// This provides a consistent, space-efficient dropdown UI that matches
-/// the DAW's visual style. It's generic over the item type [T].
+/// Thin wrapper over [BoojyDropdown] kept for its existing call-site API; the
+/// chrome (filled chip + themed menu, both A/C variants) lives in the shared
+/// widget. Generic over the item type [T].
 ///
 /// Example usage:
 /// ```dart
@@ -52,75 +51,19 @@ class CompactDropdown<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    final label = itemLabel != null ? itemLabel!(value) : value.toString();
-
-    return GestureDetector(
-      onTap: enabled ? () => _showDropdownMenu(context) : null,
-      child: MouseRegion(
-        cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-        child: Container(
-          width: width,
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          decoration: BoxDecoration(
-            color: colors.dark,
-            borderRadius: BorderRadius.circular(2),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: enabled ? colors.textPrimary : colors.textMuted,
-                    fontSize: fontSize,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Icon(BI.caretDown, size: BT.iconSm, color: colors.textMuted),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showDropdownMenu(BuildContext context) {
-    final RenderBox button = context.findRenderObject() as RenderBox;
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
-    final buttonPosition = button.localToGlobal(Offset.zero, ancestor: overlay);
-
-    showMenu<T>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        buttonPosition.dx,
-        buttonPosition.dy,
-        overlay.size.width - buttonPosition.dx - button.size.width,
-        0,
-      ),
-      items: items.map((item) {
-        final label = itemLabel != null ? itemLabel!(item) : item.toString();
-        return PopupMenuItem<T>(
-          value: item,
-          height: 32,
-          child: Text(
-            label,
-            style: TextStyle(
-              color: context.colors.textPrimary,
-              fontSize: 11,
-              fontWeight: item == value ? BT.weightSemiBold : BT.weightRegular,
+    return BoojyDropdown<T>(
+      value: value,
+      items: items
+          .map(
+            (item) => BoojyMenuItem<T>(
+              value: item,
+              label: itemLabel != null ? itemLabel!(item) : item.toString(),
             ),
-          ),
-        );
-      }).toList(),
-      elevation: 8,
-    ).then((selectedValue) {
-      if (selectedValue != null && onChanged != null) {
-        onChanged!(selectedValue);
-      }
-    });
+          )
+          .toList(),
+      onChanged: onChanged ?? (_) {},
+      width: width,
+      enabled: enabled,
+    );
   }
 }
