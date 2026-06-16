@@ -11,11 +11,7 @@ class ProjectSettingsDialog extends StatefulWidget {
   final ProjectMetadata metadata;
   final Function(ProjectMetadata)? onSave;
 
-  const ProjectSettingsDialog({
-    super.key,
-    required this.metadata,
-    this.onSave,
-  });
+  const ProjectSettingsDialog({super.key, required this.metadata, this.onSave});
 
   static Future<ProjectMetadata?> show(
     BuildContext context, {
@@ -157,10 +153,9 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                             child: BoojyDropdown<int>(
                               value: _timeSignatureNumerator,
                               items: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-                                  .map((n) => BoojyMenuItem(
-                                        value: n,
-                                        label: '$n',
-                                      ))
+                                  .map(
+                                    (n) => BoojyMenuItem(value: n, label: '$n'),
+                                  )
                                   .toList(),
                               onChanged: (v) =>
                                   setState(() => _timeSignatureNumerator = v),
@@ -180,10 +175,9 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                             child: BoojyDropdown<int>(
                               value: _timeSignatureDenominator,
                               items: [2, 4, 8, 16]
-                                  .map((n) => BoojyMenuItem(
-                                        value: n,
-                                        label: '$n',
-                                      ))
+                                  .map(
+                                    (n) => BoojyMenuItem(value: n, label: '$n'),
+                                  )
                                   .toList(),
                               onChanged: (v) =>
                                   setState(() => _timeSignatureDenominator = v),
@@ -206,10 +200,7 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                       BoojyDropdown<int>(
                         value: _sampleRate,
                         items: [44100, 48000]
-                            .map((r) => BoojyMenuItem(
-                                  value: r,
-                                  label: '$r Hz',
-                                ))
+                            .map((r) => BoojyMenuItem(value: r, label: '$r Hz'))
                             .toList(),
                         onChanged: (v) => setState(() => _sampleRate = v),
                       ),
@@ -298,10 +289,7 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
   Widget _buildLabel(BuildContext context, String text) {
     return Text(
       text,
-      style: TextStyle(
-        color: context.colors.textSecondary,
-        fontSize: 12,
-      ),
+      style: TextStyle(color: context.colors.textSecondary, fontSize: 12),
     );
   }
 }
