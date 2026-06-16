@@ -4,6 +4,7 @@ import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../services/midi_capture_buffer.dart';
 import '../models/midi_event.dart';
+import 'shared/boojy_dropdown.dart';
 
 /// Dialog for capturing MIDI from the circular buffer
 ///
@@ -96,36 +97,12 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
                   style: TextStyle(color: colors.textPrimary, fontSize: 14),
                 ),
                 const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: colors.divider),
-                  ),
-                  child: DropdownButton<int>(
-                    value: _selectedDuration,
-                    isExpanded: false,
-                    underline: Container(),
-                    dropdownColor: colors.surface,
-                    style: TextStyle(color: colors.textPrimary, fontSize: 14),
-                    items: _durationOptions.map((duration) {
-                      return DropdownMenuItem(
-                        value: duration,
-                        child: Text('$duration'),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() {
-                          _selectedDuration = value;
-                        });
-                      }
-                    },
-                  ),
+                BoojyDropdown<int>(
+                  value: _selectedDuration,
+                  items: _durationOptions
+                      .map((d) => BoojyMenuItem(value: d, label: '$d'))
+                      .toList(),
+                  onChanged: (v) => setState(() => _selectedDuration = v),
                 ),
                 const SizedBox(width: 12),
                 Text(

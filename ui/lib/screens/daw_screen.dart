@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
-import 'dart:convert';
 // Conditional import for platform-specific code
 // ignore: unnecessary_import
 import 'daw_screen_io.dart'
@@ -70,7 +69,6 @@ import 'daw/daw_menu_bar.dart';
 import 'daw/mixins/daw_mixins.dart';
 import '../utils/csv_field.dart';
 import '../utils/logger.dart';
-import '../utils/native_dialogs.dart';
 
 /// Main DAW screen with timeline, transport controls, and file import
 class DAWScreen extends StatefulWidget {
@@ -2521,151 +2519,6 @@ class _DAWScreenState extends State<DAWScreen>
     );
   }
 
-  /// Quick export MP3 using last saved settings
-  Future<void> _quickExportMp3() async {
-    if (audioEngine == null) return;
-
-    try {
-      final baseName = projectManager?.currentName ?? 'Untitled';
-
-      // Native save dialog (AppleScript on macOS, file_picker elsewhere)
-      String? filePath = await pickSaveFilePath(
-        title: 'Export MP3',
-        defaultName: '${sanitizeFileName(baseName)}.mp3',
-      );
-      if (filePath == null || filePath.isEmpty) return; // User cancelled
-
-      // Ensure .mp3 extension
-      if (!filePath.endsWith('.mp3')) {
-        filePath = '${filePath.replaceAll(RegExp(r'\.[^.]+$'), '')}.mp3';
-      }
-
-      // Export with saved settings
-      final bitrate = userSettings.exportMp3Bitrate;
-      final sampleRate = userSettings.exportSampleRate;
-      final normalize = userSettings.exportNormalize;
-
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Exporting MP3...')));
-      }
-
-      final resultJson = audioEngine!.exportMp3WithOptions(
-        outputPath: filePath,
-        bitrate: bitrate,
-        sampleRate: sampleRate,
-        normalize: normalize,
-      );
-
-      if (mounted) {
-        final result = jsonDecode(resultJson) as Map<String, dynamic>;
-        if (result['success'] == true) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('MP3 export complete')));
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Export failed: ${result['error']}')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
-      }
-    }
-  }
-
-  /// Quick export WAV using last saved settings
-  Future<void> _quickExportWav() async {
-    if (audioEngine == null) return;
-
-    try {
-      final baseName = projectManager?.currentName ?? 'Untitled';
-
-      // Native save dialog (AppleScript on macOS, file_picker elsewhere)
-      String? filePath = await pickSaveFilePath(
-        title: 'Export WAV',
-        defaultName: '${sanitizeFileName(baseName)}.wav',
-      );
-      if (filePath == null || filePath.isEmpty) return; // User cancelled
-
-      // Ensure .wav extension
-      if (!filePath.endsWith('.wav')) {
-        filePath = '${filePath.replaceAll(RegExp(r'\.[^.]+$'), '')}.wav';
-      }
-
-      // Export with saved settings
-      final bitDepth = userSettings.exportWavBitDepth;
-      final sampleRate = userSettings.exportSampleRate;
-      final normalize = userSettings.exportNormalize;
-      final dither = userSettings.exportDither;
-
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Exporting WAV...')));
-      }
-
-      final resultJson = audioEngine!.exportWavWithOptions(
-        outputPath: filePath,
-        bitDepth: bitDepth,
-        sampleRate: sampleRate,
-        normalize: normalize,
-        dither: dither,
-      );
-
-      if (mounted) {
-        final result = jsonDecode(resultJson) as Map<String, dynamic>;
-        if (result['success'] == true) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('WAV export complete')));
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Export failed: ${result['error']}')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
-      }
-    }
-  }
-
-  void _exportMidi() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Export MIDI'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Export MIDI functionality coming soon.'),
-            SizedBox(height: 16),
-            Text('This will export:'),
-            Text('• All MIDI tracks as .mid file'),
-            Text('• Preserve tempo and time signatures'),
-            Text('• Include all note data and velocities'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _saveNewVersion() async {
     if (projectManager?.currentPath == null) {
       if (mounted) {
@@ -3166,9 +3019,6 @@ class _DAWScreenState extends State<DAWScreen>
             onSaveNewVersion: _saveNewVersion,
             onRenameProject: _renameProject,
             onExportAudio: _exportAudio,
-            onExportMp3: _quickExportMp3,
-            onExportWav: _quickExportWav,
-            onExportMidi: _exportMidi,
             onAppSettings: _appSettings,
             onProjectSettings: _openProjectSettings,
             onCloseProject: _closeProject,
@@ -3782,7 +3632,6 @@ class _DAWScreenState extends State<DAWScreen>
           onSaveNewVersion: _saveNewVersion,
           onRenameProject: _renameProject,
           onExportAudio: _exportAudio,
-          onExportMidi: _exportMidi,
           onProjectSettings: _openProjectSettings,
           onCloseProject: _closeProject,
           onStartScreen: _showStartScreen,

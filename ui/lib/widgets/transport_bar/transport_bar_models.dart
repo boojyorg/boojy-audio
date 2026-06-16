@@ -84,9 +84,6 @@ class FileMenuCallbacks {
   final VoidCallback? onRenameProject;
   final VoidCallback? onSaveNewVersion;
   final VoidCallback? onExportAudio;
-  final VoidCallback? onExportMp3;
-  final VoidCallback? onExportWav;
-  final VoidCallback? onExportMidi;
   final VoidCallback? onAppSettings;
   final VoidCallback? onProjectSettings;
   final VoidCallback? onCloseProject;
@@ -102,9 +99,6 @@ class FileMenuCallbacks {
     this.onRenameProject,
     this.onSaveNewVersion,
     this.onExportAudio,
-    this.onExportMp3,
-    this.onExportWav,
-    this.onExportMidi,
     this.onAppSettings,
     this.onProjectSettings,
     this.onCloseProject,
