@@ -55,6 +55,10 @@ class EditorPanel extends StatefulWidget {
   // M10: VST3 Plugin support
   final List<Vst3PluginInstance>? currentTrackPlugins;
 
+  /// All installed VST3 plugins (from Vst3PluginManager.availablePlugins).
+  /// Forwarded to the device chain so the picker can show plugin rows.
+  final List<Map<String, String>> availableVst3Plugins;
+
   // Collapsed bar mode
   final bool isCollapsed;
 
@@ -127,6 +131,7 @@ class EditorPanel extends StatefulWidget {
     this.currentEditingAudioClip,
     this.onAudioClipUpdated,
     this.currentTrackPlugins,
+    this.availableVst3Plugins = const [],
     this.isCollapsed = false,
     this.onInstrumentDropped,
     this.onBuiltInEffectDropped,
@@ -1130,6 +1135,7 @@ class _EditorPanelState extends State<EditorPanel>
       },
       onInstrumentDropped: widget.onInstrumentDropped,
       onVst3InstrumentDropped: widget.vst3Callbacks.onVst3InstrumentDropped,
+      availableVst3Plugins: widget.availableVst3Plugins,
     );
   }
 

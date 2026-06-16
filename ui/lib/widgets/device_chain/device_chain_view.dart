@@ -45,6 +45,12 @@ class DeviceChainView extends StatefulWidget {
   final Function(Instrument)? onInstrumentDropped;
   final Function(Vst3Plugin)? onVst3InstrumentDropped;
 
+  /// Installed VST3 plugins from [Vst3PluginManager.availablePlugins].
+  /// Matches the raw map format used across the app (see LibraryPanel);
+  /// converted to [Vst3Plugin] objects inside the widget.
+  /// Shown in the device picker when non-empty; enables search when long.
+  final List<Map<String, String>> availableVst3Plugins;
+
   const DeviceChainView({
     super.key,
     required this.selectedTrackId,
@@ -61,6 +67,7 @@ class DeviceChainView extends StatefulWidget {
     this.onVst3EffectDropped,
     this.onInstrumentDropped,
     this.onVst3InstrumentDropped,
+    this.availableVst3Plugins = const [],
   });
 
   @override
@@ -456,6 +463,10 @@ class _DeviceChainViewState extends State<DeviceChainView>
 
   // --- Dropdown handlers ---
 
+  /// Converts the raw plugin maps to [Vst3Plugin] objects on demand.
+  List<Vst3Plugin> get _vst3Plugins =>
+      widget.availableVst3Plugins.map(Vst3Plugin.fromMap).toList();
+
   Future<void> _showInstrumentDropdown(BuildContext ctx, String name) async {
     final box = ctx.findRenderObject() as RenderBox?;
     if (box == null) return;
@@ -465,6 +476,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
       ctx,
       position,
       currentName: name,
+      availablePlugins: _vst3Plugins,
     );
     if (action == null || !mounted) return;
 
@@ -472,13 +484,23 @@ class _DeviceChainViewState extends State<DeviceChainView>
       case ResetAction():
         _resetPluginToDefault?.call();
       case SwapAction(:final type):
-        // Reuse the same path a library drag uses so the DAW-screen mixin
-        // handles synth / sampler / drum_kit branching correctly.
-        final instrument = availableInstruments.firstWhere(
-          (i) => i.id == type,
-          orElse: () => availableInstruments.first,
-        );
-        widget.onInstrumentDropped?.call(instrument);
+        if (type.startsWith('vst3:')) {
+          // Plugin path follows the 'vst3:' prefix.
+          final path = type.substring(5);
+          final plugin = _vst3Plugins.firstWhere(
+            (p) => p.path == path,
+            orElse: () => _vst3Plugins.first,
+          );
+          widget.onVst3InstrumentDropped?.call(plugin);
+        } else {
+          // Built-in: reuse the library-drag path so the DAW-screen mixin
+          // handles synth / sampler / drum_kit branching correctly.
+          final instrument = availableInstruments.firstWhere(
+            (i) => i.id == type,
+            orElse: () => availableInstruments.first,
+          );
+          widget.onInstrumentDropped?.call(instrument);
+        }
       case DeleteAction():
         break; // instruments are never deleted — every track needs one
     }
@@ -499,6 +521,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
       ctx,
       position,
       currentName: name,
+      availablePlugins: _vst3Plugins,
     );
     if (action == null || !mounted) return;
 
@@ -506,9 +529,20 @@ class _DeviceChainViewState extends State<DeviceChainView>
       case ResetAction():
         _resetEffectToDefaults(effect);
       case SwapAction(:final type):
-        // Remove old, add new at same position
-        await _removeEffect(effect.id);
-        await _addEffect(type);
+        if (type.startsWith('vst3:')) {
+          final path = type.substring(5);
+          final plugin = _vst3Plugins.firstWhere(
+            (p) => p.path == path,
+            orElse: () => _vst3Plugins.first,
+          );
+          // Remove old, add VST3 at same position.
+          await _removeEffect(effect.id);
+          widget.onVst3EffectDropped?.call(plugin);
+        } else {
+          // Remove old built-in, add new built-in at same position.
+          await _removeEffect(effect.id);
+          await _addEffect(type);
+        }
       case DeleteAction():
         await _removeEffect(effect.id);
     }
@@ -1570,25 +1604,29 @@ class _DeviceChainViewState extends State<DeviceChainView>
       ),
     );
 
-    showBoojyMenu<String>(
-      context: menuContext,
-      anchor: anchor,
-      items: [
-        BoojyMenuItem(value: 'eq', icon: BI.lightning, label: 'EQ'),
-        BoojyMenuItem(
-          value: 'compressor',
-          icon: BI.lightning,
-          label: 'Compressor',
-        ),
-        BoojyMenuItem(value: 'reverb', icon: BI.lightning, label: 'Reverb'),
-        BoojyMenuItem(value: 'delay', icon: BI.lightning, label: 'Delay'),
-        BoojyMenuItem(value: 'chorus', icon: BI.lightning, label: 'Chorus'),
-        BoojyMenuItem(value: 'limiter', icon: BI.lightning, label: 'Limiter'),
-      ],
-      selectedValue: null,
-      colors: colors,
-    ).then((value) {
-      if (value != null) _addEffect(value);
+    DeviceDropdown.showAddEffect(
+      menuContext,
+      anchor,
+      availablePlugins: _vst3Plugins,
+    ).then((action) {
+      if (action == null || !mounted) return;
+      switch (action) {
+        case SwapAction(:final type):
+          if (type.startsWith('vst3:')) {
+            final path = type.substring(5);
+            final plugin = _vst3Plugins.firstWhere(
+              (p) => p.path == path,
+              orElse: () => _vst3Plugins.first,
+            );
+            widget.onVst3EffectDropped?.call(plugin);
+          } else {
+            _addEffect(type);
+          }
+        case ResetAction():
+          break; // not offered in add-effect menu
+        case DeleteAction():
+          break; // not offered in add-effect menu
+      }
     });
   }
 }

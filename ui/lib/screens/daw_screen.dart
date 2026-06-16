@@ -3835,6 +3835,9 @@ class _DAWScreenState extends State<DAWScreen>
                                       null // M10
                                   ? _getTrackVst3Plugins(selectedTrackId!)
                                   : null,
+                              availableVst3Plugins:
+                                  vst3PluginManager?.availablePlugins ??
+                                  const [],
                               onInstrumentDropped: (instrument) {
                                 if (selectedTrackId != null) {
                                   onInstrumentDropped(
