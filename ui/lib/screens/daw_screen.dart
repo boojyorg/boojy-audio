@@ -58,8 +58,6 @@ import '../widgets/settings_dialog.dart';
 import '../widgets/app_settings_dialog.dart';
 import '../widgets/project_settings_dialog.dart';
 import '../widgets/export_dialog.dart';
-import '../models/project_version.dart';
-import '../models/version_type.dart';
 import '../services/version_manager.dart';
 import '../services/midi_file_service.dart';
 import '../widgets/start_screen/start_screen_modal.dart';
@@ -2748,107 +2746,22 @@ class _DAWScreenState extends State<DAWScreen>
     if (!mounted) return;
 
     // Open project-specific settings dialog (accessed via clicking song name)
-    final result = await ProjectSettingsDialog.show(
+    final updated = await ProjectSettingsDialog.show(
       context,
       metadata: projectMetadata,
-      versions: versionManager?.versions ?? [],
-      currentVersionNumber: versionManager?.currentVersionNumber,
-      nextVersionNumber: versionManager?.nextVersionNumber ?? 1,
     );
 
-    if (result == null || !mounted) return;
+    if (updated == null || !mounted) return;
 
-    // Handle metadata changes
-    final updatedMetadata = result.metadata;
-    final bpmChanged = updatedMetadata.bpm != projectMetadata.bpm;
-    final nameChanged = updatedMetadata.name != projectMetadata.name;
+    final nameChanged = updated.name != projectMetadata.name;
 
     setState(() {
-      projectMetadata = updatedMetadata;
+      projectMetadata = updated;
     });
 
-    // Route the BPM change through the same undoable command as the
-    // transport-bar control — it owns the engine update, MIDI reschedule,
-    // and the audio-clip/automation re-push. Calling setTempo directly here
-    // used to skip all of that (clips visually froze on old positions).
-    if (bpmChanged) {
-      await _onTempoChanged(updatedMetadata.bpm);
-    }
-
-    // Update project name if changed
     if (nameChanged) {
-      projectManager?.setProjectName(updatedMetadata.name);
-      WindowTitleService.setProjectName(updatedMetadata.name);
-    }
-
-    // Handle version actions
-    if (result.versionAction == 'create' && result.newVersionData != null) {
-      await _createVersion(result.newVersionData!);
-    } else if (result.versionAction == 'restore' &&
-        result.selectedVersion != null) {
-      await _restoreVersion(result.selectedVersion!);
-    }
-  }
-
-  // ========================================================================
-  // Version Methods
-  // ========================================================================
-
-  Future<void> _createVersion(
-    ({String name, String? note, VersionType type}) data,
-  ) async {
-    if (projectManager?.currentPath == null || versionManager == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please save the project first')),
-      );
-      return;
-    }
-
-    final projectPath = projectManager!.currentPath!;
-
-    // Create the version
-    final version = await versionManager!.createVersion(
-      name: data.name,
-      note: data.note,
-      versionType: data.type,
-      currentProjectFilePath: projectPath,
-    );
-
-    if (version != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Version "${version.name}" created')),
-      );
-    } else if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Failed to create version')));
-    }
-  }
-
-  Future<void> _restoreVersion(ProjectVersion version) async {
-    if (projectManager?.currentPath == null || versionManager == null) return;
-
-    final projectPath = projectManager!.currentPath!;
-
-    // Switch to the version
-    final success = await versionManager!.switchToVersion(
-      version: version,
-      currentProjectFilePath: projectPath,
-    );
-
-    if (success && mounted) {
-      // Reload the project
-      await _openRecentProject(projectPath);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Restored version "${version.name}"')),
-        );
-      }
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to restore version')),
-      );
+      projectManager?.setProjectName(updated.name);
+      WindowTitleService.setProjectName(updated.name);
     }
   }
 
@@ -3922,6 +3835,9 @@ class _DAWScreenState extends State<DAWScreen>
                                       null // M10
                                   ? _getTrackVst3Plugins(selectedTrackId!)
                                   : null,
+                              availableVst3Plugins:
+                                  vst3PluginManager?.availablePlugins ??
+                                  const [],
                               onInstrumentDropped: (instrument) {
                                 if (selectedTrackId != null) {
                                   onInstrumentDropped(

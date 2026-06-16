@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' show BuildContext, Offset;
 
 import '../../theme/boojy_icons.dart';
 import '../shared/context_menu_item.dart';
@@ -18,7 +18,7 @@ Future<String?> showClipContextMenu({
   required ClipType clipType,
   bool canJoin = false,
 }) {
-  final items = <PopupMenuEntry<String>>[
+  final items = <BoojyMenuEntry<String>>[
     // Common actions
     ContextMenuItem(
       value: 'delete',
@@ -46,7 +46,7 @@ Future<String?> showClipContextMenu({
         label: 'Join Clips',
         shortcut: '⌘J',
       ),
-    const PopupMenuDivider(),
+    const BoojyMenuDivider<String>(),
     ContextMenuItem(value: 'cut', icon: BI.cut, label: 'Cut', shortcut: '⌘X'),
     ContextMenuItem(
       value: 'copy',
@@ -60,7 +60,7 @@ Future<String?> showClipContextMenu({
       label: 'Paste',
       shortcut: '⌘V',
     ),
-    const PopupMenuDivider(),
+    const BoojyMenuDivider<String>(),
     ContextMenuItem(value: 'mute', icon: BI.speakerNone, label: 'Mute Clip'),
     // MIDI-specific actions
     if (clipType == ClipType.midi) ...[
@@ -76,7 +76,7 @@ Future<String?> showClipContextMenu({
         label: 'Export as MIDI File...',
       ),
     ],
-    const PopupMenuDivider(),
+    const BoojyMenuDivider<String>(),
     ContextMenuItem(value: 'color', icon: BI.colorLens, label: 'Color...'),
     ContextMenuItem(value: 'rename', icon: BI.pencil, label: 'Rename...'),
   ];

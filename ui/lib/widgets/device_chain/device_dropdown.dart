@@ -1,41 +1,94 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
+import '../../models/vst3_plugin_data.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
-import '../../theme/tokens.dart';
+import '../shared/boojy_dropdown.dart';
+import 'builtin_devices.dart';
 
-/// Shows a dropdown menu for a device in the chain.
+/// Shows a unified, searchable device picker for swapping or adding devices in
+/// the chain.
 ///
-/// For instruments: reset, swap (built-in list + plugins), rename, delete.
-/// For effects: reset, swap (built-in effects + plugins), rename, delete.
+/// **Instruments:** Reset + Built-in (Synth / Sampler) + optional VST3
+/// instrument rows. Drum Kit is excluded — it creates a new track rather than
+/// converting the current one; use "Add Track" instead. No Delete — every
+/// track needs exactly one instrument; the right verb is swap, not delete.
+///
+/// **Effects:** Reset + Built-in (EQ / Compressor / Reverb / Delay / Chorus /
+/// Limiter) + optional VST3 effect rows + destructive Delete.
+///
+/// When the total row count exceeds [_searchThreshold], a live-filter search
+/// bar appears above the list automatically.
 class DeviceDropdown {
-  /// Show dropdown for an instrument device.
-  /// Returns the selected action or null if dismissed.
+  static const int _searchThreshold = 8;
+
+  /// Show picker for an instrument device.
   static Future<DeviceAction?> showForInstrument(
     BuildContext context,
     Offset position, {
     required String currentName,
-  }) async {
-    return _show(
-      context,
-      position,
-      isInstrument: true,
-      currentName: currentName,
-    );
-  }
+    List<Vst3Plugin> availablePlugins = const [],
+  }) => _show(
+    context,
+    position,
+    isInstrument: true,
+    currentName: currentName,
+    availablePlugins: availablePlugins,
+  );
 
-  /// Show dropdown for an effect device.
-  /// Returns the selected action or null if dismissed.
+  /// Show picker for an effect device (swap — called from the name-tap).
   static Future<DeviceAction?> showForEffect(
     BuildContext context,
     Offset position, {
     required String currentName,
-  }) async {
-    return _show(
-      context,
-      position,
-      isInstrument: false,
-      currentName: currentName,
+    List<Vst3Plugin> availablePlugins = const [],
+  }) => _show(
+    context,
+    position,
+    isInstrument: false,
+    currentName: currentName,
+    availablePlugins: availablePlugins,
+  );
+
+  /// Show picker for adding a new effect (called from the "+" button).
+  ///
+  /// Same surface as [showForEffect] but anchored via [anchor] (button-aligned
+  /// Rect) and without the Reset row — adding is not the same as swapping.
+  static Future<DeviceAction?> showAddEffect(
+    BuildContext context,
+    Rect anchor, {
+    List<Vst3Plugin> availablePlugins = const [],
+  }) {
+    final colors = context.themeProvider.colors;
+    final vst3Effects = availablePlugins.where((p) => p.isEffect).toList();
+
+    final items = <BoojyMenuEntry<DeviceAction>>[
+      const BoojyMenuSection(label: 'Built-in'),
+      for (final e in builtinEffects)
+        BoojyMenuItem(
+          value: DeviceAction.swap(e.type),
+          icon: e.icon,
+          label: e.name,
+        ),
+      if (vst3Effects.isNotEmpty) ...[
+        const BoojyMenuSection(label: 'Plugins'),
+        for (final p in vst3Effects)
+          BoojyMenuItem(
+            value: DeviceAction.swap('vst3:${p.path}'),
+            icon: BI.plugin,
+            label: p.name,
+          ),
+      ],
+    ];
+
+    final totalItems = items.whereType<BoojyMenuItem<DeviceAction>>().length;
+
+    return showBoojyMenu<DeviceAction>(
+      context: context,
+      anchor: anchor,
+      items: items,
+      selectedValue: null,
+      colors: colors,
+      showSearch: totalItems > _searchThreshold,
     );
   }
 
@@ -44,125 +97,81 @@ class DeviceDropdown {
     Offset position, {
     required bool isInstrument,
     required String currentName,
-  }) async {
+    required List<Vst3Plugin> availablePlugins,
+  }) {
     final colors = context.themeProvider.colors;
 
-    final items = <PopupMenuEntry<DeviceAction>>[
-      // Reset to Default
-      PopupMenuItem(
+    final vst3Instruments = availablePlugins
+        .where((p) => p.isInstrument)
+        .toList();
+    final vst3Effects = availablePlugins.where((p) => p.isEffect).toList();
+    final vst3List = isInstrument ? vst3Instruments : vst3Effects;
+
+    final items = <BoojyMenuEntry<DeviceAction>>[
+      BoojyMenuItem(
         value: const DeviceAction.reset(),
-        child: Row(
-          children: [
-            Icon(BI.refresh, size: 14, color: colors.textPrimary),
-            const SizedBox(width: 8),
-            Text(
-              'Reset to Default',
-              style: TextStyle(color: colors.textPrimary, fontSize: 13),
-            ),
-          ],
-        ),
+        icon: BI.refresh,
+        label: 'Reset to Default',
       ),
-
-      const PopupMenuDivider(),
-
-      // Swap options
+      const BoojyMenuDivider(),
+      const BoojyMenuSection(label: 'Built-in'),
       if (isInstrument) ...[
-        _sectionHeader(colors, 'BUILT-IN'),
-        _swapItem(colors, BI.piano, 'Synthesizer', 'synthesizer'),
-        _swapItem(colors, BI.piano, 'Sampler', 'sampler'),
-        _sectionHeader(colors, 'PLUGINS'),
-        PopupMenuItem(
-          enabled: false,
-          height: 28,
-          child: Text(
-            'Use library to add plugins',
-            style: TextStyle(
-              color: colors.textMuted,
-              fontSize: 11,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
+        BoojyMenuItem(
+          value: const DeviceAction.swap('synthesizer'),
+          icon: BI.piano,
+          label: 'Synthesizer',
         ),
+        BoojyMenuItem(
+          value: const DeviceAction.swap('sampler'),
+          icon: BI.waveform,
+          label: 'Sampler',
+        ),
+        // Drum Kit is omitted — it creates a new track rather than converting
+        // the current one. Use "Add Track" to create a drum kit track.
       ] else ...[
-        _sectionHeader(colors, 'BUILT-IN'),
-        _swapItem(colors, BI.lightning, 'EQ', 'eq'),
-        _swapItem(colors, BI.lightning, 'Compressor', 'compressor'),
-        _swapItem(colors, BI.lightning, 'Reverb', 'reverb'),
-        _swapItem(colors, BI.lightning, 'Delay', 'delay'),
-        _swapItem(colors, BI.lightning, 'Chorus', 'chorus'),
-        _swapItem(colors, BI.lightning, 'Limiter', 'limiter'),
+        for (final e in builtinEffects)
+          BoojyMenuItem(
+            value: DeviceAction.swap(e.type),
+            icon: e.icon,
+            label: e.name,
+          ),
       ],
-
-      const PopupMenuDivider(),
-
-      // Delete
-      PopupMenuItem(
-        value: const DeviceAction.delete(),
-        child: Row(
-          children: [
-            Icon(BI.delete, size: 14, color: colors.error),
-            const SizedBox(width: 8),
-            Text('Delete', style: TextStyle(color: colors.error, fontSize: 13)),
-          ],
+      if (vst3List.isNotEmpty) ...[
+        const BoojyMenuSection(label: 'Plugins'),
+        for (final p in vst3List)
+          BoojyMenuItem(
+            value: DeviceAction.swap('vst3:${p.path}'),
+            icon: BI.plugin,
+            label: p.name,
+          ),
+      ],
+      // Delete only makes sense for effects — instruments are never removed.
+      if (!isInstrument) ...[
+        const BoojyMenuDivider(),
+        BoojyMenuItem(
+          value: const DeviceAction.delete(),
+          icon: BI.delete,
+          label: 'Delete',
+          destructive: true,
         ),
-      ),
+      ],
     ];
 
-    return showMenu<DeviceAction>(
+    // Count actionable rows (not dividers/sections) to decide if search helps.
+    final totalItems = items.whereType<BoojyMenuItem<DeviceAction>>().length;
+
+    return showBoojyMenu<DeviceAction>(
       context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx,
-        position.dy,
-      ),
+      anchor: Rect.fromLTWH(position.dx, position.dy, 0, 0),
       items: items,
-    );
-  }
-
-  static PopupMenuItem<DeviceAction> _swapItem(
-    BoojyColors colors,
-    IconData icon,
-    String label,
-    String type,
-  ) {
-    return PopupMenuItem(
-      value: DeviceAction.swap(type),
-      height: 32,
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: colors.textPrimary),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(color: colors.textPrimary, fontSize: 13),
-          ),
-        ],
-      ),
-    );
-  }
-
-  static PopupMenuItem<DeviceAction> _sectionHeader(
-    BoojyColors colors,
-    String label,
-  ) {
-    return PopupMenuItem(
-      enabled: false,
-      height: 24,
-      child: Text(
-        label,
-        style: TextStyle(
-          color: colors.textMuted,
-          fontSize: 11,
-          fontWeight: BT.weightSemiBold,
-          letterSpacing: 0.5,
-        ),
-      ),
+      selectedValue: null,
+      colors: colors,
+      showSearch: totalItems > _searchThreshold,
     );
   }
 }
 
-/// Actions returned by the device dropdown.
+/// Actions returned by the device picker.
 sealed class DeviceAction {
   const DeviceAction();
   const factory DeviceAction.reset() = ResetAction;

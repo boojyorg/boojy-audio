@@ -4,6 +4,7 @@ import '../audio_engine.dart';
 import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
+import 'shared/boojy_dropdown.dart';
 
 /// Track header widget - displays on left side of timeline for each track
 /// Supports drag navigation:
@@ -246,75 +247,33 @@ class _TrackHeaderState extends State<TrackHeader> {
     // the right-click menu silently.
     final colors = context.themeProvider.colors;
 
-    final menuItems = <PopupMenuEntry<String>>[
-      PopupMenuItem<String>(
-        value: 'rename',
-        child: Row(
-          children: [
-            Icon(BI.pencil, size: 16, color: colors.darkest),
-            const SizedBox(width: 8),
-            Text('Rename', style: TextStyle(color: colors.darkest)),
-          ],
-        ),
-      ),
-      PopupMenuItem<String>(
-        value: 'duplicate',
-        child: Row(
-          children: [
-            Icon(BI.copy, size: 16, color: colors.darkest),
-            const SizedBox(width: 8),
-            Text('Duplicate', style: TextStyle(color: colors.darkest)),
-          ],
-        ),
-      ),
-      // Show "Convert to Sampler" only for Audio tracks
-      if (isAudioTrack && widget.onConvertToSampler != null)
-        PopupMenuItem<String>(
-          value: 'convert_to_sampler',
-          child: Row(
-            children: [
-              Icon(BI.musicNote, size: 16, color: colors.darkest),
-              const SizedBox(width: 8),
-              Text(
-                'Convert to Sampler',
-                style: TextStyle(color: colors.darkest),
-              ),
-            ],
-          ),
-        ),
-      const PopupMenuDivider(),
-      PopupMenuItem<String>(
-        value: 'delete',
-        child: Row(
-          children: [
-            Icon(BI.delete, size: 16, color: colors.error),
-            const SizedBox(width: 8),
-            Text('Delete', style: TextStyle(color: colors.error)),
-          ],
-        ),
-      ),
-    ];
-
-    showMenu(
+    showBoojyMenu<String>(
       context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx,
-        position.dy,
-      ),
-      items: menuItems,
+      anchor: Rect.fromLTWH(position.dx, position.dy, 0, 0),
+      items: [
+        BoojyMenuItem(value: 'rename', icon: BI.pencil, label: 'Rename'),
+        BoojyMenuItem(value: 'duplicate', icon: BI.copy, label: 'Duplicate'),
+        if (isAudioTrack && widget.onConvertToSampler != null)
+          BoojyMenuItem(
+            value: 'convert_to_sampler',
+            icon: BI.musicNote,
+            label: 'Convert to Sampler',
+          ),
+        const BoojyMenuDivider<String>(),
+        BoojyMenuItem(
+          value: 'delete',
+          icon: BI.delete,
+          label: 'Delete',
+          destructive: true,
+        ),
+      ],
+      selectedValue: null,
+      colors: colors,
     ).then((value) {
-      if (value == 'rename' && widget.onRenamePressed != null) {
-        widget.onRenamePressed!();
-      } else if (value == 'duplicate' && widget.onDuplicatePressed != null) {
-        widget.onDuplicatePressed!();
-      } else if (value == 'convert_to_sampler' &&
-          widget.onConvertToSampler != null) {
-        widget.onConvertToSampler!();
-      } else if (value == 'delete' && widget.onDeletePressed != null) {
-        widget.onDeletePressed!();
-      }
+      if (value == 'rename') widget.onRenamePressed?.call();
+      if (value == 'duplicate') widget.onDuplicatePressed?.call();
+      if (value == 'convert_to_sampler') widget.onConvertToSampler?.call();
+      if (value == 'delete') widget.onDeletePressed?.call();
     });
   }
 

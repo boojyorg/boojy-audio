@@ -55,6 +55,10 @@ class EditorPanel extends StatefulWidget {
   // M10: VST3 Plugin support
   final List<Vst3PluginInstance>? currentTrackPlugins;
 
+  /// All installed VST3 plugins (from Vst3PluginManager.availablePlugins).
+  /// Forwarded to the device chain so the picker can show plugin rows.
+  final List<Map<String, String>> availableVst3Plugins;
+
   // Collapsed bar mode
   final bool isCollapsed;
 
@@ -127,6 +131,7 @@ class EditorPanel extends StatefulWidget {
     this.currentEditingAudioClip,
     this.onAudioClipUpdated,
     this.currentTrackPlugins,
+    this.availableVst3Plugins = const [],
     this.isCollapsed = false,
     this.onInstrumentDropped,
     this.onBuiltInEffectDropped,
@@ -239,11 +244,7 @@ class _EditorPanelState extends State<EditorPanel>
       return 'Audio Editor';
     }
 
-    if (_isSamplerTrack) {
-      return 'Sampler';
-    }
-
-    // MIDI track: show pattern name from clip
+    // MIDI / sampler tracks: show pattern name from clip
     if (widget.currentEditingClip != null) {
       final clipName = widget.currentEditingClip!.name;
       // Truncate if too long
@@ -267,7 +268,7 @@ class _EditorPanelState extends State<EditorPanel>
   ///
   /// Audio:    [Audio Editor] [Effects]
   /// MIDI:     [Instrument]   [MIDI]
-  /// Sampler:  [Sampler]      [MIDI]
+  /// Sampler:  [Instrument]   [Sampler]  [MIDI]
   /// Drum kit: [Drum Kit]     [MIDI]
   /// Master:   [Effects]
   List<_EditorTab> get _tabs {
@@ -300,16 +301,28 @@ class _EditorPanelState extends State<EditorPanel>
     }
 
     if (_isSamplerTrack) {
-      // The sampler is an engine-side instrument with no InstrumentData, so
-      // it can't be shown through the DeviceChainView path.
+      // Sampler tracks: device chain (with Sampler placeholder block) +
+      // dedicated Sampler editor + MIDI piano roll. Three tabs so the chain
+      // remains the default view and the instrument slot stays visible after
+      // a synth→sampler swap.
       return [
+        _EditorTab(
+          icon: BI.piano,
+          label: 'Instrument',
+          buttonKey: _instrumentTabKey,
+          content: _buildChainTab,
+        ),
         _EditorTab(
           icon: BI.musicNote,
           label: 'Sampler',
-          buttonKey: _instrumentTabKey,
           content: _buildSamplerTab,
         ),
-        _EditorTab(icon: BI.piano, label: 'MIDI', content: _buildPianoRollTab),
+        _EditorTab(
+          icon: BI.piano,
+          label: 'MIDI',
+          collapsedLabel: _firstTabLabel,
+          content: _buildPianoRollTab,
+        ),
       ];
     }
 
@@ -418,6 +431,27 @@ class _EditorPanelState extends State<EditorPanel>
       return; // Exit early to avoid setting index on newly created controller
     }
 
+    // Handle synth↔sampler conversion: track type stays 'midi' but the sampler
+    // 3-tab layout (Instrument | Sampler | MIDI) differs from the synth 2-tab
+    // layout (Instrument | MIDI). Recreate the controller when the count drifts.
+    if (_tabController.length != _tabCount) {
+      setState(() {
+        _tabController.dispose();
+        _tabController = TabController(length: _tabCount, vsync: this);
+        _tabController.addListener(() {
+          setState(() {
+            _selectedTabIndex = _tabController.index;
+          });
+        });
+        _selectedTabIndex = 0;
+        _userManuallySelectedTab = false;
+        _switchedToPianoRollAwaitingData = false;
+      });
+      _lastTrackId = widget.trackContext.selectedTrackId;
+      _lastClipId = _getCurrentClipId();
+      return;
+    }
+
     final trackChanged = widget.trackContext.selectedTrackId != _lastTrackId;
     final currentClipId = _getCurrentClipId();
     final clipChanged = currentClipId != _lastClipId;
@@ -437,9 +471,12 @@ class _EditorPanelState extends State<EditorPanel>
         !_userManuallySelectedTab) {
       // Drum-kit tracks keep tab 0 (the step sequencer is the primary editor);
       // only MIDI/sampler jump to the piano roll on clip select.
-      if (_isMidiTrack || _isSamplerTrack) {
+      if (_isMidiTrack) {
         _switchedToPianoRollAwaitingData = widget.currentEditingClip == null;
         _tabController.index = 1; // MIDI tab
+      } else if (_isSamplerTrack) {
+        _switchedToPianoRollAwaitingData = widget.currentEditingClip == null;
+        _tabController.index = 2; // MIDI is 3rd tab in sampler's 3-tab layout
       }
     }
     // Clip deselected → back to chain tab
@@ -1130,6 +1167,8 @@ class _EditorPanelState extends State<EditorPanel>
       },
       onInstrumentDropped: widget.onInstrumentDropped,
       onVst3InstrumentDropped: widget.vst3Callbacks.onVst3InstrumentDropped,
+      availableVst3Plugins: widget.availableVst3Plugins,
+      isSamplerTrack: _isSamplerTrack,
     );
   }
 

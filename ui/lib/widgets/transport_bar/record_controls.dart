@@ -4,6 +4,7 @@ import '../../theme/animation_constants.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
+import '../shared/boojy_dropdown.dart';
 import '../shared/boojy_tooltip.dart';
 
 /// Record button states for the CustomPainter
@@ -84,61 +85,21 @@ class _RecordButtonState extends State<RecordButton>
   }
 
   void _showCountInMenu(BuildContext context, Offset position) {
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final colors = context.themeProvider.colors;
 
-    showMenu<int>(
+    showBoojyMenu<int>(
       context: context,
-      position: RelativeRect.fromRect(
-        position & const Size(1, 1),
-        Offset.zero & overlay.size,
-      ),
+      anchor: Rect.fromLTWH(position.dx, position.dy, 0, 0),
       items: [
-        PopupMenuItem<int>(
-          value: 0,
-          child: Row(
-            children: [
-              Icon(BI.close, size: BT.iconMd),
-              const SizedBox(width: 8),
-              const Text('Count-in: Off'),
-            ],
-          ),
-        ),
-        PopupMenuItem<int>(
-          value: 1,
-          child: Row(
-            children: [
-              Icon(BI.countOne, size: BT.iconMd),
-              const SizedBox(width: 8),
-              const Text('Count-in: 1 Bar'),
-            ],
-          ),
-        ),
-        PopupMenuItem<int>(
-          value: 2,
-          child: Row(
-            children: [
-              Icon(BI.countTwo, size: BT.iconMd),
-              const SizedBox(width: 8),
-              const Text('Count-in: 2 Bars'),
-            ],
-          ),
-        ),
-        PopupMenuItem<int>(
-          value: 4,
-          child: Row(
-            children: [
-              Icon(BI.countFour, size: BT.iconMd),
-              const SizedBox(width: 8),
-              const Text('Count-in: 4 Bars'),
-            ],
-          ),
-        ),
+        BoojyMenuItem(value: 0, icon: BI.close, label: 'Count-in: Off'),
+        BoojyMenuItem(value: 1, icon: BI.countOne, label: 'Count-in: 1 Bar'),
+        BoojyMenuItem(value: 2, icon: BI.countTwo, label: 'Count-in: 2 Bars'),
+        BoojyMenuItem(value: 4, icon: BI.countFour, label: 'Count-in: 4 Bars'),
       ],
+      selectedValue: widget.countInBars,
+      colors: colors,
     ).then((value) {
-      if (value != null) {
-        widget.onCountInChanged?.call(value);
-      }
+      if (value != null) widget.onCountInChanged?.call(value);
     });
   }
 

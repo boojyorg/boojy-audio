@@ -14,6 +14,7 @@ import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 import '../effect_parameter_panel.dart';
 import '../instrument_browser.dart';
+import '../shared/boojy_dropdown.dart';
 import '../vst3_instrument_view.dart';
 import '../synthesizer_panel.dart';
 import 'device_box.dart';
@@ -44,6 +45,19 @@ class DeviceChainView extends StatefulWidget {
   final Function(Instrument)? onInstrumentDropped;
   final Function(Vst3Plugin)? onVst3InstrumentDropped;
 
+  /// Installed VST3 plugins from [Vst3PluginManager.availablePlugins].
+  /// Matches the raw map format used across the app (see LibraryPanel);
+  /// converted to [Vst3Plugin] objects inside the widget.
+  /// Shown in the device picker when non-empty; enables search when long.
+  final List<Map<String, String>> availableVst3Plugins;
+
+  /// When true, shows a "Sampler" placeholder device box in the instrument
+  /// slot even though [instrumentData] is null (sampler tracks have no
+  /// [InstrumentData] — the sampler lives in the engine only). The
+  /// placeholder shows the track volume meter and opens the instrument swap
+  /// picker on name-tap, so the user can swap back to a synthesizer.
+  final bool isSamplerTrack;
+
   const DeviceChainView({
     super.key,
     required this.selectedTrackId,
@@ -60,6 +74,8 @@ class DeviceChainView extends StatefulWidget {
     this.onVst3EffectDropped,
     this.onInstrumentDropped,
     this.onVst3InstrumentDropped,
+    this.availableVst3Plugins = const [],
+    this.isSamplerTrack = false,
   });
 
   @override
@@ -455,6 +471,10 @@ class _DeviceChainViewState extends State<DeviceChainView>
 
   // --- Dropdown handlers ---
 
+  /// Converts the raw plugin maps to [Vst3Plugin] objects on demand.
+  List<Vst3Plugin> get _vst3Plugins =>
+      widget.availableVst3Plugins.map(Vst3Plugin.fromMap).toList();
+
   Future<void> _showInstrumentDropdown(BuildContext ctx, String name) async {
     final box = ctx.findRenderObject() as RenderBox?;
     if (box == null) return;
@@ -464,18 +484,33 @@ class _DeviceChainViewState extends State<DeviceChainView>
       ctx,
       position,
       currentName: name,
+      availablePlugins: _vst3Plugins,
     );
     if (action == null || !mounted) return;
 
     switch (action) {
       case ResetAction():
         _resetPluginToDefault?.call();
-      case SwapAction():
-        // Future: swap instrument implementation
-        break;
+      case SwapAction(:final type):
+        if (type.startsWith('vst3:')) {
+          // Plugin path follows the 'vst3:' prefix.
+          final path = type.substring(5);
+          final plugin = _vst3Plugins.firstWhere(
+            (p) => p.path == path,
+            orElse: () => _vst3Plugins.first,
+          );
+          widget.onVst3InstrumentDropped?.call(plugin);
+        } else {
+          // Built-in: reuse the library-drag path so the DAW-screen mixin
+          // handles synth / sampler / drum_kit branching correctly.
+          final instrument = availableInstruments.firstWhere(
+            (i) => i.id == type,
+            orElse: () => availableInstruments.first,
+          );
+          widget.onInstrumentDropped?.call(instrument);
+        }
       case DeleteAction():
-        // Future: remove instrument from track
-        break;
+        break; // instruments are never deleted — every track needs one
     }
   }
 
@@ -494,6 +529,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
       ctx,
       position,
       currentName: name,
+      availablePlugins: _vst3Plugins,
     );
     if (action == null || !mounted) return;
 
@@ -501,9 +537,20 @@ class _DeviceChainViewState extends State<DeviceChainView>
       case ResetAction():
         _resetEffectToDefaults(effect);
       case SwapAction(:final type):
-        // Remove old, add new at same position
-        await _removeEffect(effect.id);
-        await _addEffect(type);
+        if (type.startsWith('vst3:')) {
+          final path = type.substring(5);
+          final plugin = _vst3Plugins.firstWhere(
+            (p) => p.path == path,
+            orElse: () => _vst3Plugins.first,
+          );
+          // Remove old, add VST3 at same position.
+          await _removeEffect(effect.id);
+          widget.onVst3EffectDropped?.call(plugin);
+        } else {
+          // Remove old built-in, add new built-in at same position.
+          await _removeEffect(effect.id);
+          await _addEffect(type);
+        }
       case DeleteAction():
         await _removeEffect(effect.id);
     }
@@ -520,78 +567,38 @@ class _DeviceChainViewState extends State<DeviceChainView>
     final colors = context.themeProvider.colors;
     setState(() => _selectedDeviceId = effect.id);
 
-    final action = await showMenu<String>(
+    final action = await showBoojyMenu<String>(
       context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx,
-        position.dy,
-      ),
+      anchor: Rect.fromLTWH(position.dx, position.dy, 0, 0),
       items: [
-        PopupMenuItem(
+        BoojyMenuItem(
           value: 'bypass',
-          child: Row(
-            children: [
-              Icon(
-                effect.bypassed ? BI.lightning : BI.lightning,
-                size: 14,
-                color: colors.textPrimary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                effect.bypassed ? 'Enable' : 'Bypass',
-                style: TextStyle(color: colors.textPrimary),
-              ),
-            ],
-          ),
+          icon: effect.bypassed ? BI.lightning : BI.power,
+          label: effect.bypassed ? 'Enable' : 'Bypass',
         ),
-        PopupMenuItem(
+        BoojyMenuItem(
           value: 'duplicate',
-          child: Row(
-            children: [
-              Icon(BI.copy, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text('Duplicate', style: TextStyle(color: colors.textPrimary)),
-              const Spacer(),
-              Text(
-                '⌘D',
-                style: TextStyle(color: colors.textMuted, fontSize: 12),
-              ),
-            ],
-          ),
+          icon: BI.copy,
+          label: 'Duplicate',
+          shortcut: '⌘D',
         ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
+        const BoojyMenuDivider<String>(),
+        BoojyMenuItem(
           value: 'reset',
-          child: Row(
-            children: [
-              Icon(BI.refresh, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text(
-                'Reset to Default',
-                style: TextStyle(color: colors.textPrimary),
-              ),
-            ],
-          ),
+          icon: BI.refresh,
+          label: 'Reset to Default',
         ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
+        const BoojyMenuDivider<String>(),
+        BoojyMenuItem(
           value: 'delete',
-          child: Row(
-            children: [
-              Icon(BI.delete, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text('Delete', style: TextStyle(color: colors.textPrimary)),
-              const Spacer(),
-              Text(
-                '⌫',
-                style: TextStyle(color: colors.textMuted, fontSize: 12),
-              ),
-            ],
-          ),
+          icon: BI.delete,
+          label: 'Delete',
+          shortcut: '⌫',
+          destructive: true,
         ),
       ],
+      selectedValue: null,
+      colors: colors,
     );
     if (action == null || !mounted) return;
 
@@ -618,73 +625,42 @@ class _DeviceChainViewState extends State<DeviceChainView>
     final isVst3 = instrument.isVst3;
     setState(() => _selectedDeviceId = -1);
 
-    final items = <PopupMenuEntry<String>>[
+    final items = <BoojyMenuEntry<String>>[
       if (isVst3) ...[
-        PopupMenuItem(
+        BoojyMenuItem(
           value: 'float',
+          icon: BI.openInNew,
+          label: 'Float to Window',
           enabled: widget.onFloatPlugin != null && !widget.isFloated,
-          child: Row(
-            children: [
-              Icon(BI.openInNew, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text(
-                'Float to Window',
-                style: TextStyle(color: colors.textPrimary),
-              ),
-            ],
-          ),
         ),
         if (widget.isFloated)
-          PopupMenuItem(
+          BoojyMenuItem(
             value: 'embed',
-            child: Row(
-              children: [
-                Icon(BI.arrowDown, size: 14, color: colors.textPrimary),
-                const SizedBox(width: 8),
-                Text(
-                  'Embed in Panel',
-                  style: TextStyle(color: colors.textPrimary),
-                ),
-              ],
-            ),
+            icon: BI.arrowDown,
+            label: 'Embed in Panel',
           ),
-        const PopupMenuDivider(),
+        const BoojyMenuDivider<String>(),
       ],
-      PopupMenuItem(
+      BoojyMenuItem(
         value: 'reset',
-        child: Row(
-          children: [
-            Icon(BI.refresh, size: 14, color: colors.textPrimary),
-            const SizedBox(width: 8),
-            Text(
-              'Reset to Default',
-              style: TextStyle(color: colors.textPrimary),
-            ),
-          ],
-        ),
+        icon: BI.refresh,
+        label: 'Reset to Default',
       ),
-      const PopupMenuDivider(),
-      PopupMenuItem(
+      const BoojyMenuDivider<String>(),
+      BoojyMenuItem(
         value: 'delete',
-        child: Row(
-          children: [
-            Icon(BI.delete, size: 14, color: colors.textPrimary),
-            const SizedBox(width: 8),
-            Text('Delete', style: TextStyle(color: colors.textPrimary)),
-          ],
-        ),
+        icon: BI.delete,
+        label: 'Delete',
+        destructive: true,
       ),
     ];
 
-    final action = await showMenu<String>(
+    final action = await showBoojyMenu<String>(
       context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx,
-        position.dy,
-      ),
+      anchor: Rect.fromLTWH(position.dx, position.dy, 0, 0),
       items: items,
+      selectedValue: null,
+      colors: colors,
     );
     if (action == null || !mounted) return;
 
@@ -876,9 +852,13 @@ class _DeviceChainViewState extends State<DeviceChainView>
     final items = <Widget>[];
     final hasInstrument = widget.instrumentData != null;
 
-    // Instrument device box (MIDI/Sampler tracks only) — wrapped with instrument DragTarget
+    // Instrument device box (MIDI/Sampler tracks only) — wrapped with instrument DragTarget.
+    // Sampler tracks have no InstrumentData (engine-only) so we show a placeholder block.
     if (hasInstrument) {
       items.add(_buildInstrumentDeviceWithDragTarget(colors, chainHeight));
+      items.add(_buildArrowWithDragTarget(colors, chainHeight, 0));
+    } else if (widget.isSamplerTrack) {
+      items.add(_buildSamplerPlaceholder(colors, chainHeight));
       items.add(_buildArrowWithDragTarget(colors, chainHeight, 0));
     }
 
@@ -1098,9 +1078,8 @@ class _DeviceChainViewState extends State<DeviceChainView>
         : (instrument.type == 'synthesizer' ? 'Synthesizer' : instrument.type);
     final icon = isVst3 ? BI.plugin : BI.piano;
 
-    // Built-in instruments share the effects' 24px header — one header system
-    // across the chain (the old 16px mini header read as a different control).
-    final headerMode = isVst3 ? HeaderMode.none : HeaderMode.full24;
+    // All instruments — built-in and VST3 — use the same 24px header so the
+    // plugin name is always visible and tappable (swap picker + identity).
 
     final instrumentLevels = instrument.effectId != null
         ? (_displayLevels[instrument.effectId!] ?? (0.0, 0.0))
@@ -1114,7 +1093,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
         child: DeviceBox(
           deviceType: DeviceType.instrument,
           deviceKind: isVst3 ? DeviceKind.vst3Plugin : DeviceKind.builtIn,
-          headerMode: headerMode,
+          headerMode: HeaderMode.full24,
           name: name,
           icon: icon,
           isEnabled: !_instrumentBypassed,
@@ -1140,6 +1119,40 @@ class _DeviceChainViewState extends State<DeviceChainView>
           onNameTap: () => _showInstrumentDropdown(context, name),
           child: _buildInstrumentContent(chainHeight),
         ),
+      ),
+    );
+  }
+
+  /// Placeholder shown in the instrument slot for sampler tracks.
+  ///
+  /// Sampler tracks have no [InstrumentData] (the sampler lives in the engine
+  /// only), so we show a synthetic block that looks and feels like a built-in
+  /// instrument: it meters the track, exposes the volume thumb, and opens the
+  /// instrument swap picker on name-tap so the user can convert back to a synth.
+  Widget _buildSamplerPlaceholder(BoojyColors colors, double chainHeight) {
+    return SizedBox(
+      height: chainHeight,
+      child: DeviceBox(
+        deviceType: DeviceType.instrument,
+        deviceKind: DeviceKind.builtIn,
+        headerMode: HeaderMode.full24,
+        name: 'Sampler',
+        icon: BI.waveform,
+        isEnabled: true,
+        isSelected: _selectedDeviceId == -1,
+        isFloated: false,
+        width: 322,
+        leftLevel: _displayLevels[_trackMeterKey]?.$1 ?? 0.0,
+        rightLevel: _displayLevels[_trackMeterKey]?.$2 ?? 0.0,
+        showVolumeThumb: true,
+        volumeDb: _trackVolumeDb,
+        onVolumeChanged: (db) {
+          setState(() => _trackVolumeDb = db);
+          widget.audioEngine?.setTrackVolume(widget.selectedTrackId!, db);
+          widget.onTrackVolumeChanged?.call(db);
+        },
+        onNameTap: () => _showInstrumentDropdown(context, 'Sampler'),
+        child: const SizedBox.shrink(),
       ),
     );
   }
@@ -1626,87 +1639,39 @@ class _DeviceChainViewState extends State<DeviceChainView>
     final RenderBox overlay =
         Overlay.of(menuContext).context.findRenderObject()! as RenderBox;
 
-    // Anchor the menu to the tapped control itself (standard PopupMenuButton
-    // maths). RelativeRect.fromLTRB was being fed coordinates as right/bottom
-    // INSETS, which is also why the old menu drifted.
-    final position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        button.localToGlobal(Offset.zero, ancestor: overlay),
-        button.localToGlobal(
-          button.size.bottomRight(Offset.zero),
-          ancestor: overlay,
-        ),
+    // Preserve the button-anchored Rect (A5 fix — fromLTRB with position
+    // insets caused drift; fromRect with the button bounds is correct).
+    final anchor = Rect.fromPoints(
+      button.localToGlobal(Offset.zero, ancestor: overlay),
+      button.localToGlobal(
+        button.size.bottomRight(Offset.zero),
+        ancestor: overlay,
       ),
-      Offset.zero & overlay.size,
     );
 
-    showMenu<String>(
-      context: menuContext,
-      position: position,
-      items: [
-        PopupMenuItem(
-          value: 'eq',
-          child: Row(
-            children: [
-              Icon(BI.lightning, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text('EQ', style: TextStyle(color: colors.textPrimary)),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'compressor',
-          child: Row(
-            children: [
-              Icon(BI.lightning, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text('Compressor', style: TextStyle(color: colors.textPrimary)),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'reverb',
-          child: Row(
-            children: [
-              Icon(BI.lightning, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text('Reverb', style: TextStyle(color: colors.textPrimary)),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'delay',
-          child: Row(
-            children: [
-              Icon(BI.lightning, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text('Delay', style: TextStyle(color: colors.textPrimary)),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'chorus',
-          child: Row(
-            children: [
-              Icon(BI.lightning, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text('Chorus', style: TextStyle(color: colors.textPrimary)),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'limiter',
-          child: Row(
-            children: [
-              Icon(BI.lightning, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text('Limiter', style: TextStyle(color: colors.textPrimary)),
-            ],
-          ),
-        ),
-      ],
-    ).then((value) {
-      if (value != null) _addEffect(value);
+    DeviceDropdown.showAddEffect(
+      menuContext,
+      anchor,
+      availablePlugins: _vst3Plugins,
+    ).then((action) {
+      if (action == null || !mounted) return;
+      switch (action) {
+        case SwapAction(:final type):
+          if (type.startsWith('vst3:')) {
+            final path = type.substring(5);
+            final plugin = _vst3Plugins.firstWhere(
+              (p) => p.path == path,
+              orElse: () => _vst3Plugins.first,
+            );
+            widget.onVst3EffectDropped?.call(plugin);
+          } else {
+            _addEffect(type);
+          }
+        case ResetAction():
+          break; // not offered in add-effect menu
+        case DeleteAction():
+          break; // not offered in add-effect menu
+      }
     });
   }
 }

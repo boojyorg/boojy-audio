@@ -1,85 +1,47 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/theme_extension.dart';
+import 'boojy_dropdown.dart';
 
-/// A standardized PopupMenuItem with icon, label, and optional keyboard shortcut.
-/// Used across all context menus in the app for consistent styling.
-class ContextMenuItem extends PopupMenuItem<String> {
-  ContextMenuItem({
-    super.key,
-    required String value,
-    required IconData icon,
-    required String label,
-    String? shortcut,
-    super.enabled = true,
-  }) : super(
-         value: value,
-         child: _ContextMenuItemContent(
-           icon: icon,
-           label: label,
-           shortcut: shortcut,
-           enabled: enabled,
-         ),
-       );
-}
+export 'boojy_dropdown.dart'
+    show BoojyMenuEntry, BoojyMenuItem, BoojyMenuDivider, BoojyMenuSection;
 
-class _ContextMenuItemContent extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String? shortcut;
-  final bool enabled;
-
-  const _ContextMenuItemContent({
-    required this.icon,
-    required this.label,
-    this.shortcut,
-    this.enabled = true,
+/// A [BoojyMenuItem<String>] with a required leading icon — the standard shape
+/// for all right-click context menu rows. Callers that already import this file
+/// get [BoojyMenuEntry], [BoojyMenuDivider], and [BoojyMenuSection] for free
+/// via the re-export above.
+class ContextMenuItem extends BoojyMenuItem<String> {
+  const ContextMenuItem({
+    required super.value,
+    required super.icon,
+    required super.label,
+    super.shortcut,
+    super.enabled,
+    super.destructive,
   });
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final textColor = enabled ? null : colors.textMuted;
-
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: textColor),
-        const SizedBox(width: 8),
-        Text(
-          label,
-          style: textColor != null ? TextStyle(color: textColor) : null,
-        ),
-        if (shortcut != null) ...[
-          const Spacer(),
-          Text(
-            shortcut!,
-            style: TextStyle(fontSize: 12, color: colors.textMuted),
-          ),
-        ],
-      ],
-    );
-  }
 }
 
-/// Helper class to build and show context menus with consistent positioning.
+/// Shows a right-click context menu at [position] on the shared Boojy rounded
+/// surface. Pass [BoojyMenuDivider] and [BoojyMenuSection] entries alongside
+/// [ContextMenuItem]s to add separators and group headers.
+///
+/// Returns the selected action string, or null if dismissed.
 class ContextMenuHelper {
-  /// Shows a context menu at the given position.
-  /// Returns the selected value or null if dismissed.
   static Future<String?> show({
     required BuildContext context,
     required Offset position,
-    required List<PopupMenuEntry<String>> items,
+    required List<BoojyMenuEntry<String>> items,
   }) {
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
+    // listen:false — a listening read inside a tap handler asserts in debug
+    // and the action silently does nothing (recurring v0.5.1 footgun).
+    final colors = context.themeProvider.colors;
 
-    return showMenu<String>(
+    return showBoojyMenu<String>(
       context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(position.dx, position.dy, 0, 0),
-        Offset.zero & overlay.size,
-      ),
+      anchor: Rect.fromLTWH(position.dx, position.dy, 0, 0),
       items: items,
+      selectedValue: null,
+      colors: colors,
     );
   }
 }

@@ -17,6 +17,7 @@ import 'shared/add_track_button.dart';
 import 'shared/boojy_wordmark.dart';
 import 'shared/button_hover_mixin.dart';
 import 'shared/circular_toggle_button.dart';
+import 'shared/boojy_dropdown.dart';
 import 'shared/pill_toggle_button.dart';
 import 'transport_bar/signature_dropdown.dart';
 import 'transport_bar/tempo_controls.dart';
@@ -316,41 +317,32 @@ class _TransportBarState extends State<TransportBar> {
   /// MIDI or Audio track, anchored under the record button.
   Future<void> _showRecordTrackMenu() async {
     final box = _recordKey.currentContext?.findRenderObject() as RenderBox?;
-    final overlay =
+    final overlayBox =
         Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (box == null || overlay == null) return;
-    final topLeft = box.localToGlobal(
-      box.size.bottomLeft(Offset.zero),
-      ancestor: overlay,
-    );
-    final selected = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromRect(
-        topLeft & const Size(40, 40),
-        Offset.zero & overlay.size,
+    if (box == null || overlayBox == null) return;
+
+    final anchor = Rect.fromPoints(
+      box.localToGlobal(Offset.zero, ancestor: overlayBox),
+      box.localToGlobal(
+        box.size.bottomRight(Offset.zero),
+        ancestor: overlayBox,
       ),
+    );
+    final colors = context.themeProvider.colors;
+
+    final selected = await showBoojyMenu<String>(
+      context: context,
+      anchor: anchor,
       items: [
-        PopupMenuItem(
-          value: 'midi',
-          child: Row(
-            children: [
-              Icon(BI.piano, size: BT.iconMd),
-              const SizedBox(width: 8),
-              const Text('New MIDI Track'),
-            ],
-          ),
-        ),
-        PopupMenuItem(
+        BoojyMenuItem(value: 'midi', icon: BI.piano, label: 'New MIDI Track'),
+        BoojyMenuItem(
           value: 'audio',
-          child: Row(
-            children: [
-              Icon(BI.waveform, size: BT.iconMd),
-              const SizedBox(width: 8),
-              const Text('New Audio Track'),
-            ],
-          ),
+          icon: BI.waveform,
+          label: 'New Audio Track',
         ),
       ],
+      selectedValue: null,
+      colors: colors,
     );
     if (selected == 'midi') {
       widget.transport.onRecordNewMidiTrack?.call();

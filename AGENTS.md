@@ -96,9 +96,21 @@ The full gate set (what CI enforces; run locally only per the split above):
 - **Timeline layout**: `timeline_view.dart` uses `part` files for `timeline_gesture_layer.dart` and `timeline_track_list.dart` — private methods share one library; import `timeline_view.dart` only, never the part files directly
 - **Engine interface** uses mixins: `AudioEngine extends _AudioEngineBase with _TransportMixin, _RecordingMixin, ...`
 - **Platform-specific code** uses conditional imports (native/web/stub pattern)
-- **Icons** go through the `BI` facade (`ui/lib/theme/boojy_icons.dart`), backed by Material Icons — prefer `BI.*` over importing `Icons.*` directly in widgets. Don't re-add `phosphor_flutter`; see `.claude/rules/flutter-ui.md`
+- **Icons: `BI.*` only, no third-party icon packages.** `BI` (`theme/boojy_icons.dart`) wraps Material Icons — prefer `BI.*` over `Icons.*` directly. `phosphor_flutter` was removed because `IconData` became `final` in Flutter 3.44; any package that subclasses/implements it won't compile. If a glyph is missing, add it to `BI`. See `.claude/rules/flutter-ui.md`.
 - **UI state** is `provider` today; Riverpod is the deliberate future target — see `.claude/rules/state.md`
 - **Recording flow**: engine `stop_recording()` returns `RecordingResult`, handled by `daw_recording_mixin.dart`
+- **Shared menu surface (v0.7+):** all value pickers and context menus share one overlay —
+  `showBoojyMenu<T>()` in `widgets/shared/boojy_dropdown.dart`. `BoojyDropdown<T>` is the
+  standard trigger chip; bespoke triggers call `showBoojyMenu` directly. `ContextMenuHelper` in
+  `widgets/shared/context_menu_item.dart` routes right-click menus to the same surface. Never
+  replace a migrated site with `showMenu` / `PopupMenuButton`. Entry types: `BoojyMenuItem<T>`
+  (action — carries optional `icon`, `shortcut`, `destructive`), `BoojyMenuDivider<T>`,
+  `BoojyMenuSection<T>` (header). Pass `selectedValue: null` for context menus (suppresses the
+  trailing check); pass the current value for value dropdowns. **Never read `context.colors`
+  inside the tap/`.then()` handler that calls `showBoojyMenu`** — it asserts "listen outside
+  build" in debug and the action silently does nothing (recurring v0.5.1 footgun); resolve colors
+  in `build()` or use `context.themeProvider.colors` (listen:false) in handlers. Full history →
+  `.claude/rules/flutter-ui.md`.
 - **Track locks are non-reentrant**: engine uses `parking_lot::Mutex` which does **not** support recursive locking. `TrackManager::get_track`, `get_master_track`, and `remove_track` all walk the track list and call `.lock()` on each track to compare ids — so calling any of them while holding another `Track` lock **deadlocks the API thread silently** (no panic, no log, the UI just freezes). Snapshot what you need (`id`, `fx_chain`, `sends.iter().map(...)`) into local variables and drop the `MutexGuard` before calling back into `TrackManager`. See `find_return_by_effect_type` and `get_track_sends` in `engine/src/api/sends.rs` for the snapshot pattern.
 
 ## Design philosophy (repo-specific)

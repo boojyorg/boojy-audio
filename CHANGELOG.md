@@ -6,6 +6,19 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **All right-click menus now use the shared rounded surface.** Device chain (effect headers,
+  instrument header, swap dropdown), library panel (user folder, item, VST3), timeline ruler,
+  empty-track area, drag-create track-type picker, track header, and record menus (count-in,
+  new-track) have all been migrated from the default grey Material `showMenu` to the Boojy
+  rounded overlay — consistent hover fill, icons, keyboard-shortcut hints, destructive Delete
+  styling (red), and rounded corners throughout. Also fixes a silent debug-mode no-op in the
+  library folder menu (listen:false footgun in the right-click handler).
+
+- **Project Settings dialog redesigned.** Slimmed to the essentials: project name, time signature,
+  sample rate, and read-only created/modified dates. BPM (already in the transport bar), key/scale,
+  style tag, and the versions panel have all been removed. Dialog chrome now matches the App
+  Settings dialog (rounded border, elevation, barrier tint).
+
 - **All remaining Material `DropdownButton` sites migrated to `BoojyDropdown`.** Project Settings
   (time signature, root note, scale, sample rate), Export (MP3 bitrate, WAV bit depth, sample
   rate), Capture MIDI duration, Synth waveform type, and Mixer automation parameter now all use

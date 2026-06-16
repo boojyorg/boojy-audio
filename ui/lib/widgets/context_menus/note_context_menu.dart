@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' show BuildContext, Offset;
 
 import '../../theme/boojy_icons.dart';
 import '../shared/context_menu_item.dart';
@@ -19,7 +19,7 @@ Future<String?> showNoteContextMenu({
 }) {
   final String noteLabel = selectedCount <= 1 ? 'Note' : '$selectedCount Notes';
 
-  final items = <PopupMenuEntry<String>>[
+  final items = <BoojyMenuEntry<String>>[
     ContextMenuItem(
       value: 'delete',
       icon: BI.delete,
@@ -32,7 +32,7 @@ Future<String?> showNoteContextMenu({
       label: 'Duplicate $noteLabel',
       shortcut: '⌘D',
     ),
-    const PopupMenuDivider(),
+    const BoojyMenuDivider<String>(),
     ContextMenuItem(
       value: 'cut',
       icon: BI.cut,
@@ -52,7 +52,7 @@ Future<String?> showNoteContextMenu({
       shortcut: '⌘V',
       enabled: canPaste,
     ),
-    const PopupMenuDivider(),
+    const BoojyMenuDivider<String>(),
     ContextMenuItem(
       value: 'quantize',
       icon: BI.gridOn,

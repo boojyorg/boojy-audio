@@ -6,6 +6,7 @@ import '../utils/logger.dart';
 import '../models/library_item.dart';
 import 'bundled_content_service.dart';
 import '../theme/boojy_icons.dart';
+import '../widgets/device_chain/builtin_devices.dart';
 import '../widgets/instrument_browser.dart';
 import '../screens/daw_screen_io.dart'
     if (dart.library.js_interop) '../screens/daw_screen_io_web.dart';
@@ -388,43 +389,15 @@ class LibraryService extends ChangeNotifier {
       id: 'effects',
       name: 'Effects',
       icon: BI.equalizer,
+      // Source of truth lives in builtin_devices.dart — do not add items here.
       items: [
-        EffectItem(
-          id: 'effect_eq',
-          name: 'EQ',
-          effectType: 'eq',
-          icon: BI.equalizer,
-        ),
-        EffectItem(
-          id: 'effect_compressor',
-          name: 'Compressor',
-          effectType: 'compressor',
-          icon: BI.compress,
-        ),
-        EffectItem(
-          id: 'effect_reverb',
-          name: 'Reverb',
-          effectType: 'reverb',
-          icon: BI.waveSine,
-        ),
-        EffectItem(
-          id: 'effect_delay',
-          name: 'Delay',
-          effectType: 'delay',
-          icon: BI.metronome,
-        ),
-        EffectItem(
-          id: 'effect_chorus',
-          name: 'Chorus',
-          effectType: 'chorus',
-          icon: BI.waveform,
-        ),
-        EffectItem(
-          id: 'effect_limiter',
-          name: 'Limiter',
-          effectType: 'limiter',
-          icon: BI.arrowsHorizontal,
-        ),
+        for (final e in builtinEffects)
+          EffectItem(
+            id: 'effect_${e.type}',
+            name: e.name,
+            effectType: e.type,
+            icon: e.icon,
+          ),
       ],
     );
   }

@@ -16,6 +16,7 @@ import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../utils/logger.dart';
 import '../utils/native_dialogs.dart';
+import 'shared/boojy_dropdown.dart';
 
 /// Library panel widget - two-column layout with categories on left, contents on right
 class LibraryPanel extends StatefulWidget {
@@ -787,38 +788,40 @@ class _LibraryPanelState extends State<LibraryPanel> {
     }
   }
 
-  void _showFolderContextMenu(TapUpDetails details, String path) {
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-
-    showMenu(
+  Future<void> _showFolderContextMenu(TapUpDetails details, String path) async {
+    // listen:false — a listening read inside a tap handler asserts in debug.
+    final colors = context.themeProvider.colors;
+    final action = await showBoojyMenu<String>(
       context: context,
-      position: RelativeRect.fromRect(
-        details.globalPosition & const Size(40, 40),
-        Offset.zero & overlay.size,
+      anchor: Rect.fromLTWH(
+        details.globalPosition.dx,
+        details.globalPosition.dy,
+        0,
+        0,
       ),
       items: [
-        PopupMenuItem(
-          child: Row(
-            children: [
-              Icon(BI.folderOpen, size: 16),
-              const SizedBox(width: 8),
-              Text(revealInFinderLabel),
-            ],
-          ),
-          onTap: () => revealInFinder(path),
+        BoojyMenuItem(
+          value: 'reveal',
+          icon: BI.folderOpen,
+          label: revealInFinderLabel,
         ),
-        PopupMenuItem(
-          child: Row(
-            children: [
-              Icon(BI.delete, size: 16),
-              const SizedBox(width: 8),
-              const Text('Remove from Library'),
-            ],
-          ),
-          onTap: () => widget.libraryService.removeUserFolder(path),
+        BoojyMenuItem(
+          value: 'remove',
+          icon: BI.delete,
+          label: 'Remove from Library',
+          destructive: true,
         ),
       ],
+      selectedValue: null,
+      colors: colors,
     );
+    if (action == null || !mounted) return;
+    switch (action) {
+      case 'reveal':
+        revealInFinder(path);
+      case 'remove':
+        widget.libraryService.removeUserFolder(path);
+    }
   }
 
   // ==========================================================================
@@ -1498,10 +1501,12 @@ class _LibraryPanelState extends State<LibraryPanel> {
     );
   }
 
-  void _showItemContextMenu(TapUpDetails details, LibraryItem item) {
+  Future<void> _showItemContextMenu(
+    TapUpDetails details,
+    LibraryItem item,
+  ) async {
     // listen:false — a listening read inside a tap handler asserts in debug.
     final colors = context.themeProvider.colors;
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final isFavorite = widget.libraryService.isFavorite(item.id);
     final isAudioFile =
         item.type == LibraryItemType.audioFile ||
@@ -1510,142 +1515,112 @@ class _LibraryPanelState extends State<LibraryPanel> {
     final isEffect = item.type == LibraryItemType.effect;
     final hasFilePath = item is AudioFileItem || item is SampleItem;
 
-    showMenu(
+    final action = await showBoojyMenu<String>(
       context: context,
-      position: RelativeRect.fromRect(
-        details.globalPosition & const Size(40, 40),
-        Offset.zero & overlay.size,
+      anchor: Rect.fromLTWH(
+        details.globalPosition.dx,
+        details.globalPosition.dy,
+        0,
+        0,
       ),
-      items: <PopupMenuEntry>[
-        // Load actions for instruments
+      items: <BoojyMenuEntry<String>>[
         if (isInstrument)
-          PopupMenuItem(
-            child: Row(
-              children: [
-                Icon(BI.play, size: 16),
-                const SizedBox(width: 8),
-                const Text('Load on Selected Track'),
-              ],
-            ),
-            onTap: () => widget.onItemDoubleClick?.call(item),
+          BoojyMenuItem(
+            value: 'load',
+            icon: BI.play,
+            label: 'Load on Selected Track',
           ),
-        // Add action for effects
         if (isEffect)
-          PopupMenuItem(
-            child: Row(
-              children: [
-                Icon(BI.add, size: 16),
-                const SizedBox(width: 8),
-                const Text('Add to Selected Track'),
-              ],
-            ),
-            onTap: () => widget.onItemDoubleClick?.call(item),
+          BoojyMenuItem(
+            value: 'load',
+            icon: BI.add,
+            label: 'Add to Selected Track',
           ),
-        // Open in Sampler for audio files
         if (isAudioFile && widget.onOpenInSampler != null)
-          PopupMenuItem(
-            child: Row(
-              children: [
-                Icon(BI.musicNote, size: 16),
-                const SizedBox(width: 8),
-                const Text('Open in Sampler'),
-              ],
-            ),
-            onTap: () => widget.onOpenInSampler?.call(item),
+          BoojyMenuItem(
+            value: 'open_sampler',
+            icon: BI.musicNote,
+            label: 'Open in Sampler',
           ),
-        // Favorites toggle
-        PopupMenuItem(
-          child: Row(
-            children: [
-              Icon(
-                isFavorite ? BI.starFilled : BI.star,
-                size: 16,
-                color: isFavorite ? colors.textMuted : null,
-              ),
-              const SizedBox(width: 8),
-              Text(isFavorite ? 'Remove from Favorites' : 'Add to Favorites'),
-            ],
-          ),
-          onTap: () => widget.libraryService.toggleFavorite(item.id),
+        BoojyMenuItem(
+          value: 'favorite',
+          icon: isFavorite ? BI.starFilled : BI.star,
+          label: isFavorite ? 'Remove from Favorites' : 'Add to Favorites',
         ),
-        // File actions
         if (hasFilePath) ...[
-          const PopupMenuDivider(),
-          PopupMenuItem(
-            child: Row(
-              children: [
-                Icon(BI.folderOpen, size: 16),
-                const SizedBox(width: 8),
-                Text(revealInFinderLabel),
-              ],
-            ),
-            onTap: () {
-              final path = item is AudioFileItem
-                  ? item.filePath
-                  : (item as SampleItem).filePath;
-              revealInFinder(path);
-            },
+          const BoojyMenuDivider<String>(),
+          BoojyMenuItem(
+            value: 'reveal',
+            icon: BI.folderOpen,
+            label: revealInFinderLabel,
           ),
-          PopupMenuItem(
-            child: Row(
-              children: [
-                Icon(BI.copy, size: 16),
-                const SizedBox(width: 8),
-                const Text('Copy Path'),
-              ],
-            ),
-            onTap: () {
-              final path = item is AudioFileItem
-                  ? item.filePath
-                  : (item as SampleItem).filePath;
-              Clipboard.setData(ClipboardData(text: path));
-            },
-          ),
+          BoojyMenuItem(value: 'copy_path', icon: BI.copy, label: 'Copy Path'),
         ],
       ],
+      selectedValue: null,
+      colors: colors,
     );
+    if (action == null || !mounted) return;
+    final filePath = hasFilePath
+        ? (item is AudioFileItem
+              ? item.filePath
+              : (item as SampleItem).filePath)
+        : null;
+    switch (action) {
+      case 'load':
+        widget.onItemDoubleClick?.call(item);
+      case 'open_sampler':
+        widget.onOpenInSampler?.call(item);
+      case 'favorite':
+        widget.libraryService.toggleFavorite(item.id);
+      case 'reveal':
+        if (filePath != null) revealInFinder(filePath);
+      case 'copy_path':
+        if (filePath != null) {
+          await Clipboard.setData(ClipboardData(text: filePath));
+        }
+    }
   }
 
-  void _showVst3ContextMenu(TapUpDetails details, Vst3Plugin plugin) {
+  Future<void> _showVst3ContextMenu(
+    TapUpDetails details,
+    Vst3Plugin plugin,
+  ) async {
     // listen:false — a listening read inside a tap handler asserts in debug.
     final colors = context.themeProvider.colors;
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final itemId = 'vst3_${plugin.path}';
     final isFavorite = widget.libraryService.isFavorite(itemId);
 
-    showMenu(
+    final action = await showBoojyMenu<String>(
       context: context,
-      position: RelativeRect.fromRect(
-        details.globalPosition & const Size(40, 40),
-        Offset.zero & overlay.size,
+      anchor: Rect.fromLTWH(
+        details.globalPosition.dx,
+        details.globalPosition.dy,
+        0,
+        0,
       ),
       items: [
-        PopupMenuItem(
-          child: Row(
-            children: [
-              Icon(BI.play, size: 16),
-              const SizedBox(width: 8),
-              const Text('Load on Selected Track'),
-            ],
-          ),
-          onTap: () => widget.onVst3DoubleClick?.call(plugin),
+        BoojyMenuItem(
+          value: 'load',
+          icon: BI.play,
+          label: 'Load on Selected Track',
         ),
-        PopupMenuItem(
-          child: Row(
-            children: [
-              Icon(
-                isFavorite ? BI.starFilled : BI.star,
-                size: 16,
-                color: isFavorite ? colors.textMuted : null,
-              ),
-              const SizedBox(width: 8),
-              Text(isFavorite ? 'Remove from Favorites' : 'Add to Favorites'),
-            ],
-          ),
-          onTap: () => widget.libraryService.toggleFavorite(itemId),
+        BoojyMenuItem(
+          value: 'favorite',
+          icon: isFavorite ? BI.starFilled : BI.star,
+          label: isFavorite ? 'Remove from Favorites' : 'Add to Favorites',
         ),
       ],
+      selectedValue: null,
+      colors: colors,
     );
+    if (action == null || !mounted) return;
+    switch (action) {
+      case 'load':
+        widget.onVst3DoubleClick?.call(plugin);
+      case 'favorite':
+        widget.libraryService.toggleFavorite(itemId);
+    }
   }
 
   /// Returns the type icon for a library item
