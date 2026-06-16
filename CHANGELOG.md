@@ -4,6 +4,16 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Improvements
+
+- **Piano-roll Snap and Quantize menus now match every other dropdown.** The two value menus
+  (which grid division and quantize resolution to use) have been migrated from hand-rolled
+  `OverlayEntry` popups to the shared `showBoojyMenu` surface — same rounded card, hover fill,
+  and trailing check on the current value. Triplet variants (`1/8T`, `1/16T`, etc.) are now
+  first-class items in the list rather than a separate checkbox modifier, matching how the
+  transport Snap menu already presents them. The split-button chrome (one-tap snap toggle on the
+  left, one-tap quantize action on the left) is unchanged.
+
 ### Bug Fixes
 
 - **Deselecting a track no longer slams the editor shut.** Clicking an empty area of the mixer
