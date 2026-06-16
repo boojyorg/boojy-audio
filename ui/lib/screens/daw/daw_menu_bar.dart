@@ -29,7 +29,6 @@ class DawMenuConfig {
   final VoidCallback? onSaveNewVersion;
   final VoidCallback? onRenameProject;
   final VoidCallback onExportAudio;
-  final VoidCallback onExportMidi;
   final VoidCallback onProjectSettings;
   final VoidCallback onCloseProject;
   final VoidCallback? onStartScreen;
@@ -73,7 +72,6 @@ class DawMenuConfig {
     this.onSaveNewVersion,
     this.onRenameProject,
     required this.onExportAudio,
-    required this.onExportMidi,
     required this.onProjectSettings,
     required this.onCloseProject,
     this.onStartScreen,
@@ -198,10 +196,6 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
         PlatformMenuItem(
           label: 'Export Audio...',
           onSelected: config.onExportAudio,
-        ),
-        PlatformMenuItem(
-          label: 'Export MIDI...',
-          onSelected: config.onExportMidi,
         ),
         PlatformMenuItem(
           label: 'Project Settings...',

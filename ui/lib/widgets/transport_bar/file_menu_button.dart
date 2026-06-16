@@ -17,9 +17,6 @@ class FileMenuButton extends StatefulWidget {
   final VoidCallback? onRenameProject;
   final VoidCallback? onSaveNewVersion;
   final VoidCallback? onExportAudio;
-  final VoidCallback? onExportMp3;
-  final VoidCallback? onExportWav;
-  final VoidCallback? onExportMidi;
   final VoidCallback? onProjectSettings;
   final VoidCallback? onCloseProject;
 
@@ -35,9 +32,6 @@ class FileMenuButton extends StatefulWidget {
     this.onRenameProject,
     this.onSaveNewVersion,
     this.onExportAudio,
-    this.onExportMp3,
-    this.onExportWav,
-    this.onExportMidi,
     this.onProjectSettings,
     this.onCloseProject,
   });
@@ -81,15 +75,6 @@ class _FileMenuButtonState extends State<FileMenuButton> {
             break;
           case 'export_audio':
             widget.onExportAudio?.call();
-            break;
-          case 'export_mp3':
-            widget.onExportMp3?.call();
-            break;
-          case 'export_wav':
-            widget.onExportWav?.call();
-            break;
-          case 'export_midi':
-            widget.onExportMidi?.call();
             break;
           case 'project_settings':
             widget.onProjectSettings?.call();
@@ -173,42 +158,12 @@ class _FileMenuButtonState extends State<FileMenuButton> {
           ),
         if (widget.hasProject) const PopupMenuDivider(),
         PopupMenuItem<String>(
-          value: 'export_mp3',
-          child: Row(
-            children: [
-              Icon(BI.musicNote, size: BT.iconLg),
-              const SizedBox(width: 8),
-              const Text('Export MP3'),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'export_wav',
-          child: Row(
-            children: [
-              Icon(BI.audioFile, size: BT.iconLg),
-              const SizedBox(width: 8),
-              const Text('Export WAV'),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
           value: 'export_audio',
           child: Row(
             children: [
               Icon(BI.settings, size: BT.iconLg),
               const SizedBox(width: 8),
               const Text('Export Audio...'),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'export_midi',
-          child: Row(
-            children: [
-              Icon(BI.piano, size: BT.iconLg),
-              const SizedBox(width: 8),
-              const Text('Export MIDI...'),
             ],
           ),
         ),
