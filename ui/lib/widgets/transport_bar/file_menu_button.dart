@@ -20,6 +20,7 @@ class FileMenuButton extends StatefulWidget {
   final VoidCallback? onExportMp3;
   final VoidCallback? onExportWav;
   final VoidCallback? onExportMidi;
+  final VoidCallback? onProjectSettings;
   final VoidCallback? onCloseProject;
 
   const FileMenuButton({
@@ -37,6 +38,7 @@ class FileMenuButton extends StatefulWidget {
     this.onExportMp3,
     this.onExportWav,
     this.onExportMidi,
+    this.onProjectSettings,
     this.onCloseProject,
   });
 
@@ -88,6 +90,9 @@ class _FileMenuButtonState extends State<FileMenuButton> {
             break;
           case 'export_midi':
             widget.onExportMidi?.call();
+            break;
+          case 'project_settings':
+            widget.onProjectSettings?.call();
             break;
           case 'close':
             widget.onCloseProject?.call();
@@ -204,6 +209,22 @@ class _FileMenuButtonState extends State<FileMenuButton> {
               Icon(BI.piano, size: BT.iconLg),
               const SizedBox(width: 8),
               const Text('Export MIDI...'),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          value: 'project_settings',
+          child: Row(
+            children: [
+              Icon(BI.settings, size: BT.iconLg),
+              const SizedBox(width: 8),
+              const Text('Project Settings...'),
+              const Spacer(),
+              Text(
+                '⌘,',
+                style: TextStyle(fontSize: 12, color: colors.textMuted),
+              ),
             ],
           ),
         ),

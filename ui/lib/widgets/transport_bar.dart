@@ -652,6 +652,7 @@ class _TransportBarState extends State<TransportBar> {
               onExportMp3: widget.fileMenu.onExportMp3,
               onExportWav: widget.fileMenu.onExportWav,
               onExportMidi: widget.fileMenu.onExportMidi,
+              onProjectSettings: widget.fileMenu.onProjectSettings,
               onCloseProject: widget.fileMenu.onCloseProject,
             ),
           ),
