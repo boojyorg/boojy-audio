@@ -58,6 +58,15 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Settings dropdowns and switches share one clean style.** Every dropdown in Settings is now a
+  compact pill that opens a rounded menu — each row highlights on hover and the current value gets
+  a tick on the right (the same language as the Library list). Boolean settings (auto-save,
+  "continue where I left off", and the rest) are now on/off toggles instead of tick boxes, since
+  they take effect immediately.
+- **Settings explain what each option does.** Audio and appearance rows now carry a one-line
+  description under the label — e.g. Input reads "Where Boojy records from — your mic or
+  interface", Buffer Size reads "Lower = less delay but more load on your computer" — so you don't
+  need to already know the jargon.
 - **The piano-roll keyboard lanes are readable again.** Row separators were drawn in the same
   colour as the white-key background, so you couldn't tell where one note ended and the next
   began; the black-key lanes were barely a shade darker. Separators are now a visible hairline

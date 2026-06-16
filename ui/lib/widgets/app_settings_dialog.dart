@@ -15,6 +15,8 @@ import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../theme/theme_provider.dart';
 import '../utils/logger.dart';
+import 'shared/boojy_dropdown.dart';
+import 'shared/boojy_switch.dart';
 import 'shared/boojy_wordmark.dart';
 
 /// Unified app-wide settings dialog
@@ -304,6 +306,10 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   Expanded(
                     child: SingleChildScrollView(
                       controller: _scrollController,
+                      // Right gutter so right-aligned controls (toggles,
+                      // dropdown chips) clear the scrollbar instead of sitting
+                      // underneath it.
+                      padding: const EdgeInsets.only(right: 16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -417,62 +423,55 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     return Column(
       children: [
         // Theme selector
-        _appearanceRow(
-          'Theme',
-          DropdownButton<BoojyTheme>(
+        _settingRow(
+          label: 'Theme',
+          subtitle: 'How Boojy looks — pick a colour scheme',
+          control: BoojyDropdown<BoojyTheme>(
             value: _selectedTheme,
-            isExpanded: true,
-            underline: Container(),
-            dropdownColor: context.colors.standard,
-            style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
-            items: BoojyThemeExtension.selectable.map((theme) {
-              return DropdownMenuItem<BoojyTheme>(
-                value: theme,
-                child: Text(theme.displayName),
-              );
-            }).toList(),
+            items: BoojyThemeExtension.selectable
+                .map(
+                  (theme) => BoojyMenuItem<BoojyTheme>(
+                    value: theme,
+                    label: theme.displayName,
+                  ),
+                )
+                .toList(),
             onChanged: (value) {
-              if (value != null) {
-                setState(() {
-                  _selectedTheme = value;
-                });
-                // Save to settings
-                widget.settings.theme = value.key;
-                // Apply theme immediately
-                final themeProvider = Provider.of<ThemeProvider>(
-                  context,
-                  listen: false,
-                );
-                themeProvider.setTheme(value);
-              }
+              setState(() {
+                _selectedTheme = value;
+              });
+              // Save to settings
+              widget.settings.theme = value.key;
+              // Apply theme immediately
+              final themeProvider = Provider.of<ThemeProvider>(
+                context,
+                listen: false,
+              );
+              themeProvider.setTheme(value);
             },
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         // UI Scale — scales text across the whole app (helps on 1440p+).
         // Applied live via MediaQuery.textScaler in main.dart.
-        _appearanceRow(
-          'UI Scale',
-          DropdownButton<double>(
+        _settingRow(
+          label: 'UI Scale',
+          subtitle: 'Size of text and controls across the app',
+          control: BoojyDropdown<double>(
             value: widget.settings.uiScale,
-            isExpanded: true,
-            underline: Container(),
-            dropdownColor: context.colors.standard,
-            style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
-            items: UserSettings.uiScaleOptions.map((scale) {
-              return DropdownMenuItem<double>(
-                value: scale,
-                child: Text(
-                  '${UserSettings.uiScaleLabel(scale)}  ·  '
-                  '${(scale * 100).round()}%',
-                ),
-              );
-            }).toList(),
+            items: UserSettings.uiScaleOptions
+                .map(
+                  (scale) => BoojyMenuItem<double>(
+                    value: scale,
+                    label:
+                        '${UserSettings.uiScaleLabel(scale)} '
+                        '(${(scale * 100).round()}%)',
+                  ),
+                )
+                .toList(),
             onChanged: (value) {
-              if (value != null) {
-                setState(() {});
-                widget.settings.uiScale = value;
-              }
+              setState(() {});
+              widget.settings.uiScale = value;
             },
           ),
         ),
@@ -480,29 +479,49 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     );
   }
 
-  /// A label + bordered control row, shared by the Appearance section.
-  Widget _appearanceRow(String label, Widget control) {
+  /// A settings row: label + muted explanatory subtitle on the left, a
+  /// hug-width control (BoojyDropdown / BoojySwitch) pushed to the right edge
+  /// (Notion-style). [trailing] sits after the control for adornments like a
+  /// refresh button or a latency warning.
+  Widget _settingRow({
+    required String label,
+    String? subtitle,
+    required Widget control,
+    Widget? trailing,
+  }) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
-          child: Text(
-            label,
-            style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: context.colors.textPrimary,
+                  fontSize: 14,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: context.colors.textMuted,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
         const SizedBox(width: 16),
-        Expanded(
-          flex: 2,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: context.colors.standard,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: context.colors.elevated),
-            ),
-            child: control,
-          ),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 260),
+          child: control,
         ),
+        if (trailing != null) ...[const SizedBox(width: 8), trailing],
       ],
     );
   }
@@ -608,68 +627,38 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
       orElse: () => drivers.first,
     );
 
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            'Audio Driver',
-            style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
+    return _settingRow(
+      label: 'Audio Driver',
+      subtitle: 'How Boojy connects to your sound hardware',
+      control: BoojyDropdown<String>(
+        value: currentDriver['id']!,
+        triggerBuilder: (context, _) => Text(
+          currentDriver['name']!,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: context.colors.textPrimary,
+            fontSize: BT.fontLabel,
           ),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          flex: 2,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: context.colors.standard,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: context.colors.elevated),
-            ),
-            child: DropdownButton<String>(
-              value: currentDriver['id'],
-              isExpanded: true,
-              underline: Container(),
-              dropdownColor: context.colors.standard,
-              style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
-              items: drivers.map((driver) {
-                return DropdownMenuItem<String>(
-                  value: driver['id'],
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          driver['name']!,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        driver['latency']!,
-                        style: TextStyle(
-                          color: context.colors.textMuted,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-              onChanged: (value) {
-                if (value != null && value != _selectedDriver) {
-                  setState(() {
-                    _selectedDriver = value;
-                  });
-                  widget.settings.audioDriver = value;
-                  // Reload devices for the new driver
-                  _loadAudioDevices();
-                }
-              },
-            ),
-          ),
-        ),
-      ],
+        items: drivers
+            .map(
+              (driver) => BoojyMenuItem<String>(
+                value: driver['id']!,
+                label: '${driver['name']} · ${driver['latency']}',
+              ),
+            )
+            .toList(),
+        onChanged: (value) {
+          if (value != _selectedDriver) {
+            setState(() {
+              _selectedDriver = value;
+            });
+            widget.settings.audioDriver = value;
+            // Reload devices for the new driver
+            _loadAudioDevices();
+          }
+        },
+      ),
     );
   }
 
@@ -832,75 +821,45 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
 
     // Current value: null means "No Input"
     final currentValue = _selectedInputDevice ?? '__no_input__';
+    final value = deviceNames.contains(currentValue)
+        ? currentValue
+        : '__no_input__';
 
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            'Input',
-            style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          flex: 2,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: context.colors.standard,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: context.colors.elevated),
-            ),
-            child: DropdownButton<String>(
-              value: deviceNames.contains(currentValue)
-                  ? currentValue
-                  : '__no_input__',
-              isExpanded: true,
-              underline: Container(),
-              dropdownColor: context.colors.standard,
-              style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
-              items: deviceNames.map((name) {
-                String displayName;
-                if (name == '__no_input__') {
-                  displayName = 'No Input';
-                } else {
-                  // Check if this is the default device
-                  final isDefault = _inputDevices.any(
-                    (d) => d['name'] == name && d['isDefault'] == true,
-                  );
-                  displayName = isDefault ? '$name (Default)' : name;
-                }
+    String displayName(String name) {
+      if (name == '__no_input__') return 'No Input';
+      final isDefault = _inputDevices.any(
+        (d) => d['name'] == name && d['isDefault'] == true,
+      );
+      return isDefault ? '$name (Default)' : name;
+    }
 
-                return DropdownMenuItem<String>(
-                  value: name,
-                  child: Text(displayName, overflow: TextOverflow.ellipsis),
-                );
-              }).toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _selectedInputDevice = value == '__no_input__'
-                        ? null
-                        : value;
-                  });
-                  widget.settings.preferredInputDevice = value == '__no_input__'
-                      ? null
-                      : value;
-                  // Apply to engine immediately
-                  if (widget.audioEngine != null && value != '__no_input__') {
-                    final index = _inputDevices.indexWhere(
-                      (d) => d['name'] == value,
-                    );
-                    if (index >= 0) {
-                      widget.audioEngine!.setAudioInputDevice(index);
-                    }
-                  }
-                }
-              },
-            ),
-          ),
-        ),
-      ],
+    return _settingRow(
+      label: 'Input',
+      subtitle: 'Where Boojy records from — your mic or interface',
+      control: BoojyDropdown<String>(
+        value: value,
+        items: deviceNames
+            .map(
+              (name) =>
+                  BoojyMenuItem<String>(value: name, label: displayName(name)),
+            )
+            .toList(),
+        onChanged: (value) {
+          setState(() {
+            _selectedInputDevice = value == '__no_input__' ? null : value;
+          });
+          widget.settings.preferredInputDevice = value == '__no_input__'
+              ? null
+              : value;
+          // Apply to engine immediately
+          if (widget.audioEngine != null && value != '__no_input__') {
+            final index = _inputDevices.indexWhere((d) => d['name'] == value);
+            if (index >= 0) {
+              widget.audioEngine!.setAudioInputDevice(index);
+            }
+          }
+        },
+      ),
     );
   }
 
@@ -914,72 +873,42 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
       (d) => d['name'] == _selectedMidiInputDevice,
     );
 
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            'MIDI Input',
-            style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          flex: 2,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: context.colors.standard,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: context.colors.elevated),
+    return _settingRow(
+      label: 'MIDI Input',
+      subtitle: 'The keyboard or controller you play notes with',
+      control: hasDevices
+          ? BoojyDropdown<int>(
+              value: selectedIndex >= 0 ? selectedIndex : 0,
+              items: List.generate(devices.length, (i) {
+                final name = devices[i]['name'] as String? ?? 'Unknown';
+                final isDefault = devices[i]['isDefault'] == true;
+                return BoojyMenuItem<int>(
+                  value: i,
+                  label: isDefault ? '$name (Default)' : name,
+                );
+              }),
+              onChanged: (index) {
+                final name = devices[index]['name'] as String?;
+                setState(() => _selectedMidiInputDevice = name);
+                widget.settings.preferredMidiInput = name;
+                widget.audioEngine?.selectMidiInputDevice(index);
+              },
+            )
+          : Text(
+              'No MIDI devices found',
+              style: TextStyle(
+                color: context.colors.textSecondary,
+                fontSize: 14,
+              ),
             ),
-            child: hasDevices
-                ? DropdownButton<int>(
-                    value: selectedIndex >= 0 ? selectedIndex : 0,
-                    isExpanded: true,
-                    underline: Container(),
-                    dropdownColor: context.colors.standard,
-                    style: TextStyle(
-                      color: context.colors.textPrimary,
-                      fontSize: 14,
-                    ),
-                    items: List.generate(devices.length, (i) {
-                      final name = devices[i]['name'] as String? ?? 'Unknown';
-                      final isDefault = devices[i]['isDefault'] == true;
-                      return DropdownMenuItem<int>(
-                        value: i,
-                        child: Text(
-                          isDefault ? '$name (Default)' : name,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    }),
-                    onChanged: (index) {
-                      if (index == null) return;
-                      final name = devices[index]['name'] as String?;
-                      setState(() => _selectedMidiInputDevice = name);
-                      widget.settings.preferredMidiInput = name;
-                      widget.audioEngine?.selectMidiInputDevice(index);
-                    },
-                  )
-                : Text(
-                    'No MIDI devices found',
-                    style: TextStyle(
-                      color: context.colors.textSecondary,
-                      fontSize: 14,
-                    ),
-                  ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        IconButton(
-          icon: Icon(BI.refresh, size: 18, color: context.colors.textSecondary),
-          tooltip: 'Rescan MIDI devices',
-          onPressed: () {
-            widget.audioEngine?.refreshMidiDevices();
-            setState(_loadMidiInputDevices);
-          },
-        ),
-      ],
+      trailing: IconButton(
+        icon: Icon(BI.refresh, size: 18, color: context.colors.textSecondary),
+        tooltip: 'Rescan MIDI devices',
+        onPressed: () {
+          widget.audioEngine?.refreshMidiDevices();
+          setState(_loadMidiInputDevices);
+        },
+      ),
     );
   }
 
@@ -995,54 +924,30 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
 
     final currentBufferSize = widget.settings.bufferSize;
 
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            'Buffer Size',
-            style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          flex: 2,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: context.colors.standard,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: context.colors.elevated),
-            ),
-            child: DropdownButton<int>(
-              value: currentBufferSize,
-              isExpanded: true,
-              underline: Container(),
-              dropdownColor: context.colors.standard,
-              style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
-              items: bufferOptions.map((option) {
-                final samples = option['samples'] as int;
-                final ms = option['ms'] as String;
-                return DropdownMenuItem<int>(
-                  value: samples,
-                  child: Text('$samples samples ($ms)'),
-                );
-              }).toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    widget.settings.bufferSize = value;
-                  });
-                  // Apply to engine immediately
-                  if (widget.audioEngine != null) {
-                    final preset = _bufferSizeToPreset(value);
-                    widget.audioEngine!.setBufferSize(preset);
-                  }
-                }
-              },
-            ),
-          ),
-        ),
-      ],
+    return _settingRow(
+      label: 'Buffer Size',
+      subtitle: 'Lower = less delay but more load on your computer',
+      control: BoojyDropdown<int>(
+        value: currentBufferSize,
+        items: bufferOptions.map((option) {
+          final samples = option['samples'] as int;
+          final ms = option['ms'] as String;
+          return BoojyMenuItem<int>(
+            value: samples,
+            label: '$samples samples ($ms)',
+          );
+        }).toList(),
+        onChanged: (value) {
+          setState(() {
+            widget.settings.bufferSize = value;
+          });
+          // Apply to engine immediately
+          if (widget.audioEngine != null) {
+            final preset = _bufferSizeToPreset(value);
+            widget.audioEngine!.setBufferSize(preset);
+          }
+        },
+      ),
     );
   }
 
@@ -1075,8 +980,8 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         lower.contains('nova'); // Arctis Nova series
   }
 
-  /// Deduplicate device names by appending " (2)", " (3)" etc. for duplicates.
-  /// DropdownButton requires unique values.
+  /// Deduplicate device names by appending " (2)", " (3)" etc. for duplicates,
+  /// so each dropdown value stays unique.
   List<String> _deduplicateDeviceNames(
     List<Map<String, dynamic>> devices,
     String prefix,
@@ -1106,106 +1011,61 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     final currentValue = _selectedOutputDevice ?? '';
     final showWarning = _isHighLatencyDevice(_selectedOutputDevice);
 
+    final value = deviceNames.contains(currentValue)
+        ? currentValue
+        : (deviceNames.length > 1 ? deviceNames[1] : '__no_output__');
+
+    String displayName(String name) {
+      if (name == '__no_output__') return 'No Output';
+      final isDefault = _outputDevices.any(
+        (d) => d['name'] == name && d['isDefault'] == true,
+      );
+      return isDefault ? '$name (Default)' : name;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Output',
-                style: TextStyle(
-                  color: context.colors.textPrimary,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              flex: 2,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: context.colors.standard,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: context.colors.elevated),
-                      ),
-                      child: DropdownButton<String>(
-                        value: deviceNames.contains(currentValue)
-                            ? currentValue
-                            : (deviceNames.length > 1
-                                  ? deviceNames[1]
-                                  : '__no_output__'),
-                        isExpanded: true,
-                        underline: Container(),
-                        dropdownColor: context.colors.standard,
-                        style: TextStyle(
-                          color: context.colors.textPrimary,
-                          fontSize: 14,
-                        ),
-                        items: deviceNames.map((name) {
-                          String displayName;
-                          if (name == '__no_output__') {
-                            displayName = 'No Output';
-                          } else {
-                            // Check if this is the default device
-                            final isDefault = _outputDevices.any(
-                              (d) =>
-                                  d['name'] == name && d['isDefault'] == true,
-                            );
-                            displayName = isDefault ? '$name (Default)' : name;
-                          }
-
-                          return DropdownMenuItem<String>(
-                            value: name,
-                            child: Text(
-                              displayName,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() {
-                              _selectedOutputDevice = value == '__no_output__'
-                                  ? '__no_output__'
-                                  : value;
-                            });
-                            // Save to settings
-                            widget.settings.preferredOutputDevice =
-                                value == '__no_output__' ? null : value;
-                            // Apply to audio engine
-                            if (widget.audioEngine != null &&
-                                value != '__no_output__') {
-                              widget.audioEngine!.setAudioOutputDevice(value);
-                            }
-                          }
-                        },
-                      ),
-                    ),
+        _settingRow(
+          label: 'Output',
+          subtitle: 'Where you hear playback — speakers or headphones',
+          control: BoojyDropdown<String>(
+            value: value,
+            items: deviceNames
+                .map(
+                  (name) => BoojyMenuItem<String>(
+                    value: name,
+                    label: displayName(name),
                   ),
-                  if (showWarning) ...[
-                    const SizedBox(width: 8),
-                    Tooltip(
-                      message:
-                          'Bluetooth/wireless devices have high latency.\nUse a wired connection for recording.',
-                      child: Icon(
-                        BI.warning,
-                        color: context.colors.warning,
-                        size: 20,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
+                )
+                .toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedOutputDevice = value == '__no_output__'
+                    ? '__no_output__'
+                    : value;
+              });
+              // Save to settings
+              widget.settings.preferredOutputDevice = value == '__no_output__'
+                  ? null
+                  : value;
+              // Apply to audio engine
+              if (widget.audioEngine != null && value != '__no_output__') {
+                widget.audioEngine!.setAudioOutputDevice(value);
+              }
+            },
+          ),
+          trailing: showWarning
+              ? Tooltip(
+                  message:
+                      'Bluetooth/wireless devices have high latency.\nUse a wired connection for recording.',
+                  child: Icon(
+                    BI.warning,
+                    color: context.colors.warning,
+                    size: 20,
+                  ),
+                )
+              : null,
         ),
         if (showWarning) ...[
           const SizedBox(height: 4),
@@ -1252,76 +1112,45 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Auto-save checkbox and interval
-        Row(
-          children: [
-            Checkbox(
-              value: widget.settings.autoSaveMinutes > 0,
-              onChanged: (value) {
-                setState(() {
-                  if (value == true) {
-                    widget.settings.autoSaveMinutes = 5; // Default to 5 minutes
-                  } else {
-                    widget.settings.autoSaveMinutes = 0; // Disable
-                  }
-                });
-                // Apply immediately — reschedules the timer from now (#44).
-                unawaited(_restartAutoSave());
-              },
-              activeColor: context.colors.accent,
-            ),
-            Text(
-              'Auto-save',
-              style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
-            ),
-            const SizedBox(width: 16),
-            if (widget.settings.autoSaveMinutes > 0) ...[
+        // Auto-save toggle; interval picker appears below when enabled.
+        _buildCheckboxSetting(
+          label: 'Auto-save',
+          subtitle: 'Save a backup of your project on a timer',
+          value: widget.settings.autoSaveMinutes > 0,
+          onChanged: (value) {
+            setState(() {
+              // Default to 5 minutes when turning on; 0 disables.
+              widget.settings.autoSaveMinutes = value == true ? 5 : 0;
+            });
+            // Apply immediately — reschedules the timer from now (#44).
+            unawaited(_restartAutoSave());
+          },
+        ),
+        if (widget.settings.autoSaveMinutes > 0) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
               Text(
-                'Every',
+                'Save every',
                 style: TextStyle(
                   color: context.colors.textSecondary,
                   fontSize: 14,
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                width: 80,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: context.colors.standard,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: context.colors.elevated),
-                ),
-                child: DropdownButton<int>(
-                  value: widget.settings.autoSaveMinutes,
-                  isExpanded: true,
-                  underline: Container(),
-                  dropdownColor: context.colors.standard,
-                  style: TextStyle(
-                    color: context.colors.textPrimary,
-                    fontSize: 14,
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 1, child: Text('1')),
-                    DropdownMenuItem(value: 2, child: Text('2')),
-                    DropdownMenuItem(value: 5, child: Text('5')),
-                    DropdownMenuItem(value: 10, child: Text('10')),
-                    DropdownMenuItem(value: 15, child: Text('15')),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {
-                        widget.settings.autoSaveMinutes = value;
-                      });
-                      // Apply immediately — reschedules the timer from now
-                      // instead of waiting for a relaunch (#44).
-                      unawaited(_restartAutoSave());
-                    }
-                  },
-                ),
+              BoojyDropdown<int>(
+                value: widget.settings.autoSaveMinutes,
+                items: const [1, 2, 5, 10, 15]
+                    .map((m) => BoojyMenuItem<int>(value: m, label: '$m'))
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    widget.settings.autoSaveMinutes = value;
+                  });
+                  // Apply immediately — reschedules the timer from now
+                  // instead of waiting for a relaunch (#44).
+                  unawaited(_restartAutoSave());
+                },
               ),
               const SizedBox(width: 8),
               Text(
@@ -1332,8 +1161,8 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                 ),
               ),
             ],
-          ],
-        ),
+          ),
+        ],
       ],
     );
   }
@@ -1512,46 +1341,19 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     }
   }
 
+  /// An independent boolean setting: label + subtitle on the left, a
+  /// [BoojySwitch] on the right. (Kept the name for its call sites; it's a
+  /// toggle now, not a tick box — toggles read better for live on/off state.)
   Widget _buildCheckboxSetting({
     required String label,
     String? subtitle,
     required bool value,
     required ValueChanged<bool?> onChanged,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Checkbox(
-          value: value,
-          onChanged: onChanged,
-          activeColor: context.colors.accent,
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 12),
-              Text(
-                label,
-                style: TextStyle(
-                  color: context.colors.textPrimary,
-                  fontSize: 14,
-                ),
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: context.colors.textMuted,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
+    return _settingRow(
+      label: label,
+      subtitle: subtitle,
+      control: BoojySwitch(value: value, onChanged: (v) => onChanged(v)),
     );
   }
 }

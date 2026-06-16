@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../models/midi_cc_data.dart';
-import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 import '../painters/cc_lane_painter.dart';
+import '../shared/boojy_dropdown.dart';
 
 /// CC automation lane widget for the Piano Roll.
 /// Displays CC curves and handles point editing.
@@ -138,31 +138,24 @@ class _PianoRollCCLaneState extends State<PianoRollCCLane> {
             ),
           ),
           const SizedBox(height: 8),
-          // CC type dropdown
-          GestureDetector(
-            onTap: _showCCTypeMenu,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(
-                  color: colors.dark,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _getShortCCName(widget.lane.ccType),
-                      style: TextStyle(
-                        color: colors.textPrimary,
-                        fontSize: BT.fontCaption,
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    Icon(BI.caretDown, size: 12, color: colors.textMuted),
-                  ],
-                ),
+          // CC type dropdown — unified filled-chip + themed menu (B2). The chip
+          // shows the short name; the menu shows full displayNames.
+          BoojyDropdown<MidiCCType>(
+            value: widget.lane.ccType,
+            items: MidiCCType.values
+                .map(
+                  (type) => BoojyMenuItem<MidiCCType>(
+                    value: type,
+                    label: type.displayName,
+                  ),
+                )
+                .toList(),
+            onChanged: (type) => widget.onCCTypeChanged?.call(type),
+            triggerBuilder: (context, _) => Text(
+              _getShortCCName(widget.lane.ccType),
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: BT.fontCaption,
               ),
             ),
           ),
@@ -188,47 +181,6 @@ class _PianoRollCCLaneState extends State<PianoRollCCLane> {
       case MidiCCType.pitchBend:
         return 'Pitch';
     }
-  }
-
-  void _showCCTypeMenu() {
-    // Event handler: context.colors here is a listening Provider.of, which
-    // asserts "listen outside build" in debug and kills the menu silently.
-    final colors = context.themeProvider.colors;
-    final RenderBox button = context.findRenderObject() as RenderBox;
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
-    final buttonPosition = button.localToGlobal(Offset.zero, ancestor: overlay);
-
-    showMenu<MidiCCType>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        buttonPosition.dx,
-        buttonPosition.dy,
-        overlay.size.width - buttonPosition.dx - 60,
-        0,
-      ),
-      items: MidiCCType.values.map((type) {
-        return PopupMenuItem<MidiCCType>(
-          value: type,
-          height: 32,
-          child: Text(
-            type.displayName,
-            style: TextStyle(
-              color: colors.textPrimary,
-              fontSize: BT.fontLabel,
-              fontWeight: type == widget.lane.ccType
-                  ? BT.weightSemiBold
-                  : BT.weightRegular,
-            ),
-          ),
-        );
-      }).toList(),
-      elevation: 8,
-    ).then((value) {
-      if (value != null && widget.onCCTypeChanged != null) {
-        widget.onCCTypeChanged!(value);
-      }
-    });
   }
 
   Color _getLineColor(BuildContext context) {
