@@ -8,9 +8,10 @@ import 'builtin_devices.dart';
 /// Shows a unified, searchable device picker for swapping or adding devices in
 /// the chain.
 ///
-/// **Instruments:** Reset + Built-in (Synth / Sampler / Drum Kit) + optional
-/// VST3 instrument rows. No Delete — every track needs exactly one instrument;
-/// the right verb is swap, not delete.
+/// **Instruments:** Reset + Built-in (Synth / Sampler) + optional VST3
+/// instrument rows. Drum Kit is excluded — it creates a new track rather than
+/// converting the current one; use "Add Track" instead. No Delete — every
+/// track needs exactly one instrument; the right verb is swap, not delete.
 ///
 /// **Effects:** Reset + Built-in (EQ / Compressor / Reverb / Delay / Chorus /
 /// Limiter) + optional VST3 effect rows + destructive Delete.
@@ -125,11 +126,8 @@ class DeviceDropdown {
           icon: BI.waveform,
           label: 'Sampler',
         ),
-        BoojyMenuItem(
-          value: const DeviceAction.swap('drum_kit'),
-          icon: BI.gridOn,
-          label: 'Drum Kit',
-        ),
+        // Drum Kit is omitted — it creates a new track rather than converting
+        // the current one. Use "Add Track" to create a drum kit track.
       ] else ...[
         for (final e in builtinEffects)
           BoojyMenuItem(

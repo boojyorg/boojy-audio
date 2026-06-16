@@ -51,6 +51,13 @@ class DeviceChainView extends StatefulWidget {
   /// Shown in the device picker when non-empty; enables search when long.
   final List<Map<String, String>> availableVst3Plugins;
 
+  /// When true, shows a "Sampler" placeholder device box in the instrument
+  /// slot even though [instrumentData] is null (sampler tracks have no
+  /// [InstrumentData] — the sampler lives in the engine only). The
+  /// placeholder shows the track volume meter and opens the instrument swap
+  /// picker on name-tap, so the user can swap back to a synthesizer.
+  final bool isSamplerTrack;
+
   const DeviceChainView({
     super.key,
     required this.selectedTrackId,
@@ -68,6 +75,7 @@ class DeviceChainView extends StatefulWidget {
     this.onInstrumentDropped,
     this.onVst3InstrumentDropped,
     this.availableVst3Plugins = const [],
+    this.isSamplerTrack = false,
   });
 
   @override
@@ -844,9 +852,13 @@ class _DeviceChainViewState extends State<DeviceChainView>
     final items = <Widget>[];
     final hasInstrument = widget.instrumentData != null;
 
-    // Instrument device box (MIDI/Sampler tracks only) — wrapped with instrument DragTarget
+    // Instrument device box (MIDI/Sampler tracks only) — wrapped with instrument DragTarget.
+    // Sampler tracks have no InstrumentData (engine-only) so we show a placeholder block.
     if (hasInstrument) {
       items.add(_buildInstrumentDeviceWithDragTarget(colors, chainHeight));
+      items.add(_buildArrowWithDragTarget(colors, chainHeight, 0));
+    } else if (widget.isSamplerTrack) {
+      items.add(_buildSamplerPlaceholder(colors, chainHeight));
       items.add(_buildArrowWithDragTarget(colors, chainHeight, 0));
     }
 
@@ -1066,9 +1078,8 @@ class _DeviceChainViewState extends State<DeviceChainView>
         : (instrument.type == 'synthesizer' ? 'Synthesizer' : instrument.type);
     final icon = isVst3 ? BI.plugin : BI.piano;
 
-    // Built-in instruments share the effects' 24px header — one header system
-    // across the chain (the old 16px mini header read as a different control).
-    final headerMode = isVst3 ? HeaderMode.none : HeaderMode.full24;
+    // All instruments — built-in and VST3 — use the same 24px header so the
+    // plugin name is always visible and tappable (swap picker + identity).
 
     final instrumentLevels = instrument.effectId != null
         ? (_displayLevels[instrument.effectId!] ?? (0.0, 0.0))
@@ -1082,7 +1093,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
         child: DeviceBox(
           deviceType: DeviceType.instrument,
           deviceKind: isVst3 ? DeviceKind.vst3Plugin : DeviceKind.builtIn,
-          headerMode: headerMode,
+          headerMode: HeaderMode.full24,
           name: name,
           icon: icon,
           isEnabled: !_instrumentBypassed,
@@ -1108,6 +1119,40 @@ class _DeviceChainViewState extends State<DeviceChainView>
           onNameTap: () => _showInstrumentDropdown(context, name),
           child: _buildInstrumentContent(chainHeight),
         ),
+      ),
+    );
+  }
+
+  /// Placeholder shown in the instrument slot for sampler tracks.
+  ///
+  /// Sampler tracks have no [InstrumentData] (the sampler lives in the engine
+  /// only), so we show a synthetic block that looks and feels like a built-in
+  /// instrument: it meters the track, exposes the volume thumb, and opens the
+  /// instrument swap picker on name-tap so the user can convert back to a synth.
+  Widget _buildSamplerPlaceholder(BoojyColors colors, double chainHeight) {
+    return SizedBox(
+      height: chainHeight,
+      child: DeviceBox(
+        deviceType: DeviceType.instrument,
+        deviceKind: DeviceKind.builtIn,
+        headerMode: HeaderMode.full24,
+        name: 'Sampler',
+        icon: BI.waveform,
+        isEnabled: true,
+        isSelected: _selectedDeviceId == -1,
+        isFloated: false,
+        width: 322,
+        leftLevel: _displayLevels[_trackMeterKey]?.$1 ?? 0.0,
+        rightLevel: _displayLevels[_trackMeterKey]?.$2 ?? 0.0,
+        showVolumeThumb: true,
+        volumeDb: _trackVolumeDb,
+        onVolumeChanged: (db) {
+          setState(() => _trackVolumeDb = db);
+          widget.audioEngine?.setTrackVolume(widget.selectedTrackId!, db);
+          widget.onTrackVolumeChanged?.call(db);
+        },
+        onNameTap: () => _showInstrumentDropdown(context, 'Sampler'),
+        child: const SizedBox.shrink(),
       ),
     );
   }
