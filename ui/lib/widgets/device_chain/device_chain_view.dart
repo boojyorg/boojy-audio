@@ -14,6 +14,7 @@ import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 import '../effect_parameter_panel.dart';
 import '../instrument_browser.dart';
+import '../shared/boojy_dropdown.dart';
 import '../vst3_instrument_view.dart';
 import '../synthesizer_panel.dart';
 import 'device_box.dart';
@@ -520,78 +521,38 @@ class _DeviceChainViewState extends State<DeviceChainView>
     final colors = context.themeProvider.colors;
     setState(() => _selectedDeviceId = effect.id);
 
-    final action = await showMenu<String>(
+    final action = await showBoojyMenu<String>(
       context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx,
-        position.dy,
-      ),
+      anchor: Rect.fromLTWH(position.dx, position.dy, 0, 0),
       items: [
-        PopupMenuItem(
+        BoojyMenuItem(
           value: 'bypass',
-          child: Row(
-            children: [
-              Icon(
-                effect.bypassed ? BI.lightning : BI.lightning,
-                size: 14,
-                color: colors.textPrimary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                effect.bypassed ? 'Enable' : 'Bypass',
-                style: TextStyle(color: colors.textPrimary),
-              ),
-            ],
-          ),
+          icon: effect.bypassed ? BI.lightning : BI.power,
+          label: effect.bypassed ? 'Enable' : 'Bypass',
         ),
-        PopupMenuItem(
+        BoojyMenuItem(
           value: 'duplicate',
-          child: Row(
-            children: [
-              Icon(BI.copy, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text('Duplicate', style: TextStyle(color: colors.textPrimary)),
-              const Spacer(),
-              Text(
-                '⌘D',
-                style: TextStyle(color: colors.textMuted, fontSize: 12),
-              ),
-            ],
-          ),
+          icon: BI.copy,
+          label: 'Duplicate',
+          shortcut: '⌘D',
         ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
+        const BoojyMenuDivider<String>(),
+        BoojyMenuItem(
           value: 'reset',
-          child: Row(
-            children: [
-              Icon(BI.refresh, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text(
-                'Reset to Default',
-                style: TextStyle(color: colors.textPrimary),
-              ),
-            ],
-          ),
+          icon: BI.refresh,
+          label: 'Reset to Default',
         ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
+        const BoojyMenuDivider<String>(),
+        BoojyMenuItem(
           value: 'delete',
-          child: Row(
-            children: [
-              Icon(BI.delete, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text('Delete', style: TextStyle(color: colors.textPrimary)),
-              const Spacer(),
-              Text(
-                '⌫',
-                style: TextStyle(color: colors.textMuted, fontSize: 12),
-              ),
-            ],
-          ),
+          icon: BI.delete,
+          label: 'Delete',
+          shortcut: '⌫',
+          destructive: true,
         ),
       ],
+      selectedValue: null,
+      colors: colors,
     );
     if (action == null || !mounted) return;
 
@@ -618,73 +579,42 @@ class _DeviceChainViewState extends State<DeviceChainView>
     final isVst3 = instrument.isVst3;
     setState(() => _selectedDeviceId = -1);
 
-    final items = <PopupMenuEntry<String>>[
+    final items = <BoojyMenuEntry<String>>[
       if (isVst3) ...[
-        PopupMenuItem(
+        BoojyMenuItem(
           value: 'float',
+          icon: BI.openInNew,
+          label: 'Float to Window',
           enabled: widget.onFloatPlugin != null && !widget.isFloated,
-          child: Row(
-            children: [
-              Icon(BI.openInNew, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text(
-                'Float to Window',
-                style: TextStyle(color: colors.textPrimary),
-              ),
-            ],
-          ),
         ),
         if (widget.isFloated)
-          PopupMenuItem(
+          BoojyMenuItem(
             value: 'embed',
-            child: Row(
-              children: [
-                Icon(BI.arrowDown, size: 14, color: colors.textPrimary),
-                const SizedBox(width: 8),
-                Text(
-                  'Embed in Panel',
-                  style: TextStyle(color: colors.textPrimary),
-                ),
-              ],
-            ),
+            icon: BI.arrowDown,
+            label: 'Embed in Panel',
           ),
-        const PopupMenuDivider(),
+        const BoojyMenuDivider<String>(),
       ],
-      PopupMenuItem(
+      BoojyMenuItem(
         value: 'reset',
-        child: Row(
-          children: [
-            Icon(BI.refresh, size: 14, color: colors.textPrimary),
-            const SizedBox(width: 8),
-            Text(
-              'Reset to Default',
-              style: TextStyle(color: colors.textPrimary),
-            ),
-          ],
-        ),
+        icon: BI.refresh,
+        label: 'Reset to Default',
       ),
-      const PopupMenuDivider(),
-      PopupMenuItem(
+      const BoojyMenuDivider<String>(),
+      BoojyMenuItem(
         value: 'delete',
-        child: Row(
-          children: [
-            Icon(BI.delete, size: 14, color: colors.textPrimary),
-            const SizedBox(width: 8),
-            Text('Delete', style: TextStyle(color: colors.textPrimary)),
-          ],
-        ),
+        icon: BI.delete,
+        label: 'Delete',
+        destructive: true,
       ),
     ];
 
-    final action = await showMenu<String>(
+    final action = await showBoojyMenu<String>(
       context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx,
-        position.dy,
-      ),
+      anchor: Rect.fromLTWH(position.dx, position.dy, 0, 0),
       items: items,
+      selectedValue: null,
+      colors: colors,
     );
     if (action == null || !mounted) return;
 
@@ -1626,85 +1556,33 @@ class _DeviceChainViewState extends State<DeviceChainView>
     final RenderBox overlay =
         Overlay.of(menuContext).context.findRenderObject()! as RenderBox;
 
-    // Anchor the menu to the tapped control itself (standard PopupMenuButton
-    // maths). RelativeRect.fromLTRB was being fed coordinates as right/bottom
-    // INSETS, which is also why the old menu drifted.
-    final position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        button.localToGlobal(Offset.zero, ancestor: overlay),
-        button.localToGlobal(
-          button.size.bottomRight(Offset.zero),
-          ancestor: overlay,
-        ),
+    // Preserve the button-anchored Rect (A5 fix — fromLTRB with position
+    // insets caused drift; fromRect with the button bounds is correct).
+    final anchor = Rect.fromPoints(
+      button.localToGlobal(Offset.zero, ancestor: overlay),
+      button.localToGlobal(
+        button.size.bottomRight(Offset.zero),
+        ancestor: overlay,
       ),
-      Offset.zero & overlay.size,
     );
 
-    showMenu<String>(
+    showBoojyMenu<String>(
       context: menuContext,
-      position: position,
+      anchor: anchor,
       items: [
-        PopupMenuItem(
-          value: 'eq',
-          child: Row(
-            children: [
-              Icon(BI.lightning, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text('EQ', style: TextStyle(color: colors.textPrimary)),
-            ],
-          ),
-        ),
-        PopupMenuItem(
+        BoojyMenuItem(value: 'eq', icon: BI.lightning, label: 'EQ'),
+        BoojyMenuItem(
           value: 'compressor',
-          child: Row(
-            children: [
-              Icon(BI.lightning, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text('Compressor', style: TextStyle(color: colors.textPrimary)),
-            ],
-          ),
+          icon: BI.lightning,
+          label: 'Compressor',
         ),
-        PopupMenuItem(
-          value: 'reverb',
-          child: Row(
-            children: [
-              Icon(BI.lightning, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text('Reverb', style: TextStyle(color: colors.textPrimary)),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'delay',
-          child: Row(
-            children: [
-              Icon(BI.lightning, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text('Delay', style: TextStyle(color: colors.textPrimary)),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'chorus',
-          child: Row(
-            children: [
-              Icon(BI.lightning, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text('Chorus', style: TextStyle(color: colors.textPrimary)),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'limiter',
-          child: Row(
-            children: [
-              Icon(BI.lightning, size: 14, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text('Limiter', style: TextStyle(color: colors.textPrimary)),
-            ],
-          ),
-        ),
+        BoojyMenuItem(value: 'reverb', icon: BI.lightning, label: 'Reverb'),
+        BoojyMenuItem(value: 'delay', icon: BI.lightning, label: 'Delay'),
+        BoojyMenuItem(value: 'chorus', icon: BI.lightning, label: 'Chorus'),
+        BoojyMenuItem(value: 'limiter', icon: BI.lightning, label: 'Limiter'),
       ],
+      selectedValue: null,
+      colors: colors,
     ).then((value) {
       if (value != null) _addEffect(value);
     });

@@ -1,163 +1,109 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
-import '../../theme/tokens.dart';
+import '../shared/boojy_dropdown.dart';
 
-/// Shows a dropdown menu for a device in the chain.
+/// Shows a swap/reset/delete dropdown for a device in the chain.
 ///
-/// For instruments: reset, swap (built-in list + plugins), rename, delete.
-/// For effects: reset, swap (built-in effects + plugins), rename, delete.
+/// For instruments: reset, swap (built-in list + plugins hint), delete.
+/// For effects: reset, swap (built-in effects), delete.
 class DeviceDropdown {
   /// Show dropdown for an instrument device.
-  /// Returns the selected action or null if dismissed.
   static Future<DeviceAction?> showForInstrument(
     BuildContext context,
     Offset position, {
     required String currentName,
-  }) async {
-    return _show(
-      context,
-      position,
-      isInstrument: true,
-      currentName: currentName,
-    );
-  }
+  }) => _show(context, position, isInstrument: true, currentName: currentName);
 
   /// Show dropdown for an effect device.
-  /// Returns the selected action or null if dismissed.
   static Future<DeviceAction?> showForEffect(
     BuildContext context,
     Offset position, {
     required String currentName,
-  }) async {
-    return _show(
-      context,
-      position,
-      isInstrument: false,
-      currentName: currentName,
-    );
-  }
+  }) => _show(context, position, isInstrument: false, currentName: currentName);
 
   static Future<DeviceAction?> _show(
     BuildContext context,
     Offset position, {
     required bool isInstrument,
     required String currentName,
-  }) async {
+  }) {
     final colors = context.themeProvider.colors;
 
-    final items = <PopupMenuEntry<DeviceAction>>[
-      // Reset to Default
-      PopupMenuItem(
+    final items = <BoojyMenuEntry<DeviceAction>>[
+      BoojyMenuItem(
         value: const DeviceAction.reset(),
-        child: Row(
-          children: [
-            Icon(BI.refresh, size: 14, color: colors.textPrimary),
-            const SizedBox(width: 8),
-            Text(
-              'Reset to Default',
-              style: TextStyle(color: colors.textPrimary, fontSize: 13),
-            ),
-          ],
-        ),
+        icon: BI.refresh,
+        label: 'Reset to Default',
       ),
-
-      const PopupMenuDivider(),
-
-      // Swap options
+      const BoojyMenuDivider(),
       if (isInstrument) ...[
-        _sectionHeader(colors, 'BUILT-IN'),
-        _swapItem(colors, BI.piano, 'Synthesizer', 'synthesizer'),
-        _swapItem(colors, BI.piano, 'Sampler', 'sampler'),
-        _sectionHeader(colors, 'PLUGINS'),
-        PopupMenuItem(
+        const BoojyMenuSection(label: 'Built-in'),
+        BoojyMenuItem(
+          value: const DeviceAction.swap('synthesizer'),
+          icon: BI.piano,
+          label: 'Synthesizer',
+        ),
+        BoojyMenuItem(
+          value: const DeviceAction.swap('sampler'),
+          icon: BI.piano,
+          label: 'Sampler',
+        ),
+        const BoojyMenuSection(label: 'Plugins'),
+        BoojyMenuItem(
+          value: const DeviceAction.swap(''),
+          icon: BI.info,
+          label: 'Use library to add plugins',
           enabled: false,
-          height: 28,
-          child: Text(
-            'Use library to add plugins',
-            style: TextStyle(
-              color: colors.textMuted,
-              fontSize: 11,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
         ),
       ] else ...[
-        _sectionHeader(colors, 'BUILT-IN'),
-        _swapItem(colors, BI.lightning, 'EQ', 'eq'),
-        _swapItem(colors, BI.lightning, 'Compressor', 'compressor'),
-        _swapItem(colors, BI.lightning, 'Reverb', 'reverb'),
-        _swapItem(colors, BI.lightning, 'Delay', 'delay'),
-        _swapItem(colors, BI.lightning, 'Chorus', 'chorus'),
-        _swapItem(colors, BI.lightning, 'Limiter', 'limiter'),
-      ],
-
-      const PopupMenuDivider(),
-
-      // Delete
-      PopupMenuItem(
-        value: const DeviceAction.delete(),
-        child: Row(
-          children: [
-            Icon(BI.delete, size: 14, color: colors.error),
-            const SizedBox(width: 8),
-            Text('Delete', style: TextStyle(color: colors.error, fontSize: 13)),
-          ],
+        const BoojyMenuSection(label: 'Built-in'),
+        BoojyMenuItem(
+          value: const DeviceAction.swap('eq'),
+          icon: BI.lightning,
+          label: 'EQ',
         ),
+        BoojyMenuItem(
+          value: const DeviceAction.swap('compressor'),
+          icon: BI.lightning,
+          label: 'Compressor',
+        ),
+        BoojyMenuItem(
+          value: const DeviceAction.swap('reverb'),
+          icon: BI.lightning,
+          label: 'Reverb',
+        ),
+        BoojyMenuItem(
+          value: const DeviceAction.swap('delay'),
+          icon: BI.lightning,
+          label: 'Delay',
+        ),
+        BoojyMenuItem(
+          value: const DeviceAction.swap('chorus'),
+          icon: BI.lightning,
+          label: 'Chorus',
+        ),
+        BoojyMenuItem(
+          value: const DeviceAction.swap('limiter'),
+          icon: BI.lightning,
+          label: 'Limiter',
+        ),
+      ],
+      const BoojyMenuDivider(),
+      BoojyMenuItem(
+        value: const DeviceAction.delete(),
+        icon: BI.delete,
+        label: 'Delete',
+        destructive: true,
       ),
     ];
 
-    return showMenu<DeviceAction>(
+    return showBoojyMenu<DeviceAction>(
       context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx,
-        position.dy,
-      ),
+      anchor: Rect.fromLTWH(position.dx, position.dy, 0, 0),
       items: items,
-    );
-  }
-
-  static PopupMenuItem<DeviceAction> _swapItem(
-    BoojyColors colors,
-    IconData icon,
-    String label,
-    String type,
-  ) {
-    return PopupMenuItem(
-      value: DeviceAction.swap(type),
-      height: 32,
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: colors.textPrimary),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(color: colors.textPrimary, fontSize: 13),
-          ),
-        ],
-      ),
-    );
-  }
-
-  static PopupMenuItem<DeviceAction> _sectionHeader(
-    BoojyColors colors,
-    String label,
-  ) {
-    return PopupMenuItem(
-      enabled: false,
-      height: 24,
-      child: Text(
-        label,
-        style: TextStyle(
-          color: colors.textMuted,
-          fontSize: 11,
-          fontWeight: BT.weightSemiBold,
-          letterSpacing: 0.5,
-        ),
-      ),
+      selectedValue: null,
+      colors: colors,
     );
   }
 }

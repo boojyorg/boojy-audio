@@ -5,21 +5,53 @@ import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 
-/// One row in a Boojy dropdown menu. Value dropdowns use [value]/[label];
-/// [enabled] greys a row out without removing it.
-class BoojyMenuItem<T> {
+// ── Entry types ───────────────────────────────────────────────────────────────
+
+/// Base type for all items that can appear in a [showBoojyMenu] surface.
+/// Subtypes: [BoojyMenuItem] (action row), [BoojyMenuDivider] (separator),
+/// [BoojyMenuSection] (non-interactive group header).
+sealed class BoojyMenuEntry<T> {
+  const BoojyMenuEntry();
+}
+
+/// One action row in a Boojy menu. Value dropdowns use [value]/[label]/[enabled];
+/// context menus also carry [icon], [shortcut], and [destructive].
+class BoojyMenuItem<T> extends BoojyMenuEntry<T> {
   const BoojyMenuItem({
     required this.value,
     required this.label,
+    this.icon,
+    this.shortcut,
     this.enabled = true,
+    this.destructive = false,
   });
 
   final T value;
   final String label;
+  final IconData? icon;
+
+  /// Keyboard shortcut shown right-aligned (e.g. '⌘D', '⌫').
+  final String? shortcut;
   final bool enabled;
+
+  /// Colours the icon and label [BoojyColors.error] — used for Delete actions.
+  final bool destructive;
 }
 
-/// Unified value dropdown (v0.7 Slice 3, B2). A compact "quiet pill" trigger —
+/// A thin horizontal rule separating groups of menu items.
+class BoojyMenuDivider<T> extends BoojyMenuEntry<T> {
+  const BoojyMenuDivider();
+}
+
+/// A non-interactive section header (e.g. 'BUILT-IN', 'PLUGINS').
+class BoojyMenuSection<T> extends BoojyMenuEntry<T> {
+  const BoojyMenuSection({required this.label});
+  final String label;
+}
+
+// ── Trigger chip ──────────────────────────────────────────────────────────────
+
+/// Unified value dropdown (v0.7 Slice 3). A compact "quiet pill" trigger —
 /// fill + subtle border + muted caret, hugging its content — that opens a
 /// rounded menu with per-row hover and a trailing check on the current value
 /// (Notion-style). Replaces the scattered "dark box + caret → default Material
@@ -136,15 +168,25 @@ class BoojyDropdown<T> extends StatelessWidget {
   }
 }
 
+// ── Surface ───────────────────────────────────────────────────────────────────
+
 /// Opens the shared rounded menu surface under [anchor]. Exposed so bespoke
-/// triggers (and, later, context menus) reuse the exact same surface, hover and
-/// selected-row treatment. [colors] must be resolved by the caller in a build
-/// context — never read `context.colors` inside the tap handler that calls this
-/// (it asserts "listen outside build" in debug; the recurring v0.5.1 footgun).
+/// triggers (and context menus) reuse the exact same surface, hover and
+/// selected-row treatment.
+///
+/// For **value dropdowns**, pass the current value as [selectedValue] — the
+/// matching row shows a trailing check.
+///
+/// For **context menus**, pass `selectedValue: null` (suppresses the check) and
+/// put icons/shortcuts/destructive flags on the [BoojyMenuItem]s.
+///
+/// [colors] must be resolved by the caller in a build context — never read
+/// `context.colors` inside the tap handler that calls this (it asserts "listen
+/// outside build" in debug; the recurring v0.5.1 footgun).
 Future<T?> showBoojyMenu<T>({
   required BuildContext context,
   required Rect anchor,
-  required List<BoojyMenuItem<T>> items,
+  required List<BoojyMenuEntry<T>> items,
   required T? selectedValue,
   required BoojyColors colors,
 }) {
@@ -170,7 +212,7 @@ class _BoojyMenuRoute<T> extends PopupRoute<T> {
   });
 
   final Rect anchor;
-  final List<BoojyMenuItem<T>> items;
+  final List<BoojyMenuEntry<T>> items;
   final T? selectedValue;
   final BoojyColors colors;
 
@@ -251,8 +293,7 @@ class _BoojyMenuLayout extends SingleChildLayoutDelegate {
       anchor != oldDelegate.anchor;
 }
 
-/// The rounded card + rows. Sizes to its content but never narrower than the
-/// trigger.
+/// The rounded card + rows. Sizes to its content.
 class _BoojyMenuSurface<T> extends StatelessWidget {
   const _BoojyMenuSurface({
     required this.items,
@@ -261,7 +302,7 @@ class _BoojyMenuSurface<T> extends StatelessWidget {
     required this.onPick,
   });
 
-  final List<BoojyMenuItem<T>> items;
+  final List<BoojyMenuEntry<T>> items;
   final T? selectedValue;
   final BoojyColors colors;
   final ValueChanged<T> onPick;
@@ -290,25 +331,53 @@ class _BoojyMenuSurface<T> extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final item in items)
-                  _BoojyMenuRow<T>(
-                    item: item,
-                    isSelected: item.value == selectedValue,
-                    colors: colors,
-                    onTap: () => onPick(item.value),
-                  ),
-              ],
+              children: [for (final entry in items) _buildEntry(entry)],
             ),
           ),
         ),
       ),
     );
   }
+
+  Widget _buildDivider() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Container(height: 1, color: colors.divider),
+    );
+  }
+
+  Widget _buildSection(String label) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 2),
+      child: Text(
+        label.toUpperCase(),
+        style: TextStyle(
+          color: colors.textMuted,
+          fontSize: 10,
+          fontWeight: BT.weightSemiBold,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEntry(BoojyMenuEntry<T> entry) {
+    if (entry is BoojyMenuItem<T>) {
+      return _BoojyMenuRow<T>(
+        item: entry,
+        isSelected: entry.value == selectedValue,
+        colors: colors,
+        onTap: () => onPick(entry.value),
+      );
+    }
+    if (entry is BoojyMenuDivider<T>) return _buildDivider();
+    if (entry is BoojyMenuSection<T>) return _buildSection(entry.label);
+    return const SizedBox.shrink();
+  }
 }
 
-/// A single menu row: inset rounded hover fill (Library language) + a trailing
-/// neutral check on the current value.
+/// A single menu row: inset rounded hover fill + optional leading icon +
+/// optional trailing shortcut or check on the current value.
 class _BoojyMenuRow<T> extends StatefulWidget {
   const _BoojyMenuRow({
     required this.item,
@@ -332,8 +401,20 @@ class _BoojyMenuRowState<T> extends State<_BoojyMenuRow<T>> {
   @override
   Widget build(BuildContext context) {
     final colors = widget.colors;
-    final enabled = widget.item.enabled;
-    final textColor = enabled ? colors.textPrimary : colors.textMuted;
+    final item = widget.item;
+    final enabled = item.enabled;
+    final Color labelColor;
+    final Color iconColor;
+    if (!enabled) {
+      labelColor = colors.textMuted;
+      iconColor = colors.textMuted;
+    } else if (item.destructive) {
+      labelColor = colors.error;
+      iconColor = colors.error;
+    } else {
+      labelColor = colors.textPrimary;
+      iconColor = colors.textSecondary;
+    }
 
     return MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
@@ -349,12 +430,16 @@ class _BoojyMenuRowState<T> extends State<_BoojyMenuRow<T>> {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           child: Row(
             children: [
+              if (item.icon != null) ...[
+                Icon(item.icon, size: 16, color: iconColor),
+                const SizedBox(width: 8),
+              ],
               Expanded(
                 child: Text(
-                  widget.item.label,
+                  item.label,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: textColor,
+                    color: labelColor,
                     fontSize: BT.fontLabel,
                     fontWeight: widget.isSelected
                         ? BT.weightSemiBold
@@ -363,12 +448,15 @@ class _BoojyMenuRowState<T> extends State<_BoojyMenuRow<T>> {
                 ),
               ),
               const SizedBox(width: 12),
-              SizedBox(
-                width: 16,
-                child: widget.isSelected
-                    ? Icon(BI.check, size: 14, color: colors.textPrimary)
-                    : null,
-              ),
+              if (widget.isSelected)
+                Icon(BI.check, size: 14, color: colors.textPrimary)
+              else if (item.shortcut != null)
+                Text(
+                  item.shortcut!,
+                  style: TextStyle(fontSize: 11, color: colors.textMuted),
+                )
+              else
+                const SizedBox(width: 16),
             ],
           ),
         ),
