@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
+import 'shared/boojy_dropdown.dart';
 import '../audio_engine.dart';
 import '../services/user_settings.dart';
 import '../utils/logger.dart';
@@ -954,11 +955,11 @@ class _ExportDialogState extends State<ExportDialog> {
             label: 'MP3 Bitrate',
             value: _options.mp3Bitrate,
             items: const [
-              DropdownMenuItem(value: 128, child: Text('128 kbps (Small)')),
-              DropdownMenuItem(value: 192, child: Text('192 kbps (Medium)')),
-              DropdownMenuItem(value: 320, child: Text('320 kbps (High)')),
+              BoojyMenuItem(value: 128, label: '128 kbps (Small)'),
+              BoojyMenuItem(value: 192, label: '192 kbps (Medium)'),
+              BoojyMenuItem(value: 320, label: '320 kbps (High)'),
             ],
-            onChanged: (v) => setState(() => _options.mp3Bitrate = v ?? 320),
+            onChanged: (v) => setState(() => _options.mp3Bitrate = v),
           ),
           const SizedBox(height: 8),
         ],
@@ -968,11 +969,11 @@ class _ExportDialogState extends State<ExportDialog> {
             label: 'WAV Bit Depth',
             value: _options.wavBitDepth,
             items: const [
-              DropdownMenuItem(value: 16, child: Text('16-bit (CD Quality)')),
-              DropdownMenuItem(value: 24, child: Text('24-bit (Studio)')),
-              DropdownMenuItem(value: 32, child: Text('32-bit Float (Master)')),
+              BoojyMenuItem(value: 16, label: '16-bit (CD Quality)'),
+              BoojyMenuItem(value: 24, label: '24-bit (Studio)'),
+              BoojyMenuItem(value: 32, label: '32-bit Float (Master)'),
             ],
-            onChanged: (v) => setState(() => _options.wavBitDepth = v ?? 16),
+            onChanged: (v) => setState(() => _options.wavBitDepth = v),
           ),
           const SizedBox(height: 8),
         ],
@@ -981,10 +982,10 @@ class _ExportDialogState extends State<ExportDialog> {
           label: 'Sample Rate',
           value: _options.sampleRate,
           items: const [
-            DropdownMenuItem(value: 44100, child: Text('44.1 kHz (CD)')),
-            DropdownMenuItem(value: 48000, child: Text('48 kHz (Video)')),
+            BoojyMenuItem(value: 44100, label: '44.1 kHz (CD)'),
+            BoojyMenuItem(value: 48000, label: '48 kHz (Video)'),
           ],
-          onChanged: (v) => setState(() => _options.sampleRate = v ?? 44100),
+          onChanged: (v) => setState(() => _options.sampleRate = v),
         ),
       ],
     );
@@ -1371,8 +1372,8 @@ class _ExportDialogState extends State<ExportDialog> {
   Widget _buildDropdownRow<T>({
     required String label,
     required T value,
-    required List<DropdownMenuItem<T>> items,
-    required ValueChanged<T?> onChanged,
+    required List<BoojyMenuItem<T>> items,
+    required ValueChanged<T> onChanged,
   }) {
     return Row(
       children: [
@@ -1386,27 +1387,7 @@ class _ExportDialogState extends State<ExportDialog> {
             ),
           ),
         ),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: context.colors.elevated,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: DropdownButton<T>(
-              value: value,
-              items: items,
-              onChanged: onChanged,
-              isExpanded: true,
-              underline: const SizedBox(),
-              dropdownColor: context.colors.elevated,
-              style: TextStyle(
-                color: context.colors.textPrimary,
-                fontSize: BT.fontBody,
-              ),
-            ),
-          ),
-        ),
+        BoojyDropdown<T>(value: value, items: items, onChanged: onChanged),
       ],
     );
   }

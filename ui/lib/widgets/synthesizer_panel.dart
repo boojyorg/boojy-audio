@@ -4,6 +4,7 @@ import '../models/instrument_data.dart';
 import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
+import 'shared/boojy_dropdown.dart';
 
 /// Synthesizer instrument panel widget
 class SynthesizerPanel extends StatefulWidget {
@@ -335,34 +336,12 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
           style: TextStyle(color: context.colors.textMuted, fontSize: 12),
         ),
         const SizedBox(height: 4),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: context.colors.standard,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: context.colors.surface),
-          ),
-          child: DropdownButton<String>(
-            value: value,
-            isExpanded: true,
-            underline: const SizedBox(),
-            dropdownColor: context.colors.standard,
-            style: TextStyle(
-              color: context.colors.textSecondary,
-              fontSize: BT.fontBody,
-            ),
-            items: options.map((String option) {
-              return DropdownMenuItem<String>(
-                value: option,
-                child: Text(option.toUpperCase()),
-              );
-            }).toList(),
-            onChanged: (String? newValue) {
-              if (newValue != null) {
-                onChanged(newValue);
-              }
-            },
-          ),
+        BoojyDropdown<String>(
+          value: value,
+          items: options
+              .map((o) => BoojyMenuItem(value: o, label: o.toUpperCase()))
+              .toList(),
+          onChanged: (v) => onChanged(v),
         ),
       ],
     );

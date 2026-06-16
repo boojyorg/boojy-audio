@@ -6,6 +6,7 @@ import '../models/version_type.dart';
 import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
+import 'shared/boojy_dropdown.dart';
 
 /// Result type for project settings dialog
 typedef ProjectSettingsResult = ({
@@ -1011,31 +1012,17 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
     String Function(T)? itemBuilder,
     bool displayString = false,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: context.colors.standard,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: context.colors.elevated),
-      ),
-      child: DropdownButton<T>(
-        value: value,
-        dropdownColor: context.colors.standard,
-        underline: const SizedBox(),
-        isExpanded: true,
-        style: TextStyle(color: context.colors.textPrimary),
-        items: items.map((item) {
-          return DropdownMenuItem(
-            value: item,
-            child: Text(
-              itemBuilder != null
-                  ? itemBuilder(item)
-                  : (displayString ? item.toString() : item.toString()),
+    return BoojyDropdown<T>(
+      value: value,
+      items: items
+          .map(
+            (item) => BoojyMenuItem(
+              value: item,
+              label: itemBuilder != null ? itemBuilder(item) : item.toString(),
             ),
-          );
-        }).toList(),
-        onChanged: onChanged,
-      ),
+          )
+          .toList(),
+      onChanged: (v) => onChanged(v),
     );
   }
 }

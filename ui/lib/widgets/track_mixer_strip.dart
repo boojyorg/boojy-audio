@@ -21,6 +21,7 @@ import '../utils/track_icons.dart';
 import 'instrument_browser.dart';
 import 'pan_knob.dart';
 import 'capsule_fader.dart';
+import 'shared/boojy_dropdown.dart';
 import 'shared/boojy_tooltip.dart';
 import 'volume_readout_box.dart';
 import 'input_selector_dropdown.dart';
@@ -503,36 +504,13 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
 
   /// Parameter dropdown ([Volume ▾]; gains entries as the engine grows)
   Widget _buildParameterDropdown(BuildContext context, double rowHeight) {
-    final colors = context.colors;
-
-    return Container(
-      height: rowHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      decoration: BoxDecoration(
-        color: colors.dark,
-        borderRadius: BorderRadius.circular(2),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<AutomationParameter>(
-          value: widget.selectedParameter,
-          isDense: true,
-          dropdownColor: colors.elevated,
-          icon: Icon(BI.caretDown, size: 14, color: colors.textSecondary),
-          style: TextStyle(color: colors.textPrimary, fontSize: 10),
-          // Only engine-backed parameters — pan automation is UI-only today.
-          items: AutomationParameter.engineBacked.map((p) {
-            return DropdownMenuItem<AutomationParameter>(
-              value: p,
-              child: Text(p.displayName),
-            );
-          }).toList(),
-          onChanged: (value) {
-            if (value != null) {
-              widget.onParameterChanged?.call(value);
-            }
-          },
-        ),
-      ),
+    // Only engine-backed parameters — pan automation is UI-only today.
+    return BoojyDropdown<AutomationParameter>(
+      value: widget.selectedParameter,
+      items: AutomationParameter.engineBacked
+          .map((p) => BoojyMenuItem(value: p, label: p.displayName))
+          .toList(),
+      onChanged: (v) => widget.onParameterChanged?.call(v),
     );
   }
 

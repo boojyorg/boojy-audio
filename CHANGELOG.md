@@ -6,6 +6,11 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **All remaining Material `DropdownButton` sites migrated to `BoojyDropdown`.** Project Settings
+  (time signature, root note, scale, sample rate), Export (MP3 bitrate, WAV bit depth, sample
+  rate), Capture MIDI duration, Synth waveform type, and Mixer automation parameter now all use
+  the shared rounded chip + themed menu surface.
+
 - **Piano-roll Snap and Quantize menus now match every other dropdown.** The two value menus
   (which grid division and quantize resolution to use) have been migrated from hand-rolled
   `OverlayEntry` popups to the shared `showBoojyMenu` surface — same rounded card, hover fill,
