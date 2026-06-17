@@ -265,6 +265,10 @@ pub(crate) fn render_audio_clip_sample(
 
 /// Process an effect chain through a locked `EffectManager`.
 /// When `silent` is true, feeds zeros to keep VST3 plugins alive (muted tracks).
+///
+/// `meter_gain` scales the values passed to `update_peaks` so that effect strip
+/// meters reflect the post-fader level (pass `volume_gain` from the track
+/// snapshot; pass `1.0` for silent or already-scaled buffers).
 #[inline]
 fn process_effect_chain(
     fx_chain: &[u64],
@@ -272,13 +276,14 @@ fn process_effect_chain(
     left: f32,
     right: f32,
     silent: bool,
+    meter_gain: f32,
 ) -> (f32, f32) {
     let mut out_l = if silent { 0.0 } else { left };
     let mut out_r = if silent { 0.0 } else { right };
     for effect_id in fx_chain {
         if !silent && effect_mgr.is_bypassed(*effect_id) {
             // Bypassed: signal passes through, update peaks with passthrough level
-            effect_mgr.update_peaks(*effect_id, out_l.abs(), out_r.abs());
+            effect_mgr.update_peaks(*effect_id, out_l.abs() * meter_gain, out_r.abs() * meter_gain);
             continue;
         }
         if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
@@ -286,8 +291,8 @@ fn process_effect_chain(
             let (fx_l, fx_r) = effect.process_frame(out_l, out_r);
             out_l = fx_l;
             out_r = fx_r;
-            // Capture output peak after this effect
-            effect_mgr.update_peaks(*effect_id, out_l.abs(), out_r.abs());
+            // Capture output peak after this effect, scaled to post-fader level
+            effect_mgr.update_peaks(*effect_id, out_l.abs() * meter_gain, out_r.abs() * meter_gain);
         }
     }
     (out_l, out_r)
@@ -310,6 +315,8 @@ fn block_peak(buf: &[f32]) -> f32 {
 /// is a running max, so one call per block with the block peak is equivalent to
 /// calling it every sample. When `silent`, the buffers are zeroed first and the
 /// whole chain still runs (keeps VST3 plugins ticking on muted/non-solo tracks).
+/// `meter_gain` scales `update_peaks` values to post-fader level — see
+/// [`process_effect_chain`] for the contract.
 #[cfg(not(target_arch = "wasm32"))]
 fn process_effect_chain_block(
     fx_chain: &[u64],
@@ -317,6 +324,7 @@ fn process_effect_chain_block(
     left: &mut [f32],
     right: &mut [f32],
     silent: bool,
+    meter_gain: f32,
 ) {
     if silent {
         left.fill(0.0);
@@ -325,7 +333,7 @@ fn process_effect_chain_block(
     for effect_id in fx_chain {
         if !silent && effect_mgr.is_bypassed(*effect_id) {
             // Bypassed: signal passes through; meter the passthrough level.
-            effect_mgr.update_peaks(*effect_id, block_peak(left), block_peak(right));
+            effect_mgr.update_peaks(*effect_id, block_peak(left) * meter_gain, block_peak(right) * meter_gain);
             continue;
         }
         if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
@@ -333,8 +341,8 @@ fn process_effect_chain_block(
                 let mut effect = effect_arc.lock();
                 effect.process_block(left, right);
             }
-            // Capture output peak after this effect.
-            effect_mgr.update_peaks(*effect_id, block_peak(left), block_peak(right));
+            // Capture output peak after this effect, scaled to post-fader level.
+            effect_mgr.update_peaks(*effect_id, block_peak(left) * meter_gain, block_peak(right) * meter_gain);
         }
     }
 }
@@ -719,6 +727,7 @@ impl AudioGraph {
                                     0.0,
                                     0.0,
                                     true,
+                                    1.0,
                                 );
                                 continue;
                             }
@@ -730,6 +739,7 @@ impl AudioGraph {
                                 track_left,
                                 track_right,
                                 false,
+                                snap.volume_gain,
                             );
 
                             // Apply track volume and pan AFTER FX chain
@@ -1119,6 +1129,7 @@ impl AudioGraph {
                             &mut scratch_l[..sb_len],
                             &mut scratch_r[..sb_len],
                             false,
+                            track_snap.volume_gain,
                         );
 
                         // Pass 3: per-sample fader/pan (post-FX), metering, sends, mix.
@@ -1178,6 +1189,7 @@ impl AudioGraph {
                             &mut scratch_l[..sb_len],
                             &mut scratch_r[..sb_len],
                             false,
+                            return_snap.volume_gain,
                         );
 
                         for i in 0..sb_len {
@@ -1224,6 +1236,7 @@ impl AudioGraph {
                             &mut master_l[..sb_len],
                             &mut master_r[..sb_len],
                             false,
+                            1.0, // volume already applied to master buffer above
                         );
                     }
 

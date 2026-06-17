@@ -1404,7 +1404,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
     } else if (item.type == LibraryItemType.effect && item is EffectItem) {
       child = Draggable<EffectItem>(
         data: item,
-        feedback: _buildDragFeedback(item.displayName, BI.lightning),
+        feedback: _buildDragFeedback(item.displayName, item.icon),
         childWhenDragging: Opacity(opacity: 0.5, child: child),
         onDragStarted: _handleDragStarted,
         child: child,
@@ -1634,7 +1634,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
       case LibraryItemType.instrument:
         return BI.piano;
       case LibraryItemType.effect:
-        return BI.lightning;
+        return item.icon;
       case LibraryItemType.vst3Instrument:
       case LibraryItemType.vst3Effect:
         return BI.plugin;

@@ -35,20 +35,6 @@ class DeviceDropdown {
     availablePlugins: availablePlugins,
   );
 
-  /// Show picker for an effect device (swap — called from the name-tap).
-  static Future<DeviceAction?> showForEffect(
-    BuildContext context,
-    Offset position, {
-    required String currentName,
-    List<Vst3Plugin> availablePlugins = const [],
-  }) => _show(
-    context,
-    position,
-    isInstrument: false,
-    currentName: currentName,
-    availablePlugins: availablePlugins,
-  );
-
   /// Show picker for adding a new effect (called from the "+" button).
   ///
   /// Same surface as [showForEffect] but anchored via [anchor] (button-aligned

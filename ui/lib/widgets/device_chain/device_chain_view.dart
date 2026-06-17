@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../audio_engine.dart';
@@ -17,6 +18,7 @@ import '../instrument_browser.dart';
 import '../shared/boojy_dropdown.dart';
 import '../vst3_instrument_view.dart';
 import '../synthesizer_panel.dart';
+import 'builtin_devices.dart';
 import 'device_box.dart';
 import 'device_dropdown.dart';
 import 'eq/eq_device_body.dart';
@@ -103,6 +105,19 @@ class _DeviceChainViewState extends State<DeviceChainView>
   bool _isExternalDragOver =
       false; // true when a compatible external item hovers over chain
 
+  // Internal reorder drag state — explicit so the drop indicator line is
+  // reliably shown/hidden (DragTarget.candidateData can get stale on fast
+  // moves or cancelled drags).
+  int? _draggingEffectId; // id of the effect currently being dragged
+  int? _dropHoverIndex; // index of the DragTarget currently hovered
+
+  // Horizontal scroll state — drives scrollbar, edge fades, and drag auto-scroll.
+  final ScrollController _chainScroll = ScrollController();
+  bool _chainOverflows = false; // true when content width > viewport width
+  ScrollableState?
+  _chainScrollableState; // captured from inside the scroll view
+  EdgeDraggingAutoScroller? _autoScroller; // live only during a reorder drag
+
   // Per-effect display levels (after decay smoothing). Key = effectId, or
   // [_trackMeterKey] for a built-in instrument metering the track output.
   final Map<int, (double, double)> _displayLevels = {};
@@ -148,6 +163,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
   void dispose() {
     _refreshTimer?.cancel();
     _meterTimer?.cancel();
+    _chainScroll.dispose();
     super.dispose();
   }
 
@@ -354,6 +370,13 @@ class _DeviceChainViewState extends State<DeviceChainView>
 
   Future<void> _addEffect(String type, {int? insertIndex}) async {
     if (widget.selectedTrackId == null) return;
+    // Clear any stale insertion-gap state (e.g. drag that ended without onLeave firing).
+    if (_externalDragInsertionIndex != null || _isExternalDragOver) {
+      setState(() {
+        _externalDragInsertionIndex = null;
+        _isExternalDragOver = false;
+      });
+    }
 
     final command = AddEffectCommand(
       trackId: widget.selectedTrackId!,
@@ -466,7 +489,9 @@ class _DeviceChainViewState extends State<DeviceChainView>
 
   IconData _getEffectIcon(String type) {
     if (type.startsWith('vst3:')) return BI.plugin;
-    return BI.lightning;
+    return builtinEffects
+        .firstWhere((e) => e.type == type, orElse: () => builtinEffects.first)
+        .icon;
   }
 
   // --- Dropdown handlers ---
@@ -511,48 +536,6 @@ class _DeviceChainViewState extends State<DeviceChainView>
         }
       case DeleteAction():
         break; // instruments are never deleted — every track needs one
-    }
-  }
-
-  Future<void> _showEffectDropdown(
-    BuildContext ctx,
-    EffectData effect,
-    String name,
-  ) async {
-    final box = ctx.findRenderObject() as RenderBox?;
-    if (box == null) return;
-    final position = box.localToGlobal(Offset.zero);
-
-    setState(() => _selectedDeviceId = effect.id);
-
-    final action = await DeviceDropdown.showForEffect(
-      ctx,
-      position,
-      currentName: name,
-      availablePlugins: _vst3Plugins,
-    );
-    if (action == null || !mounted) return;
-
-    switch (action) {
-      case ResetAction():
-        _resetEffectToDefaults(effect);
-      case SwapAction(:final type):
-        if (type.startsWith('vst3:')) {
-          final path = type.substring(5);
-          final plugin = _vst3Plugins.firstWhere(
-            (p) => p.path == path,
-            orElse: () => _vst3Plugins.first,
-          );
-          // Remove old, add VST3 at same position.
-          await _removeEffect(effect.id);
-          widget.onVst3EffectDropped?.call(plugin);
-        } else {
-          // Remove old built-in, add new built-in at same position.
-          await _removeEffect(effect.id);
-          await _addEffect(type);
-        }
-      case DeleteAction():
-        await _removeEffect(effect.id);
     }
   }
 
@@ -789,12 +772,70 @@ class _DeviceChainViewState extends State<DeviceChainView>
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final chainHeight = constraints.maxHeight;
-                  return SingleChildScrollView(
+
+                  // Detect overflow one frame after layout so the scroll
+                  // position is valid (mirrors the piano_roll pattern).
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted || !_chainScroll.hasClients) return;
+                    final overflows =
+                        _chainScroll.position.maxScrollExtent > 0.5;
+                    if (overflows != _chainOverflows) {
+                      setState(() => _chainOverflows = overflows);
+                    }
+                  });
+
+                  // The Builder inside the scroll view lets us capture
+                  // the ScrollableState for EdgeDraggingAutoScroller.
+                  final scrollView = SingleChildScrollView(
+                    controller: _chainScroll,
                     scrollDirection: Axis.horizontal,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: _buildChainItems(colors, chainHeight),
+                    child: Builder(
+                      builder: (innerCtx) {
+                        _chainScrollableState = Scrollable.maybeOf(innerCtx);
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: _buildChainItems(colors, chainHeight),
+                        );
+                      },
                     ),
+                  );
+
+                  // Wrap with scrollbar only when the chain overflows.
+                  final Widget chain = _chainOverflows
+                      ? Scrollbar(controller: _chainScroll, child: scrollView)
+                      : scrollView;
+
+                  // Mouse-wheel → horizontal scroll (vertical wheel pans the
+                  // chain; trackpad two-finger swipe is handled by the scroll
+                  // view directly). Also drives edge auto-scroll during reorder.
+                  return Listener(
+                    onPointerSignal: (event) {
+                      if (event is PointerScrollEvent &&
+                          _chainScroll.hasClients) {
+                        final maxExtent = _chainScroll.position.maxScrollExtent;
+                        final newOffset =
+                            (_chainScroll.offset + event.scrollDelta.dy).clamp(
+                              0.0,
+                              maxExtent,
+                            );
+                        _chainScroll.jumpTo(newOffset);
+                      }
+                    },
+                    onPointerMove: (event) {
+                      if (_draggingEffectId == null || _autoScroller == null) {
+                        return;
+                      }
+                      // Pass a rect wide enough to create a ~80px trigger zone
+                      // near each edge: auto-scroll starts when the cursor
+                      // nears the viewport edge and speeds up as it approaches.
+                      final dragRect = Rect.fromCenter(
+                        center: event.position,
+                        width: 160,
+                        height: 1,
+                      );
+                      _autoScroller!.startAutoScrollIfNecessary(dragRect);
+                    },
+                    child: chain,
                   );
                 },
               ),
@@ -867,6 +908,14 @@ class _DeviceChainViewState extends State<DeviceChainView>
       items.add(_buildInsertionGap(colors, chainHeight));
     }
 
+    // Reorder gap BEFORE the first effect.
+    // Each gap widget is a DragTarget<int> with a dedicated hit zone —
+    // separate from the cards so there is never a boundary-miss where
+    // releasing on the wrong card's DragTarget silently rejects the drop.
+    if (_effects.isNotEmpty) {
+      items.add(_buildReorderGap(colors, chainHeight, 0));
+    }
+
     // Effect device boxes (draggable for reorder + external drop targets)
     for (var i = 0; i < _effects.length; i++) {
       final effect = _effects[i];
@@ -879,12 +928,16 @@ class _DeviceChainViewState extends State<DeviceChainView>
             final idx = _externalDragInsertionIndex;
             _handleEffectDrop(details.data, insertIndex: idx);
           },
-          onLeave: (_) {
+          onLeave: (data) {
+            if (data is int) return; // Internal reorder — not an external drop
             if (_externalDragInsertionIndex == i + 1) {
               setState(() => _externalDragInsertionIndex = null);
             }
           },
           onMove: (details) {
+            if (details.data is int) {
+              return; // Internal reorder — not an external drop
+            }
             if (_externalDragInsertionIndex != i + 1) {
               setState(() {
                 _externalDragInsertionIndex = i + 1;
@@ -893,57 +946,49 @@ class _DeviceChainViewState extends State<DeviceChainView>
             }
           },
           builder: (context, candidates, rejected) {
-            // Inner: internal reorder DragTarget + LongPressDraggable
-            return DragTarget<int>(
-              onWillAcceptWithDetails: (details) => details.data != effect.id,
-              onAcceptWithDetails: (details) {
-                _reorderEffect(details.data, i);
-              },
-              builder: (context, candidateData, rejectedData) {
-                final isDropTarget = candidateData.isNotEmpty;
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (isDropTarget)
-                      Container(
-                        width: 2,
-                        color: colors.accent,
-                        margin: const EdgeInsets.symmetric(horizontal: 2),
-                      ),
-                    SizedBox(
-                      height: chainHeight,
-                      child: LongPressDraggable<int>(
-                        data: effect.id,
-                        axis: Axis.horizontal,
-                        feedback: Material(
-                          color: Colors.transparent,
-                          child: Opacity(
-                            opacity: 0.75,
-                            child: SizedBox(
-                              width: _getEffectWidth(effect.type),
-                              height: 120,
-                              child: _buildEffectDevice(colors, effect),
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Opacity(
-                          opacity: 0.3,
-                          child: _buildEffectDevice(colors, effect),
-                        ),
-                        child: _buildEffectDevice(colors, effect),
-                      ),
-                    ),
-                  ],
-                );
-              },
+            return SizedBox(
+              height: chainHeight,
+              child: LongPressDraggable<int>(
+                data: effect.id,
+                delay: const Duration(milliseconds: 150),
+                onDragStarted: () {
+                  setState(() => _draggingEffectId = effect.id);
+                  // Build the auto-scroller after the frame so the scroll
+                  // position is settled and _chainScrollableState is populated.
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    final scrollable = _chainScrollableState;
+                    if (scrollable != null) {
+                      _autoScroller = EdgeDraggingAutoScroller(
+                        scrollable,
+                        velocityScalar: 20,
+                      );
+                    }
+                  });
+                },
+                onDragEnd: (_) => setState(() {
+                  _draggingEffectId = null;
+                  _dropHoverIndex = null;
+                  _autoScroller?.stopAutoScroll();
+                  _autoScroller = null;
+                }),
+                feedback: _buildEffectDragCapsule(
+                  colors,
+                  _getEffectDisplayName(effect.type),
+                  _getEffectIcon(effect.type),
+                ),
+                childWhenDragging: _buildEffectDevice(colors, effect),
+                child: _buildEffectDevice(colors, effect),
+              ),
             );
           },
         ),
       );
-      items.add(_buildArrow(colors, chainHeight));
+      // Arrow doubles as the reorder drop target — transforms to a blue line
+      // when hovered during a drag, with no layout shift.
+      items.add(_buildArrowReorderTarget(colors, chainHeight, i + 1));
 
-      // Insertion gap after this effect
+      // External insertion gap after this effect (library drops only)
       if (_externalDragInsertionIndex == i + 1) {
         items.add(_buildInsertionGap(colors, chainHeight));
       }
@@ -953,12 +998,8 @@ class _DeviceChainViewState extends State<DeviceChainView>
     if (_effects.isEmpty) {
       items.add(_buildEffectHintPlaceholderWithDragTarget(colors, chainHeight));
     } else {
-      // Insertion gap at the end (before [+] button)
-      if (_externalDragInsertionIndex == _effects.length &&
-          _externalDragInsertionIndex != 0) {
-        // Gap already added after last effect above
-      }
-      // [+] Add effect button (only when effects already exist)
+      // [+] Add effect button (only when effects already exist).
+      // Insertion gap before it is handled inside the builder via candidates.
       items.add(_buildAddButtonWithDragTarget(colors, chainHeight));
     }
 
@@ -1049,7 +1090,10 @@ class _DeviceChainViewState extends State<DeviceChainView>
       onAcceptWithDetails: (details) {
         _handleEffectDrop(details.data, insertIndex: insertIndex);
       },
-      onMove: (_) {
+      onMove: (details) {
+        if (details.data is int) {
+          return; // Internal reorder — not an external drop
+        }
         if (_externalDragInsertionIndex != insertIndex) {
           setState(() {
             _externalDragInsertionIndex = insertIndex;
@@ -1057,7 +1101,8 @@ class _DeviceChainViewState extends State<DeviceChainView>
           });
         }
       },
-      onLeave: (_) {
+      onLeave: (data) {
+        if (data is int) return; // Internal reorder — not an external drop
         if (_externalDragInsertionIndex == insertIndex) {
           setState(() => _externalDragInsertionIndex = null);
         }
@@ -1281,7 +1326,10 @@ class _DeviceChainViewState extends State<DeviceChainView>
 
   Widget _buildEffectDevice(BoojyColors colors, EffectData effect) {
     final levels = _displayLevels[effect.id] ?? (0.0, 0.0);
+    final isSelected = _selectedDeviceId == effect.id;
     return GestureDetector(
+      // Tap on the card body (not the name header) → select only, no dropdown.
+      onTap: () => setState(() => _selectedDeviceId = effect.id),
       onSecondaryTapUp: (details) =>
           _showEffectContextMenu(details.globalPosition, effect),
       child: DeviceBox(
@@ -1293,17 +1341,13 @@ class _DeviceChainViewState extends State<DeviceChainView>
         name: _getEffectDisplayName(effect.type),
         icon: _getEffectIcon(effect.type),
         isEnabled: !effect.bypassed,
-        isSelected: _selectedDeviceId == effect.id,
+        isSelected: isSelected,
         width: _getEffectWidth(effect.type),
         expandContent: effect.type == 'eq',
         leftLevel: levels.$1,
         rightLevel: levels.$2,
         onToggleEnabled: () => _toggleBypass(effect.id),
-        onNameTap: () => _showEffectDropdown(
-          context,
-          effect,
-          _getEffectDisplayName(effect.type),
-        ),
+        onNameTap: () => setState(() => _selectedDeviceId = effect.id),
         child: effect.type == 'eq'
             ? EqDeviceBody(
                 effect: effect,
@@ -1317,6 +1361,98 @@ class _DeviceChainViewState extends State<DeviceChainView>
                 },
               )
             : _buildEffectContent(effect),
+      ),
+    );
+  }
+
+  /// Dedicated drop zone between effect cards for reorder.
+  ///
+  /// Width 0 when no drag is active; 8px (invisible) during drag so there is
+  /// a comfortable hit zone; 14px (with accent line) when actively hovered.
+  /// Separate from the card DragTargets so a drop on the line always lands on
+  /// the right target regardless of cursor precision.
+  Widget _buildReorderGap(
+    BoojyColors colors,
+    double chainHeight,
+    int gapIndex,
+  ) {
+    final isDragActive = _draggingEffectId != null;
+    final isHovered = _dropHoverIndex == gapIndex && isDragActive;
+
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (details) {
+        if (_draggingEffectId == null) return false;
+        final srcIdx = _effects.indexWhere((e) => e.id == details.data);
+        // Suppress the gap directly before the dragged card — it's a no-op.
+        if (srcIdx == -1 || gapIndex == srcIdx) return false;
+        return true;
+      },
+      onMove: (_) {
+        if (_dropHoverIndex != gapIndex) {
+          setState(() => _dropHoverIndex = gapIndex);
+        }
+      },
+      onLeave: (_) {
+        if (_dropHoverIndex == gapIndex) setState(() => _dropHoverIndex = null);
+      },
+      onAcceptWithDetails: (details) {
+        setState(() {
+          _draggingEffectId = null;
+          _dropHoverIndex = null;
+        });
+        _reorderEffect(details.data, gapIndex);
+      },
+      builder: (context, candidates, rejected) {
+        if (!isDragActive) return const SizedBox.shrink();
+        return SizedBox(
+          width: isHovered ? 14 : 8,
+          height: chainHeight,
+          child: isHovered
+              ? Center(child: Container(width: 2, color: colors.accent))
+              : null,
+        );
+      },
+    );
+  }
+
+  /// Compact capsule shown as the drag feedback when reordering effects.
+  Widget _buildEffectDragCapsule(
+    BoojyColors colors,
+    String name,
+    IconData icon,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: colors.standard,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: colors.accent, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: colors.accent),
+            const SizedBox(width: 6),
+            Text(
+              name,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 12,
+                fontWeight: BT.weightMedium,
+                decoration: TextDecoration.none,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1491,7 +1627,10 @@ class _DeviceChainViewState extends State<DeviceChainView>
       onAcceptWithDetails: (details) {
         _handleEffectDrop(details.data);
       },
-      onMove: (_) {
+      onMove: (details) {
+        if (details.data is int) {
+          return; // Internal reorder — not an external drop
+        }
         if (!_isExternalDragOver) {
           setState(() {
             _isExternalDragOver = true;
@@ -1499,7 +1638,8 @@ class _DeviceChainViewState extends State<DeviceChainView>
           });
         }
       },
-      onLeave: (_) {
+      onLeave: (data) {
+        if (data is int) return; // Internal reorder — not an external drop
         setState(() {
           _isExternalDragOver = false;
           _externalDragInsertionIndex = null;
@@ -1507,53 +1647,70 @@ class _DeviceChainViewState extends State<DeviceChainView>
       },
       builder: (context, candidates, rejected) {
         final isHovered = candidates.isNotEmpty;
-        return _wrapWithDragHighlight(
-          isActive: isHovered,
-          borderRadius: 6,
-          child: _buildEffectHintPlaceholder(colors, chainHeight),
+        return SizedBox(
+          height: chainHeight,
+          child: Center(
+            child: _wrapWithDragHighlight(
+              isActive: isHovered,
+              borderRadius: 6,
+              child: _buildEffectHintContent(colors, chainHeight),
+            ),
+          ),
         );
       },
     );
   }
 
-  /// [+] button wrapped with DragTarget for effect drops (append).
+  /// Add-effect slot (always visible when effects exist) — same appearance as
+  /// the empty-chain hint placeholder.
   Widget _buildAddButtonWithDragTarget(BoojyColors colors, double chainHeight) {
     return DragTarget<Object>(
       onWillAcceptWithDetails: (details) => _isEffectDragData(details.data),
       onAcceptWithDetails: (details) {
         _handleEffectDrop(details.data);
       },
-      onMove: (_) {
-        if (!_isExternalDragOver) {
-          setState(() {
-            _isExternalDragOver = true;
-            _externalDragInsertionIndex = _effects.length;
-          });
+      onMove: (details) {
+        if (details.data is int) {
+          return; // Internal reorder — not an external drop
         }
+        if (!_isExternalDragOver) setState(() => _isExternalDragOver = true);
       },
-      onLeave: (_) {
-        setState(() {
-          _isExternalDragOver = false;
-          _externalDragInsertionIndex = null;
-        });
+      onLeave: (data) {
+        if (data is int) return; // Internal reorder — not an external drop
+        if (_isExternalDragOver) setState(() => _isExternalDragOver = false);
       },
       builder: (context, candidates, rejected) {
         final isHovered = candidates.isNotEmpty;
-        return _wrapWithDragHighlight(
-          isActive: isHovered,
-          borderRadius: 6,
-          child: _buildAddButton(colors, chainHeight),
+        // Insertion gap driven by candidates (not _externalDragInsertionIndex)
+        // so it self-clears when the drag ends while still over this button
+        // (onLeave does not fire on drag-end-in-place).
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isHovered) _buildInsertionGap(colors, chainHeight),
+            SizedBox(
+              height: chainHeight,
+              child: Center(
+                child: _wrapWithDragHighlight(
+                  isActive: isHovered,
+                  borderRadius: 6,
+                  child: _buildEffectHintContent(colors, chainHeight),
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
   }
 
-  Widget _buildEffectHintPlaceholder(BoojyColors colors, double chainHeight) {
+  /// The visible "Add an effect" box — used by both the empty-chain placeholder
+  /// and the always-visible add slot. Centering in the chain row is handled by
+  /// the caller.
+  Widget _buildEffectHintContent(BoojyColors colors, double chainHeight) {
     return Builder(
-      builder: (placeholderContext) => GestureDetector(
-        onTap: () {
-          _showAddEffectMenu(placeholderContext, colors);
-        },
+      builder: (ctx) => GestureDetector(
+        onTap: () => _showAddEffectMenu(ctx, colors),
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
           child: Container(
@@ -1561,10 +1718,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
             height: chainHeight.clamp(80, 120),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: colors.divider,
-                style: BorderStyle.solid,
-              ),
+              border: Border.all(color: colors.divider),
             ),
             child: Center(
               child: Column(
@@ -1602,35 +1756,54 @@ class _DeviceChainViewState extends State<DeviceChainView>
     );
   }
 
-  // --- Add effect button ---
+  /// Arrow that doubles as the reorder drop target during internal drags.
+  /// Shows → normally; turns into a 2px accent line when the pointer hovers
+  /// over it while an effect is being dragged. No layout shift — the widget
+  /// stays the same width in both states.
+  Widget _buildArrowReorderTarget(
+    BoojyColors colors,
+    double chainHeight,
+    int dropIndex,
+  ) {
+    final isDragActive = _draggingEffectId != null;
+    final isHovered = isDragActive && _dropHoverIndex == dropIndex;
 
-  Widget _buildAddButton(BoojyColors colors, double chainHeight) {
-    // Builder gives the menu the BUTTON's context — the State's `context` is
-    // the whole chain view, which anchored the popup to the panel's far-right
-    // edge instead of the [+] (v0.6 dogfood A5).
-    return Builder(
-      builder: (buttonContext) => GestureDetector(
-        onTap: () => _showAddEffectMenu(buttonContext, colors),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Container(
-            width: 40,
-            // Full chain height so the empty slot lines up with the device
-            // cards beside it (a shorter pill read as a different control).
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (details) {
+        if (_draggingEffectId == null) return false;
+        final srcIdx = _effects.indexWhere((e) => e.id == details.data);
+        if (srcIdx == -1) return false;
+        // Suppress the two no-op positions flanking the dragged card.
+        if (dropIndex == srcIdx || dropIndex == srcIdx + 1) return false;
+        return true;
+      },
+      onMove: (_) {
+        if (_dropHoverIndex != dropIndex) {
+          setState(() => _dropHoverIndex = dropIndex);
+        }
+      },
+      onLeave: (_) {
+        if (_dropHoverIndex == dropIndex) {
+          setState(() => _dropHoverIndex = null);
+        }
+      },
+      onAcceptWithDetails: (details) {
+        setState(() {
+          _draggingEffectId = null;
+          _dropHoverIndex = null;
+        });
+        _reorderEffect(details.data, dropIndex);
+      },
+      builder: (context, candidates, rejected) {
+        if (isHovered) {
+          return SizedBox(
+            width: 28,
             height: chainHeight,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: colors.divider,
-                style: BorderStyle.solid,
-              ),
-            ),
-            child: Center(
-              child: Icon(BI.add, size: 16, color: colors.textMuted),
-            ),
-          ),
-        ),
-      ),
+            child: Center(child: Container(width: 2, color: colors.accent)),
+          );
+        }
+        return _buildArrow(colors, chainHeight);
+      },
     );
   }
 
