@@ -103,6 +103,12 @@ class _DeviceChainViewState extends State<DeviceChainView>
   bool _isExternalDragOver =
       false; // true when a compatible external item hovers over chain
 
+  // Internal reorder drag state — explicit so the drop indicator line is
+  // reliably shown/hidden (DragTarget.candidateData can get stale on fast
+  // moves or cancelled drags).
+  int? _draggingEffectId; // id of the effect currently being dragged
+  int? _dropHoverIndex; // index of the DragTarget currently hovered
+
   // Per-effect display levels (after decay smoothing). Key = effectId, or
   // [_trackMeterKey] for a built-in instrument metering the track output.
   final Map<int, (double, double)> _displayLevels = {};
@@ -867,6 +873,14 @@ class _DeviceChainViewState extends State<DeviceChainView>
       items.add(_buildInsertionGap(colors, chainHeight));
     }
 
+    // Reorder gap BEFORE the first effect.
+    // Each gap widget is a DragTarget<int> with a dedicated hit zone —
+    // separate from the cards so there is never a boundary-miss where
+    // releasing on the wrong card's DragTarget silently rejects the drop.
+    if (_effects.isNotEmpty) {
+      items.add(_buildReorderGap(colors, chainHeight, 0));
+    }
+
     // Effect device boxes (draggable for reorder + external drop targets)
     for (var i = 0; i < _effects.length; i++) {
       final effect = _effects[i];
@@ -893,57 +907,38 @@ class _DeviceChainViewState extends State<DeviceChainView>
             }
           },
           builder: (context, candidates, rejected) {
-            // Inner: internal reorder DragTarget + LongPressDraggable
-            return DragTarget<int>(
-              onWillAcceptWithDetails: (details) => details.data != effect.id,
-              onAcceptWithDetails: (details) {
-                _reorderEffect(details.data, i);
-              },
-              builder: (context, candidateData, rejectedData) {
-                final isDropTarget = candidateData.isNotEmpty;
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (isDropTarget)
-                      Container(
-                        width: 2,
-                        color: colors.accent,
-                        margin: const EdgeInsets.symmetric(horizontal: 2),
-                      ),
-                    SizedBox(
-                      height: chainHeight,
-                      child: LongPressDraggable<int>(
-                        data: effect.id,
-                        axis: Axis.horizontal,
-                        feedback: Material(
-                          color: Colors.transparent,
-                          child: Opacity(
-                            opacity: 0.75,
-                            child: SizedBox(
-                              width: _getEffectWidth(effect.type),
-                              height: 120,
-                              child: _buildEffectDevice(colors, effect),
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Opacity(
-                          opacity: 0.3,
-                          child: _buildEffectDevice(colors, effect),
-                        ),
-                        child: _buildEffectDevice(colors, effect),
-                      ),
-                    ),
-                  ],
-                );
-              },
+            return SizedBox(
+              height: chainHeight,
+              child: LongPressDraggable<int>(
+                data: effect.id,
+                delay: const Duration(milliseconds: 150),
+                onDragStarted: () =>
+                    setState(() => _draggingEffectId = effect.id),
+                onDragEnd: (_) => setState(() {
+                  _draggingEffectId = null;
+                  _dropHoverIndex = null;
+                }),
+                feedback: _buildEffectDragCapsule(
+                  colors,
+                  _getEffectDisplayName(effect.type),
+                  _getEffectIcon(effect.type),
+                ),
+                childWhenDragging: Opacity(
+                  opacity: 0.3,
+                  child: _buildEffectDevice(colors, effect),
+                ),
+                child: _buildEffectDevice(colors, effect),
+              ),
             );
           },
         ),
       );
       items.add(_buildArrow(colors, chainHeight));
 
-      // Insertion gap after this effect
+      // Reorder gap AFTER this effect (= before the next effect, or after all)
+      items.add(_buildReorderGap(colors, chainHeight, i + 1));
+
+      // External insertion gap after this effect
       if (_externalDragInsertionIndex == i + 1) {
         items.add(_buildInsertionGap(colors, chainHeight));
       }
@@ -1281,7 +1276,10 @@ class _DeviceChainViewState extends State<DeviceChainView>
 
   Widget _buildEffectDevice(BoojyColors colors, EffectData effect) {
     final levels = _displayLevels[effect.id] ?? (0.0, 0.0);
+    final isSelected = _selectedDeviceId == effect.id;
     return GestureDetector(
+      // Tap on the card body (not the name header) → select only, no dropdown.
+      onTap: () => setState(() => _selectedDeviceId = effect.id),
       onSecondaryTapUp: (details) =>
           _showEffectContextMenu(details.globalPosition, effect),
       child: DeviceBox(
@@ -1293,17 +1291,21 @@ class _DeviceChainViewState extends State<DeviceChainView>
         name: _getEffectDisplayName(effect.type),
         icon: _getEffectIcon(effect.type),
         isEnabled: !effect.bypassed,
-        isSelected: _selectedDeviceId == effect.id,
+        isSelected: isSelected,
         width: _getEffectWidth(effect.type),
         expandContent: effect.type == 'eq',
         leftLevel: levels.$1,
         rightLevel: levels.$2,
         onToggleEnabled: () => _toggleBypass(effect.id),
-        onNameTap: () => _showEffectDropdown(
-          context,
-          effect,
-          _getEffectDisplayName(effect.type),
-        ),
+        // First tap on the name → select. Second tap (already selected) → swap picker.
+        // This prevents the picker from opening on an accidental single click.
+        onNameTap: isSelected
+            ? () => _showEffectDropdown(
+                context,
+                effect,
+                _getEffectDisplayName(effect.type),
+              )
+            : () => setState(() => _selectedDeviceId = effect.id),
         child: effect.type == 'eq'
             ? EqDeviceBody(
                 effect: effect,
@@ -1317,6 +1319,98 @@ class _DeviceChainViewState extends State<DeviceChainView>
                 },
               )
             : _buildEffectContent(effect),
+      ),
+    );
+  }
+
+  /// Dedicated drop zone between effect cards for reorder.
+  ///
+  /// Width 0 when no drag is active; 8px (invisible) during drag so there is
+  /// a comfortable hit zone; 14px (with accent line) when actively hovered.
+  /// Separate from the card DragTargets so a drop on the line always lands on
+  /// the right target regardless of cursor precision.
+  Widget _buildReorderGap(
+    BoojyColors colors,
+    double chainHeight,
+    int gapIndex,
+  ) {
+    final isDragActive = _draggingEffectId != null;
+    final isHovered = _dropHoverIndex == gapIndex && isDragActive;
+
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (details) {
+        if (_draggingEffectId == null) return false;
+        final srcIdx = _effects.indexWhere((e) => e.id == details.data);
+        // Suppress the gap directly before the dragged card — it's a no-op.
+        if (srcIdx == -1 || gapIndex == srcIdx) return false;
+        return true;
+      },
+      onMove: (_) {
+        if (_dropHoverIndex != gapIndex) {
+          setState(() => _dropHoverIndex = gapIndex);
+        }
+      },
+      onLeave: (_) {
+        if (_dropHoverIndex == gapIndex) setState(() => _dropHoverIndex = null);
+      },
+      onAcceptWithDetails: (details) {
+        setState(() {
+          _draggingEffectId = null;
+          _dropHoverIndex = null;
+        });
+        _reorderEffect(details.data, gapIndex);
+      },
+      builder: (context, candidates, rejected) {
+        if (!isDragActive) return const SizedBox.shrink();
+        return SizedBox(
+          width: isHovered ? 14 : 8,
+          height: chainHeight,
+          child: isHovered
+              ? Center(child: Container(width: 2, color: colors.accent))
+              : null,
+        );
+      },
+    );
+  }
+
+  /// Compact capsule shown as the drag feedback when reordering effects.
+  Widget _buildEffectDragCapsule(
+    BoojyColors colors,
+    String name,
+    IconData icon,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: colors.standard,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: colors.accent, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: colors.accent),
+            const SizedBox(width: 6),
+            Text(
+              name,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 12,
+                fontWeight: BT.weightMedium,
+                decoration: TextDecoration.none,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

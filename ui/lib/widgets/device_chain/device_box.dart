@@ -108,12 +108,7 @@ class _DeviceBoxState extends State<DeviceBox> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: widget.isSelected
-                  ? colors.accent
-                  : _isHovered
-                  ? colors.hover
-                  : colors.divider,
-              width: widget.isSelected ? 2 : 1,
+              color: _isHovered ? colors.hover : colors.divider,
             ),
           ),
           // Clip the BODY to the inner radius rather than clipBehavior on the
@@ -121,7 +116,7 @@ class _DeviceBoxState extends State<DeviceBox> {
           // own rounded border shaves the outer half of the stroke at the
           // corner arcs (ragged-corner artifact).
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(widget.isSelected ? 4 : 5),
+            borderRadius: BorderRadius.circular(5),
             child: _buildBody(colors),
           ),
         ),
@@ -175,7 +170,11 @@ class _DeviceBoxState extends State<DeviceBox> {
     return Container(
       height: height,
       padding: EdgeInsets.symmetric(horizontal: hPad),
-      color: colors.dark,
+      // Selection shown here, not as a card-wide border. Accent tint on the
+      // header is the Ableton-style "this device is selected" signal.
+      color: widget.isSelected
+          ? Color.alphaBlend(colors.accent.withValues(alpha: 0.22), colors.dark)
+          : colors.dark,
       child: Row(
         children: [
           // Icon

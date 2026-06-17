@@ -105,12 +105,13 @@ class _DeviceStripState extends State<DeviceStrip> {
         border: Border(left: BorderSide(color: colors.divider)),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        // Less top padding so the dot sits near the top of the card (E1).
+        padding: const EdgeInsets.only(top: 2, bottom: 4),
         child: Column(
           children: [
             _buildOnOffDot(colors),
             if (widget.showFloat) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               _buildFloatIcon(colors),
             ],
             const SizedBox(height: 4),
@@ -128,15 +129,23 @@ class _DeviceStripState extends State<DeviceStrip> {
         onTap: widget.onToggleEnabled,
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
-          child: Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: widget.isEnabled ? colors.accent : Colors.transparent,
-              border: Border.all(
-                color: widget.isEnabled ? colors.accent : colors.textMuted,
-                width: 1.5,
+          // E1: full strip width × 22px tall tap zone so you don't have to
+          // be pixel-precise. Dot is 12px (up from 10px) for better visibility.
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: Center(
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.isEnabled ? colors.accent : Colors.transparent,
+                  border: Border.all(
+                    color: widget.isEnabled ? colors.accent : colors.textMuted,
+                    width: 1.5,
+                  ),
+                ),
               ),
             ),
           ),
