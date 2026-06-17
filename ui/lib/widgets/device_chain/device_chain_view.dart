@@ -935,8 +935,9 @@ class _DeviceChainViewState extends State<DeviceChainView>
             }
           },
           onMove: (details) {
-            if (details.data is int)
+            if (details.data is int) {
               return; // Internal reorder — not an external drop
+            }
             if (_externalDragInsertionIndex != i + 1) {
               setState(() {
                 _externalDragInsertionIndex = i + 1;
@@ -1090,8 +1091,9 @@ class _DeviceChainViewState extends State<DeviceChainView>
         _handleEffectDrop(details.data, insertIndex: insertIndex);
       },
       onMove: (details) {
-        if (details.data is int)
+        if (details.data is int) {
           return; // Internal reorder — not an external drop
+        }
         if (_externalDragInsertionIndex != insertIndex) {
           setState(() {
             _externalDragInsertionIndex = insertIndex;
@@ -1626,8 +1628,9 @@ class _DeviceChainViewState extends State<DeviceChainView>
         _handleEffectDrop(details.data);
       },
       onMove: (details) {
-        if (details.data is int)
+        if (details.data is int) {
           return; // Internal reorder — not an external drop
+        }
         if (!_isExternalDragOver) {
           setState(() {
             _isExternalDragOver = true;
@@ -1667,8 +1670,9 @@ class _DeviceChainViewState extends State<DeviceChainView>
         _handleEffectDrop(details.data);
       },
       onMove: (details) {
-        if (details.data is int)
+        if (details.data is int) {
           return; // Internal reorder — not an external drop
+        }
         if (!_isExternalDragOver) setState(() => _isExternalDragOver = true);
       },
       onLeave: (data) {
@@ -1774,12 +1778,14 @@ class _DeviceChainViewState extends State<DeviceChainView>
         return true;
       },
       onMove: (_) {
-        if (_dropHoverIndex != dropIndex)
+        if (_dropHoverIndex != dropIndex) {
           setState(() => _dropHoverIndex = dropIndex);
+        }
       },
       onLeave: (_) {
-        if (_dropHoverIndex == dropIndex)
+        if (_dropHoverIndex == dropIndex) {
           setState(() => _dropHoverIndex = null);
+        }
       },
       onAcceptWithDetails: (details) {
         setState(() {
