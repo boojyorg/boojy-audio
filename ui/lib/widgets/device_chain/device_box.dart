@@ -129,6 +129,9 @@ class _DeviceBoxState extends State<DeviceBox> {
       isEnabled: widget.isEnabled,
       isFloated: widget.isFloated,
       showFloat: widget.deviceKind == DeviceKind.vst3Plugin,
+      // Dot moves into the header when a header is present; keep it in the
+      // strip only for VST3 plugin instruments that have no header.
+      showOnOffDot: !_hasHeader,
       showVolumeThumb: widget.showVolumeThumb,
       leftLevel: widget.leftLevel,
       rightLevel: widget.rightLevel,
@@ -139,23 +142,28 @@ class _DeviceBoxState extends State<DeviceBox> {
       onVolumeChanged: widget.onVolumeChanged,
     );
 
-    final content = Column(
-      mainAxisSize: widget.expandContent ? MainAxisSize.max : MainAxisSize.min,
+    // Content row: device body beside the right strip.
+    final contentRow = Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_hasHeader) _buildHeader(colors),
-        if (_hasHeader) Container(height: 1, color: colors.divider),
         if (widget.expandContent)
           Expanded(child: widget.child)
         else
           widget.child,
+        strip,
       ],
     );
 
-    return Row(
+    // Header spans the full card width (including over the strip) so the dot
+    // sits in the very top-right corner. The strip only appears in the row
+    // below the header.
+    return Column(
+      mainAxisSize: widget.expandContent ? MainAxisSize.max : MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(child: content),
-        strip,
+        if (_hasHeader) _buildHeader(colors),
+        if (_hasHeader) Container(height: 1, color: colors.divider),
+        if (widget.expandContent) Expanded(child: contentRow) else contentRow,
       ],
     );
   }
@@ -167,9 +175,40 @@ class _DeviceBoxState extends State<DeviceBox> {
     final fontSize = isMini ? 11.0 : 12.0;
     final hPad = isMini ? 6.0 : 8.0;
 
+    // On/off dot: 12px → ×1.2 = 14px. Tap zone fills the header height so
+    // you don't have to be pixel-precise.
+    const dotSize = 14.0;
+    final dotWidget = Tooltip(
+      message: widget.isEnabled ? 'Disable' : 'Enable',
+      child: GestureDetector(
+        onTap: widget.onToggleEnabled,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: SizedBox(
+            width: height,
+            height: height,
+            child: Center(
+              child: Container(
+                width: dotSize,
+                height: dotSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.isEnabled ? colors.accent : Colors.transparent,
+                  border: Border.all(
+                    color: widget.isEnabled ? colors.accent : colors.textMuted,
+                    width: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
     return Container(
       height: height,
-      padding: EdgeInsets.symmetric(horizontal: hPad),
+      padding: EdgeInsets.only(left: hPad),
       // Selection shown here, not as a card-wide border. Accent tint on the
       // header is the Ableton-style "this device is selected" signal.
       color: widget.isSelected
@@ -200,6 +239,9 @@ class _DeviceBoxState extends State<DeviceBox> {
               ),
             ),
           ),
+          // On/off dot — right edge of header (no extra right padding; the
+          // tap zone SizedBox supplies the visual gap).
+          dotWidget,
         ],
       ),
     );

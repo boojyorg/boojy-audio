@@ -14,6 +14,7 @@ class DeviceStrip extends StatefulWidget {
   final bool isEnabled;
   final bool isFloated;
   final bool showFloat;
+  final bool showOnOffDot; // false when the dot is shown in the header instead
   final bool showVolumeThumb; // true for instruments only
   final double leftLevel; // 0.0-1.0 normalized
   final double rightLevel; // 0.0-1.0 normalized
@@ -28,6 +29,7 @@ class DeviceStrip extends StatefulWidget {
     required this.isEnabled,
     this.isFloated = false,
     this.showFloat = false,
+    this.showOnOffDot = true,
     this.showVolumeThumb = false,
     this.leftLevel = 0.0,
     this.rightLevel = 0.0,
@@ -109,7 +111,7 @@ class _DeviceStripState extends State<DeviceStrip> {
         padding: const EdgeInsets.only(top: 2, bottom: 4),
         child: Column(
           children: [
-            _buildOnOffDot(colors),
+            if (widget.showOnOffDot) _buildOnOffDot(colors),
             if (widget.showFloat) ...[
               const SizedBox(height: 6),
               _buildFloatIcon(colors),
