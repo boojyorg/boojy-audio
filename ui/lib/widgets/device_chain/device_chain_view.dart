@@ -13,9 +13,10 @@ import '../../theme/app_colors.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
-import '../effect_parameter_panel.dart';
 import '../instrument_browser.dart';
+import '../shared/arc_knob.dart';
 import '../shared/boojy_dropdown.dart';
+import 'effect_data.dart';
 import '../vst3_instrument_view.dart';
 import '../synthesizer_panel.dart';
 import 'builtin_devices.dart';
@@ -1343,7 +1344,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
         isEnabled: !effect.bypassed,
         isSelected: isSelected,
         width: _getEffectWidth(effect.type),
-        expandContent: effect.type == 'eq',
+        expandContent: !effect.type.startsWith('vst3:'),
         leftLevel: levels.$1,
         rightLevel: levels.$2,
         onToggleEnabled: () => _toggleBypass(effect.id),
@@ -1458,159 +1459,199 @@ class _DeviceChainViewState extends State<DeviceChainView>
   }
 
   double _getEffectWidth(String type) {
-    // Widths include 24px right strip
+    // Widths include 22px right strip.
     switch (type) {
       case 'compressor':
-        return 192; // 170 + 22
+        return 212; // 5 knobs — needs extra room (190px content)
       case 'eq':
-        return 360; // wide graph card (incl. 22px strip)
+        return 360; // wide graph card
       default:
-        return 172; // 150 + 22
+        return 172; // 3 knobs comfortable in 150px content
+    }
+  }
+
+  // Knob spec record: one entry per parameter per effect type.
+  // label = short all-caps label shown below the knob.
+  // def   = default value used when resetting.
+  static const _noKnobs =
+      <
+        ({
+          String label,
+          String param,
+          double min,
+          double max,
+          String unit,
+          double def,
+        })
+      >[];
+
+  static List<
+    ({
+      String label,
+      String param,
+      double min,
+      double max,
+      String unit,
+      double def,
+    })
+  >
+  _knobsForEffect(String type) {
+    switch (type) {
+      case 'compressor':
+        return [
+          (
+            label: 'THRESH',
+            param: 'threshold',
+            min: -60,
+            max: 0,
+            unit: 'dB',
+            def: -20,
+          ),
+          (label: 'RATIO', param: 'ratio', min: 1, max: 20, unit: ':1', def: 4),
+          (
+            label: 'ATTK',
+            param: 'attack',
+            min: 1,
+            max: 100,
+            unit: 'ms',
+            def: 10,
+          ),
+          (
+            label: 'REL',
+            param: 'release',
+            min: 10,
+            max: 1000,
+            unit: 'ms',
+            def: 100,
+          ),
+          (label: 'MIX', param: 'wet_dry', min: 0, max: 1, unit: '%', def: 1),
+        ];
+      case 'reverb':
+        return [
+          (
+            label: 'SIZE',
+            param: 'room_size',
+            min: 0,
+            max: 1,
+            unit: '',
+            def: 0.5,
+          ),
+          (label: 'DAMP', param: 'damping', min: 0, max: 1, unit: '', def: 0.5),
+          (label: 'MIX', param: 'wet_dry', min: 0, max: 1, unit: '%', def: 0.3),
+        ];
+      case 'delay':
+        return [
+          (
+            label: 'TIME',
+            param: 'time',
+            min: 10,
+            max: 2000,
+            unit: 'ms',
+            def: 250,
+          ),
+          (
+            label: 'FDBK',
+            param: 'feedback',
+            min: 0,
+            max: 0.99,
+            unit: '',
+            def: 0.3,
+          ),
+          (label: 'MIX', param: 'wet_dry', min: 0, max: 1, unit: '%', def: 0.3),
+        ];
+      case 'chorus':
+        return [
+          (
+            label: 'RATE',
+            param: 'rate',
+            min: 0.1,
+            max: 10,
+            unit: 'Hz',
+            def: 1.5,
+          ),
+          (label: 'DEPTH', param: 'depth', min: 0, max: 1, unit: '', def: 0.5),
+          (label: 'MIX', param: 'wet_dry', min: 0, max: 1, unit: '%', def: 0.5),
+        ];
+      case 'limiter':
+        return [
+          (
+            label: 'THRESH',
+            param: 'threshold',
+            min: -24,
+            max: 0,
+            unit: 'dB',
+            def: -1,
+          ),
+          (
+            label: 'REL',
+            param: 'release',
+            min: 10,
+            max: 1000,
+            unit: 'ms',
+            def: 100,
+          ),
+          (label: 'MIX', param: 'wet_dry', min: 0, max: 1, unit: '%', def: 1),
+        ];
+      default:
+        return _noKnobs;
     }
   }
 
   Widget _buildEffectContent(EffectData effect) {
-    return Opacity(
-      opacity: effect.bypassed ? 0.5 : 1.0,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 100),
-        child: Container(
-          color: context.colors.standard,
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: _buildParameterSliders(effect),
+    final knobs = _knobsForEffect(effect.type);
+    if (knobs.isEmpty) {
+      return Container(
+        color: context.colors.standard,
+        alignment: Alignment.center,
+        child: Text(
+          effect.type,
+          style: TextStyle(
+            color: context.colors.textMuted,
+            fontSize: BT.fontLabel,
           ),
         ),
-      ),
-    );
-  }
-
-  List<Widget> _buildParameterSliders(EffectData effect) {
-    // Note: 'eq' is handled by EqDeviceBody (graph), not these sliders.
-    switch (effect.type) {
-      case 'compressor':
-        return [
-          _paramSlider(effect, 'Thresh', 'threshold', -60, 0, 'dB'),
-          _paramSlider(effect, 'Ratio', 'ratio', 1, 20, ':1'),
-          _paramSlider(effect, 'Attack', 'attack', 1, 100, 'ms'),
-          _paramSlider(effect, 'Release', 'release', 10, 1000, 'ms'),
-          _paramSlider(effect, 'Mix', 'wet_dry', 0, 1, ''),
-        ];
-      case 'reverb':
-        return [
-          _paramSlider(effect, 'Size', 'room_size', 0, 1, ''),
-          _paramSlider(effect, 'Damp', 'damping', 0, 1, ''),
-          _paramSlider(effect, 'Mix', 'wet_dry', 0, 1, ''),
-        ];
-      case 'delay':
-        return [
-          _paramSlider(effect, 'Time', 'time', 10, 2000, 'ms'),
-          _paramSlider(effect, 'Fdbk', 'feedback', 0, 0.99, ''),
-          _paramSlider(effect, 'Mix', 'wet_dry', 0, 1, ''),
-        ];
-      case 'chorus':
-        return [
-          _paramSlider(effect, 'Rate', 'rate', 0.1, 10, 'Hz'),
-          _paramSlider(effect, 'Depth', 'depth', 0, 1, ''),
-          _paramSlider(effect, 'Mix', 'wet_dry', 0, 1, ''),
-        ];
-      case 'limiter':
-        return [
-          _paramSlider(effect, 'Thresh', 'threshold', -24, 0, 'dB'),
-          _paramSlider(effect, 'Release', 'release', 10, 1000, 'ms'),
-          _paramSlider(effect, 'Mix', 'wet_dry', 0, 1, ''),
-        ];
-      default:
-        return [
-          Center(
-            child: Text(
-              effect.type,
-              style: TextStyle(
-                color: context.colors.textMuted,
-                fontSize: BT.fontLabel,
-              ),
-            ),
-          ),
-        ];
+      );
     }
-  }
 
-  Widget _paramSlider(
-    EffectData effect,
-    String label,
-    String paramName,
-    double min,
-    double max,
-    String unit,
-  ) {
-    final paramKey = '${effect.id}:$paramName';
-    final value =
-        (_localParamOverrides[paramKey] ?? effect.parameters[paramName] ?? min)
-            .clamp(min, max);
-    final displayValue = max >= 100
-        ? value.round().toString()
-        : value.toStringAsFixed(1);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 42,
-            child: Text(
-              label,
-              style: TextStyle(color: context.colors.textMuted, fontSize: 10),
-            ),
-          ),
-          Expanded(
-            child: SliderTheme(
-              data: SliderThemeData(
-                trackHeight: 2,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 8),
-                activeTrackColor: context.colors.accent,
-                inactiveTrackColor: context.colors.surface,
-                thumbColor: context.colors.textSecondary,
+    return Opacity(
+      opacity: effect.bypassed ? 0.5 : 1.0,
+      child: Container(
+        color: context.colors.standard,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(
+          children: knobs.map((k) {
+            final paramKey = '${effect.id}:${k.param}';
+            final value =
+                (_localParamOverrides[paramKey] ??
+                        effect.parameters[k.param] ??
+                        k.def)
+                    .clamp(k.min, k.max);
+            return Expanded(
+              child: Center(
+                child: ArcKnob(
+                  label: k.label,
+                  value: value,
+                  min: k.min,
+                  max: k.max,
+                  unit: k.unit,
+                  enabled: !effect.bypassed,
+                  onChangeStart: (_) {
+                    _isDraggingSlider = true;
+                    _paramDragStartValues[paramKey] = value;
+                  },
+                  onChanged: (v) {
+                    setState(() => _localParamOverrides[paramKey] = v);
+                    _setEffectParameter(effect.id, k.param, v);
+                  },
+                  onChangeEnd: (v) {
+                    _isDraggingSlider = false;
+                    _commitEffectParameterChange(effect, k.param, v);
+                  },
+                ),
               ),
-              child: Slider(
-                value: value,
-                min: min,
-                max: max,
-                onChangeStart: effect.bypassed
-                    ? null
-                    : (_) {
-                        _isDraggingSlider = true;
-                        _paramDragStartValues[paramKey] = value;
-                      },
-                onChanged: effect.bypassed
-                    ? null
-                    : (v) {
-                        setState(() => _localParamOverrides[paramKey] = v);
-                        _setEffectParameter(effect.id, paramName, v);
-                      },
-                onChangeEnd: effect.bypassed
-                    ? null
-                    : (v) {
-                        _isDraggingSlider = false;
-                        _commitEffectParameterChange(effect, paramName, v);
-                      },
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 38,
-            child: Text(
-              '$displayValue$unit',
-              style: TextStyle(
-                color: context.colors.textMuted,
-                fontSize: 9,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-              textAlign: TextAlign.right,
-            ),
-          ),
-        ],
+            );
+          }).toList(),
+        ),
       ),
     );
   }
