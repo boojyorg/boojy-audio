@@ -1071,7 +1071,7 @@ mixin TimelineGestureLayerMixin
                       size: Size(clipWidth, totalHeight),
                       painter: ClipBorderPainter(
                         borderColor: isSelected
-                            ? context.colors.accent
+                            ? context.colors.textPrimary
                             : trackColor.withValues(alpha: 0.7),
                         trackColor: trackColor,
                         headerHeight: headerHeight,
@@ -2079,7 +2079,7 @@ mixin TimelineGestureLayerMixin
                             borderColor: isLiveRecording
                                 ? recordingColor
                                 : isSelected
-                                ? context.colors.accent
+                                ? context.colors.textPrimary
                                 : trackColor.withValues(alpha: 0.7),
                             trackColor: isLiveRecording
                                 ? recordingColor

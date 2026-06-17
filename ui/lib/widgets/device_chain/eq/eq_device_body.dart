@@ -7,7 +7,7 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/boojy_icons.dart';
 import '../../../theme/theme_extension.dart';
 import '../../../theme/tokens.dart';
-import '../../effect_parameter_panel.dart';
+import '../effect_data.dart';
 import '../../shared/mini_knob.dart';
 import 'eq_curve_painter.dart';
 
