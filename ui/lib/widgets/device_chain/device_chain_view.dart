@@ -114,7 +114,8 @@ class _DeviceChainViewState extends State<DeviceChainView>
   // Horizontal scroll state — drives scrollbar, edge fades, and drag auto-scroll.
   final ScrollController _chainScroll = ScrollController();
   bool _chainOverflows = false; // true when content width > viewport width
-  ScrollableState? _chainScrollableState; // captured from inside the scroll view
+  ScrollableState?
+  _chainScrollableState; // captured from inside the scroll view
   EdgeDraggingAutoScroller? _autoScroller; // live only during a reorder drag
 
   // Per-effect display levels (after decay smoothing). Key = effectId, or
@@ -147,7 +148,6 @@ class _DeviceChainViewState extends State<DeviceChainView>
       (_) => _updateMeterLevels(),
     );
   }
-
 
   @override
   void didUpdateWidget(DeviceChainView oldWidget) {
@@ -490,8 +490,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
   IconData _getEffectIcon(String type) {
     if (type.startsWith('vst3:')) return BI.plugin;
     return builtinEffects
-        .firstWhere((e) => e.type == type,
-            orElse: () => builtinEffects.first)
+        .firstWhere((e) => e.type == type, orElse: () => builtinEffects.first)
         .icon;
   }
 
@@ -806,7 +805,6 @@ class _DeviceChainViewState extends State<DeviceChainView>
                       ? Scrollbar(controller: _chainScroll, child: scrollView)
                       : scrollView;
 
-
                   // Mouse-wheel → horizontal scroll (vertical wheel pans the
                   // chain; trackpad two-finger swipe is handled by the scroll
                   // view directly). Also drives edge auto-scroll during reorder.
@@ -814,17 +812,17 @@ class _DeviceChainViewState extends State<DeviceChainView>
                     onPointerSignal: (event) {
                       if (event is PointerScrollEvent &&
                           _chainScroll.hasClients) {
-                        final maxExtent =
-                            _chainScroll.position.maxScrollExtent;
+                        final maxExtent = _chainScroll.position.maxScrollExtent;
                         final newOffset =
-                            (_chainScroll.offset + event.scrollDelta.dy)
-                                .clamp(0.0, maxExtent);
+                            (_chainScroll.offset + event.scrollDelta.dy).clamp(
+                              0.0,
+                              maxExtent,
+                            );
                         _chainScroll.jumpTo(newOffset);
                       }
                     },
                     onPointerMove: (event) {
-                      if (_draggingEffectId == null ||
-                          _autoScroller == null) {
+                      if (_draggingEffectId == null || _autoScroller == null) {
                         return;
                       }
                       // Pass a rect wide enough to create a ~80px trigger zone
@@ -937,7 +935,8 @@ class _DeviceChainViewState extends State<DeviceChainView>
             }
           },
           onMove: (details) {
-            if (details.data is int) return; // Internal reorder — not an external drop
+            if (details.data is int)
+              return; // Internal reorder — not an external drop
             if (_externalDragInsertionIndex != i + 1) {
               setState(() {
                 _externalDragInsertionIndex = i + 1;
@@ -1091,7 +1090,8 @@ class _DeviceChainViewState extends State<DeviceChainView>
         _handleEffectDrop(details.data, insertIndex: insertIndex);
       },
       onMove: (details) {
-        if (details.data is int) return; // Internal reorder — not an external drop
+        if (details.data is int)
+          return; // Internal reorder — not an external drop
         if (_externalDragInsertionIndex != insertIndex) {
           setState(() {
             _externalDragInsertionIndex = insertIndex;
@@ -1626,7 +1626,8 @@ class _DeviceChainViewState extends State<DeviceChainView>
         _handleEffectDrop(details.data);
       },
       onMove: (details) {
-        if (details.data is int) return; // Internal reorder — not an external drop
+        if (details.data is int)
+          return; // Internal reorder — not an external drop
         if (!_isExternalDragOver) {
           setState(() {
             _isExternalDragOver = true;
@@ -1666,7 +1667,8 @@ class _DeviceChainViewState extends State<DeviceChainView>
         _handleEffectDrop(details.data);
       },
       onMove: (details) {
-        if (details.data is int) return; // Internal reorder — not an external drop
+        if (details.data is int)
+          return; // Internal reorder — not an external drop
         if (!_isExternalDragOver) setState(() => _isExternalDragOver = true);
       },
       onLeave: (data) {
@@ -1741,7 +1743,6 @@ class _DeviceChainViewState extends State<DeviceChainView>
     );
   }
 
-
   // --- Signal flow arrow ---
 
   Widget _buildArrow(BoojyColors colors, double chainHeight) {
@@ -1773,10 +1774,12 @@ class _DeviceChainViewState extends State<DeviceChainView>
         return true;
       },
       onMove: (_) {
-        if (_dropHoverIndex != dropIndex) setState(() => _dropHoverIndex = dropIndex);
+        if (_dropHoverIndex != dropIndex)
+          setState(() => _dropHoverIndex = dropIndex);
       },
       onLeave: (_) {
-        if (_dropHoverIndex == dropIndex) setState(() => _dropHoverIndex = null);
+        if (_dropHoverIndex == dropIndex)
+          setState(() => _dropHoverIndex = null);
       },
       onAcceptWithDetails: (details) {
         setState(() {
