@@ -49,6 +49,14 @@ jobs:
       - name: Check formatting
         run: cd ui && dart format --set-exit-if-changed lib/ test/
 
+      # EH-1: guard the Sparkle feed URL so a rename never silently breaks
+      # auto-update. The URL must match the appcast push target in release.yml.
+      - name: Assert SUFeedURL in Info.plist
+        run: |
+          grep -q 'https://raw.githubusercontent.com/boojyorg/boojy-audio/master/appcast.xml' \
+            ui/macos/Runner/Info.plist || \
+            { echo "SUFeedURL mismatch in ui/macos/Runner/Info.plist"; exit 1; }
+
       - name: Analyze
         run: cd ui && flutter analyze --fatal-infos
 
@@ -97,7 +105,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
+          components: clippy, rustfmt
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
@@ -162,12 +170,19 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
+          # engine/rust-toolchain.toml pins the exact channel; specifying
+          # @stable here still honours the file (dtolnay reads it) — the explicit
+          # pin just makes the CI log unambiguous about which toolchain ran.
+          components: clippy, rustfmt
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: engine
+
+      # EH-3a: reject un-formatted Rust before tests run.
+      - name: Check Rust formatting
+        run: cd engine && cargo fmt --all -- --check
 
       - name: Clippy
         run: cd engine && cargo clippy --all-targets -- -D warnings

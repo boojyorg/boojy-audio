@@ -198,12 +198,13 @@ All markdown files must stay in sync with the current development version.
 
 ## Linting & Formatting
 
-- **Dart**: `flutter_lints` with 60+ rules in `analysis_options.yaml` — strict mode
+- **Dart**: `flutter_lints` with 44 explicit rules (~143 effective with flutter_lints) in `analysis_options.yaml` — strict mode
 - **Rust**: `clippy::pedantic` enabled with pragmatic exceptions in `lib.rs`
-- **Formatting**: `dart format` for Dart, `rustfmt` for Rust
+- **Formatting**: `fvm dart format` for Dart (macOS dev — use plain `dart format` on Windows where
+  FVM is not installed), `rustfmt` for Rust
 - **Debug logging**: Rust uses `println!` during development; Dart/Flutter uses `Log.d()/.e()/.i()`
   (`utils/logger.dart`), **not** `print()`.
-- Run `flutter analyze` and `cargo clippy` before submitting — CI rejects warnings
+- Run `fvm flutter analyze --fatal-infos` and `cargo clippy` before submitting — CI rejects warnings
 
 ## Claude Code–specific
 

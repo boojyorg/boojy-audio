@@ -283,7 +283,11 @@ fn process_effect_chain(
     for effect_id in fx_chain {
         if !silent && effect_mgr.is_bypassed(*effect_id) {
             // Bypassed: signal passes through, update peaks with passthrough level
-            effect_mgr.update_peaks(*effect_id, out_l.abs() * meter_gain, out_r.abs() * meter_gain);
+            effect_mgr.update_peaks(
+                *effect_id,
+                out_l.abs() * meter_gain,
+                out_r.abs() * meter_gain,
+            );
             continue;
         }
         if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
@@ -292,7 +296,11 @@ fn process_effect_chain(
             out_l = fx_l;
             out_r = fx_r;
             // Capture output peak after this effect, scaled to post-fader level
-            effect_mgr.update_peaks(*effect_id, out_l.abs() * meter_gain, out_r.abs() * meter_gain);
+            effect_mgr.update_peaks(
+                *effect_id,
+                out_l.abs() * meter_gain,
+                out_r.abs() * meter_gain,
+            );
         }
     }
     (out_l, out_r)
@@ -333,7 +341,11 @@ fn process_effect_chain_block(
     for effect_id in fx_chain {
         if !silent && effect_mgr.is_bypassed(*effect_id) {
             // Bypassed: signal passes through; meter the passthrough level.
-            effect_mgr.update_peaks(*effect_id, block_peak(left) * meter_gain, block_peak(right) * meter_gain);
+            effect_mgr.update_peaks(
+                *effect_id,
+                block_peak(left) * meter_gain,
+                block_peak(right) * meter_gain,
+            );
             continue;
         }
         if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
@@ -342,7 +354,11 @@ fn process_effect_chain_block(
                 effect.process_block(left, right);
             }
             // Capture output peak after this effect, scaled to post-fader level.
-            effect_mgr.update_peaks(*effect_id, block_peak(left) * meter_gain, block_peak(right) * meter_gain);
+            effect_mgr.update_peaks(
+                *effect_id,
+                block_peak(left) * meter_gain,
+                block_peak(right) * meter_gain,
+            );
         }
     }
 }
@@ -711,10 +727,8 @@ impl AudioGraph {
                                     } else {
                                         input_right
                                     };
-                                    track_left +=
-                                        input_sample * snap.monitoring_fade_gain as f32;
-                                    track_right +=
-                                        input_sample * snap.monitoring_fade_gain as f32;
+                                    track_left += input_sample * snap.monitoring_fade_gain as f32;
+                                    track_right += input_sample * snap.monitoring_fade_gain as f32;
                                 }
                             }
 
@@ -1245,7 +1259,8 @@ impl AudioGraph {
                     // isn't accompanied by the very bars being recorded over.
                     // The metronome is mixed in after the limiter, so it stays.
                     if recorder_refs.count_in_in_place.load(Ordering::Relaxed)
-                        && *recorder_refs.state.lock() == crate::recorder::RecordingState::CountingIn
+                        && *recorder_refs.state.lock()
+                            == crate::recorder::RecordingState::CountingIn
                     {
                         master_l[..sb_len].fill(0.0);
                         master_r[..sb_len].fill(0.0);

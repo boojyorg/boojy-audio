@@ -95,7 +95,14 @@ impl BiquadFilter {
     }
 
     /// Design a biquad filter at the given sample rate
-    fn design(&mut self, biquad_type: BiquadType, freq: f32, gain_db: f32, q: f32, sample_rate: f32) {
+    fn design(
+        &mut self,
+        biquad_type: BiquadType,
+        freq: f32,
+        gain_db: f32,
+        q: f32,
+        sample_rate: f32,
+    ) {
         let omega = 2.0 * PI * freq / sample_rate;
         let sin_omega = omega.sin();
         let cos_omega = omega.cos();
@@ -295,8 +302,10 @@ impl EqBand {
     fn update(&mut self, sample_rate: f32) {
         let bt = self.shape.biquad_type();
         let q = self.q();
-        self.filter_l.design(bt, self.freq, self.gain_db, q, sample_rate);
-        self.filter_r.design(bt, self.freq, self.gain_db, q, sample_rate);
+        self.filter_l
+            .design(bt, self.freq, self.gain_db, q, sample_rate);
+        self.filter_r
+            .design(bt, self.freq, self.gain_db, q, sample_rate);
     }
 
     fn reset(&mut self) {

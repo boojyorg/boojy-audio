@@ -45,9 +45,7 @@ pub(crate) fn slice_export_range(
         ));
     }
 
-    eprintln!(
-        "✂️ [Export] Trimming to range: {start_secs:.2}s – frame {start_frame}..{end_frame}"
-    );
+    eprintln!("✂️ [Export] Trimming to range: {start_secs:.2}s – frame {start_frame}..{end_frame}");
     Ok(samples[start_frame * 2..end_frame * 2].to_vec())
 }
 
@@ -377,7 +375,11 @@ mod tests {
         let reader = hound::WavReader::open(&temp_path).unwrap();
         let spec = reader.spec();
         assert_eq!(spec.channels, 1, "mono export must be 1 channel");
-        assert_eq!(reader.duration(), 48000, "mono frame count must match source");
+        assert_eq!(
+            reader.duration(),
+            48000,
+            "mono frame count must match source"
+        );
         assert!((result.duration - 1.0).abs() < 0.01);
 
         let _ = std::fs::remove_file(&temp_path);

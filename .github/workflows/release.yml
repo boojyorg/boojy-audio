@@ -40,7 +40,8 @@ jobs:
         run: |
           cd engine
           cargo build --release
-          cp target/release/libengine.dylib ../ui/assets/
+          # Note: the engine is linked directly at build time via the Xcode run
+          # script — the ui/assets/ copy below was dead and has been removed.
 
       - name: Flutter pub get
         run: |
@@ -74,13 +75,13 @@ jobs:
           security default-keychain -s build.keychain
           security unlock-keychain -p "$KEYCHAIN_PWD" build.keychain
 
-          # Import certificate
-          echo "$MACOS_CERTIFICATE" | base64 --decode > certificate.p12
-          security import certificate.p12 -k build.keychain -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign
+          # Import certificate — write to $RUNNER_TEMP so it's outside the
+          # working tree and cleaned up on any exit (trap covers failures too).
+          CERT_FILE="$RUNNER_TEMP/certificate.p12"
+          trap 'rm -f "$CERT_FILE"' EXIT
+          echo "$MACOS_CERTIFICATE" | base64 --decode > "$CERT_FILE"
+          security import "$CERT_FILE" -k build.keychain -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PWD" build.keychain
-
-          # Clean up
-          rm certificate.p12
 
       - name: Code sign app
         if: ${{ env.HAS_DEVELOPER_ID == 'true' }}
@@ -124,6 +125,11 @@ jobs:
             hdiutil create -volname "Boojy Audio" -srcfolder "ui/build/macos/Build/Products/Release/Boojy Audio.app" -ov -format UDZO "Boojy-Audio-${{ github.ref_name }}-mac.dmg"
           fi
 
+          # EH-15: assert the DMG was actually produced before downstream steps
+          # (notarize, sign-for-sparkle, size) operate on a missing file.
+          test -f "Boojy-Audio-${{ github.ref_name }}-mac.dmg" || \
+            { echo "DMG not found after Create DMG step"; exit 1; }
+
       - name: Notarize DMG
         if: ${{ env.HAS_APPLE_ID == 'true' }}
         env:
@@ -156,15 +162,18 @@ jobs:
           curl -L -o sparkle.tar.xz https://github.com/sparkle-project/Sparkle/releases/download/2.6.0/Sparkle-2.6.0.tar.xz
           tar xf sparkle.tar.xz
 
-          # Save private key to file
-          echo "$SPARKLE_PRIVATE_KEY" > sparkle_private_key
+          # Save private key to $RUNNER_TEMP (outside the working tree) and
+          # trap EXIT so it's always removed even if a later command fails.
+          SPARKLE_KEY_FILE="$RUNNER_TEMP/sparkle_private_key"
+          trap 'rm -f "$SPARKLE_KEY_FILE"' EXIT
+          echo "$SPARKLE_PRIVATE_KEY" > "$SPARKLE_KEY_FILE"
 
           # Generate EdDSA signature. sign_update prints the full XML attribute
           # string (sparkle:edSignature="…" length="…"), but the appcast
           # template adds its own sparkle:edSignature="…" wrapper — passing the
           # raw output through double-wrapped the attribute and broke
           # auto-update from v0.1.4 on. Extract the bare base64 here.
-          RAW_SIGNATURE=$(./bin/sign_update "Boojy-Audio-${{ github.ref_name }}-mac.dmg" -f sparkle_private_key)
+          RAW_SIGNATURE=$(./bin/sign_update "Boojy-Audio-${{ github.ref_name }}-mac.dmg" -f "$SPARKLE_KEY_FILE")
           SIGNATURE=$(printf '%s' "$RAW_SIGNATURE" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')
           if [ -z "$SIGNATURE" ]; then
             echo "Could not extract edSignature from sign_update output: $RAW_SIGNATURE" >&2
@@ -175,9 +184,6 @@ jobs:
           # Get file size
           FILE_SIZE=$(stat -f%z "Boojy-Audio-${{ github.ref_name }}-mac.dmg")
           echo "DMG_SIZE=$FILE_SIZE" >> $GITHUB_ENV
-
-          # Clean up
-          rm sparkle_private_key
 
       - name: Get DMG size (no Sparkle key)
         if: ${{ env.HAS_SPARKLE_KEY != 'true' }}
@@ -331,6 +337,14 @@ jobs:
         run: |
           VERSION="${{ github.ref_name }}"
           VERSION_NUM="${VERSION#v}"
+          # EH-4: assert the tag semver (X.Y.Z) matches ui/pubspec.yaml's semver
+          # (the part before '+') so a forgotten pubspec bump fails loudly here
+          # rather than shipping mismatched in-app version labels.
+          PUBSPEC_SEMVER=$(grep '^version:' ui/pubspec.yaml | sed 's/version: *//' | sed 's/+.*//' | tr -d '[:space:]')
+          if [ "$PUBSPEC_SEMVER" != "$VERSION_NUM" ]; then
+            echo "Version mismatch: tag is v$VERSION_NUM but ui/pubspec.yaml says $PUBSPEC_SEMVER" >&2
+            exit 1
+          fi
           # Sparkle compares the app's CFBundleVersion (the pubspec build number,
           # the part after '+') against sparkle:version — NOT the semver string.
           BUILD_NUM=$(grep '^version:' ui/pubspec.yaml | sed 's/.*+//' | tr -d '[:space:]')
@@ -400,5 +414,8 @@ jobs:
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add appcast.xml
-          git commit -m "Update appcast for ${{ github.ref_name }}" || echo "No changes to commit"
-          git push origin HEAD:master || echo "Could not push appcast update"
+          # The commit guard is legitimate (no-op when appcast didn't change),
+          # but the push must not be silenced — a failed push means auto-update
+          # is broken and the release job should fail loudly (EH-2a).
+          git diff --cached --quiet || git commit -m "Update appcast for ${{ github.ref_name }}"
+          git push origin HEAD:master

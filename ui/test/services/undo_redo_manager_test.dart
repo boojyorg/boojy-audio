@@ -276,5 +276,81 @@ void main() {
       final composite = CompositeCommand([], 'Test');
       expect(composite.timestamp, isNotNull);
     });
+
+    // EH-5: round-trip behavioural tests — execute calls children forward,
+    // undo calls children in reverse, and both round-trips survive
+    // UndoRedoManager.
+    test('execute runs children in forward order', () async {
+      final engine = MockAudioEngine();
+      final order = <String>[];
+      final cmd1 = _OrderTrackingCommand('A', order);
+      final cmd2 = _OrderTrackingCommand('B', order);
+      final cmd3 = _OrderTrackingCommand('C', order);
+      final composite = CompositeCommand([cmd1, cmd2, cmd3], 'Forward');
+
+      await composite.execute(engine);
+
+      expect(order, ['A:exec', 'B:exec', 'C:exec']);
+    });
+
+    test('undo runs children in reverse order', () async {
+      final engine = MockAudioEngine();
+      final order = <String>[];
+      final cmd1 = _OrderTrackingCommand('A', order);
+      final cmd2 = _OrderTrackingCommand('B', order);
+      final cmd3 = _OrderTrackingCommand('C', order);
+      final composite = CompositeCommand([cmd1, cmd2, cmd3], 'Reverse');
+
+      await composite.execute(engine);
+      order.clear();
+      await composite.undo(engine);
+
+      expect(order, ['C:undo', 'B:undo', 'A:undo']);
+    });
+
+    test('round-trips correctly through UndoRedoManager', () async {
+      final engine = MockAudioEngine();
+      final order = <String>[];
+      final mgr = UndoRedoManager()..clear();
+      mgr.initialize(engine);
+      final composite = CompositeCommand([
+        _OrderTrackingCommand('X', order),
+        _OrderTrackingCommand('Y', order),
+      ], 'Composite');
+
+      await mgr.execute(composite);
+      expect(order, ['X:exec', 'Y:exec']);
+      expect(mgr.canUndo, isTrue);
+
+      order.clear();
+      await mgr.undo();
+      expect(order, ['Y:undo', 'X:undo']);
+      expect(mgr.canUndo, isFalse);
+      expect(mgr.canRedo, isTrue);
+
+      order.clear();
+      await mgr.redo();
+      expect(order, ['X:exec', 'Y:exec']);
+    });
   });
+}
+
+/// Command that records its execute/undo calls tagged with [id] into [log].
+class _OrderTrackingCommand extends Command {
+  final String id;
+  final List<String> log;
+  _OrderTrackingCommand(this.id, this.log);
+
+  @override
+  String get description => id;
+
+  @override
+  Future<void> execute(AudioEngineInterface engine) async {
+    log.add('$id:exec');
+  }
+
+  @override
+  Future<void> undo(AudioEngineInterface engine) async {
+    log.add('$id:undo');
+  }
 }
