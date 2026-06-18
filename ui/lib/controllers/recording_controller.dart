@@ -26,8 +26,9 @@ class RecordingController extends ChangeNotifier {
   AudioEngine? _audioEngine;
   Timer? _recordingStateTimer;
   Timer? _midiHotplugTimer;
-  // Debounce: device must appear in two consecutive polls before we connect.
-  String? _pendingMidiDevice;
+  // One-shot timer: fires 800ms after a new device is first detected so the
+  // USB stack has time to settle before we open the port.
+  Timer? _midiConnectDebounceTimer;
 
   // Recording state
   bool _isRecording = false;
@@ -154,12 +155,15 @@ class RecordingController extends ChangeNotifier {
     if (_audioEngine == null) return;
     final newDevice = rescanMidiDevices();
     if (newDevice != null) {
-      // Debounce: require the device to appear in two consecutive polls before
-      // opening the port. macOS USB enumeration briefly shows 0 devices while
-      // registering, so a single-poll reaction fires a connect→disconnect→
-      // reconnect oscillation that can strand a note-on without its note-off.
-      if (_pendingMidiDevice == newDevice) {
-        _pendingMidiDevice = null;
+      // New device detected — schedule a one-shot connect after 800ms.
+      // This lets the USB stack settle before we open the port; it also
+      // prevents the connect→disconnect→reconnect oscillation that strands
+      // a note-on without its note-off (macOS briefly shows 0 devices while
+      // registering a new USB peripheral).
+      // Cancel any previous pending connect so rapid plug/unplug doesn't compound.
+      _midiConnectDebounceTimer?.cancel();
+      _midiConnectDebounceTimer = Timer(const Duration(milliseconds: 800), () {
+        if (_audioEngine == null) return;
         // rescanMidiDevices already called selectMidiInputDevice, but when
         // is_capturing()=false (cold-start) that doesn't open the port.
         try {
@@ -168,11 +172,7 @@ class RecordingController extends ChangeNotifier {
         } catch (e) {
           Log.e('RecordingController: hot-plug startMidiInput failed: $e');
         }
-      } else {
-        _pendingMidiDevice = newDevice;
-      }
-    } else {
-      _pendingMidiDevice = null;
+      });
     }
   }
 
@@ -749,6 +749,7 @@ class RecordingController extends ChangeNotifier {
   void dispose() {
     _recordingStateTimer?.cancel();
     _midiHotplugTimer?.cancel();
+    _midiConnectDebounceTimer?.cancel();
     super.dispose();
   }
 }
