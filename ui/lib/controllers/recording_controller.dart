@@ -25,6 +25,7 @@ class RecordingResult {
 class RecordingController extends ChangeNotifier {
   AudioEngine? _audioEngine;
   Timer? _recordingStateTimer;
+  Timer? _midiHotplugTimer;
 
   // Recording state
   bool _isRecording = false;
@@ -135,6 +136,30 @@ class RecordingController extends ChangeNotifier {
       Log.d('RecordingController: MIDI input started (always-on mode)');
     } catch (e) {
       Log.e('RecordingController: Failed to start MIDI input: $e');
+    }
+
+    // Poll for hot-plugged MIDI devices. When the app starts with no keyboard
+    // the initial startMidiInput() above fails silently; when a keyboard is
+    // plugged in later the Rust auto-reconnect guard only fires if a connection
+    // already exists. Polling every 2 s catches the cold-start case and keeps
+    // cross-platform parity (Core MIDI notifications are macOS-only).
+    _midiHotplugTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      _pollMidiHotplug();
+    });
+  }
+
+  void _pollMidiHotplug() {
+    if (_audioEngine == null) return;
+    final newDevice = rescanMidiDevices();
+    if (newDevice != null) {
+      // rescanMidiDevices called selectMidiInputDevice, but when is_capturing()
+      // is false (cold-start) that doesn't open the port — startMidiInput does.
+      try {
+        _audioEngine!.startMidiInput();
+        Log.d('RecordingController: MIDI hot-plug — $newDevice connected');
+      } catch (e) {
+        Log.e('RecordingController: hot-plug startMidiInput failed: $e');
+      }
     }
   }
 
@@ -710,6 +735,7 @@ class RecordingController extends ChangeNotifier {
   @override
   void dispose() {
     _recordingStateTimer?.cancel();
+    _midiHotplugTimer?.cancel();
     super.dispose();
   }
 }
