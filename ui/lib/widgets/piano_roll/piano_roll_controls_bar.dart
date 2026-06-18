@@ -159,17 +159,24 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
   bool _isHoveringQuantizeLabel = false;
   bool _isHoveringQuantizeDropdown = false;
 
-  // Quantize is a one-shot action, not a toggle: it briefly flashes accent on
-  // press to confirm it fired, then settles back to neutral (a toggle would
-  // instead *stay* lit). This is the visual cue that it applies rather than
-  // turning something on/off.
+  // One-shot actions pulse accent on press to confirm they fired, then settle
+  // back to neutral. This is the visual cue that it applied rather than toggled.
   bool _quantizePulse = false;
+  bool _legatoPulse = false;
 
   void _fireQuantize() {
     widget.onQuantize?.call();
     setState(() => _quantizePulse = true);
     Future.delayed(const Duration(milliseconds: 240), () {
       if (mounted) setState(() => _quantizePulse = false);
+    });
+  }
+
+  void _fireLegato() {
+    widget.onLegato?.call();
+    setState(() => _legatoPulse = true);
+    Future.delayed(const Duration(milliseconds: 240), () {
+      if (mounted) setState(() => _legatoPulse = false);
     });
   }
 
@@ -258,6 +265,14 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
 
                     // === SCALE GROUP ===
                     _buildScaleGroup(context),
+                    _buildSeparator(context),
+
+                    // === TRANSFORM GROUP (Legato) ===
+                    _buildTransformGroup(context),
+                    _buildSeparator(context),
+
+                    // === LANES GROUP (velocity / CC lane toggles) ===
+                    _buildLanesGroup(context),
                   ],
                 ),
               ),
@@ -370,6 +385,43 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
           onTap: widget.onHighlightToggle,
           tooltip:
               'Highlight the scale: mark root-note rows and dim out-of-scale notes',
+        ),
+      ],
+    );
+  }
+
+  // ============ TRANSFORM GROUP ============
+  // Minimal: Legato only. Stretch/Reverse/Humanize remain plumbed but unrendered.
+  // Legato is a one-shot action — uses the same press-flash pattern as Quantize.
+  Widget _buildTransformGroup(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildActionButton(
+          context,
+          icon: BI.linearScale,
+          label: 'Legato',
+          pulse: _legatoPulse,
+          onTap: widget.onLegato != null ? _fireLegato : null,
+          tooltip: 'Legato — extend each note to the start of the next',
+        ),
+      ],
+    );
+  }
+
+  // ============ LANES GROUP ============
+  // Toggle velocity lane open/closed. CC lane deferred (no opener shipped yet).
+  Widget _buildLanesGroup(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildToggleButton(
+          context,
+          icon: BI.chartLine,
+          label: 'Velocity',
+          isActive: widget.velocityLaneVisible,
+          onTap: widget.onVelocityLaneToggle,
+          tooltip: 'Toggle velocity lane',
         ),
       ],
     );
@@ -841,6 +893,68 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
   }
 
   // ============ HELPER WIDGETS ============
+
+  // One-shot action button: same chip shape as toggle buttons but uses a pulse
+  // bool rather than a persistent isActive state. Neutral at rest; flashes
+  // accent for ~240ms on press to confirm the action fired (like Quantize).
+  Widget _buildActionButton(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required bool pulse,
+    VoidCallback? onTap,
+    String? tooltip,
+  }) {
+    final colors = context.colors;
+    final mode = _displayMode;
+
+    final button = GestureDetector(
+      onTap: onTap,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+          decoration: BoxDecoration(
+            color: pulse
+                ? colors.accent.withValues(alpha: BT.opacityLight)
+                : colors.surface,
+            borderRadius: BT.borderMd,
+            border: Border.all(
+              color: pulse
+                  ? colors.accent.withValues(alpha: 0.7)
+                  : colors.textMuted,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (mode == _ButtonDisplayMode.wide) ...[
+                Icon(
+                  icon,
+                  size: 13,
+                  color: pulse ? colors.accent : colors.textSecondary,
+                ),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  color: pulse ? colors.textPrimary : colors.textSecondary,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (tooltip != null) {
+      return Tooltip(message: tooltip, child: button);
+    }
+    return button;
+  }
 
   Widget _buildToggleButton(
     BuildContext context, {
