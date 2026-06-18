@@ -821,8 +821,8 @@ impl AudioGraph {
                         if playhead_seconds >= timeline_clip.start_time
                             && playhead_seconds < clip_end
                         {
-                            let time_in_clip = timeline_clip
-                                .time_in_clip(playhead_seconds, effective_duration);
+                            let time_in_clip =
+                                timeline_clip.time_in_clip(playhead_seconds, effective_duration);
                             let clip_gain = timeline_clip.get_gain();
                             let pitch_ratio = f64::from(timeline_clip.get_pitch_ratio());
 
@@ -941,9 +941,8 @@ impl AudioGraph {
                                                     i as i32,
                                                 ));
                                             } else {
-                                                synth_manager.control_change(
-                                                    track_id, controller, value,
-                                                );
+                                                synth_manager
+                                                    .control_change(track_id, controller, value);
                                             }
                                         }
                                     }

@@ -190,8 +190,7 @@ pub extern "C" fn set_track_name_ffi(track_id: u64, name: *const c_char) -> *mut
         std::ptr::null_mut(),
         AssertUnwindSafe(|| {
             let Some(name_str) = (unsafe { cstr_arg(name) }) else {
-                return safe_cstring("Error: name is null or invalid UTF-8".to_string())
-                    .into_raw();
+                return safe_cstring("Error: name is null or invalid UTF-8".to_string()).into_raw();
             };
             match api::set_track_name(track_id, name_str.to_string()) {
                 Ok(msg) => safe_cstring(msg).into_raw(),

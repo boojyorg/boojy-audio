@@ -1,6 +1,6 @@
 # Boojy Audio Roadmap
 
-**Current Version:** v0.6.0
+**Current Version:** v0.7.0 (in development — not yet tagged)
 **Working On:** **v0.7.0 "Devices & Feel"** (the v0.6.1 patch was folded in unreleased — its
 five dogfood fixes merged via PR #101 and ship with v0.7.0) — spec:
 [plans/v0.7-plan.md](plans/v0.7-plan.md),
@@ -12,7 +12,7 @@ spec: [archive/plans/v0.6-plan.md](archive/plans/v0.6-plan.md).
 
 ---
 
-## What's Next (v0.4.0)
+## What's Next (v0.7.0)
 
 **Visual & UX polish** — the first dedicated UI/UX pass, scoped from the [2026-05-30 review](reviews/2026_05_30_ui_ux_review.md) and specced in [archive/plans/v0.4-plan.md](archive/plans/v0.4-plan.md). Sequenced **foundation → contained re-treats → top-bar A/B → chrome & dogfood polish**. Shipped: bundled Inter + JetBrains Mono, a unified "gunmetal" dark palette, a persisted UI Scale setting; piano-roll keyboard-contrast lanes + readout behaviour; the macOS title fix + top-bar A/B (Variant A won); a dogfood polish batch (shared ▲udio wordmark, centred transport, note resize in Select mode, type-coloured Add-Track buttons, dB-readout + Delete-focus fixes — PR #29); and two pre-tag fixes (VST3 instruments reopen with sound; narrow top-bar no longer overflows). The earlier quick-win bug batch folds into this release (no separate v0.3.3 tag). The piano-roll lane-colour refinement was **deferred to v0.5.0**.
 
@@ -56,6 +56,7 @@ Shipped in v0.3.2 — **plugins & the audio thread**: VST3 plugins processed a w
 | v0.5.3 | Windows installer fix (engine.dll was never bundled) + new app icon on macOS/Windows | Complete |
 | v0.5.4 | Windows file dialogs (Save As/Open/Export were macOS-only) + tour auto-start removed | Complete |
 | v0.6.0 | Sound (drum kit + starter sounds, automation, monitoring, join/reverse, sampler rebuild, UI fixes) | Complete |
+| v0.7.0 | Devices & Feel (Light theme, mixer cues, piano roll legibility, unified dropdowns/menus, device shell, knobs, Capture MIDI, riders, guardrails) | In progress |
 
 ---
 

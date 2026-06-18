@@ -146,7 +146,8 @@ pub extern "C" fn write_mp3_metadata_ffi(
                 return safe_cstring("Error: Invalid metadata JSON".to_string()).into_raw();
             };
 
-            match api::write_mp3_metadata(file_path_str.to_string(), metadata_json_str.to_string()) {
+            match api::write_mp3_metadata(file_path_str.to_string(), metadata_json_str.to_string())
+            {
                 Ok(msg) => safe_cstring(msg).into_raw(),
                 Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
             }

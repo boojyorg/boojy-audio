@@ -4,6 +4,13 @@
 #   ./build.sh release  # Release build (optimized)
 
 set -e
+
+# This script builds a macOS dylib — abort early on other platforms.
+if [ "$(uname)" != "Darwin" ]; then
+  echo "build.sh: macOS only (got $(uname)). Use the Xcode run script on macOS or CI on other platforms." >&2
+  exit 1
+fi
+
 cd "$(dirname "$0")/engine"
 
 # Use sccache if available (speeds up rebuilds)
