@@ -171,4 +171,6 @@ class BoojyIcons {
   static IconData get input => Icons.input;
   // ignore: non_constant_identifier_names
   static IconData get list => Icons.photo_library_outlined;
+  // Capture MIDI — "save the phrase you just played"
+  static IconData get captureMidi => Icons.note_add;
 }

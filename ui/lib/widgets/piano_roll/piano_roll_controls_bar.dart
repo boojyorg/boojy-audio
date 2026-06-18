@@ -258,6 +258,14 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
 
                     // === SCALE GROUP ===
                     _buildScaleGroup(context),
+                    _buildSeparator(context),
+
+                    // === TRANSFORM GROUP (Legato) ===
+                    _buildTransformGroup(context),
+                    _buildSeparator(context),
+
+                    // === LANES GROUP (velocity / CC lane toggles) ===
+                    _buildLanesGroup(context),
                   ],
                 ),
               ),
@@ -370,6 +378,53 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
           onTap: widget.onHighlightToggle,
           tooltip:
               'Highlight the scale: mark root-note rows and dim out-of-scale notes',
+        ),
+      ],
+    );
+  }
+
+  // ============ TRANSFORM GROUP ============
+  // Minimal: Legato only. Stretch/Reverse/Humanize remain plumbed but unrendered
+  // (declared in the Transform section params above) — add them when needed.
+  Widget _buildTransformGroup(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildToggleButton(
+          context,
+          icon: BI.linearScale,
+          label: 'Legato',
+          isActive: false,
+          onTap: widget.onLegato,
+          tooltip:
+              'Legato — extend each selected note to the next note of the same pitch',
+        ),
+      ],
+    );
+  }
+
+  // ============ LANES GROUP ============
+  // Toggle velocity and CC automation lanes open/closed.
+  Widget _buildLanesGroup(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildToggleButton(
+          context,
+          icon: BI.chartLine,
+          label: 'Vel',
+          isActive: widget.velocityLaneVisible,
+          onTap: widget.onVelocityLaneToggle,
+          tooltip: 'Toggle velocity lane',
+        ),
+        const SizedBox(width: 4),
+        _buildToggleButton(
+          context,
+          icon: BI.sliders,
+          label: 'CC',
+          isActive: widget.ccLaneVisible,
+          onTap: widget.onCCLaneToggle,
+          tooltip: 'Toggle MIDI CC automation lane',
         ),
       ],
     );

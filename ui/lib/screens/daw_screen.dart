@@ -2179,12 +2179,24 @@ class _DAWScreenState extends State<DAWScreen>
   }
 
   void _duplicateSelectedClip() {
-    final clip = midiPlaybackManager?.currentEditingClip;
-    if (clip == null) return;
+    // Try the currently-editing MIDI clip first.
+    final midiClip = midiPlaybackManager?.currentEditingClip;
+    if (midiClip != null) {
+      final newStartTime = midiClip.startTime + midiClip.duration;
+      onMidiClipCopied(midiClip, newStartTime);
+      return;
+    }
 
-    // Place duplicate immediately after original
-    final newStartTime = clip.startTime + clip.duration;
-    onMidiClipCopied(clip, newStartTime);
+    // Fall back to the selected audio clip in the arrangement (mirrors
+    // _quantizeSelectedClip's fallback pattern).
+    final audioClip = timelineKey.currentState?.selectedAudioClip;
+    if (audioClip != null) {
+      timelineKey.currentState?.duplicateAudioClip(audioClip);
+      if (mounted) statusMessage = 'Duplicated audio clip';
+      return;
+    }
+
+    if (mounted) statusMessage = 'Nothing to duplicate — select a clip first';
   }
 
   void _quantizeSelectedClip() {
@@ -2956,6 +2968,7 @@ class _DAWScreenState extends State<DAWScreen>
             onPositionChanged: (seconds) {
               playbackController.seek(seconds);
             },
+            onCaptureMidi: captureMidi,
           ),
           panels: PanelCallbacks(
             onToggleLibrary: _toggleLibraryPanel,

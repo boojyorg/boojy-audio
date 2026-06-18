@@ -24,6 +24,13 @@ mixin VelocityLaneMixin
     });
   }
 
+  /// Toggle CC automation lane visibility on/off
+  void toggleCCLane() {
+    setState(() {
+      ccLaneExpanded = !ccLaneExpanded;
+    });
+  }
+
   /// Handle velocity lane pan start
   void onVelocityPanStart(DragStartDetails details) {
     // Check if starting on a note - if so, begin drag

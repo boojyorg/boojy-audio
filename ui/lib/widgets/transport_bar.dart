@@ -15,6 +15,7 @@ import '../state/ui_layout_state.dart';
 import '../utils/track_colors.dart';
 import 'shared/add_track_button.dart';
 import 'shared/boojy_wordmark.dart';
+import 'shared/boojy_tooltip.dart';
 import 'shared/button_hover_mixin.dart';
 import 'shared/circular_toggle_button.dart';
 import 'shared/boojy_dropdown.dart';
@@ -954,7 +955,23 @@ class _TransportBarState extends State<TransportBar> {
             onCountInChanged: widget.onCountInChanged,
             size: transportBtnSize,
           ),
-          // MIDI Capture button removed (v0.2.1) — backend logic retained
+          // Capture MIDI: grab the phrase played unarmed from the capture buffer.
+          // Re-added in v0.7 (removed in v0.2.1; backend retained throughout).
+          if (widget.transport.onCaptureMidi != null) ...[
+            SizedBox(width: wGap),
+            BoojyTooltip(
+              title: 'Capture MIDI',
+              description: 'Save the phrase you just played into a new clip',
+              child: CircularToggleButton(
+                icon: BI.captureMidi,
+                enabled: false,
+                size: transportBtnSize - 8,
+                iconSize: BT.iconMd,
+                onPressed: widget.transport.onCaptureMidi,
+                showGlow: false,
+              ),
+            ),
+          ],
         ],
       ),
     );

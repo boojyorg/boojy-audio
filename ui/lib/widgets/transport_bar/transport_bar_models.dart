@@ -128,6 +128,11 @@ class TransportCallbacks {
   final VoidCallback? onPunchOutToggle;
   final Function(double seconds)? onPositionChanged;
 
+  /// Capture what was played unarmed — opens the CaptureMidiDialog.
+  /// Backend is in daw_clip_mixin.dart:captureMidi(); button was removed in
+  /// v0.2.1 but the backend was retained.
+  final VoidCallback? onCaptureMidi;
+
   const TransportCallbacks({
     this.onPlay,
     this.onPause,
@@ -145,6 +150,7 @@ class TransportCallbacks {
     this.onPunchInToggle,
     this.onPunchOutToggle,
     this.onPositionChanged,
+    this.onCaptureMidi,
   });
 }
 
