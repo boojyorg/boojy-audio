@@ -404,37 +404,44 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
   void applyLegato() {
     if (currentClip == null) return;
 
-    final selectedNotes = currentClip!.notes
-        .where((n) => n.isSelected)
-        .toList();
-    if (selectedNotes.isEmpty) return;
+    // If fewer than 2 notes are explicitly selected, apply legato to the whole
+    // clip (the "nothing seems to happen" fallback — one note can't extend to
+    // anything, and a silent no-op reads as broken).
+    final selected = currentClip!.notes.where((n) => n.isSelected).toList();
+    final notesToProcess = selected.length >= 2
+        ? selected
+        : currentClip!.notes.toList();
+    if (notesToProcess.length < 2) return;
 
     saveToHistory();
 
-    final notesByPitch = <int, List<MidiNoteData>>{};
-    for (final note in selectedNotes) {
-      notesByPitch.putIfAbsent(note.note, () => []).add(note);
-    }
+    // Sort by start time and extend each note to the start of the next note
+    // in time (standard legato, works across pitches; the last note is unchanged).
+    final sorted = [...notesToProcess]
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
-    for (final notes in notesByPitch.values) {
-      notes.sort((a, b) => a.startTime.compareTo(b.startTime));
+    final newDurations = <String, double>{};
+    for (int i = 0; i < sorted.length - 1; i++) {
+      // Find the nearest start time that is strictly after this note
+      double? nextStart;
+      for (int j = i + 1; j < sorted.length; j++) {
+        if (sorted[j].startTime > sorted[i].startTime) {
+          nextStart = sorted[j].startTime;
+          break;
+        }
+      }
+      if (nextStart != null) {
+        newDurations[sorted[i].id] = nextStart - sorted[i].startTime;
+      }
     }
 
     setState(() {
       currentClip = currentClip!.copyWith(
         notes: currentClip!.notes.map((note) {
-          if (!note.isSelected) return note;
-
-          final pitchNotes = notesByPitch[note.note]!;
-          final index = pitchNotes.indexWhere((n) => n.id == note.id);
-
-          if (index < pitchNotes.length - 1) {
-            final nextNote = pitchNotes[index + 1];
-            final newDuration = nextNote.startTime - note.startTime;
-            return note.copyWith(duration: newDuration);
-          }
-
-          return note;
+          final newDuration = newDurations[note.id];
+          return newDuration != null
+              ? note.copyWith(duration: newDuration)
+              : note;
         }).toList(),
       );
     });

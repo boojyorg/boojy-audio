@@ -127,31 +127,17 @@ class _PianoRollCCLaneState extends State<PianoRollCCLane> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          // Close button row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 6, top: 4),
-                child: Text(
-                  'MIDI CC',
-                  style: TextStyle(
-                    color: colors.textMuted,
-                    fontSize: 10,
-                    fontWeight: BT.weightMedium,
-                  ),
-                ),
-              ),
-              GestureDetector(
-                onTap: widget.onClose,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 4, top: 2),
-                  child: Icon(Icons.close, size: 12, color: colors.textMuted),
-                ),
-              ),
-            ],
+          const SizedBox(height: 8),
+          // MIDI CC label at top
+          Text(
+            'MIDI CC',
+            style: TextStyle(
+              color: colors.textMuted,
+              fontSize: 10,
+              fontWeight: BT.weightMedium,
+            ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           // CC type dropdown — unified filled-chip + themed menu (B2). The chip
           // shows the short name; the menu shows full displayNames.
           BoojyDropdown<MidiCCType>(

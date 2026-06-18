@@ -555,8 +555,6 @@ class _PianoRollState extends State<PianoRoll>
       // Lane visibility toggles (Randomize/CC type are in lane headers)
       velocityLaneVisible: velocityLaneExpanded,
       onVelocityLaneToggle: toggleVelocityLane,
-      ccLaneVisible: ccLaneExpanded,
-      onCCLaneToggle: toggleCCLane,
       clipAutomationLaneVisible:
           UIConstants.enableClipAutomation && clipAutomationLaneExpanded,
       onClipAutomationLaneToggle: UIConstants.enableClipAutomation

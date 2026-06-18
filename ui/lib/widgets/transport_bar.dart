@@ -870,6 +870,13 @@ class _TransportBarState extends State<TransportBar> {
               onToggle: widget.transport.onMetronomeToggle,
               onCountInChanged: widget.onCountInChanged,
             ),
+            // Capture MIDI — momentary bordered button; lives next to the metronome
+            // because it's a utility modifier, not a primary transport control.
+            // Shown only when the backend callback is wired (v0.7+).
+            if (widget.transport.onCaptureMidi != null) ...[
+              SizedBox(width: wGap),
+              _CaptureButton(onCaptureMidi: widget.transport.onCaptureMidi),
+            ],
           ],
         ),
       ),
@@ -955,23 +962,6 @@ class _TransportBarState extends State<TransportBar> {
             onCountInChanged: widget.onCountInChanged,
             size: transportBtnSize,
           ),
-          // Capture MIDI: grab the phrase played unarmed from the capture buffer.
-          // Re-added in v0.7 (removed in v0.2.1; backend retained throughout).
-          if (widget.transport.onCaptureMidi != null) ...[
-            SizedBox(width: wGap),
-            BoojyTooltip(
-              title: 'Capture MIDI',
-              description: 'Save the phrase you just played into a new clip',
-              child: CircularToggleButton(
-                icon: BI.captureMidi,
-                enabled: false,
-                size: transportBtnSize - 8,
-                iconSize: BT.iconMd,
-                onPressed: widget.transport.onCaptureMidi,
-                showGlow: false,
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -1375,6 +1365,69 @@ class _HelpButtonState extends State<_HelpButton> with ButtonHoverMixin {
                 BI.help,
                 size: BT.iconLg,
                 color: isHovered ? colors.textPrimary : colors.textSecondary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Momentary "Capture MIDI" button — bordered like the metronome, flashes
+/// accent on press (same press-flash cue as Quantize) to confirm it fired.
+class _CaptureButton extends StatefulWidget {
+  final VoidCallback? onCaptureMidi;
+
+  const _CaptureButton({this.onCaptureMidi});
+
+  @override
+  State<_CaptureButton> createState() => _CaptureButtonState();
+}
+
+class _CaptureButtonState extends State<_CaptureButton> {
+  bool _pulse = false;
+
+  void _fire() {
+    widget.onCaptureMidi?.call();
+    setState(() => _pulse = true);
+    Future.delayed(const Duration(milliseconds: 240), () {
+      if (mounted) setState(() => _pulse = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final borderColor = _pulse ? colors.accent : colors.textMuted;
+    final iconColor = _pulse ? colors.accent : colors.textSecondary;
+
+    return BoojyTooltip(
+      title: 'Capture MIDI',
+      description: 'Save the phrase you just played into a new clip',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: _fire,
+          child: DecoratedBox(
+            // Foreground border: same pattern as metronome/loop/snap — the
+            // fill can't paint over the stroke because it's drawn on top.
+            position: DecorationPosition.foreground,
+            decoration: BoxDecoration(
+              borderRadius: BT.borderMd,
+              border: Border.all(color: borderColor, width: 1),
+            ),
+            child: SizedBox(
+              height: BT.splitButtonHeight,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Center(
+                  child: Icon(
+                    BI.captureMidi,
+                    size: BT.iconMd,
+                    color: iconColor,
+                  ),
+                ),
               ),
             ),
           ),
