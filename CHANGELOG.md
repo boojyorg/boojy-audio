@@ -6,22 +6,26 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
-- **Capture MIDI button in the transport bar.** A small note-add button sits beside the record
-  cluster. Press it after playing unarmed to capture the phrase from the MIDI buffer into a new
-  clip at the playhead. (Backend existed since v0.2; button re-added in v0.7.)
+- **Capture MIDI button in the transport bar.** A corner-bracket button in the modifiers cluster
+  (next to the metronome) captures the phrase you just played unarmed into a new clip at the
+  playhead. Press it once — it flashes to confirm it fired. (Backend existed since v0.2; button
+  re-added in v0.7.)
 
 - **Audio Cmd+D now duplicates audio clips.** Previously Cmd+D only worked when a MIDI clip was
   open for editing. Now it also duplicates the selected audio clip in the arrangement.
 
-- **CC automation lane is now reachable.** A CC toggle button in the piano-roll controls bar opens
-  the MIDI CC lane. The lane header now also has a close button. Previously the lane could never be
-  opened from the UI.
+- **Legato operation in the piano roll.** A Legato button in the controls bar extends each note
+  to the start of the next note in time. With no selection it applies to the whole clip. Flashes
+  accent on press to confirm it fired (same cue as Quantize).
 
-- **Legato operation.** A Legato button in the new Transform group of the piano-roll controls bar
-  extends each selected note to the start of the next note of the same pitch.
+- **Velocity lane toggle in the piano-roll controls bar.** The Velocity button opens and closes
+  the velocity lane directly from the controls bar.
 
-- **Velocity and CC lane toggles in piano-roll controls bar.** Both lanes can now be opened and
-  closed from the controls bar (Vel / CC buttons in the new Lanes group).
+### Bug Fixes
+
+- **MIDI keyboard plugged in after launch now works automatically.** A background poll detects
+  newly connected keyboards and opens the MIDI port — no Settings visit needed. Also fixes the
+  Refresh button which re-enumerated devices but never re-opened the port.
 
 ### Improvements
 

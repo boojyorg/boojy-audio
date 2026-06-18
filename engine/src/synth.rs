@@ -1130,7 +1130,10 @@ mod tests {
             voice.process_envelope(&params, sample_rate);
         }
         let level_before = voice.env_level;
-        assert!(level_before < 0.1, "expected early-attack level, got {level_before}");
+        assert!(
+            level_before < 0.1,
+            "expected early-attack level, got {level_before}"
+        );
 
         voice.note_off(false);
         let level_after = voice.process_envelope(&params, sample_rate);

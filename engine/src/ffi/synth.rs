@@ -58,7 +58,11 @@ pub extern "C" fn set_synth_parameter_ffi(
                 return safe_cstring("Error: Invalid value".to_string()).into_raw();
             };
 
-            match api::set_synth_parameter(track_id, param_name_str.to_string(), value_str.to_string()) {
+            match api::set_synth_parameter(
+                track_id,
+                param_name_str.to_string(),
+                value_str.to_string(),
+            ) {
                 Ok(msg) => safe_cstring(msg).into_raw(),
                 Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
             }
@@ -189,15 +193,16 @@ pub extern "C" fn unload_sample_for_track_ffi(track_id: u64) -> i32 {
 /// Returns an empty string when the track has no sample (or isn't a sampler)
 #[no_mangle]
 pub extern "C" fn get_sampler_sample_path_ffi(track_id: u64) -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::get_sampler_sample_path(track_id) {
+    ffi_catch(
+        std::ptr::null_mut(),
+        || match api::get_sampler_sample_path(track_id) {
             Ok(path) => safe_cstring(path).into_raw(),
             Err(e) => {
                 eprintln!("[FFI] Failed to get sampler sample path: {e}");
                 safe_cstring(String::new()).into_raw()
             }
-        }
-    })
+        },
+    )
 }
 
 /// Set sampler parameter for a track
@@ -222,7 +227,11 @@ pub extern "C" fn set_sampler_parameter_ffi(
 
             println!("[FFI] Set sampler param for track {track_id}: {param_name_str}={value_str}");
 
-            match api::set_sampler_parameter(track_id, param_name_str.to_string(), value_str.to_string()) {
+            match api::set_sampler_parameter(
+                track_id,
+                param_name_str.to_string(),
+                value_str.to_string(),
+            ) {
                 Ok(msg) => safe_cstring(msg).into_raw(),
                 Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
             }
@@ -475,7 +484,12 @@ pub extern "C" fn set_drum_pad_parameter_ffi(
             let Some(value_str) = (unsafe { cstr_arg(value) }) else {
                 return safe_cstring("Error: Invalid value".to_string()).into_raw();
             };
-            match api::set_drum_pad_parameter(track_id, pad_index, param_name_str.to_string(), value_str.to_string()) {
+            match api::set_drum_pad_parameter(
+                track_id,
+                pad_index,
+                param_name_str.to_string(),
+                value_str.to_string(),
+            ) {
                 Ok(msg) => safe_cstring(msg).into_raw(),
                 Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
             }

@@ -627,7 +627,10 @@ fn join_audio_clips_renders_selected_span_with_gaps() {
             .unwrap()
     };
 
-    assert!(start.abs() < 1e-6, "joined clip starts at the earliest clip");
+    assert!(
+        start.abs() < 1e-6,
+        "joined clip starts at the earliest clip"
+    );
     assert!(
         (duration - 3.0).abs() < 0.05,
         "span 0..3s expected, got {duration}"
@@ -697,10 +700,7 @@ fn audio_clips_play_at_real_positions_at_any_tempo() {
     // ≈ 440 zero crossings. The legacy scaling played it at 1.5× → ≈ 660.
     let a = (1.1 * 48_000.0) as usize;
     let b = (1.6 * 48_000.0) as usize;
-    let crossings = mix
-        .chunks_exact(2)
-        .map(|f| f[0])
-        .collect::<Vec<f32>>()[a..b]
+    let crossings = mix.chunks_exact(2).map(|f| f[0]).collect::<Vec<f32>>()[a..b]
         .windows(2)
         .filter(|w| (w[0] >= 0.0) != (w[1] >= 0.0))
         .count();

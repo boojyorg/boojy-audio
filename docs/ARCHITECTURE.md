@@ -10,16 +10,19 @@ Boojy Audio is a cross-platform Digital Audio Workstation (DAW) built with Flutt
 Boojy Audio/
 ├── engine/                 # Rust audio engine (FFI)
 │   ├── src/               # Rust source code
-│   │   ├── api/          # FFI API modules
-│   │   ├── export/       # Audio export functionality
-│   │   └── *.rs          # Core modules (audio_graph, synth, effects)
-│   ├── vst3sdk/          # VST3 SDK submodule
-│   └── build_vst3/       # VST3 build artifacts
+│   │   ├── api/          # Internal API modules (called by ffi/)
+│   │   ├── ffi/          # C-compatible FFI shims (one file per domain)
+│   │   ├── audio_graph/  # Renderer, device mgmt, offline processing
+│   │   ├── export/       # Offline render to WAV/MP3
+│   │   └── bin/          # CLI tool(s)
+│   ├── rust-toolchain.toml # Pinned Rust channel (EH-3b)
+│   ├── vst3sdk/          # VST3 SDK submodule (deliberately dirty patch)
+│   └── lib/              # Prebuilt VST3 host static libs
 │
 ├── ui/                    # Flutter UI application
 │   ├── lib/              # Main application source
 │   ├── test/             # Unit tests
-│   └── [platform dirs]   # iOS, macOS, Windows configs
+│   └── [platform dirs]   # macOS, Windows configs
 │
 └── docs/                  # Project documentation
 ```
@@ -74,37 +77,52 @@ Boojy Audio/
 lib/widgets/
 ├── Compound Widgets (Major Components)
 │   ├── transport_bar.dart      # Playback controls, tempo
-│   ├── timeline_view.dart      # Arrangement editor (~1,200 lines; entry point)
-│   ├── piano_roll.dart         # MIDI editor
+│   ├── timeline_view.dart      # Arrangement editor (entry point; uses part files)
+│   ├── piano_roll.dart         # MIDI editor (entry point)
 │   ├── library_panel.dart      # Asset browser
 │   └── editor_panel.dart       # Bottom panel container
 │
 ├── Specialized Submodules
 │   ├── piano_roll/            # Piano roll components
-│   │   ├── operations/       # Note operations
+│   │   ├── operations/       # Note operations (quantize, legato, swing…)
 │   │   ├── gestures/         # Input handling
 │   │   ├── utilities/        # Coordinate math
-│   │   └── *_mixin.dart      # Behavior mixins
+│   │   └── *_mixin.dart      # Behavior mixins (velocity lane, CC lane…)
 │   │
-│   └── timeline/             # Timeline components
-│       ├── timeline_gesture_layer.dart  # part of timeline_view — clip drag/trim/eraser
-│       ├── timeline_track_list.dart     # part of timeline_view — track rows, drop targets
-│       ├── operations/       # Clip operations
-│       └── utilities/        # Coordinate math
+│   ├── timeline/             # Timeline components
+│   │   ├── timeline_gesture_layer.dart  # part of timeline_view — drag/trim/eraser
+│   │   ├── timeline_track_list.dart     # part of timeline_view — track rows
+│   │   ├── operations/       # Clip operations
+│   │   └── utilities/        # Coordinate math
+│   │
+│   ├── device_chain/         # Device chain view (instruments + effects shell)
+│   │   └── effect_data.dart  # Effect parameter model (replaces effect_parameter_panel)
+│   │
+│   ├── audio_editor/         # Audio clip waveform editor
+│   ├── sampler_editor/       # Sampler waveform editor
+│   ├── drum_kit_editor/      # Drum kit pad editor
+│   ├── mixer/                # Mixer strip components
+│   ├── transport_bar/        # Transport bar sub-widgets & models
+│   ├── editor/               # Editor panel sub-widgets
+│   └── start_screen/         # Start/welcome screen
 │
 ├── shared/                   # Reusable UI components
-│   ├── mini_knob.dart       # Compact knob control
-│   ├── compact_dropdown.dart # Space-efficient dropdown
-│   ├── split_button.dart    # Multi-action button
-│   └── panel_header.dart    # Collapsible headers
+│   ├── arc_knob.dart         # 270° arc knob (effect parameters)
+│   ├── boojy_dropdown.dart   # Unified filled-chip dropdown + showBoojyMenu
+│   ├── boojy_tooltip.dart    # Themed tooltip (title, description, shortcut)
+│   ├── boojy_switch.dart     # Compact pill toggle
+│   ├── circular_toggle_button.dart
+│   ├── split_button.dart     # Multi-action button
+│   └── panel_header.dart     # Collapsible headers
 │
 ├── painters/                 # CustomPainter classes
 │   ├── grid_painter.dart
 │   ├── note_painter.dart
+│   ├── cc_lane_painter.dart
 │   └── time_ruler_painter.dart
 │
 ├── dialogs/                  # Modal dialogs
-└── context_menus/            # Right-click menus
+└── transport_bar/            # Transport bar split-button widgets
 ```
 
 **Timeline note:** `timeline_gesture_layer.dart` and `timeline_track_list.dart` are `part` files of `timeline_view.dart` — they share private methods within one library. Do not import them directly.
