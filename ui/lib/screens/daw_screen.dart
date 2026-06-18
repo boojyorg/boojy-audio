@@ -587,6 +587,8 @@ class _DAWScreenState extends State<DAWScreen>
     Log.d(
       '🛑 [DAW]   playheadPosition=${playbackController.playheadPosition.toStringAsFixed(3)}s',
     );
+    // TODO: remove after diagnosing unexpected _stopPlayback() calls
+    Log.d('🛑 [DAW]   caller:\n${StackTrace.current}');
     stopPlayback(); // Use mixin method which handles idle vs playing state
     // Reset mixer meters when playback stops
     mixerKey.currentState?.resetMeters();
