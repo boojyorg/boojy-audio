@@ -905,8 +905,22 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         icon: Icon(BI.refresh, size: 18, color: context.colors.textSecondary),
         tooltip: 'Rescan MIDI devices',
         onPressed: () {
-          widget.audioEngine?.refreshMidiDevices();
+          final eng = widget.audioEngine;
+          if (eng == null) return;
+          eng.refreshMidiDevices();
           setState(_loadMidiInputDevices);
+          // _loadMidiInputDevices resolved _selectedMidiInputDevice synchronously.
+          // Re-select the device in the engine and ensure capture is running.
+          // selectMidiInputDevice handles already-capturing (tears down + restarts);
+          // startMidiInput handles cold-start hot-plug (was never capturing — no-ops
+          // if already active, opens the port if not).
+          final idx = _midiInputDevices.indexWhere(
+            (d) => d['name'] == _selectedMidiInputDevice,
+          );
+          if (idx >= 0) {
+            eng.selectMidiInputDevice(idx);
+            eng.startMidiInput();
+          }
         },
       ),
     );

@@ -4,6 +4,14 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Bug Fixes
+
+- **MIDI keyboard plugged in after launch now works after pressing Refresh.** The Settings
+  Refresh button re-enumerated devices but never re-opened the MIDI port — if the app started
+  with no keyboard connected, capture had never begun and the Rust auto-reconnect guard
+  (`connection.is_some()`) skipped it. Refresh now also calls `selectMidiInputDevice` +
+  `startMidiInput` so the port is opened immediately after the rescan.
+
 ### Improvements
 
 - **All right-click menus now use the shared rounded surface.** Device chain (effect headers,
