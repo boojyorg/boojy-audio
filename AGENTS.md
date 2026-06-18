@@ -196,6 +196,12 @@ All markdown files must stay in sync with the current development version.
 - `docs/FEATURE_TRACKER.md` — checked/unchecked items
 - `ui/pubspec.yaml` — `version:` line; drives the in-app version label (About box, start screen, settings) via `PackageInfo` — bump on every release, it is easy to forget
 
+**Suite-root files that also need updating on release** (these live outside this repo):
+- `~/Documents/Projects/boojy/README.md` — apps table Audio row (version + active milestone)
+- `~/Documents/Projects/boojy/VISION.md` — product table Audio row + "Now" roadmap bullet + "Status as of" date
+
+Run `/suite-sync` after releasing to catch any remaining drift. These suite-root files are the most commonly stale — they're not in this repo so nothing enforces them automatically.
+
 ## Linting & Formatting
 
 - **Dart**: `flutter_lints` with 44 explicit rules (~143 effective with flutter_lints) in `analysis_options.yaml` — strict mode

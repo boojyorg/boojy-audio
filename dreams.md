@@ -27,17 +27,18 @@ Sequence:
   (T1–T6, T8/L7 full-required, T9, P4, L4, N7 + arrangement canvas on Light) + footguns
   (X1/X2/M1) + EH-11 tests + Cmd+Shift+T wired + loop-tracks-tempo fix (engine set_tempo
   already re-anchors the playhead — rule in `.claude/rules/ffi.md`).
-- [ ] **v0.7 slices remaining**: ~~2 Legibility~~ ✅ DONE (mixer cues + piano-roll lanes +
-  BoojyTooltip; P7 tool-badge chip dropped — toolbar already shows the active tool) →
-  3 Feel chrome (filled-chip dropdowns/menus, settings unify, overflow) → 4 Devices (shared
-  shell, sampler package, MIDI hot-plug by name, Windows updater). Riders: Capture MIDI, audio
-  Cmd+D, Legato, CC-lane toggle, swing/ghost-notes keep-or-hide. Guardrails half-day:
-  EH-2..5/EH-15/EH-1-grep/EH-17.
-- [ ] **Tyr owes (gates v0.7 slices):** zoom spec session (C1 — then A2/A3) · sampler research
-  (C2) · hover/motion spec sign-off (B7) + B9 overflow pick · EH-9 branch-protection click.
-- [ ] Housekeeping (in EH-17 batch): prune unused brand-source PNGs from `ui/assets/images/`
-  (keep boojy_audio_audi.svg per standing note); `social-preview.png` commit-or-gitignore.
-- [ ] **End of cycle:** rerun codebase-review to measure (decided — not before).
+- [x] **v0.7 slices 1–4 Batch 1+2 + Riders + Guardrails — ALL MERGED 2026-06-18.**
+  - Riders (PR #120): Capture MIDI button (modifiers well, crop_free glyph, press-flash);
+    Audio Cmd+D for audio clips; Legato (next-in-time logic, whole-clip fallback, press-flash);
+    Velocity toggle (full label). CC toggle deferred.
+  - Guardrails (PR #121): rust-toolchain.toml → stable; 6 truly-unreferenced brand PNGs pruned;
+    AGENTS.md lint-count corrected; CI gates EH-1/2b/3a/3b/5 added.
+  - MIDI hot-plug (PR #122): 500ms background poll + 800ms debounce; Refresh button now opens port.
+- [ ] **v0.7 remaining** (gates the end-of-cycle review):
+  - A7/D6 sampler fix package — **gated on Tyr's C2 research**
+  - A11/D7 Windows updater toggle
+- [ ] **Tyr owes:** EH-9 branch-protection click · sampler research (C2) · zoom spec (C1).
+- [ ] **End of cycle:** rerun codebase-review (decided — not before; trigger once remaining items done).
 
 
 **Carried decisions:** ASIO deferred (WASAPI right for beginners). Windows machine = per-release

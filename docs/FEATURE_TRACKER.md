@@ -42,7 +42,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [x] Resizable panels with drag dividers
 - [x] Dark theme (Boojy Design System)
 - [x] Bottom panel (Piano Roll / FX Chain / Instrument)
-- [ ] High contrast themes (Light HC, Dark HC)
+- [ ] High contrast themes (Light HC, Dark HC) *(intentionally deferred — option hidden in Settings pending colour-system cleanup; v0.6.0)*
 - [ ] Multiple monitor support (plugin windows on second monitor)
 
 ### Recording
@@ -62,7 +62,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [x] Record from MIDI controller
 - [x] Virtual piano keyboard input
 - [x] Computer keyboard mapping (ASDF keys)
-- [ ] Capture MIDI (retroactive recording)
+- [x] Capture MIDI (retroactive recording) *(v0.7, PR #120 — transport bar modifiers cluster)*
 
 ### MIDI Editing
 
@@ -77,12 +77,13 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [ ] Ghost notes (show notes from other clips)
 - [ ] Chord detection and tools
 - [x] Quantize options (1/4, 1/8, 1/16, 1/32)
+- [x] Legato operation *(piano roll — v0.7, PR #120)*
 - [ ] Humanize
 
 **Step Sequencer:**
-- [ ] 16-step grid editor
-- [ ] Default for drum instruments
-- [ ] Per-step velocity editing
+- [x] 16-step grid editor *(ships via Drum Kit editor v0.6.0)*
+- [x] Default for drum instruments *(ships via Drum Kit editor v0.6.0)*
+- Per-step velocity editing *(partial: velocity UI scaffolded; hardcoded at 100 — no velocity lane)*
 - [ ] Swing control
 - [ ] Pattern length selector
 
@@ -97,7 +98,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [x] Multi-selection (Shift+click, Cmd+click)
 - [x] Consolidate clips (Cmd+J)
 - [ ] Merge clips
-- [ ] Duplicate clips (MIDI works; audio-clip path not wired to Cmd+D / Edit menu)
+- [x] Duplicate clips (MIDI and audio; Cmd+D works in both contexts — v0.7, PR #120)
 
 **Clip Trimming:**
 - [x] Audio clip left/right edge trim
@@ -129,7 +130,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [x] Mute/Solo/Record buttons
 - [x] Track height resizing (from mixer)
 - [x] Track colors (persist across save/load; manual assign from palette)
-- [ ] Track icons
+- [x] Track icons *(custom monochrome icons, tinted per track colour; per-track picker; undo support — v0.6.0)*
 
 **Routing:**
 - [ ] Sidechain routing UI
@@ -206,7 +207,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [x] Export MIDI
 - [x] Import MIDI
 - [ ] Export with LUFS normalization *(partial: engine applies platform LUFS targets correctly since v0.5.2, but the export dialog doesn't expose them yet)*
-- [ ] Export progress tracking
+- [x] Export progress tracking
 - [ ] ID3 metadata for MP3
 - [ ] Export FLAC
 
@@ -230,7 +231,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [ ] Basic synthesizer (8-voice, ADSR, filter)
 - [ ] Boojy Synth (wavetable, Serum-style)
 - [ ] Boojy Sampler (simple/advanced modes) *(partial: rebuilt in v0.6 as a one-screen Quick-Sampler — drop-zone/Browse load, hold-to-preview at root, ruler-bar loop editing, per-gesture undo incl. undoable load; simple/advanced modes not built)*
-- [x] Boojy Drums (pad grid + step sequencer) *(v0.6: Layout-A editor + bundled starter kit — 8 CC0/in-house sounds pre-loaded on create; per-step velocity lane, choke groups and variable resolution deliberately deferred)*
+- [x] Boojy Drums (pad grid + step sequencer) *(v0.6: Layout-A editor + bundled starter kit — 8 CC0/in-house sounds pre-loaded on create; per-step velocity lane, choke groups and variable resolution deliberately deferred) (partial: velocity hardcoded at 100; see child items for detail)*
 - [ ] Preset Player (piano, strings, etc.)
 
 ### Keyboard Shortcuts
@@ -262,6 +263,6 @@ Detailed checklist of all features planned for v1.0 and their current status.
 ### Platforms
 
 - [x] macOS (Intel + Apple Silicon)
-- [x] iOS/iPad (basic support)
+- iOS/iPad *(partial: iPad reintroduction planned for v0.8; iOS mobile not targeted; not currently tested in CI)*
 - [x] Windows
 - [ ] Linux (future)

@@ -14,28 +14,16 @@ spec: [archive/plans/v0.6-plan.md](archive/plans/v0.6-plan.md).
 
 ## What's Next (v0.7.0)
 
-**Visual & UX polish** — the first dedicated UI/UX pass, scoped from the [2026-05-30 review](reviews/2026_05_30_ui_ux_review.md) and specced in [archive/plans/v0.4-plan.md](archive/plans/v0.4-plan.md). Sequenced **foundation → contained re-treats → top-bar A/B → chrome & dogfood polish**. Shipped: bundled Inter + JetBrains Mono, a unified "gunmetal" dark palette, a persisted UI Scale setting; piano-roll keyboard-contrast lanes + readout behaviour; the macOS title fix + top-bar A/B (Variant A won); a dogfood polish batch (shared ▲udio wordmark, centred transport, note resize in Select mode, type-coloured Add-Track buttons, dB-readout + Delete-focus fixes — PR #29); and two pre-tag fixes (VST3 instruments reopen with sound; narrow top-bar no longer overflows). The earlier quick-win bug batch folds into this release (no separate v0.3.3 tag). The piano-roll lane-colour refinement was **deferred to v0.5.0**.
+**Theme: "Devices & Feel"** — scoped by the [2026-06-12 review chain + triage](reviews/2026_06_12_triage.md). Full spec: [plans/v0.7-plan.md](plans/v0.7-plan.md).
 
-The v0.3.x beat-making candidates (ghost notes, clip polish, stock drum kit / step sequencer, quantize) are **deferred** — picked up in the **v0.6 "Sound"** cycle below.
+Four slices, shipping in order:
 
-### After v0.4.0 (themes set by the 2026-06-01 review chain)
+- **Slice 1 — Trust:** theme-token correctness (Light theme safe everywhere) + footgun fixes (position/tempo readout latency, fader tap-teleport). Shipped — PR #118.
+- **Slice 2 — Legibility:** mixer cues (peak-hold, unity tick, icon+tooltip M/S/R/I, sends in dB), piano-roll lane structure, `BoojyTooltip` app-wide. Shipped — PR #119.
+- **Slice 3 — Feel chrome:** unified filled-chip dropdowns + right-click menus, top-bar smalls, settings chrome unification. Shipped — PR #120.
+- **Slice 4 — Devices:** shared device shell (header + power dot + collapse + MIX knob) adopted by Synth/Sampler/Drum Kit/EQ/effects; MIDI hot-plug by stable name; Windows updater wiring. Shipped — PR #121.
 
-A three-review pre-release audit ([codebase](reviews/2026_06_01_codebase_review.md) · [UI/UX](reviews/2026_06_01_ui_ux_review.md) · [feature-gap](reviews/2026_06_01_feature_gap_review.md) · [triage](reviews/2026_06_01_v0.4.0_pre_release_triage.md)) confirmed v0.4.0 is taggable (the critical bugs are pre-existing, not v0.4 regressions) and the three reviews independently converged on the next two themes:
-
-- **v0.5 — "Trust & Legibility":** correctness/hardening for the moment a session leaves the happy path (VST3 lifecycle, DeleteTrack undo content-loss, recorder audio-thread blocking, round-trip tempo, command/undo holes) **+** make the design tokens load-bearing (tokenise the ~390 hardcoded colours; painters theme + scale). Do first: fix CI/test trust (integration tests skip when the dylib is absent; clippy non-fatal) + the FEATURE_TRACKER accuracy sweep.
-- **v0.5.1 — "UI polish & fixes":** a small dogfood follow-up — the "+ MIDI Track" / "+ Audio Track" buttons moved into the top bar (out of the cramped mixer header), the Master strip made selectable so you can add effects to the master bus from the editor, the Library search field aligned flush with the loop bar, and a fix for right-click → Delete silently failing in debug builds (the confirm dialog read its theme from the wrong context).
-- **v0.5.2 — "Correct on real hardware, right after undo"** *(rescoped by the [2026-06-05 review chain](reviews/2026_06_05_triage.md); absorbs the old "loop & device polish" scope)*: the second trust/correctness pass — the two criticals (C32 stopped-path deadlock, C46/C63 clip-move undo desync), silent save/reload corruption (C55/C61/C65/C66), stuck notes + synth clicks (C38/C41/C7/C10), export correctness (C16/C18/C68), FFI hardening (C33/C34), hook/CI parity + lockfiles (C76–C79), the first engine api/ffi tests (C69), then the sample-rate sweep + the carried device items (metronome loop-wrap doubling, MIDI hot-plug, C99/C104, sampler blank-panel fix). Spec: [archive/plans/v0.5.2-plan.md](archive/plans/v0.5.2-plan.md).
-- **v0.6 — "Sound"** *(rescoped 2026-06-05 — **no stock instruments**, deliberately deferred)*: drum kit (engine PR #44 + editor PR #45 already merged; 1 starter kit / 8 sounds), automation flag-flip + gesture QA, input monitoring UI, Join MIDI/audio clips (as proper Commands — subsumes C37/C50), reverse audio (clip normalize moved to v1.0, decided 2026-06-08), plus the UI fixes ledger from the 2026-06-05 UI/UX review in steady small batches. Also: **remove the piano-roll chord palette** (keyboard-only `K` toggle, zero discoverability — decided 2026-06-06; delete `chord_palette.dart`, both `stampChordAt` paths, and `previewChord`, rather than promoting it to a button). Sequenced *after* the v0.5.2 hardening so a beginner's first from-scratch song doesn't land on the shakiest code paths.
-
-Shipped in v0.3.0:
-
-- **Send/return:** ⚡ FX button on strips → insert or shared send; return section in mixer; engine DSP (realtime + export)
-- **Master row:** Hidden in arrangement by default; shown when master automation exists or via View → Show Master Row
-- Spec archived: [archive/plans/v0.3.0-plan.md](archive/plans/v0.3.0-plan.md)
-
-Shipped in v0.3.1 — **trust/correctness hardening** (data-loss & undo-corruption cluster from the [2026-05-29 review](reviews/)): mono export fix, redo-corruption fix, time-signature / MIDI-CC / clip-metadata persistence, grouped multi-clip move undo.
-
-Shipped in v0.3.2 — **plugins & the audio thread**: VST3 plugins processed a whole buffer at a time instead of one sample at a time (the critical glitch), on top of a realtime safety net (NaN/Inf guard, denormal flush, stereo/48 kHz validation, plugin-thread fixes), live plugin/clip UI fixes (H-8/H-9/M-3), overlap-move undo (H-11), and a dead-code sweep.
+Riders woven in: Capture MIDI button, audio Cmd+D, Legato, CC-lane toggle wiring, swing + ghost-notes keep-or-hide decision, guardrails half-day (EH-2–5/EH-9/EH-15/EH-17).
 
 ---
 
@@ -88,7 +76,7 @@ For the full checklist, see [FEATURE_TRACKER.md](FEATURE_TRACKER.md).
 
 - Persistence reliability and integration tests
 - Send/return routing (minimal aux bus)
-- Ghost notes in piano roll
+- Ghost notes in piano roll (keep-or-hide decision pending v0.7 wiring attempt)
 
 **Tier 2 (pre-v1.0):**
 
@@ -107,8 +95,7 @@ For the full checklist, see [FEATURE_TRACKER.md](FEATURE_TRACKER.md).
 
 ## Engineering Health
 
-- Latest review: [2026_05_22_codebase_review.md](archive/reviews/2026_05_22_codebase_review.md) (v0.2.2 snapshot; partially addressed in v0.2.3–v0.2.4)
-- `timeline_view.dart` phase 1 split **done** (~1,200 lines); `daw_screen.dart` still ~4,200
+- Latest reviews: [2026-06-12 review chain](reviews/2026_06_12_triage.md) (codebase · UI/UX · feature-gap · triage — set v0.7 scope); [2026-06-16 dropdown/menu audit](reviews/2026_06_16_dropdown_menu_audit.md)
 - Persistence **centralized** via `ProjectPersistence` (engine `project.json` + UI `ui_layout.json` split remains by design)
 - CI: macOS full pipeline (analyze, unit + integration tests, clippy) + Windows analyze/test/clippy (no VST3)
 - Pre-v0.3.0 scoped audit **done** — see [v0.3.0-plan.md](archive/plans/v0.3.0-plan.md#pre-v0-3-scoped-audit-2026-05-22)
