@@ -718,26 +718,29 @@ class _EditorPanelState extends State<EditorPanel>
           ),
           // Empty content area with a centered hint.
           Expanded(
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(BI.musicNote, size: 28, color: colors.textMuted),
-                  const SizedBox(height: 12),
-                  Text(
-                    'No track selected',
-                    style: TextStyle(
-                      color: colors.textSecondary,
-                      fontSize: 15,
-                      fontWeight: BT.weightSemiBold,
+            child: ColoredBox(
+              color: colors.darkest,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(BI.musicNote, size: 28, color: colors.textMuted),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No track selected',
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: 15,
+                        fontWeight: BT.weightSemiBold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Select a track to edit its instrument and notes',
-                    style: TextStyle(color: colors.textMuted, fontSize: 12),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      'Select a track to edit its instrument and notes',
+                      style: TextStyle(color: colors.textMuted, fontSize: 12),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

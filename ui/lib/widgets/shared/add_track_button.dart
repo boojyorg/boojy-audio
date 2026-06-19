@@ -9,15 +9,38 @@ import '../../theme/tokens.dart';
 /// purple for MIDI, blue for audio) — teaching the colour language at the point
 /// of creation.
 ///
-/// Sized to [BT.controlHeight] so it lines up with the other compact chrome in
-/// the transport bar. When [label] is empty it renders icon-only; pass
-/// [tooltip] so it stays discoverable on a narrow rail.
+/// Defaults to [BT.controlHeight] and transparent background so it lines up
+/// with other compact chrome in the transport bar. Pass [height] and
+/// [backgroundColor] to render a larger, filled variant (e.g. the empty-state
+/// arrangement prompt). Icon size, horizontal padding, and font scale
+/// proportionally with [height] unless [iconSize] or [labelSize] are given
+/// explicitly (use those to avoid oversized content at high scale factors).
+///
+/// When [backgroundColor] is supplied (filled mode), hover shows a neutral
+/// surface lift ([colors.surface] fill, [colors.textPrimary] text) instead of
+/// the type-colour tint used in the compact transport-bar variant.
 class AddTrackButton extends StatefulWidget {
   final String label;
   final IconData typeIcon;
   final Color typeColor;
   final VoidCallback? onTap;
   final String? tooltip;
+
+  /// Override height. Defaults to [BT.controlHeight] (24 px). Icons, padding,
+  /// and font scale proportionally unless [iconSize] or [labelSize] override.
+  final double? height;
+
+  /// Resting background. Defaults to transparent; pass [colors.dark] etc. for
+  /// a filled variant. Also switches hover to a neutral surface lift.
+  final Color? backgroundColor;
+
+  /// Explicit icon size. Overrides the proportional scale from [height] so
+  /// content doesn't become oversized when [height] is much larger than
+  /// [BT.controlHeight].
+  final double? iconSize;
+
+  /// Explicit label font size. Overrides the proportional scale from [height].
+  final double? labelSize;
 
   const AddTrackButton({
     super.key,
@@ -26,6 +49,10 @@ class AddTrackButton extends StatefulWidget {
     required this.typeColor,
     this.onTap,
     this.tooltip,
+    this.height,
+    this.backgroundColor,
+    this.iconSize,
+    this.labelSize,
   });
 
   @override
@@ -40,10 +67,39 @@ class _AddTrackButtonState extends State<AddTrackButton> {
     final colors = context.colors;
     final enabled = widget.onTap != null;
     final active = _hovered && enabled;
-    final fg = !enabled
-        ? colors.textMuted
-        : (active ? widget.typeColor : colors.textSecondary);
+    final isFilled = widget.backgroundColor != null;
+
+    final Color fg;
+    final Color bgColor;
+    final Color borderColor;
+    if (!enabled) {
+      fg = colors.textMuted;
+      bgColor = widget.backgroundColor ?? Colors.transparent;
+      borderColor = colors.divider;
+    } else if (active) {
+      if (isFilled) {
+        // Filled variant: opaque surface lift on hover.
+        fg = colors.textPrimary;
+        bgColor = colors.surface;
+        borderColor = colors.divider;
+      } else {
+        // Transport-bar variant: type-colour tint teaches the track colour.
+        fg = widget.typeColor;
+        bgColor = widget.typeColor.withValues(alpha: BT.opacityLight);
+        borderColor = widget.typeColor.withValues(alpha: 0.5);
+      }
+    } else {
+      fg = colors.textSecondary;
+      bgColor = widget.backgroundColor ?? Colors.transparent;
+      borderColor = colors.divider;
+    }
+
     final hasLabel = widget.label.isNotEmpty;
+    final effectiveHeight = widget.height ?? BT.controlHeight;
+    final scale = effectiveHeight / BT.controlHeight;
+    final iconSize = widget.iconSize ?? (12.0 * scale).roundToDouble();
+    final hPad = (7.0 * scale).roundToDouble();
+    final fontSize = widget.labelSize ?? BT.fontLabel * scale;
 
     Widget button = MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
@@ -56,39 +112,35 @@ class _AddTrackButtonState extends State<AddTrackButton> {
       child: GestureDetector(
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
-        child: Container(
-          height: BT.controlHeight,
-          padding: const EdgeInsets.symmetric(horizontal: 7),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          height: effectiveHeight,
+          padding: EdgeInsets.symmetric(horizontal: hPad),
           decoration: BoxDecoration(
-            color: active
-                ? widget.typeColor.withValues(alpha: BT.opacityLight)
-                : Colors.transparent,
+            color: bgColor,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: active
-                  ? widget.typeColor.withValues(alpha: 0.5)
-                  : colors.divider,
-              width: 1,
-            ),
+            border: Border.all(color: borderColor, width: 1),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(BI.add, size: 12, color: fg),
-              const SizedBox(width: 2),
-              Icon(widget.typeIcon, size: 12, color: fg),
-              if (hasLabel) ...[
-                const SizedBox(width: 3),
-                Text(
-                  widget.label,
-                  style: TextStyle(
-                    color: fg,
-                    fontSize: BT.fontLabel,
-                    fontWeight: BT.weightMedium,
+          child: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(BI.add, size: iconSize, color: fg),
+                SizedBox(width: (2.0 * scale).roundToDouble()),
+                Icon(widget.typeIcon, size: iconSize, color: fg),
+                if (hasLabel) ...[
+                  SizedBox(width: (3.0 * scale).roundToDouble()),
+                  Text(
+                    widget.label,
+                    style: TextStyle(
+                      color: fg,
+                      fontSize: fontSize,
+                      fontWeight: BT.weightMedium,
+                    ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
