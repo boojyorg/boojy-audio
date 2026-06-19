@@ -7,7 +7,6 @@ import 'dart:math' as math;
 import 'dart:async';
 import '../constants/ui_constants.dart';
 import '../audio_engine.dart';
-import '../theme/animation_constants.dart';
 import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
@@ -28,6 +27,7 @@ import 'canvas_bg_variant.dart';
 import 'instrument_browser.dart';
 import 'painters/timeline_grid_painter.dart';
 import 'platform_drop_target.dart';
+import 'shared/add_track_button.dart';
 import 'shared/editors/zoomable_editor_mixin.dart';
 import 'shared/editors/unified_nav_bar.dart';
 import 'shared/editors/nav_bar_with_zoom.dart';
@@ -1301,25 +1301,43 @@ class TimelineViewState extends State<TimelineView>
                     ),
                   ),
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _EmptyPromptButton(
-                      icon: BI.piano,
-                      label: 'MIDI Track',
-                      hoverColor:
-                          TrackColors.categoryColors[TrackColorCategory.synth],
-                      onTap: widget.onAddMidiTrack,
-                    ),
-                    const SizedBox(width: 12),
-                    _EmptyPromptButton(
-                      icon: BI.waveform,
-                      label: 'Audio Track',
-                      hoverColor:
-                          TrackColors.categoryColors[TrackColorCategory.audio],
-                      onTap: widget.onAddAudioTrack,
-                    ),
-                  ],
+                SizedBox(
+                  width: 270,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: AddTrackButton(
+                          label: 'MIDI',
+                          typeIcon: BI.piano,
+                          typeColor:
+                              TrackColors.categoryColors[TrackColorCategory
+                                  .synth] ??
+                              colors.accent,
+                          onTap: widget.onAddMidiTrack,
+                          height: 40,
+                          backgroundColor: colors.dark,
+                          iconSize: 14,
+                          labelSize: 13,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: AddTrackButton(
+                          label: 'Audio',
+                          typeIcon: BI.waveform,
+                          typeColor:
+                              TrackColors.categoryColors[TrackColorCategory
+                                  .audio] ??
+                              colors.accent,
+                          onTap: widget.onAddAudioTrack,
+                          height: 40,
+                          backgroundColor: colors.dark,
+                          iconSize: 14,
+                          labelSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1332,93 +1350,5 @@ class TimelineViewState extends State<TimelineView>
   /// Calculate playhead position in beats.
   double _calculatePlayheadBeat() {
     return widget.playheadNotifier.value * widget.tempo / 60.0;
-  }
-}
-
-/// Styled button for the empty timeline prompt with icon.
-class _EmptyPromptButton extends StatefulWidget {
-  final IconData? icon;
-  final String label;
-  final VoidCallback? onTap;
-
-  /// Track-type tint shown on hover (border + type icon). Defaults to accent.
-  final Color? hoverColor;
-
-  const _EmptyPromptButton({
-    this.icon,
-    required this.label,
-    this.onTap,
-    this.hoverColor,
-  });
-
-  @override
-  State<_EmptyPromptButton> createState() => _EmptyPromptButtonState();
-}
-
-class _EmptyPromptButtonState extends State<_EmptyPromptButton> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final hover = widget.hoverColor ?? colors.accent;
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        if (!_isHovered) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _isHovered = true);
-          });
-        }
-      },
-      onExit: (_) {
-        if (_isHovered) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _isHovered = false);
-          });
-        }
-      },
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: AnimationConstants.hoverDuration,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: _isHovered ? hover : colors.divider),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                BI.add,
-                size: 13,
-                color: _isHovered ? colors.textPrimary : colors.textSecondary,
-              ),
-              if (widget.icon != null) ...[
-                const SizedBox(width: 4),
-                Icon(
-                  widget.icon,
-                  size: 14,
-                  // Type icon picks up the track-type tint on hover.
-                  color: _isHovered ? hover : colors.textMuted,
-                ),
-              ],
-              const SizedBox(width: 6),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  color: _isHovered ? colors.textPrimary : colors.textSecondary,
-                  fontSize: BT.fontLabel,
-                  fontWeight: BT.weightMedium,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
