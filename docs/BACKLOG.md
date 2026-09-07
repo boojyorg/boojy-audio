@@ -32,3 +32,15 @@ per-feature status → `FEATURE_TRACKER.md`; new-feature ideas → `IDEAS.md`.
   the device rate (deliberate GarageBand-style default — keep that as the default); the selector is
   for users who'd otherwise have to leave the app for Audio MIDI Setup. Came up during the v0.5.2
   hardware pass: would also make the 44.1↔48 kHz tests runnable in-app.
+
+## Release-pipeline chores (carried from the retired suite status doc, 2026-09-07)
+
+These were open in June 2026 when development paused and have not been checked since. Reassess
+each before acting; none is authorised by being listed here.
+
+- [ ] **Reassess: did Sparkle auto-update pick up v0.6.0?** A live spot-check was queued in June.
+  Confirm against the published appcast before assuming either way.
+- [ ] **Reassess: GitHub social preview image.** `docs/screenshots/social-preview.png` was to be
+  uploaded in the repo's Settings. Check whether it already was.
+- [ ] **Reassess: the pre-EH-12 backup mirror.** June's note was "delete once confident" the history
+  purge is complete. A deletion; decide it deliberately when development resumes, not as tidy-up.
