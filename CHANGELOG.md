@@ -4,6 +4,10 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Improvements
+- **Contribution policy simplified** (`CONTRIBUTING.md`, `README.md`): personal project, no
+  external code contributions, feedback and bug reports by email to tyr@boojy.org.
+
 ### Features
 
 - **Capture MIDI button in the transport bar.** A corner-bracket button in the modifiers cluster
