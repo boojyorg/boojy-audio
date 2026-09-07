@@ -5,6 +5,8 @@ import 'dart:async';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
+import 'package:flutter/services.dart' show rootBundle;
+
 import 'models/drum_kit_info.dart';
 import 'models/sampler_info.dart';
 import 'services/commands/audio_engine_interface.dart';
@@ -37,51 +39,6 @@ JSAny? _callEngine(String functionName) {
 JSAny? _callEngineWith(String functionName, List<JSAny?> args) {
   if (!isEngineReady) return null;
   return _boojyEngine!.callMethodVarArgs(functionName.toJS, args);
-}
-
-/// JS String() function for converting BigInt to string
-@JS('String')
-external JSString _jsString(JSAny value);
-
-/// JS Number() function for converting to number
-@JS('Number')
-external JSNumber _jsNumber(JSAny value);
-
-/// Safely convert a JS value to Dart int
-/// Handles both JSNumber and JavaScriptBigInt from WASM
-int _jsToInt(JSAny? value) {
-  if (value == null) return -1;
-  try {
-    if (value.isA<JSNumber>()) {
-      return (value as JSNumber).toDartInt;
-    }
-    // Handle BigInt by converting via JS String() function
-    if (value.isA<JSBigInt>()) {
-      final bigIntStr = _jsString(value).toDart;
-      return int.tryParse(bigIntStr) ?? -1;
-    }
-    // Try Number() as fallback for any other type
-    final num = _jsNumber(value).toDartDouble;
-    return num.toInt();
-  } catch (e) {
-    Log.e('_jsToInt error: $e for ${value.runtimeType}');
-    return -1;
-  }
-}
-
-/// Safely convert a JS value to Dart double
-/// Handles both JSNumber and JavaScriptBigInt from WASM
-double _jsToDouble(JSAny? value) {
-  if (value == null) return 0.0;
-  if (value.isA<JSNumber>()) {
-    return (value as JSNumber).toDartDouble;
-  }
-  // Handle BigInt by converting via JS String() function
-  if (value.isA<JSBigInt>()) {
-    final bigIntStr = _jsString(value).toDart;
-    return double.tryParse(bigIntStr) ?? 0.0;
-  }
-  return 0.0;
 }
 
 /// JS BigInt constructor binding
@@ -171,6 +128,136 @@ void _initWebSynth() {
           if (this.masterGain) {
             this.masterGain.gain.value = vol;
           }
+        },
+
+        // Dedicated metronome click: short oscillator burst, no MIDI note.
+        // accent=true → higher pitch + louder (beat 1 of bar).
+        click: function(accent) {
+          this.init();
+          this.resume();
+          const ctx = this.audioContext;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.value = accent ? 1700 : 1200;
+          const now = ctx.currentTime;
+          const vol = accent ? 0.8 : 0.5;
+          gain.gain.setValueAtTime(vol, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+          osc.connect(gain);
+          gain.connect(this.masterGain);
+          osc.start(now);
+          osc.stop(now + 0.06);
+        },
+
+        // ── Library preview ──────────────────────────────────────────────
+        previewBuffer: null,
+        previewLoaded: false,
+        previewLoading: false,
+        previewSource: null,
+        previewStartTime: null,
+        previewSeekOffset: 0,
+        previewLooping: false,
+
+        // Load an audio asset for preview. bytes is a Uint8Array from Dart.
+        previewLoad: function(bytes) {
+          this.init();
+          this.resume();
+          this.previewLoaded = false;
+          this.previewLoading = true;
+          if (this.previewSource) {
+            try { this.previewSource.stop(); } catch(e) {}
+            this.previewSource = null;
+            this.previewStartTime = null;
+          }
+          this.previewBuffer = null;
+          this.previewSeekOffset = 0;
+          const self = this;
+          // Dart Uint8List.toJS may be a view; slice to get a standalone ArrayBuffer.
+          const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+          this.audioContext.decodeAudioData(ab).then(function(decoded) {
+            self.previewBuffer = decoded;
+            self.previewLoaded = true;
+            self.previewLoading = false;
+          }).catch(function(err) {
+            console.error('Boojy preview decode error:', err);
+            self.previewLoading = false;
+          });
+        },
+
+        previewPlay: function() {
+          if (!this.previewBuffer) return;
+          if (this.previewSource) {
+            try { this.previewSource.stop(); } catch(e) {}
+            this.previewSource = null;
+          }
+          const src = this.audioContext.createBufferSource();
+          src.buffer = this.previewBuffer;
+          src.loop = this.previewLooping;
+          src.connect(this.masterGain);
+          src.start(0, this.previewSeekOffset);
+          const self = this;
+          this.previewSource = src;
+          this.previewStartTime = this.audioContext.currentTime;
+          src.onended = function() {
+            if (self.previewSource === src) {
+              self.previewSource = null;
+              self.previewStartTime = null;
+            }
+          };
+        },
+
+        previewStop: function() {
+          if (this.previewSource) {
+            try { this.previewSource.stop(); } catch(e) {}
+            this.previewSource = null;
+            this.previewStartTime = null;
+          }
+        },
+
+        // Seek to offset (seconds). If already playing, restarts from the new position.
+        previewSeek: function(offset) {
+          const wasPlaying = this.previewSource !== null;
+          if (this.previewSource) {
+            try { this.previewSource.stop(); } catch(e) {}
+            this.previewSource = null;
+            this.previewStartTime = null;
+          }
+          this.previewSeekOffset = offset;
+          if (wasPlaying) { this.previewPlay(); }
+        },
+
+        previewGetPosition: function() {
+          if (!this.previewSource || this.previewStartTime === null) return this.previewSeekOffset;
+          const elapsed = this.audioContext.currentTime - this.previewStartTime;
+          const dur = this.previewBuffer ? this.previewBuffer.duration : 0;
+          return Math.min(this.previewSeekOffset + elapsed, dur);
+        },
+
+        previewIsPlaying: function() {
+          return this.previewSource !== null;
+        },
+
+        previewGetDuration: function() {
+          return this.previewBuffer ? this.previewBuffer.duration : 0;
+        },
+
+        // Returns a Float32Array of [resolution] peak values (0–1) from the waveform.
+        previewGetWaveform: function(resolution) {
+          if (!this.previewBuffer) return new Float32Array(resolution);
+          const data = this.previewBuffer.getChannelData(0);
+          const step = Math.max(1, Math.floor(data.length / resolution));
+          const peaks = new Float32Array(resolution);
+          for (let i = 0; i < resolution; i++) {
+            let max = 0;
+            const start = i * step;
+            for (let j = 0; j < step && (start + j) < data.length; j++) {
+              const v = Math.abs(data[start + j]);
+              if (v > max) max = v;
+            }
+            peaks[i] = max;
+          }
+          return peaks;
         }
       };
     }
@@ -200,6 +287,14 @@ void _webSynthResume() {
   _initWebSynth();
   if (_boojySynth != null) {
     _boojySynth!.callMethod('resume'.toJS);
+  }
+}
+
+/// Fire a metronome click via the dedicated Web Audio burst (not a MIDI note).
+void _webSynthClick(bool accent) {
+  _initWebSynth();
+  if (_boojySynth != null) {
+    _boojySynth!.callMethodVarArgs('click'.toJS, [accent.toJS]);
   }
 }
 
@@ -234,8 +329,11 @@ class AudioEngine implements AudioEngineInterface {
     return 'Web Audio Engine initialized';
   }
 
-  Future<String> initAudioGraph() async {
-    await waitForEngine();
+  String initAudioGraph() {
+    // Clear static state so a fresh AudioEngine always starts with no stale tracks.
+    _trackRegistry.clear();
+    _nextTrackId = 1;
+    // WASM loads asynchronously; engine calls fall back gracefully when not ready
     try {
       final result = _callEngine('init_audio_graph');
       return (result as JSString?)?.toDart ?? 'Initialized';
@@ -254,38 +352,200 @@ class AudioEngine implements AudioEngineInterface {
   // ============================================================================
   // Transport Controls
   // ============================================================================
+  //
+  // The WASM transport is a stub: get_playhead_position() returns raw
+  // AudioContext.currentTime (absolute, monotonically increasing, never resets),
+  // and transport_seek() is a no-op TODO. We track playback position entirely
+  // in Dart using DateTime.now() as the wall clock.
+
+  bool _isPlaying = false;
+  double _seekPosition = 0.0;   // position requested by the last seek / start-of-play
+  double _pausedPosition = 0.0; // position frozen when paused or stopped
+  DateTime? _playStartTime;     // wall-clock instant play began at _seekPosition
+
+  // MIDI playback scheduling (Dart-side, because WASM clip API is all stubs)
+  static int _nextClipId = 100;
+  final Map<int, List<_WebMidiNote>> _midiClipNotes = {};
+  final Map<int, double> _midiClipStartTimes = {};
+  final Map<int, int> _clipTrackIds = {}; // clipId → trackId for track-level cleanup
+  final List<Timer> _scheduledNoteTimers = [];
+  final Set<int> _activeNoteOns = {};
+  int _playGeneration = 0; // bumped on every cancel to invalidate in-flight timers
+
+  // Metronome (Dart-side)
+  bool _metronomeEnabled = false;
+  double _metronomeTempo = 120.0;
+  int _metronomeBeatsPerBar = 4;
+  int _metronomeBeat = 0; // running beat index, wraps at _metronomeBeatsPerBar
+  Timer? _metronomeTimer;
 
   String transportPlay() {
-    // Resume audio context on play (browser autoplay policy)
     _webSynthResume();
+    _callEngine('resume_audio_context');
+    _playStartTime = DateTime.now();
+    _isPlaying = true;
+    _scheduleMidiPlayback(_seekPosition);
+    if (_metronomeEnabled) _startMetronome(_seekPosition);
     final result = _callEngine('transport_play');
     return (result as JSString?)?.toDart ?? 'Playing';
   }
 
   String transportPause() {
+    if (_isPlaying && _playStartTime != null) {
+      _pausedPosition = _seekPosition +
+          DateTime.now().difference(_playStartTime!).inMicroseconds / 1000000.0;
+    }
+    _isPlaying = false;
+    _playStartTime = null;
+    _cancelScheduledNotes();
+    _stopMetronome();
     final result = _callEngine('transport_pause');
     return (result as JSString?)?.toDart ?? 'Paused';
   }
 
   String transportStop() {
+    if (_isPlaying && _playStartTime != null) {
+      _pausedPosition = _seekPosition +
+          DateTime.now().difference(_playStartTime!).inMicroseconds / 1000000.0;
+    }
+    _isPlaying = false;
+    _playStartTime = null;
+    _cancelScheduledNotes();
+    _stopMetronome();
     final result = _callEngine('transport_stop');
     return (result as JSString?)?.toDart ?? 'Stopped';
   }
 
   String transportSeek(double positionSeconds) {
-    final result = _callEngineWith('transport_seek', [positionSeconds.toJS]);
-    return (result as JSString?)?.toDart ?? 'Seeked';
+    _seekPosition = positionSeconds;
+    _pausedPosition = positionSeconds;
+    if (_isPlaying) {
+      _playStartTime = DateTime.now();
+      _scheduleMidiPlayback(positionSeconds);
+      if (_metronomeEnabled) _startMetronome(positionSeconds);
+    }
+    _callEngineWith('transport_seek', [positionSeconds.toJS]);
+    return 'Seeked';
   }
 
   double getPlayheadPosition() {
-    final result = _callEngine('get_playhead_position');
-    return _jsToDouble(result);
+    if (_isPlaying && _playStartTime != null) {
+      return _seekPosition +
+          DateTime.now().difference(_playStartTime!).inMicroseconds / 1000000.0;
+    }
+    return _pausedPosition;
   }
 
   int getTransportState() {
-    final result = _callEngine('get_transport_state');
-    final state = _jsToInt(result);
-    return state >= 0 ? state : 0; // Default to stopped state
+    return _isPlaying ? 1 : 0;
+  }
+
+  // ============================================================================
+  // MIDI scheduling helpers
+  // ============================================================================
+
+  void _scheduleMidiPlayback(double fromPosition) {
+    _cancelScheduledNotes();
+    _initWebSynth();
+    final generation = ++_playGeneration;
+
+    for (final entry in _midiClipStartTimes.entries) {
+      final clipId = entry.key;
+      final clipStart = entry.value;
+      final notes = _midiClipNotes[clipId] ?? [];
+
+      for (final note in notes) {
+        final noteAbsStart = clipStart + note.startTime;
+        final noteAbsEnd = noteAbsStart + note.duration;
+
+        if (noteAbsEnd <= fromPosition) continue; // already ended
+
+        if (noteAbsStart <= fromPosition) {
+          // Note onset has passed but it's still sounding — start immediately
+          _activeNoteOns.add(note.note);
+          _webSynthNoteOn(note.note, note.velocity);
+          final remainingMs =
+              ((noteAbsEnd - fromPosition) * 1000).round().clamp(10, 60000);
+          _scheduledNoteTimers.add(
+            Timer(Duration(milliseconds: remainingMs), () {
+              if (generation != _playGeneration) return;
+              _activeNoteOns.remove(note.note);
+              _webSynthNoteOff(note.note);
+            }),
+          );
+        } else {
+          final delayMs =
+              ((noteAbsStart - fromPosition) * 1000).round().clamp(0, 600000);
+          final durationMs =
+              (note.duration * 1000).round().clamp(10, 60000);
+          final capturedNote = note;
+          _scheduledNoteTimers.add(
+            Timer(Duration(milliseconds: delayMs), () {
+              if (generation != _playGeneration) return;
+              _activeNoteOns.add(capturedNote.note);
+              _webSynthNoteOn(capturedNote.note, capturedNote.velocity);
+              _scheduledNoteTimers.add(
+                Timer(Duration(milliseconds: durationMs), () {
+                  if (generation != _playGeneration) return;
+                  _activeNoteOns.remove(capturedNote.note);
+                  _webSynthNoteOff(capturedNote.note);
+                }),
+              );
+            }),
+          );
+        }
+      }
+    }
+  }
+
+  void _cancelScheduledNotes() {
+    _playGeneration++;
+    for (final t in _scheduledNoteTimers) {
+      t.cancel();
+    }
+    _scheduledNoteTimers.clear();
+    for (final note in _activeNoteOns) {
+      _webSynthNoteOff(note);
+    }
+    _activeNoteOns.clear();
+  }
+
+  void _startMetronome(double fromPosition) {
+    _stopMetronome();
+    final tempo = _metronomeTempo;
+    final beatDurationMs = (60000.0 / tempo).round();
+    // Align the first tick to the next beat boundary from fromPosition
+    final beatPosition = fromPosition * tempo / 60.0;
+    final beatFraction = beatPosition % 1.0;
+    final msToNextBeat =
+        ((1.0 - beatFraction) * beatDurationMs).round().clamp(0, beatDurationMs);
+    // Set beat index so the upcoming tick lands on the right bar position
+    _metronomeBeat = beatPosition.floor() % _metronomeBeatsPerBar;
+
+    void clickTick() {
+      if (!_isPlaying || !_metronomeEnabled) return;
+      final isAccent = _metronomeBeat % _metronomeBeatsPerBar == 0;
+      _webSynthClick(isAccent);
+      _metronomeBeat = (_metronomeBeat + 1) % _metronomeBeatsPerBar;
+      Log.d('[Metro] beat $_metronomeBeat accent=$isAccent');
+    }
+
+    Timer(Duration(milliseconds: msToNextBeat), () {
+      if (!_isPlaying || !_metronomeEnabled) return;
+      clickTick();
+      _metronomeTimer = Timer.periodic(Duration(milliseconds: beatDurationMs), (_) {
+        if (!_isPlaying || !_metronomeEnabled) {
+          _stopMetronome();
+          return;
+        }
+        clickTick();
+      });
+    });
+  }
+
+  void _stopMetronome() {
+    _metronomeTimer?.cancel();
+    _metronomeTimer = null;
   }
 
   // ============================================================================
@@ -351,7 +611,11 @@ class AudioEngine implements AudioEngineInterface {
   List<double> getWaveformPeaks(int clipId, int resolution) => [];
 
   @override
-  String setClipStartTime(int trackId, int clipId, double startTime) => 'OK';
+  String setClipStartTime(int trackId, int clipId, double startTime) {
+    _midiClipStartTimes[clipId] = startTime;
+    _clipTrackIds[clipId] = trackId;
+    return 'OK';
+  }
 
   @override
   String setClipOffset(int trackId, int clipId, double offset) => 'OK';
@@ -422,20 +686,30 @@ class AudioEngine implements AudioEngineInterface {
 
   @override
   void setTempo(double bpm) {
+    _metronomeTempo = bpm;
     _callEngineWith('set_tempo', [bpm.toJS]);
   }
 
-  double getTempo() {
-    final result = _callEngine('get_tempo');
-    final tempo = _jsToDouble(result);
-    return tempo > 0 ? tempo : 120.0;
-  }
+  double getTempo() => _metronomeTempo;
 
   String setMetronomeEnabled({required bool enabled}) {
+    _metronomeEnabled = enabled;
+    if (enabled && _isPlaying) {
+      _startMetronome(getPlayheadPosition());
+    } else if (!enabled) {
+      _stopMetronome();
+    }
     return enabled ? 'Metronome enabled' : 'Metronome disabled';
   }
 
-  bool isMetronomeEnabled() => false;
+  bool isMetronomeEnabled() => _metronomeEnabled;
+
+  String setTimeSignature(int beatsPerBar) {
+    _metronomeBeatsPerBar = beatsPerBar > 0 ? beatsPerBar : 4;
+    return 'OK';
+  }
+
+  int getTimeSignature() => _metronomeBeatsPerBar;
 
   // ============================================================================
   // MIDI
@@ -486,7 +760,11 @@ class AudioEngine implements AudioEngineInterface {
   }
 
   @override
-  int createMidiClip() => -1;
+  int createMidiClip() {
+    final id = _nextClipId++;
+    _midiClipNotes[id] = [];
+    return id;
+  }
 
   @override
   String addMidiNoteToClip(
@@ -496,16 +774,37 @@ class AudioEngine implements AudioEngineInterface {
     double startTime,
     double duration,
   ) {
+    _midiClipNotes[clipId]?.add(
+      _WebMidiNote(
+        note: note,
+        velocity: velocity,
+        startTime: startTime,
+        duration: duration,
+      ),
+    );
     return 'OK';
   }
 
   @override
-  int addMidiClipToTrack(int trackId, int clipId, double startTimeSeconds) =>
-      -1;
+  int addMidiClipToTrack(int trackId, int clipId, double startTimeSeconds) {
+    _midiClipStartTimes[clipId] = startTimeSeconds;
+    _clipTrackIds[clipId] = trackId;
+    return 0;
+  }
+
   @override
-  int removeMidiClip(int trackId, int clipId) => 0;
+  int removeMidiClip(int trackId, int clipId) {
+    _midiClipNotes.remove(clipId);
+    _midiClipStartTimes.remove(clipId);
+    _clipTrackIds.remove(clipId);
+    return 0;
+  }
+
   @override
-  String clearMidiClip(int clipId) => 'OK';
+  String clearMidiClip(int clipId) {
+    _midiClipNotes[clipId]?.clear();
+    return 'OK';
+  }
 
   /// Get available MIDI input devices (empty on web)
   List<Map<String, dynamic>> getMidiInputDevices() =>
@@ -532,10 +831,12 @@ class AudioEngine implements AudioEngineInterface {
   List<Map<String, dynamic>> getAudioInputDevices() => [];
   String setAudioInputDevice(int deviceIndex) => 'OK';
 
-  /// Get available audio output devices (empty on web)
-  List<Map<String, dynamic>> getAudioOutputDevices() => [];
+  /// Web audio routes to the system default via the Web Audio API.
+  List<Map<String, dynamic>> getAudioOutputDevices() => [
+    {'name': 'System Default', 'isDefault': true},
+  ];
   String setAudioOutputDevice(String deviceName) => 'OK';
-  String getSelectedAudioOutputDevice() => 'Default';
+  String getSelectedAudioOutputDevice() => 'System Default';
   // Web audio runs in-page — there is no device stream that can die (C99).
   String getAudioStreamError() => '';
   int getSampleRate() => 48000;
@@ -547,37 +848,46 @@ class AudioEngine implements AudioEngineInterface {
   // Track ID counter for web (since WASM may not provide real IDs yet)
   static int _nextTrackId = 1;
 
+  // In-memory registry — WASM doesn't export get_all_track_ids / get_track_info
+  static final Map<int, _WebTrackState> _trackRegistry = {};
+
   @override
   int createTrack(String trackType, String name) {
+    // Notify the WASM engine (preserves the console log), but do NOT trust its
+    // return value — the WASM stub always returns 1, which causes every track
+    // to collide on the same key in _trackRegistry. The Dart side is already
+    // the authoritative source of truth for transport, MIDI, and metronome on
+    // web, so it owns track IDs here too.
     try {
-      final result = _callEngineWith('create_track', [name.toJS]);
-      final trackId = _jsToInt(result);
-      Log.d(
-        'createTrack($trackType, $name) => $trackId (raw: ${result?.runtimeType})',
-      );
-
-      // If WASM returned a valid ID, use it
-      if (trackId > 0) {
-        // Keep our counter in sync
-        if (trackId >= _nextTrackId) {
-          _nextTrackId = trackId + 1;
-        }
-        return trackId;
-      }
-
-      // Fallback: generate our own ID if WASM fails or returns invalid
-      final fallbackId = _nextTrackId++;
-      Log.d('createTrack fallback: using generated ID $fallbackId');
-      return fallbackId;
-    } catch (e) {
-      Log.e('createTrack error: $e');
-      // Fallback on error
-      return _nextTrackId++;
+      _callEngineWith('create_track', [name.toJS]);
+    } catch (_) {
+      // Ignore WASM errors — we don't depend on its return value.
     }
+
+    final id = _nextTrackId++;
+    _trackRegistry[id] = _WebTrackState(id: id, name: name, type: trackType);
+    Log.d('createTrack($trackType, $name) => $id (Dart-allocated)');
+    return id;
+  }
+
+  @override
+  List<int> getAllTrackIds() => _trackRegistry.keys.toList();
+
+  @override
+  String getTrackInfo(int trackId) {
+    final t = _trackRegistry[trackId];
+    if (t == null) return '';
+    // CSV: id,name,type,volume_db,pan,mute,solo,armed,input_device,input_channel,input_monitoring
+    final encodedName = t.name
+        .replaceAll('%', '%25')
+        .replaceAll(',', '%2C')
+        .replaceAll(';', '%3B');
+    return '$trackId,$encodedName,${t.type},${t.volumeDb},${t.pan},${t.mute},${t.solo},false,-1,0,false';
   }
 
   @override
   void setTrackVolume(int trackId, double volumeDb) {
+    _trackRegistry[trackId]?.volumeDb = volumeDb;
     final linear = volumeDb <= -60
         ? 0.0
         : (volumeDb / 60.0 + 1.0).clamp(0.0, 1.0);
@@ -591,16 +901,19 @@ class AudioEngine implements AudioEngineInterface {
 
   @override
   void setTrackPan(int trackId, double pan) {
+    _trackRegistry[trackId]?.pan = pan;
     _callEngineWith('set_track_pan', [_intToBigInt(trackId), pan.toJS]);
   }
 
   @override
   void setTrackMute(int trackId, {required bool mute}) {
+    _trackRegistry[trackId]?.mute = mute;
     _callEngineWith('set_track_mute', [_intToBigInt(trackId), mute.toJS]);
   }
 
   @override
   void setTrackSolo(int trackId, {required bool solo}) {
+    _trackRegistry[trackId]?.solo = solo;
     _callEngineWith('set_track_solo', [_intToBigInt(trackId), solo.toJS]);
   }
 
@@ -608,14 +921,18 @@ class AudioEngine implements AudioEngineInterface {
   void setTrackArmed(int trackId, {required bool armed}) {}
 
   @override
-  void setTrackName(int trackId, String name) {}
+  void setTrackName(int trackId, String name) {
+    _trackRegistry[trackId]?.name = name;
+  }
 
-  int getTrackCount() => 0;
-  @override
-  List<int> getAllTrackIds() => [];
+  String setTrackInput(int trackId, int deviceIndex, int channel) => 'OK';
+  Map<String, int> getTrackInput(int trackId) =>
+      {'device_index': -1, 'channel': 0};
+  String setTrackInputMonitoring(int trackId, {required bool enabled}) => 'OK';
+  double getInputChannelLevel(int channel) => 0.0;
+  int getInputChannelCount() => 0;
 
-  @override
-  String getTrackInfo(int trackId) => '{}';
+  int getTrackCount() => _trackRegistry.length;
 
   String getTrackPeakLevels(int trackId) => '{"left": 0.0, "right": 0.0}';
 
@@ -623,6 +940,17 @@ class AudioEngine implements AudioEngineInterface {
 
   @override
   String deleteTrack(int trackId) {
+    _trackRegistry.remove(trackId);
+    // Remove every MIDI clip that belonged to this track
+    final clipIds = _clipTrackIds.entries
+        .where((e) => e.value == trackId)
+        .map((e) => e.key)
+        .toList();
+    for (final clipId in clipIds) {
+      _midiClipNotes.remove(clipId);
+      _midiClipStartTimes.remove(clipId);
+      _clipTrackIds.remove(clipId);
+    }
     _callEngineWith('delete_track', [_intToBigInt(trackId)]);
     return 'OK';
   }
@@ -630,7 +958,19 @@ class AudioEngine implements AudioEngineInterface {
   @override
   int duplicateTrack(int trackId) => -1;
 
-  String clearAllTracks() => 'OK';
+  String clearAllTracks() {
+    _cancelScheduledNotes();
+    _stopMetronome();
+    _midiClipNotes.clear();
+    _midiClipStartTimes.clear();
+    _clipTrackIds.clear();
+    _trackRegistry.clear();
+    _isPlaying = false;
+    _playStartTime = null;
+    _seekPosition = 0.0;
+    _pausedPosition = 0.0;
+    return 'OK';
+  }
 
   // ============================================================================
   // Per-Track Synth
@@ -805,6 +1145,11 @@ class AudioEngine implements AudioEngineInterface {
   }
 
   String loadProjectFromJson(String json) {
+    // Clear Dart-side MIDI state before loading so stale clips don't linger
+    _cancelScheduledNotes();
+    _midiClipNotes.clear();
+    _midiClipStartTimes.clear();
+    _clipTrackIds.clear();
     final result = _callEngineWith('load_project_from_json', [json.toJS]);
     return (result as JSString?)?.toDart ?? 'Loaded';
   }
@@ -888,17 +1233,38 @@ class AudioEngine implements AudioEngineInterface {
   static bool get isWebAudioAvailable => true;
 
   // ============================================================================
-  // Library Preview (stubs - not yet implemented on web)
+  // Library Preview — Web Audio implementation
   // ============================================================================
 
   @override
   String previewLoadAudio(String path) => 'Not available on web';
 
+  /// Kick off an async asset load + decode. The preview service polls
+  /// [previewIsLoaded] and calls [previewPlay] once it becomes true.
   @override
-  void previewLoadAudioAsync(String path) {}
+  void previewLoadAudioAsync(String path) {
+    _initWebSynth();
+    unawaited(_loadPreviewAsset(path));
+  }
+
+  Future<void> _loadPreviewAsset(String path) async {
+    try {
+      final data = await rootBundle.load(path);
+      final bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+      if (_boojySynth != null) {
+        _boojySynth!.callMethodVarArgs('previewLoad'.toJS, [bytes.toJS]);
+      }
+    } catch (e) {
+      Log.e('[Web Preview] Failed to load asset "$path": $e');
+    }
+  }
 
   @override
-  bool previewIsLoaded() => false;
+  bool previewIsLoaded() {
+    if (_boojySynth == null) return false;
+    final v = _boojySynth!['previewLoaded'];
+    return v != null && v.isA<JSBoolean>() && (v as JSBoolean).toDart;
+  }
 
   @override
   bool previewCheckFullClip() => false;
@@ -907,32 +1273,72 @@ class AudioEngine implements AudioEngineInterface {
   bool previewIsFullyDecoded() => false;
 
   @override
-  void previewPlay() {}
+  void previewPlay() {
+    _initWebSynth();
+    _boojySynth?.callMethod('previewPlay'.toJS);
+  }
 
   @override
-  void previewStop() {}
+  void previewStop() {
+    _boojySynth?.callMethod('previewStop'.toJS);
+  }
 
   @override
-  void previewSeek(double positionSeconds) {}
+  void previewSeek(double positionSeconds) {
+    _initWebSynth();
+    _boojySynth?.callMethodVarArgs('previewSeek'.toJS, [positionSeconds.toJS]);
+  }
 
   @override
-  double previewGetPosition() => 0.0;
+  double previewGetPosition() {
+    if (_boojySynth == null) return 0.0;
+    final v = _boojySynth!.callMethod('previewGetPosition'.toJS);
+    if (v != null && v.isA<JSNumber>()) return (v as JSNumber).toDartDouble;
+    return 0.0;
+  }
 
   @override
-  double previewGetDuration() => 0.0;
+  double previewGetDuration() {
+    if (_boojySynth == null) return 0.0;
+    final v = _boojySynth!.callMethod('previewGetDuration'.toJS);
+    if (v != null && v.isA<JSNumber>()) return (v as JSNumber).toDartDouble;
+    return 0.0;
+  }
 
   @override
-  bool previewIsPlaying() => false;
+  bool previewIsPlaying() {
+    if (_boojySynth == null) return false;
+    final v = _boojySynth!.callMethod('previewIsPlaying'.toJS);
+    return v != null && v.isA<JSBoolean>() && (v as JSBoolean).toDart;
+  }
 
   @override
-  void previewSetLooping(bool shouldLoop) {}
+  void previewSetLooping(bool shouldLoop) {
+    if (_boojySynth == null) return;
+    _boojySynth!['previewLooping'] = shouldLoop.toJS;
+  }
 
   @override
-  bool previewIsLooping() => false;
+  bool previewIsLooping() {
+    if (_boojySynth == null) return false;
+    final v = _boojySynth!['previewLooping'];
+    return v != null && v.isA<JSBoolean>() && (v as JSBoolean).toDart;
+  }
 
   @override
-  List<double> previewGetWaveform(int resolution) =>
-      List.filled(resolution, 0.0);
+  List<double> previewGetWaveform(int resolution) {
+    if (_boojySynth == null) return List.filled(resolution, 0.0);
+    try {
+      final v = _boojySynth!.callMethodVarArgs('previewGetWaveform'.toJS, [resolution.toJS]);
+      if (v != null && v.isA<JSFloat32Array>()) {
+        final arr = (v as JSFloat32Array).toDart;
+        return arr.map((x) => x.toDouble()).toList();
+      }
+    } catch (e) {
+      Log.e('[Web Preview] previewGetWaveform error: $e');
+    }
+    return List.filled(resolution, 0.0);
+  }
 
   // ============================================================================
   // Punch Recording (stubs - not yet implemented on web)
@@ -1012,4 +1418,34 @@ class AudioEngine implements AudioEngineInterface {
 
   @override
   bool syncMasterTimelineVisibility() => false;
+}
+
+/// A single MIDI note kept in the Dart-side clip store.
+/// startTime and duration are in seconds relative to the clip's start.
+class _WebMidiNote {
+  final int note;
+  final int velocity;
+  final double startTime;
+  final double duration;
+
+  const _WebMidiNote({
+    required this.note,
+    required this.velocity,
+    required this.startTime,
+    required this.duration,
+  });
+}
+
+/// Mutable track state kept in Dart memory on web.
+/// WASM doesn't expose get_all_track_ids / get_track_info.
+class _WebTrackState {
+  final int id;
+  String name;
+  final String type;
+  double volumeDb = 0.0;
+  double pan = 0.0;
+  bool mute = false;
+  bool solo = false;
+
+  _WebTrackState({required this.id, required this.name, required this.type});
 }

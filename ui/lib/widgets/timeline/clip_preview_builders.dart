@@ -538,7 +538,11 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
 
   /// Build preview clip widget for drag-and-drop from library
   Widget buildPreviewClip(PreviewClip preview) {
-    final previewDuration = preview.duration ?? 3.0;
+    // Treat null or non-positive duration as the default ghost width — a 0-second
+    // clip would otherwise render ~0px wide and overflow its header Row.
+    final rawDuration = preview.duration;
+    final previewDuration =
+        (rawDuration == null || rawDuration <= 0) ? 3.0 : rawDuration;
 
     // For MIDI previews, width is based on beats; for audio, based on seconds
     final double clipWidth;
@@ -684,7 +688,11 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
   /// Build preview clip widget for drag-and-drop over empty area (no track exists yet).
   /// Uses a default track color since no track exists to inherit color from.
   Widget buildEmptyAreaPreviewClip(PreviewClip preview) {
-    final previewDuration = preview.duration ?? 3.0;
+    // Treat null or non-positive duration as the default ghost width — a 0-second
+    // clip would otherwise render ~0px wide and overflow its header Row.
+    final rawDuration = preview.duration;
+    final previewDuration =
+        (rawDuration == null || rawDuration <= 0) ? 3.0 : rawDuration;
 
     final double clipWidth;
     if (preview.isMidi) {

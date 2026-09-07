@@ -2,6 +2,7 @@
 // This file is used on web platform where dart:io is not available
 
 import 'dart:async';
+import 'dart:typed_data';
 
 // Stub classes for web compatibility
 // These mirror dart:io classes but are safe for web
@@ -39,6 +40,13 @@ class Directory extends FileSystemEntity {
   Stream<FileSystemEntity> list({bool recursive = false}) =>
       const Stream.empty();
   Future<FileStat> stat() async => FileStat();
+
+  Directory get parent {
+    final sep = path.lastIndexOf('/');
+    return Directory(sep > 0 ? path.substring(0, sep) : '/');
+  }
+
+  Future<FileSystemEntity> rename(String newPath) async => Directory(newPath);
 }
 
 /// Stub File class for web
@@ -50,7 +58,7 @@ class File extends FileSystemEntity {
   Future<bool> exists() async => false;
   Future<File> copy(String newPath) async => File(newPath);
   Future<String> readAsString() async => '';
-  Future<List<int>> readAsBytes() async => [];
+  Future<Uint8List> readAsBytes() async => Uint8List(0);
   Future<File> writeAsString(String contents) async => this;
   Future<File> writeAsBytes(List<int> bytes) async => this;
   Directory get parent => Directory(path.substring(0, path.lastIndexOf('/')));

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -690,7 +691,8 @@ class _LibraryPanelState extends State<LibraryPanel> {
           _buildCategoryItem('samples', BI.equalizer, 'Samples'),
           _buildCategoryItem('instruments', BI.piano, 'Instruments'),
           _buildCategoryItem('effects', BI.lightning, 'Effects'),
-          _buildCategoryItem('plugins', BI.plugin, 'Plugins'),
+          // VST3 plugins can't load in a browser — hide this category on web.
+          if (!kIsWeb) _buildCategoryItem('plugins', BI.plugin, 'Plugins'),
 
           // Divider before user folders
           if (userFolders.isNotEmpty) ...[
@@ -713,12 +715,14 @@ class _LibraryPanelState extends State<LibraryPanel> {
             );
           }),
 
-          // Add folder button
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Divider(color: colors.elevated, height: 1),
-          ),
-          _buildAddFolderButton(),
+          // Add folder button (hidden on web — no folder-path API in the browser).
+          if (!kIsWeb) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Divider(color: colors.elevated, height: 1),
+            ),
+            _buildAddFolderButton(),
+          ],
         ],
       ),
     );

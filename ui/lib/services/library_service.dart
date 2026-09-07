@@ -54,6 +54,14 @@ class LibraryService extends ChangeNotifier {
   /// Copy the bundled samples out of the asset bundle (no-op when already
   /// installed), then surface them in the Samples category.
   Future<void> _installBundledContent() async {
+    if (kIsWeb) {
+      // On web, samples can't be installed to disk — the Rust engine can't
+      // read Flutter asset paths. Instead we surface the asset paths directly;
+      // the web preview engine loads them via rootBundle.load().
+      _bundledDrumsRoot = BundledContentService.drumsAssetRoot;
+      notifyListeners();
+      return;
+    }
     final root = await BundledContentService.ensureInstalled();
     if (root != null) {
       _bundledDrumsRoot = root;
@@ -221,6 +229,14 @@ class LibraryService extends ChangeNotifier {
       return _folderContents[path]!;
     }
 
+    // On web, filesystem access is unavailable — serve bundled drum samples
+    // directly from the static asset list instead of scanning the disk.
+    if (kIsWeb) {
+      final items = _scanBundledAssets(path);
+      _folderContents[path] = items;
+      return items;
+    }
+
     final items = <LibraryItem>[];
     final dir = Directory(path);
 
@@ -303,6 +319,59 @@ class LibraryService extends ChangeNotifier {
   bool _isMidiFile(String ext) {
     const midiExtensions = ['mid', 'midi'];
     return midiExtensions.contains(ext);
+  }
+
+  /// Web-only: build library items for [path] from the bundled drum sample
+  /// list rather than the filesystem. [path] must be at or under
+  /// [BundledContentService.drumsAssetRoot]. Returns immediate children only
+  /// (subfolders OR files), matching the native scanFolder sort order.
+  List<LibraryItem> _scanBundledAssets(String path) {
+    const assetRoot = BundledContentService.drumsAssetRoot;
+    // Normalise: strip trailing slash for comparison.
+    final norm = path.endsWith('/') ? path.substring(0, path.length - 1) : path;
+
+    final subfoldersSeen = <String>{};
+    final items = <LibraryItem>[];
+
+    for (final rel in BundledContentService.drumSamples) {
+      // rel = 'Kicks/808 Kick.wav'  →  full asset path = '$assetRoot/$rel'
+      final full = '$assetRoot/$rel';
+
+      if (norm == assetRoot) {
+        // At the drums root — surface immediate subfolders (Kicks, Snares, …).
+        final slash = rel.indexOf('/');
+        if (slash < 0) continue;
+        final subfolder = rel.substring(0, slash);
+        if (subfoldersSeen.add(subfolder)) {
+          items.add(FolderItem(
+            id: 'folder_$assetRoot/$subfolder',
+            name: subfolder,
+            folderPath: '$assetRoot/$subfolder',
+            icon: BI.folder,
+          ));
+        }
+      } else if (full.startsWith('$norm/')) {
+        // Inside a subfolder — surface direct children only (individual WAVs).
+        final remainder = full.substring(norm.length + 1);
+        if (!remainder.contains('/')) {
+          items.add(AudioFileItem(
+            id: 'file_$full',
+            name: remainder,
+            filePath: full,
+            icon: BI.audioFile,
+          ));
+        }
+      }
+    }
+
+    // Match native scanFolder: folders first, then files A–Z.
+    items.sort((a, b) {
+      if (a.type == LibraryItemType.folder && b.type != LibraryItemType.folder) return -1;
+      if (a.type != LibraryItemType.folder && b.type == LibraryItemType.folder) return 1;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+
+    return items;
   }
 
   /// Clear folder cache (for refresh)

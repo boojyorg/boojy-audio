@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../../../utils/logger.dart';
 import '../../../models/clip_data.dart';
@@ -190,6 +191,10 @@ mixin DAWLibraryMixin
 
   /// Handle audio file dropped on empty area - creates new audio track
   Future<void> onAudioFileDroppedOnEmpty(String filePath) async {
+    if (kIsWeb) {
+      showSnackBar("Audio clips aren't supported in the web version yet");
+      return;
+    }
     if (audioEngine == null) return;
 
     try {
@@ -257,6 +262,10 @@ mixin DAWLibraryMixin
     Log.d(
       '[OVERLAP] onAudioFileDroppedOnTrack: track $trackId, file=${filePath.split("/").last}, startBeats=${startTimeBeats.toStringAsFixed(3)}',
     );
+    if (kIsWeb) {
+      showSnackBar("Audio clips aren't supported in the web version yet");
+      return;
+    }
     if (audioEngine == null) return;
 
     // Defensive check: only allow audio file drops on audio tracks (not MIDI tracks)

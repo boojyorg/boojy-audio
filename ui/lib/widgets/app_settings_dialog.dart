@@ -1,6 +1,7 @@
 import 'dart:async' show unawaited;
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
@@ -57,7 +58,8 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
   String? _selectedOutputDevice;
   String? _selectedInputDevice;
   String? _selectedMidiInputDevice;
-  String _selectedDriver = Platform.isMacOS ? 'coreaudio' : 'wasapi';
+  String _selectedDriver =
+      kIsWeb ? 'web' : (Platform.isMacOS ? 'coreaudio' : 'wasapi');
   bool _asioGuideExpanded = false;
   bool _autoCheckUpdates = true;
   String _appVersion = '';
@@ -579,6 +581,11 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
 
   /// Get list of available audio drivers based on platform
   List<Map<String, String>> _getAvailableDrivers() {
+    if (kIsWeb) {
+      return [
+        {'id': 'web', 'name': 'Web Audio API', 'latency': '~100ms'},
+      ];
+    }
     // macOS uses CoreAudio
     if (Platform.isMacOS) {
       return [
