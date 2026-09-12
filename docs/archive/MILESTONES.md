@@ -1,6 +1,6 @@
 # Historical Milestones (Archived)
 
-This document preserves the original milestone-based development plan from Boojy Audio's early development. The project has since transitioned to a version-based roadmap (see [ROADMAP.md](../ROADMAP.md)).
+This document preserves the original milestone-based development plan from Boojy Audio's early development. The project has since transitioned to a version-based roadmap (see [ROADMAP.md](https://github.com/boojyorg/boojy-audio/blob/e5032f8d4993ba11c0ebbddc19f3eab176c6f7bb/docs/ROADMAP.md)).
 
 ---
 
@@ -180,4 +180,4 @@ As of January 2026, the project transitioned from milestone-based to version-bas
 | M9 (Instruments) | → | v0.4.0 Stock Instruments |
 | M10 (Release) | → | v1.0.0 Public Release |
 
-See [ROADMAP.md](../ROADMAP.md) for the current development plan.
+See [ROADMAP.md](https://github.com/boojyorg/boojy-audio/blob/e5032f8d4993ba11c0ebbddc19f3eab176c6f7bb/docs/ROADMAP.md) for the current development plan.

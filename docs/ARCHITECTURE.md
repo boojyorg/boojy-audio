@@ -310,7 +310,7 @@ return bus: per-return accumulator → return FX chain ────────�
   by effect type via `api/sends.rs`, so several tracks feed one reverb return
   instead of spawning duplicates.
 - **No plugin delay compensation yet.** Return-chain latency is not aligned
-  against the dry signal (tracked in FEATURE_TRACKER).
+  against the dry signal (tracked in [BACKLOG.md](BACKLOG.md)).
 
 ### Track locks are non-reentrant (deadlock hazard)
 

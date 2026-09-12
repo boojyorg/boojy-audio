@@ -10,7 +10,7 @@ A modern, cross-platform DAW (Digital Audio Workstation) designed for **speed, s
 
 Or visit [boojy.org](https://boojy.org) for more information.
 
-**Current Status:** Alpha — latest release v0.6.0. See [CHANGELOG.md](CHANGELOG.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
+**Current Status:** Alpha — latest release v0.6.0. See [CHANGELOG.md](CHANGELOG.md) and [docs/BACKLOG.md](docs/BACKLOG.md).
 
 ## Features
 
@@ -25,7 +25,8 @@ Or visit [boojy.org](https://boojy.org) for more information.
 - **Project management** — Save/load projects, auto-save, WAV/MP3/stem export
 - **Keyboard-driven workflow** — Command palette (Cmd+K) and shortcuts for everything
 
-See [ROADMAP.md](docs/ROADMAP.md) for the full feature tracker and version plan.
+Development priority: documentation health. The v0.7 feature theme is paused; see
+[BACKLOG.md](docs/BACKLOG.md) for unfinished work and decisions.
 
 ## Tech Stack
 
@@ -56,9 +57,10 @@ See [ROADMAP.md](docs/ROADMAP.md) for the full feature tracker and version plan.
 
 | Doc | What it covers |
 |-----|----------------|
-| [ROADMAP.md](docs/ROADMAP.md) | Version plan, prioritized path to v1.0, design decisions |
+| [BACKLOG.md](docs/BACKLOG.md) | Active priority, paused work, open decisions, future candidates and exclusions |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, Flutter/Rust split, FFI patterns, folder structure |
-| [FEATURE_TRACKER.md](docs/FEATURE_TRACKER.md) | v1.0 feature checklist (what exists vs planned) |
+| [AGENTS.md](AGENTS.md) | Engineering conventions and pointers to detailed rules |
+| [CHANGELOG.md](CHANGELOG.md) | Completed changes, with unreleased work separated from releases |
 
 ## Setup
 
