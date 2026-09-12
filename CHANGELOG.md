@@ -29,6 +29,9 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Contribution policy simplified** (`CONTRIBUTING.md`, `README.md`): personal project, no
+  external code contributions, feedback and bug reports by email to tyr@boojy.org.
+
 - Restored CI compatibility by pinning Rust and the Windows runner/toolchain, updating
   fixed-size sample iteration for strict Clippy, and using overflow-safe stereo midpoints.
 
