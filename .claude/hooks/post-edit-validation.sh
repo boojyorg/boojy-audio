@@ -7,7 +7,7 @@
 #   *.dart under ui/     -> fvm flutter analyze --fatal-infos (or flutter analyze --fatal-infos)
 #   anything else        -> no-op
 #
-# It is a GATE ONLY: it never writes into the repo tree and never touches dreams.md.
+# It is a GATE ONLY: it never writes into the repo tree and never updates planning documents.
 # Full test suites (cargo test / flutter test) are intentionally NOT run here — too
 # slow for the per-edit loop; those stay manual / CI.
 #

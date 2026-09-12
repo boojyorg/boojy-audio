@@ -1,5 +1,5 @@
 {
-  "compactPrompt": "Preserve VERBATIM, do not paraphrase: (1) the dreams.md §1 Active Engineering Target and its milestone checklist (the `- [ ]` / `- [x]` items); (2) the always-true rules in CLAUDE.md and every loaded .claude/rules/*.md file; (3) the exact file paths modified on this branch; (4) current error signatures / failing-gate output verbatim. Discard greeting filler, acknowledgements, and discussion that has already been resolved. Keep the summary tight: active task state, decisions made, and what remains — not the conversation that produced them.",
+  "compactPrompt": "Preserve VERBATIM, do not paraphrase: (1) the active priority and relevant paused/open items from docs/BACKLOG.md; (2) the always-true rules in CLAUDE.md and every loaded .claude/rules/*.md file; (3) the exact file paths modified on this branch; (4) current error signatures / failing-gate output verbatim. Discard greeting filler, acknowledgements, and discussion that has already been resolved. Keep the summary tight: active task state, decisions made, and what remains — not the conversation that produced them.",
   "hooks": {
     "PostToolUse": [
       {

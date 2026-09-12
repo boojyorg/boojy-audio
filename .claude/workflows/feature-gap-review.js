@@ -1,9 +1,9 @@
 export const meta = {
   name: 'feature-gap-review',
   description:
-    'Feature-coverage audit: survey FEATURE_TRACKER/ROADMAP/plans for claimed-vs-actual gaps + beginner-DAW teardowns ("what does a beginner expect that Boojy lacks") → classify each gap (v1.0-blocking | nice-to-have | out-of-scope-for-beginners) → synthesized ranked feature-gap backlog + recommended next theme. Model-tiered (readers Sonnet, classifiers Haiku, synthesis Opus). Beginner-first lens throughout.',
+    'Feature-coverage audit: survey BACKLOG/specs/changelog for claimed-vs-actual gaps + beginner-DAW teardowns ("what does a beginner expect that Boojy lacks") → classify each gap (v1.0-blocking | nice-to-have | out-of-scope-for-beginners) → synthesized ranked feature-gap backlog + recommended next theme. Model-tiered (readers Sonnet, classifiers Haiku, synthesis Opus). Beginner-first lens throughout.',
   whenToUse:
-    'Before opening a new MINOR version plan, alongside codebase-review (correctness) and ui-ux-review (UI), to answer "what features are MISSING". Lighter than the codebase audit. Beginner-first: a missing pro feature is usually correctly out-of-scope. Optionally pass args.priorThemes (themes the other two reviews proposed) so synthesis reconciles. Save the returned report to docs/reviews/.',
+    'When explicitly choosing a new minor-release feature theme, alongside codebase-review (correctness) and ui-ux-review (UI), to answer "what features are MISSING". Lighter than the codebase audit. Beginner-first: a missing pro feature is usually correctly out-of-scope. Optionally pass args.priorThemes (themes the other two reviews proposed) so synthesis reconciles. Save the returned report to docs/reviews/.',
   phases: [
     { title: 'Survey', detail: 'internal tracker/roadmap readers + beginner-DAW teardowns (Sonnet)' },
     { title: 'Classify', detail: 'tag each gap blocking/nice/out-of-scope (Haiku)' },
@@ -13,8 +13,8 @@ export const meta = {
 
 // Internal readers: what does Boojy CLAIM vs actually have? Verify a sample against code, don't trust docs.
 const INTERNAL = [
-  { key: 'feature-tracker', focus: 'docs/FEATURE_TRACKER.md — the v1.0 feature checklist. For each major checked ("done") item, spot-check it against the actual code (engine/src + ui/lib) to confirm it is really built, not just ticked. List items that are claimed-done but missing/partial, and unchecked items that look load-bearing for a usable beginner DAW.' },
-  { key: 'roadmap-plans', focus: 'docs/ROADMAP.md + docs/plans/ + docs/archive/plans/ + dreams.md §1 — features that were planned, deferred, or only partially landed. Surface "started but not finished" work and explicitly-deferred items that a beginner would still expect (e.g. the deferred effects/device overhaul, Serum/VST3 load bug, light/high-contrast theme).' },
+  { key: 'behaviour-contracts', focus: 'README.md, CHANGELOG.md and any docs/SPEC-*.md — claimed capabilities and accepted contracts. Spot-check against engine/src + ui/lib for actual user reachability. Distinguish accepted requirements, implemented behaviour, and proposals; report unsupported completion claims.' },
+  { key: 'backlog', focus: 'docs/BACKLOG.md is the sole planning authority. Inspect paused work, open decisions, exclusions and candidates against code. Historical reviews/plans are evidence only: do not revive old release commitments or override later owner decisions. Report gaps without automatically scheduling feature work.' },
 ]
 
 // Beginner-oriented DAWs only — GarageBand is the north-star comparison, the others are popular entry points.
@@ -84,7 +84,7 @@ const internalReads = (await parallel(INTERNAL.map((s) => () =>
 
 const competitiveReads = (await parallel(DAWS.map((d) => () =>
   agent(
-    `Competitive feature teardown for a Boojy Audio feature-gap review. Boojy is a beginner-first DAW (GarageBand model). List the capabilities that ${d} gives ABSOLUTE BEGINNERS that make it feel complete (recording, loops/sounds library, simple instruments, basic effects, sharing/export, undo, automation, etc.). For each, say why a beginner expects it and — by reading the Boojy repo (engine/src + ui/lib + docs/FEATURE_TRACKER.md) — whether Boojy has it / lacks it / partial. Focus on beginner essentials, NOT pro features. Be specific.`,
+    `Competitive feature teardown for a Boojy Audio feature-gap review. Boojy is a beginner-first DAW (GarageBand model). List the capabilities that ${d} gives ABSOLUTE BEGINNERS that make it feel complete (recording, loops/sounds library, simple instruments, basic effects, sharing/export, undo, automation, etc.). For each, say why a beginner expects it and — by reading the Boojy repo (engine/src + ui/lib + docs/BACKLOG.md) — whether Boojy has it / lacks it / partial. Focus on beginner essentials, NOT pro features. Be specific.`,
     { label: `daw:${d}`, phase: 'Survey', model: 'sonnet', agentType: 'Explore', schema: EXPECT }
   ).then((r) => ({ ...r, daw: d }))
 ))).filter(Boolean)

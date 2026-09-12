@@ -7,16 +7,17 @@ and gotchas.
 
 ## Memory & docs (repo-specific)
 
-Docs/memory model (AGENTS.md / `.claude/rules/` / `dreams.md` / agent memory / git log) → suite
-root `AGENTS.md`. Local layout:
+Shared docs/memory conventions → suite root `AGENTS.md`. Audio now uses its single-backlog
+model; the suite root's legacy Audio exception is superseded by this consolidation.
 
-- **`dreams.md` §1** — the active engineering target + milestone checklist. Read it first.
-- **`docs/ROADMAP.md`** (ordered intentions) · **`docs/BACKLOG.md`** (unscheduled someday) ·
-  **`docs/FEATURE_TRACKER.md`** (built-vs-not, v1.0 checklist) split the overflow.
-- **`docs/plans/vX.Y-plan.md`** — detailed spec for the active version (features, mockups, scope).
-- **`docs/reviews/`** — dated deep-review reports that set each version's theme (see Milestone
-  Reviews). Filenames are **date-first** — `YYYY_MM_DD_<topic>.md` — so the folder sorts
-  chronologically. **`docs/ARCHITECTURE.md`** — system design, folder structure, FFI patterns.
+- **`docs/BACKLOG.md`** — the one planning document: active docs cleanup, paused feature work,
+  open decisions, candidates, and exclusions. Read it first. No separate dreams, roadmap,
+  feature tracker, or active version-plan ledger.
+- **`docs/ARCHITECTURE.md`** — current system design and boundaries. Focused `docs/SPEC-*.md`
+  contracts will describe accepted behaviour and acceptance criteria as they are verified.
+- **`docs/reviews/` / `docs/archive/`** — dated evidence, not current instructions or schedules.
+  Use date-first review filenames (`YYYY_MM_DD_topic.md`). Extract unresolved work and accepted
+  decisions before pruning. History also lives in Git.
 - **`.claude/rules/*.md`** — per-area gotchas, one topic per file (`ffi.md`, `audio-export.md`,
   `flutter-ui.md`, `state.md`, `build-and-test.md`). Plain markdown — any agent should read the
   matching file before touching that area; genuinely global rules live here in `AGENTS.md`.
@@ -127,8 +128,8 @@ modulation matrix. Add complexity only when explicitly asked.
 General design-decision posture (defer on taste, push back on architecture) → suite root
 `AGENTS.md` + the global instructions in `~/.claude`. Audio-specific habits:
 
-- **One milestone at a time** — only one active `docs/plans/vX.Y-plan.md`. `docs/ROADMAP.md` +
-  `docs/FEATURE_TRACKER.md` are a backlog, **not** a pre-scheduled ladder.
+- **One active priority at a time** — recorded in `docs/BACKLOG.md`. Deferred ideas and paused
+  themes do not schedule feature work. Accepted behaviour belongs in specs, not version ledgers.
 - **After each release, dogfood** on a real project, then pick the next theme from the friction you
   hit (see Milestone Reviews — the theme comes from a deliberate review, not guesswork).
 - **UI/UX before code:** brainstorm tradeoffs with Tyr first; when layout is ambiguous, offer **3–4
@@ -139,10 +140,9 @@ General design-decision posture (defer on taste, push back on architecture) → 
 General changelog + release flow → suite root `AGENTS.md`. Local specifics: **`ui/pubspec.yaml`** is
 the version source (drives the in-app version label via `PackageInfo` — bump on every release, it's
 easy to forget); tagging `v*` triggers GitHub Actions to build the draft release (DMG/EXE), which
-you then edit + publish. When a change *completes* a `docs/FEATURE_TRACKER.md` item, tick it in the
-**same PR** — and only when the feature is **reachable by a user end-to-end**, not when the
-engine/FFI exists but no UI path does (annotate those `(partial: …)`). Full version-reference
-checklist → **Version Sync** below.
+you then edit + publish. Completed work moves from `docs/BACKLOG.md` to the Unreleased
+changelog in the same PR. Only call a feature complete when users can reach it end-to-end;
+engine/FFI-only work remains partial. Version checklist → **Version Sync** below.
 
 **Windows smoke test — every release, before publishing the draft.** Development happens on macOS,
 so the installed Windows build is the one artifact nobody has run. Install the freshly built
@@ -161,8 +161,8 @@ checklist exists so that class of bug is caught on day one.)
 
 Each version's theme should come from a **deliberate review, not guesswork** — both the v0.3.x
 trust/correctness theme and the v0.4 visual-polish theme were chosen this way. Run the matching
-review **before opening a new `docs/plans/vX.Y-plan.md`**, save its report to `docs/reviews/`, and
-let it drive the plan. Cadence:
+review **before committing to a new feature theme**, save its report to `docs/reviews/`, and
+triage accepted work into `docs/BACKLOG.md`. This does not require a review to clean up docs. Cadence:
 
 - **UI/UX review — every minor version.** Lighter; ground it against current screenshots of the
   real UI.
@@ -175,34 +175,16 @@ implementations are Claude Code workflows — see below.)
 
 ## Version Sync
 
-All markdown files must stay in sync with the current development version.
+Current status references must agree; dated historical reports retain their original context.
 
-**When starting a new version (creating a new plan doc):**
-1. Run the matching **Milestone Review** (above) and save its report to `docs/reviews/` — the plan's theme comes from it
-2. Update `docs/ROADMAP.md` — set "Current Version" and "Working On" lines, update version table
-3. Update `README.md` — update the version/status line
-4. Verify `CHANGELOG.md` has an empty `## Unreleased` section ready
-
-**When releasing a version:**
-1. `CHANGELOG.md` — rename `## Unreleased` → `## vX.Y.Z — YYYY-MM-DD`, add new empty `## Unreleased`
-2. `docs/ROADMAP.md` — update "Current Version", mark version as Complete in table, update "Working On" to next version
-3. `README.md` — update version reference
-4. Move completed plan from `docs/plans/` → `docs/archive/plans/`
-5. Update `docs/FEATURE_TRACKER.md` — check off newly completed features
-6. `ui/pubspec.yaml` — bump `version:` to the new `X.Y.Z+build` (the in-app version label reads this via `PackageInfo`)
-
-**Files that reference the version (keep in sync):**
-- `README.md` — project status line
-- `docs/ROADMAP.md` — "Current Version" and "Working On" header lines
-- `CHANGELOG.md` — release section headers
-- `docs/FEATURE_TRACKER.md` — checked/unchecked items
-- `ui/pubspec.yaml` — `version:` line; drives the in-app version label (About box, start screen, settings) via `PackageInfo` — bump on every release, it is easy to forget
-
-**Suite-root files that also need updating on release** (these live outside this repo):
-- `~/Documents/Projects/boojy/README.md` — apps table Audio row (version + active milestone)
-- `~/Documents/Projects/boojy/VISION.md` — product table Audio row + "Now" roadmap bullet + "Status as of" date
-
-Run `/suite-sync` after releasing to catch any remaining drift. These suite-root files are the most commonly stale — they're not in this repo so nothing enforces them automatically.
+1. `ui/pubspec.yaml` is the version source; bump it on release so the in-app label matches.
+2. `CHANGELOG.md`: rename Unreleased to `vX.Y.Z — YYYY-MM-DD`; add fresh Unreleased.
+3. `README.md`: update the released version. `docs/BACKLOG.md`: remove shipped work and
+   explicitly choose the next priority; do not automatically activate a paused theme.
+4. Update the Audio row in suite-root `README.md`; check suite-root `VISION.md` for any
+   remaining version/status references. These files live outside this repository.
+5. Follow the suite release process and the Windows smoke checklist above. No release or
+   version bump is implied by documentation cleanup.
 
 ## Linting & Formatting
 

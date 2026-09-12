@@ -35,6 +35,10 @@ All notable changes to Boojy Audio will be documented in this file.
 - Restored CI compatibility by pinning Rust and the Windows runner/toolchain, updating
   fixed-size sample iteration for strict Clippy, and using overflow-safe stereo midpoints.
 
+- Consolidated planning into `docs/BACKLOG.md`; paused the v0.7 feature theme while
+  documentation health is the active priority. Retired duplicate planning documents and
+  preserved the previous plan as historical reference.
+
 - **All right-click menus now use the shared rounded surface.** Device chain (effect headers,
   instrument header, swap dropdown), library panel (user folder, item, VST3), timeline ruler,
   empty-track area, drag-create track-type picker, track header, and record menus (count-in,
