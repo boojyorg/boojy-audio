@@ -184,10 +184,12 @@ implementations are Claude Code workflows — see below.)
 3. **Move the raw reports it consumed to `docs/archive/reviews/`** in that same PR, and add a
    row to that folder's `README.md` saying where the cycle's decisions landed.
 
-`docs/reviews/` should hold at most one cycle: the live triage, plus any report not yet triaged.
-If it holds more, reports are drifting into looking current when they are not — that is what the
-2026-09 cleanup fixed. Never re-open an item from an archived report without re-verifying it
-against today's code; those reports describe builds that no longer exist.
+`docs/reviews/` normally holds just the current review cycle: the live triage, plus any report not
+yet triaged. Overlap while a cycle is closing, or keeping a report a live decision still leans on,
+is fine — the test is whether a reader could mistake an old report for current work, not the file
+count. What the 2026-09 cleanup fixed was four months of cycles sitting there at once. Never
+re-open an item from an archived report without re-verifying it against today's code; those
+reports describe builds that no longer exist.
 
 ## Version Sync
 
