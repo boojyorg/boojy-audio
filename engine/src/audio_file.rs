@@ -296,28 +296,28 @@ fn load_wav_fast(path: &Path) -> Result<AudioClip> {
     match (audio_format, bits_per_sample) {
         (1, 16) => {
             // PCM 16-bit signed
-            for chunk in raw_data.chunks_exact(2) {
+            for chunk in raw_data.as_chunks::<2>().0 {
                 let s = i16::from_le_bytes([chunk[0], chunk[1]]);
                 samples.push(f32::from(s) / 32768.0);
             }
         }
         (1, 24) => {
             // PCM 24-bit signed
-            for chunk in raw_data.chunks_exact(3) {
+            for chunk in raw_data.as_chunks::<3>().0 {
                 let s = i32::from_le_bytes([0, chunk[0], chunk[1], chunk[2]]) >> 8;
                 samples.push(s as f32 / 8_388_608.0);
             }
         }
         (3, 32) => {
             // IEEE float 32-bit
-            for chunk in raw_data.chunks_exact(4) {
+            for chunk in raw_data.as_chunks::<4>().0 {
                 let s = f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
                 samples.push(s);
             }
         }
         (1, 32) => {
             // PCM 32-bit signed
-            for chunk in raw_data.chunks_exact(4) {
+            for chunk in raw_data.as_chunks::<4>().0 {
                 let s = i32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
                 samples.push(s as f32 / 2_147_483_648.0);
             }

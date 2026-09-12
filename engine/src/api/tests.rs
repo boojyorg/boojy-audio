@@ -589,8 +589,10 @@ fn single_track_stem_matches_the_full_mix() {
     // (the C68 bug), the compressor would see a different signal level than
     // in the mix and the outputs would diverge.
     let max_diff = mix
-        .chunks_exact(2)
-        .zip(stem.chunks_exact(2))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .zip(stem.as_chunks::<2>().0.iter())
         .map(|(m, s)| {
             let diff_l = (m[0] - s[0] * master_gain * master_pan_l).abs();
             let diff_r = (m[1] - s[1] * master_gain * master_pan_r).abs();
@@ -700,7 +702,12 @@ fn audio_clips_play_at_real_positions_at_any_tempo() {
     // ≈ 440 zero crossings. The legacy scaling played it at 1.5× → ≈ 660.
     let a = (1.1 * 48_000.0) as usize;
     let b = (1.6 * 48_000.0) as usize;
-    let crossings = mix.chunks_exact(2).map(|f| f[0]).collect::<Vec<f32>>()[a..b]
+    let crossings = mix
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|f| f[0])
+        .collect::<Vec<f32>>()[a..b]
         .windows(2)
         .filter(|w| (w[0] >= 0.0) != (w[1] >= 0.0))
         .count();
@@ -816,7 +823,9 @@ fn offline_render_pins_builtin_fx_to_engine_rate_and_restores_the_live_rate() {
 
     let first_audible = |samples: &[f32]| -> Option<usize> {
         samples
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .position(|frame| frame[0].abs() > 0.05 || frame[1].abs() > 0.05)
     };
 

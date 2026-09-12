@@ -190,7 +190,7 @@ impl DrumKit {
 
     pub fn process_sample_mono(&mut self) -> f32 {
         let (l, r) = self.process_sample();
-        (l + r) * 0.5
+        l.midpoint(r)
     }
 
     /// Number of pads.

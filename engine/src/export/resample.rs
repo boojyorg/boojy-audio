@@ -203,7 +203,7 @@ pub fn stereo_to_mono(samples: &[f32]) -> Vec<f32> {
     for i in 0..num_frames {
         let left = samples[i * 2];
         let right = samples[i * 2 + 1];
-        mono.push((left + right) * 0.5);
+        mono.push(left.midpoint(right));
     }
 
     mono
@@ -230,6 +230,13 @@ pub fn mono_to_stereo(samples: &[f32]) -> Vec<f32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stereo_to_mono_avoids_overflow_and_ignores_incomplete_frame() {
+        let samples = [f32::MAX, f32::MAX, -f32::MAX, f32::MAX, 0.25];
+        let mono = stereo_to_mono(&samples);
+        assert_eq!(mono, vec![f32::MAX, 0.0]);
+    }
 
     #[test]
     fn test_stereo_to_mono() {
