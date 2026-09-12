@@ -8,6 +8,12 @@ paths:
 
 # Build & test gotchas
 
+- Rust is pinned to **1.98.1** in `engine/rust-toolchain.toml`; keep explicit Rust setup
+  versions in both GitHub workflows aligned. Upgrade deliberately and run strict Clippy.
+- Windows CI/release use `windows-2022` to match the `Visual Studio 17 2022` CMake generator.
+  Upgrade runner and generator together, and invalidate the VST3 library cache when changing
+  the C++ toolchain. Floating runner labels can break builds without any source change.
+
 - **Rust changes must be built in release mode.** `ui/macos/Runner/libengine.dylib` is a **symlink**
   to `engine/target/release/libengine.dylib`, so a plain `cargo build` (debug → `target/debug/`)
   won't be picked up. Use `./build.sh release` (or `cd engine && cargo build --release`). **Don't run

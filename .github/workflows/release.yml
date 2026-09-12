@@ -29,7 +29,7 @@ jobs:
           cache: true
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.98.1
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
@@ -214,7 +214,7 @@ jobs:
             dmg-size.txt
 
   build-windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
     timeout-minutes: 45
     steps:
       - name: Checkout code
@@ -229,7 +229,7 @@ jobs:
           cache: true
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.98.1
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
@@ -243,7 +243,9 @@ jobs:
           mkdir build_win
           cd build_win
           cmake -G "Visual Studio 17 2022" -A x64 ..
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build . --config Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           # Copy all rebuilt libraries to engine/lib/ (overwrite stale pre-built ones)
           Copy-Item -Path "lib\Release\*.lib" -Destination "..\..\lib\" -Force
 
