@@ -15,9 +15,12 @@ model; the suite root's legacy Audio exception is superseded by this consolidati
   feature tracker, or active version-plan ledger.
 - **`docs/ARCHITECTURE.md`** — current system design and boundaries. Focused `docs/SPEC-*.md`
   contracts will describe accepted behaviour and acceptance criteria as they are verified.
-- **`docs/reviews/` / `docs/archive/`** — dated evidence, not current instructions or schedules.
-  Use date-first review filenames (`YYYY_MM_DD_topic.md`). Extract unresolved work and accepted
-  decisions before pruning. History also lives in Git.
+- **`docs/reviews/`** — only reviews whose findings are not yet fully triaged, plus the live
+  triage they produced. Everything older lives in **`docs/archive/reviews/`** (see its
+  `README.md` for what each cycle produced and where its decisions landed). Both are dated
+  evidence, not current instructions or schedules. Use date-first filenames
+  (`YYYY_MM_DD_topic.md`). Extract unresolved work and accepted decisions into `docs/BACKLOG.md`
+  before archiving. History also lives in Git.
 - **`.claude/rules/*.md`** — per-area gotchas, one topic per file (`ffi.md`, `audio-export.md`,
   `flutter-ui.md`, `state.md`, `build-and-test.md`). Plain markdown — any agent should read the
   matching file before touching that area; genuinely global rules live here in `AGENTS.md`.
@@ -53,7 +56,7 @@ model; the suite root's legacy Audio exception is superseded by this consolidati
   - `lib/widgets/` - UI components (timeline, piano roll, painters, shared)
   - `lib/controllers/` - Playback, recording, track controllers
   - `test/native/` - Native engine golden-path tests over `dart:ffi` (plain `flutter test`, no device — needs `./build.sh` first)
-- `docs/` - Architecture docs, roadmap, design specs
+- `docs/` - Backlog, architecture, reviews, and (as they are written) `SPEC-*.md` contracts
 
 ## Gates
 
@@ -172,6 +175,21 @@ triage accepted work into `docs/BACKLOG.md`. This does not require a review to c
 Both produce a markdown report (save it to `docs/reviews/`) and are **human-triggered, never
 scheduled** — their value is in Tyr reading and triaging the output. (The reusable multi-agent
 implementations are Claude Code workflows — see below.)
+
+**Triage, then retire.** A review's durable output is the triage, not the report. So:
+
+1. Run the review → report lands in `docs/reviews/`.
+2. Triage it → accepted work and open items go to `docs/BACKLOG.md`; the triage doc records the
+   per-item decisions and stays in `docs/reviews/`.
+3. **Move the raw reports it consumed to `docs/archive/reviews/`** in that same PR, and add a
+   row to that folder's `README.md` saying where the cycle's decisions landed.
+
+`docs/reviews/` normally holds just the current review cycle: the live triage, plus any report not
+yet triaged. Overlap while a cycle is closing, or keeping a report a live decision still leans on,
+is fine — the test is whether a reader could mistake an old report for current work, not the file
+count. What the 2026-09 cleanup fixed was four months of cycles sitting there at once. Never
+re-open an item from an archived report without re-verifying it against today's code; those
+reports describe builds that no longer exist.
 
 ## Version Sync
 

@@ -323,58 +323,12 @@ log; the UI just freezes). Snapshot what you need (`id`, `fx_chain`,
 `TrackManager`. See the snapshot pattern in `api/sends.rs` (`get_track_sends`,
 `find_return_by_effect_type`) and CLAUDE.md.
 
-## Future Improvement Opportunities
+## Known technical debt
 
-### High Priority
-
-1. **Widget Size Reduction**
-   - `timeline_view.dart` phase 1 **done** (~1,200 lines main file + ~3,800 in `part` mixins) — phase 2: further splits, `daw_screen.dart` (~4,200 lines)
-   - `transport_bar.dart` (48KB) - Split into smaller components
-   - Target: No widget file > 50KB
-
-2. **State Management Enhancement**
-   - Consider Riverpod for more granular rebuilds
-   - Implement selector patterns to reduce unnecessary rebuilds
-   - Add state persistence for UI preferences
-
-3. **Testing Coverage**
-   - Native-engine golden-path tests — `ui/test/native/` (run as plain `flutter test` over `dart:ffi`; native golden paths incl. send/return save+reload, shared-send dedup, reverb-send tail energy); plus Rust stock-effect output guards in `effects.rs`
-   - Add widget tests for critical components
-   - Golden tests for visual regression
-
-### Medium Priority
-
-4. **Shared Component Library Expansion**
-   - Create `DraggableControlMixin` for knob/slider boilerplate
-   - Standardize all context menus through `ContextMenuHelper`
-   - Add more reusable animation components
-
-5. **Performance Optimizations**
-   - Implement virtualized lists for large clip/note counts
-   - Add lazy loading for library assets
-   - Optimize painter caching strategies
-
-6. **Code Organization**
-   - Timeline phase 2 extraction (remaining mixins; `daw_screen.dart` decomposition)
-   - Consolidate duplicate dropdown implementations
-   - Standardize error handling patterns
-
-### Lower Priority
-
-7. **Developer Experience**
-   - Add code generation for models (freezed/json_serializable)
-   - Implement stricter lint rules
-   - Add architecture decision records (ADRs)
-
-8. **Accessibility**
-   - Add semantic labels throughout
-   - Keyboard navigation improvements
-   - Screen reader support
-
-9. **Documentation**
-   - Add inline documentation for complex algorithms
-   - Create widget catalog with examples
-   - Document FFI API contracts
+Large files, residual pre-`showBoojyMenu` menu sites, the `ffmpeg` MP3 shell-out, test
+gaps, and a list of unaccepted improvement proposals are tracked in
+[BACKLOG.md](BACKLOG.md) under **Technical debt**. This document describes how the
+system works today, not what should change about it.
 
 ## Component Dependencies
 

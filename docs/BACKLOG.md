@@ -100,14 +100,48 @@ These are inherited candidates; inspect code and later changes before treating o
 - Tests/build: adelay VST3 test (EH-13), macOS CMake rebuild in CI (EH-16); when those areas
   change, automation interpolation (EH-6), FFI null-safety (EH-7), tempo re-push (EH-10).
 - Guardrails: reconcile EH-1–5/15/17 against merged CI changes before creating further tasks.
-- Architecture improvement proposals and export's planned fix still need consolidation in pass 2;
-  they are not a second active schedule. Provider remains current; Riverpod needs demonstrated pain.
 - Historical EH-12 history purge is recorded complete. Its sibling backup mirror was retained;
   deleting that backup needs a separate deliberate decision, not this docs cleanup.
 - Release pipeline (carried 2026-09-07, unverified since June): confirm against the published
   appcast whether Sparkle auto-update actually offered v0.6.0, and whether
   `docs/screenshots/social-preview.png` was uploaded in the repository settings. Reassess both
   before acting; listing them here does not authorise the work.
+
+### Technical debt
+
+Moved here from `ARCHITECTURE.md`, which now describes only how the system works today.
+Items marked **(verified 2026-09-12)** were checked against the current tree; the rest are
+inherited proposals that have never been costed or accepted.
+
+- **Large files.** Eleven Dart files exceed 50 KB (verified 2026-09-12), not the two the old
+  list named: `daw_screen.dart` (144 KB / 3,972 lines) is much the largest, then
+  `timeline/timeline_gesture_layer.dart`, `piano_roll.dart`, `track_mixer_strip.dart`,
+  `timeline/timeline_track_list.dart`, `library_panel.dart`, `device_chain/device_chain_view.dart`,
+  `track_mixer_panel.dart`, `editor_panel.dart`, `timeline_view.dart`, `transport_bar.dart`.
+  The `timeline_view.dart` `part`-file split is done and worked; `daw_screen.dart` is the
+  obvious next candidate. No agreed size target — "no file > 50 KB" was aspirational, and
+  nothing currently enforces it.
+- **Residual menu sites (verified 2026-09-12).** The shared `showBoojyMenu` surface shipped,
+  but three files still bypass it: `track_mixer_strip.dart:1374` and `:2016` (`showMenu`),
+  `transport_bar/file_menu_button.dart:53` (`PopupMenuButton`), plus a local `_showMenu` in
+  `transport_bar/view_menu_button.dart:40`. Only 3 files reference `ContextMenuHelper`. Finish
+  the migration when those files are next open — the rule in `AGENTS.md` already forbids new ones.
+- **`DraggableControlMixin` does not exist (verified 2026-09-12).** The old list proposed it to
+  share knob/slider drag boilerplate. Still a reasonable idea; still unbuilt.
+- **MP3 export shells out to `ffmpeg`.** Planned fix (from `.claude/rules/audio-export.md`):
+  replace the CLI shell-out with the `mp3lame-encoder` crate so export has no external runtime
+  dependency. Until then WAV stays the dependency-free format, and the missing-ffmpeg message
+  needs a Windows line added — it currently covers only macOS and Linux.
+- **Test coverage gaps.** Native-engine golden-path tests (`ui/test/native/`) and the Rust
+  stock-effect guards exist. Absent: widget tests for critical components, and golden tests for
+  visual regression.
+- **Unaccepted proposals, carried for the record.** Virtualised lists for large clip/note counts;
+  lazy loading of library assets; painter-cache tuning; standardised error handling; model
+  codegen (freezed/json_serializable); stricter lints; ADRs; accessibility work (semantic
+  labels, keyboard navigation, screen-reader support); a widget catalogue. None of these have a
+  measured problem behind them — treat as ideas, and require evidence before scheduling.
+  Documenting FFI API contracts is better served by the planned `docs/SPEC-*.md` work than by a
+  separate docs task.
 
 ## Decisions to preserve
 
@@ -131,5 +165,14 @@ These are inherited candidates; inspect code and later changes before treating o
 [June triage](reviews/2026_06_12_triage.md) preserves item IDs and product decisions;
 [paused v0.7 plan](archive/plans/v0.7-plan.md) preserves detailed acceptance walkthroughs until
 pass 2 extracts contracts. These are dated evidence, not current scheduling authority.
-Older plans, reviews, and audience research will be assessed in pass 3. Preserve unique decisions
-and unresolved findings here or in specs before removing them. Git retains retired planning docs.
+
+The twenty superseded review reports moved to
+[`docs/archive/reviews/`](archive/reviews/README.md), whose index records what each cycle
+produced and where its decisions landed. `docs/reviews/` now holds only the live June triage,
+per the triage-then-retire rule in `AGENTS.md`. One caveat carried forward: the
+**2026-06-10 bug hunt's lower-tier ledger was never itemised in a triage** — its six must-fix
+items shipped before v0.6.0, but the remainder are unverified candidates, not known open bugs.
+
+Older plans and audience research (`docs/target_audience.md`) are still pass-3 work. Preserve
+unique decisions and unresolved findings here or in specs before removing them. Git retains
+retired planning docs.
