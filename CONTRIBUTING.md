@@ -1,14 +1,9 @@
 # Contributing
 
-Boojy Audio is in **Early Access** and isn't accepting code contributions (pull requests) yet —
-the codebase is changing fast and the design is still settling, so PRs will be closed for now.
-**Contributions will open with the v1.0 release.**
+Boojy Audio is a personal project. It isn't currently accepting external code contributions,
+so pull requests will be closed. This may change in future, but there's no date for it.
 
-Until then, two things are very welcome:
+Feedback and bug reports are very welcome. Email [tyr@boojy.org](mailto:tyr@boojy.org)
+with what happened and, for bugs, how to reproduce it.
 
-- **Bug reports** — [open an issue](https://github.com/boojyorg/boojy-audio/issues) with what
-  happened and how to reproduce it.
-- **Feedback & ideas** — use the official feedback form at
-  [boojy.org](https://boojy.org/#feedback); it goes straight to the developer's inbox.
-
-Thanks for your interest in Boojy Audio!
+Thanks for your interest in Boojy Audio.

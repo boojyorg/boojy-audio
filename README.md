@@ -125,9 +125,9 @@ For VST3 plugin support on Windows:
 
 ## Contributing
 
-Boojy Audio is in **Early Access** and isn't accepting pull requests yet — contributions will
-open with the v1.0 release. **Bug reports and feedback are very welcome** — see
-[CONTRIBUTING.md](CONTRIBUTING.md).
+Boojy Audio is a personal project and isn't accepting code contributions or pull requests right now.
+Feedback and bug reports are welcome by email at [tyr@boojy.org](mailto:tyr@boojy.org).
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

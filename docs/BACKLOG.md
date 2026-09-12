@@ -104,6 +104,10 @@ These are inherited candidates; inspect code and later changes before treating o
   they are not a second active schedule. Provider remains current; Riverpod needs demonstrated pain.
 - Historical EH-12 history purge is recorded complete. Its sibling backup mirror was retained;
   deleting that backup needs a separate deliberate decision, not this docs cleanup.
+- Release pipeline (carried 2026-09-07, unverified since June): confirm against the published
+  appcast whether Sparkle auto-update actually offered v0.6.0, and whether
+  `docs/screenshots/social-preview.png` was uploaded in the repository settings. Reassess both
+  before acting; listing them here does not authorise the work.
 
 ## Decisions to preserve
 
