@@ -38,6 +38,9 @@ jobs:
       # The native-engine tests (test/native/) load libengine over dart:ffi, so
       # the dylib must exist before `flutter test`. Cached so it doesn't
       # cold-compile every run (mirrors the rust-checks job).
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.98.1
+
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
@@ -69,7 +72,7 @@ jobs:
         run: cd ui && flutter test --dart-define=BOOJY_CI=true
 
   flutter-checks-windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
     timeout-minutes: 15
     steps:
       - name: Checkout code
@@ -93,7 +96,7 @@ jobs:
         run: cd ui && flutter test
 
   rust-checks-windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
     # CMake builds the VST3 SDK from source (several minutes) — see below.
     timeout-minutes: 30
     steps:
@@ -103,7 +106,7 @@ jobs:
           submodules: recursive
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.98.1
         with:
           components: clippy, rustfmt
 
@@ -126,14 +129,14 @@ jobs:
       # (all cargo needs to link) in a dir OUTSIDE the git-tracked build_win,
       # keyed on the SDK commit + our vst3_host sources: a hit skips CMake
       # entirely, a miss does the full clean rebuild and repopulates the cache.
-      # Bump the -v1- token to force a rebuild if a toolchain change ever makes
+      # Bump the -v2- token to force a rebuild if a toolchain change ever makes
       # the cached libs incompatible.
       - name: Cache VST3 host libraries
         id: vst3-cache
         uses: actions/cache@v4
         with:
           path: vst3-libs-cache
-          key: vst3-host-libs-win-v1-${{ steps.vst3.outputs.sha }}-${{ hashFiles('engine/vst3_host/CMakeLists.txt', 'engine/vst3_host/vst3_host.cpp', 'engine/vst3_host/vst3_host.h', 'engine/vst3_host/vst3_host_win.cpp') }}
+          key: vst3-host-libs-win2022-v2-${{ steps.vst3.outputs.sha }}-${{ hashFiles('engine/vst3_host/CMakeLists.txt', 'engine/vst3_host/vst3_host.cpp', 'engine/vst3_host/vst3_host.h', 'engine/vst3_host/vst3_host_win.cpp') }}
 
       - name: Build VST3 host libraries
         if: steps.vst3-cache.outputs.cache-hit != 'true'
@@ -143,7 +146,9 @@ jobs:
           mkdir build_win
           cd build_win
           cmake -G "Visual Studio 17 2022" -A x64 ..
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build . --config Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           # Stash the rebuilt libraries in the cache dir at the repo root.
           New-Item -ItemType Directory -Force -Path ..\..\..\vst3-libs-cache | Out-Null
           Copy-Item -Path "lib\Release\*.lib" -Destination ..\..\..\vst3-libs-cache\ -Force
@@ -168,11 +173,9 @@ jobs:
           submodules: recursive
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.98.1
         with:
-          # engine/rust-toolchain.toml pins the exact channel; specifying
-          # @stable here still honours the file (dtolnay reads it) — the explicit
-          # pin just makes the CI log unambiguous about which toolchain ran.
+          # Keep aligned with engine/rust-toolchain.toml and release.yml.
           components: clippy, rustfmt
 
       - name: Cache Rust dependencies

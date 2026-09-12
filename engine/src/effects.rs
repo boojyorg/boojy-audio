@@ -889,7 +889,7 @@ impl Reverb {
 impl Effect for Reverb {
     fn process_frame(&mut self, left: f32, right: f32) -> (f32, f32) {
         // Mix to mono for input
-        let mono_input = (left + right) * 0.5;
+        let mono_input = left.midpoint(right);
 
         // Map the user-facing 0..1 controls to Freeverb's resonant ranges.
         // The comb feedback must sit in ~0.7..0.98 for the tail to build up;

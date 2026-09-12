@@ -64,7 +64,7 @@ fn write_frame(data: &mut [f32], frame_idx: usize, channels: usize, left: f32, r
     let base = frame_idx * channels;
     match channels {
         0 => {}
-        1 => data[base] = sanitize_sample((left + right) * 0.5),
+        1 => data[base] = sanitize_sample(left.midpoint(right)),
         _ => {
             data[base] = sanitize_sample(left);
             data[base + 1] = sanitize_sample(right);
