@@ -66,7 +66,7 @@ Development priority: documentation health. The v0.7 feature theme is paused; se
 
 ### Prerequisites
 
-- **Rust:** `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+- **Rust 1.98.1** (pinned in `engine/rust-toolchain.toml`): `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 - **Flutter 3.44+ via [FVM](https://fvm.app):** `brew install fvm` — the repo pins the exact version in `ui/.fvmrc`, so use `fvm flutter …` for Flutter commands
 - **macOS:** Xcode Command Line Tools
 - **sccache (optional):** `brew install sccache` — speeds up Rust rebuilds

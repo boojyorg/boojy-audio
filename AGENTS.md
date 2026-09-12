@@ -24,6 +24,8 @@ model; the suite root's legacy Audio exception is superseded by this consolidati
 
 ## Build & Run
 
+- **Rust toolchain**: pinned to **1.98.1** in `engine/rust-toolchain.toml` and CI/release setup.
+  Windows workflows use `windows-2022` for the Visual Studio 2022 CMake generator.
 - **Toolchain**: Flutter is pinned to **3.44.0 / Dart 3.12** via FVM (`ui/.fvmrc`). Run Flutter/Dart commands from `ui/` as **`fvm flutter …` / `fvm dart …`** so they use the pinned SDK. `build.sh` is unaffected (it only calls `cargo`). CI pins the same version in `.github/workflows/*.yml` (`FLUTTER_VERSION`).
 - **Debug build**: `./build.sh` (builds Rust engine, updates symlinks, copies dylib)
 - **Release build**: `./build.sh release`

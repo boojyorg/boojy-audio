@@ -503,7 +503,7 @@ impl Sampler {
     /// Process and return mono (for compatibility with existing synth interface)
     pub fn process_sample_mono(&mut self) -> f32 {
         let (left, right) = self.process_sample();
-        (left + right) * 0.5
+        left.midpoint(right)
     }
 
     pub fn set_parameter(&mut self, key: &str, value: &str) {
