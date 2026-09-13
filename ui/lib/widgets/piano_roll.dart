@@ -1301,32 +1301,17 @@ class _PianoRollState extends State<PianoRoll>
     horizontalScroll.jumpTo(newOffset);
   }
 
-  /// Handle zoom from UnifiedNavBar vertical drag.
-  void _handleNavBarZoom(double factor, double anchorBeat) {
-    final minZoom = calculateMinPixelsPerBeat();
-    final maxZoom = calculateMaxPixelsPerBeat();
-    final newPixelsPerBeat = (pixelsPerBeat * factor).clamp(minZoom, maxZoom);
-
-    // Calculate scroll offset to keep anchor beat under cursor
-    final anchorX = anchorBeat * pixelsPerBeat;
-    final scrollOffset = horizontalScroll.hasClients
-        ? horizontalScroll.offset
-        : 0.0;
-    final anchorLocalX = anchorX - scrollOffset;
-
-    setState(() {
-      pixelsPerBeat = newPixelsPerBeat;
-    });
-
-    // Adjust scroll to keep anchor beat in same position
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (horizontalScroll.hasClients) {
-        final newAnchorX = anchorBeat * newPixelsPerBeat;
-        final targetOffset = newAnchorX - anchorLocalX;
-        final maxScroll = horizontalScroll.position.maxScrollExtent;
-        horizontalScroll.jumpTo(targetOffset.clamp(0.0, maxScroll));
-      }
-    });
+  /// Ruler drag from the nav bar: hold the grabbed beat under the pointer.
+  void _handleNavBarZoom(
+    double factor,
+    double anchorBeat,
+    double anchorViewportX,
+  ) {
+    zoomAnchored(
+      factor: factor,
+      anchorBeat: anchorBeat,
+      anchorViewportX: anchorViewportX,
+    );
   }
 
   /// Handle playhead set from UnifiedNavBar click.

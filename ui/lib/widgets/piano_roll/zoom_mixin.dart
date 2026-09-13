@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../piano_roll.dart';
+import '../shared/editors/anchored_zoom.dart';
 import 'piano_roll_state.dart';
 
 /// Mixin containing zoom and snap functionality for PianoRoll.
@@ -44,74 +45,70 @@ mixin ZoomMixin on State<PianoRoll>, PianoRollStateMixin {
 
   /// Zoom centered on the viewport center
   void _zoomAtViewportCenter(double factor) {
-    final maxZoom = calculateMaxPixelsPerBeat();
-    final minZoom = calculateMinPixelsPerBeat();
-
-    // Get current scroll position and viewport center
-    final currentScroll = horizontalScroll.offset;
-    final viewportCenter = currentScroll + (viewWidth / 2);
-
-    // Calculate the beat at viewport center
-    final centerBeat = viewportCenter / pixelsPerBeat;
-
-    // Apply zoom
-    final oldPixelsPerBeat = pixelsPerBeat;
-    final newPixelsPerBeat = (pixelsPerBeat * factor).clamp(minZoom, maxZoom);
-
-    if (newPixelsPerBeat == oldPixelsPerBeat) return;
-
-    setState(() {
-      pixelsPerBeat = newPixelsPerBeat;
-    });
-
-    // Adjust scroll to keep the same beat at viewport center
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final newCenterX = centerBeat * newPixelsPerBeat;
-      final newScroll = (newCenterX - (viewWidth / 2)).clamp(
-        0.0,
-        horizontalScroll.position.maxScrollExtent,
-      );
-      horizontalScroll.jumpTo(newScroll);
-    });
+    final currentScroll = horizontalScroll.hasClients
+        ? horizontalScroll.offset
+        : 0.0;
+    final centerX = viewWidth / 2;
+    zoomAnchored(
+      factor: factor,
+      anchorBeat: (currentScroll + centerX) / pixelsPerBeat,
+      anchorViewportX: centerX,
+    );
   }
 
   /// Zoom at a specific X position (for mouse-based zoom)
   /// [localX] is the X coordinate relative to the grid (not including piano keys)
   /// [factor] > 1 zooms in, < 1 zooms out
   void zoomAtPosition(double localX, double factor) {
-    final maxZoom = calculateMaxPixelsPerBeat();
-    final minZoom = calculateMinPixelsPerBeat();
+    final currentScroll = horizontalScroll.hasClients
+        ? horizontalScroll.offset
+        : 0.0;
+    zoomAnchored(
+      factor: factor,
+      anchorBeat: (currentScroll + localX) / pixelsPerBeat,
+      anchorViewportX: localX,
+    );
+  }
 
-    // Get current scroll position
-    final currentScroll = horizontalScroll.offset;
-
-    // Calculate the beat at the mouse position
-    final mouseX = currentScroll + localX;
-    final mouseBeat = mouseX / pixelsPerBeat;
-
-    // Apply zoom
-    final oldPixelsPerBeat = pixelsPerBeat;
-    final newPixelsPerBeat = (pixelsPerBeat * factor).clamp(minZoom, maxZoom);
-
-    if (newPixelsPerBeat == oldPixelsPerBeat) return;
-
+  /// The one zoom path for the piano roll: multiply the zoom by [factor]
+  /// (clamped) and scroll the grid and its ruler so [anchorBeat] sits at
+  /// [anchorViewportX], in the same frame. Shares its maths with the
+  /// arrangement and the audio editor (`anchored_zoom.dart`).
+  void zoomAnchored({
+    required double factor,
+    required double anchorBeat,
+    required double anchorViewportX,
+  }) {
+    final newPixelsPerBeat = (pixelsPerBeat * factor).clamp(
+      calculateMinPixelsPerBeat(),
+      calculateMaxPixelsPerBeat(),
+    );
+    final offset = anchoredScrollOffset(
+      anchorBeat: anchorBeat,
+      anchorViewportX: anchorViewportX,
+      pixelsPerBeat: newPixelsPerBeat,
+    );
+    if (newPixelsPerBeat == pixelsPerBeat &&
+        horizontalScroll.hasClients &&
+        offset == horizontalScroll.offset) {
+      return;
+    }
     setState(() {
       pixelsPerBeat = newPixelsPerBeat;
     });
-
-    // Adjust scroll to keep the same beat under the mouse
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final newMouseX = mouseBeat * newPixelsPerBeat;
-      final newScroll = (newMouseX - localX).clamp(
-        0.0,
-        horizontalScroll.position.maxScrollExtent,
-      );
-      horizontalScroll.jumpTo(newScroll);
-    });
+    final totalBeats = calculateTotalBeats(
+      viewportWidth: viewWidth,
+      pixelsPerBeat: newPixelsPerBeat,
+    );
+    applyZoomScroll(
+      controllers: [horizontalScroll, navBarScroll],
+      offset: offset,
+      contentWidth: totalBeats * newPixelsPerBeat,
+    );
   }
 
   // ============================================
-  // DRAG ZOOM (Ableton-style click+drag)
+  // DRAG ZOOM (middle-mouse drag on the grid)
   // ============================================
 
   /// Start drag zoom operation
@@ -121,56 +118,32 @@ mixin ZoomMixin on State<PianoRoll>, PianoRollStateMixin {
     isDragZooming = true;
     dragZoomStartY = globalY;
     dragZoomAnchorX = localX;
-    dragZoomStartPPB = pixelsPerBeat;
+    final currentScroll = horizontalScroll.hasClients
+        ? horizontalScroll.offset
+        : 0.0;
+    dragZoomAnchorBeat = (currentScroll + localX) / pixelsPerBeat;
   }
 
   /// Update drag zoom based on mouse movement
   /// [globalY] is the current Y position
   void updateDragZoom(double globalY) {
+    final lastY = dragZoomStartY;
+    final anchorX = dragZoomAnchorX;
+    final anchorBeat = dragZoomAnchorBeat;
     if (!isDragZooming ||
-        dragZoomStartY == null ||
-        dragZoomStartPPB == null ||
-        dragZoomAnchorX == null) {
+        lastY == null ||
+        anchorX == null ||
+        anchorBeat == null) {
       return;
     }
-
-    final maxZoom = calculateMaxPixelsPerBeat();
-    final minZoom = calculateMinPixelsPerBeat();
-
-    // Calculate zoom factor based on vertical drag distance
-    // Drag up = zoom in, drag down = zoom out
-    final deltaY = dragZoomStartY! - globalY;
-    // Sensitivity: 200 pixels of drag = 2x zoom change
-    final zoomFactor = 1.0 + (deltaY / 200.0);
-
-    // Calculate new pixelsPerBeat
-    final newPixelsPerBeat = (dragZoomStartPPB! * zoomFactor).clamp(
-      minZoom,
-      maxZoom,
+    // Same ratio-per-pixel and direction as the ruler drag (down = in), and
+    // the beat grabbed at the start stays under the pointer.
+    dragZoomStartY = globalY;
+    zoomAnchored(
+      factor: rulerDragZoomFactor(globalY - lastY),
+      anchorBeat: anchorBeat,
+      anchorViewportX: anchorX,
     );
-
-    if (newPixelsPerBeat == pixelsPerBeat) return;
-
-    // Get current scroll position
-    final currentScroll = horizontalScroll.offset;
-
-    // Calculate the beat at the anchor point
-    final anchorX = currentScroll + dragZoomAnchorX!;
-    final anchorBeat = anchorX / pixelsPerBeat;
-
-    setState(() {
-      pixelsPerBeat = newPixelsPerBeat;
-    });
-
-    // Adjust scroll to keep the same beat under the anchor point
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final newAnchorX = anchorBeat * newPixelsPerBeat;
-      final newScroll = (newAnchorX - dragZoomAnchorX!).clamp(
-        0.0,
-        horizontalScroll.position.maxScrollExtent,
-      );
-      horizontalScroll.jumpTo(newScroll);
-    });
   }
 
   /// End drag zoom operation
@@ -178,7 +151,7 @@ mixin ZoomMixin on State<PianoRoll>, PianoRollStateMixin {
     isDragZooming = false;
     dragZoomStartY = null;
     dragZoomAnchorX = null;
-    dragZoomStartPPB = null;
+    dragZoomAnchorBeat = null;
   }
 
   // ============================================

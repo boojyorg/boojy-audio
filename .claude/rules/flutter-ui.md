@@ -73,6 +73,14 @@ CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
     bordered box whose children paint their own fills, put the border on a
     `DecoratedBox(position: DecorationPosition.foreground)` so the stroke paints on top:
     same height, fills can't eat it (Loop/Snap split buttons, piano-roll Snap/Quantize chips).
+- **Zoom goes through `shared/editors/anchored_zoom.dart`.** Every editor (arrangement, piano
+  roll, audio editor) changes zoom with `zoomAnchored(factor, anchorBeat, anchorViewportX)`:
+  set the zoom, then `applyZoomScroll` the grid AND its mirrored ruler controller(s) in the
+  same call. Never correct scroll in a post-frame callback (that is the one-frame wobble), and
+  never `jumpTo` past the pre-zoom extent without `applyContentDimensions` first (a spring-back
+  animation starts). The ruler drag ratio is `rulerDragZoomFactor(dy)`: exponential, down = in.
+  The ruler (`UnifiedNavBar`) is a content-width child INSIDE its scroll view, so its local x is
+  content space: never add the scroll offset to it.
 - **Transport bar centre never scales.** No `FittedBox` around the modifier or readout wells:
   the flank slots are `OverflowBox`es and the density ladder in `transport_bar.dart` is a table
   of *measured* centre widths (`2 × wider well + transport + gaps + padding`, because the equal

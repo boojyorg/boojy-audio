@@ -23,6 +23,22 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Ruler drag zoom now holds the bar under the pointer.** Dragging vertically on the arrangement
+  ruler used to zoom around bar 1, so whatever you were looking at slid off screen; the piano roll
+  corrected its scroll a frame late, which wobbled; and the audio editor re-centred the anchor on
+  every move. All three now share one implementation: the beat you press on stays under the
+  pointer for the whole gesture, horizontal travel scrolls and vertical travel zooms as one
+  continuous motion, and the zoom is exponential, so equal travel is an equal ratio in both
+  directions and a round trip lands back where it started. Drag down zooms in (matching
+  Ableton's beat-time ruler; it was up = in). The piano roll's middle-mouse grid drag follows the
+  same direction and feel. The ruler's zoom buttons now zoom about the centre of the view instead
+  of bar 1.
+
+- **Clicking the ruler once scrolled past bar 1 set the playhead at the wrong bar.** The ruler
+  counted its scroll offset twice, so a click, a hover highlight or a loop-edge grab landed
+  `offset` beats too far right whenever the view was scrolled. Fixed in the same change; the
+  regression test covers a scrolled click.
+
 - **Transport controls no longer shrink at narrow window widths.** The loop, snap, metronome
   and readout buttons in the centre of the transport bar were scaled down whenever the bar got
   tight (to about half size at the 960 px minimum window, and already visibly at 1400 px), while

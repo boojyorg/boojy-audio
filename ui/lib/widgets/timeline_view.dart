@@ -743,7 +743,8 @@ class TimelineViewState extends State<TimelineView>
 
     // Use the larger of minimum bars or clip duration
     final totalBeats = math.max(minBeats, clipDurationBeats);
-    final totalWidth = math.max(totalBeats * pixelsPerBeat, viewWidth);
+    _contentBeats = totalBeats;
+    final totalWidth = contentWidthAt(pixelsPerBeat);
 
     // Duration in seconds for backward compatibility
     final duration = totalBeats / beatsPerSecond;
@@ -803,20 +804,11 @@ class TimelineViewState extends State<TimelineView>
                   // Unified nav bar (loop region + bar numbers + zoom controls)
                   NavBarWithZoom(
                     scrollController: navBarScrollController,
-                    onZoomIn: () => setState(() {
-                      pixelsPerBeat =
-                          (pixelsPerBeat * UIConstants.zoomStepFactor).clamp(
-                            minZoom,
-                            maxZoom,
-                          );
-                    }),
-                    onZoomOut: () => setState(() {
-                      pixelsPerBeat =
-                          (pixelsPerBeat / UIConstants.zoomStepFactor).clamp(
-                            minZoom,
-                            maxZoom,
-                          );
-                    }),
+                    // Buttons zoom about the viewport centre (they used to
+                    // scale from bar 1, so the view slid off whatever you
+                    // were looking at).
+                    onZoomIn: () => _zoomStep(UIConstants.zoomStepFactor),
+                    onZoomOut: () => _zoomStep(1 / UIConstants.zoomStepFactor),
                     height: UIConstants.navBarHeight,
                     pixelsPerBeat: pixelsPerBeat,
                     beatsPerBar: widget.beatsPerBar,
@@ -1213,11 +1205,39 @@ class TimelineViewState extends State<TimelineView>
     scrollController.jumpTo(newOffset);
   }
 
-  /// Handle zoom from UnifiedNavBar vertical drag.
-  void _handleNavBarZoom(double factor, double anchorBeat) {
-    setState(() {
-      pixelsPerBeat = (pixelsPerBeat * factor).clamp(minZoom, maxZoom);
-    });
+  /// Beats of scrollable content, set in [build] from the clip extent.
+  int _contentBeats = UIConstants.timelineMinBeats;
+
+  @override
+  double contentWidthAt(double pixelsPerBeat) =>
+      math.max(_contentBeats * pixelsPerBeat, viewWidth);
+
+  @override
+  List<ScrollController> get zoomLinkedScrollControllers => [
+    scrollController,
+    navBarScrollController,
+  ];
+
+  /// Ruler drag from the nav bar: hold the grabbed beat under the pointer
+  /// (this used to ignore the anchor, so the zoom pivoted on bar 1 and the
+  /// bar under the pointer slid away).
+  void _handleNavBarZoom(
+    double factor,
+    double anchorBeat,
+    double anchorViewportX,
+  ) {
+    handleNavBarZoom(factor, anchorBeat, anchorViewportX);
+  }
+
+  /// Zoom button step about the centre of the arrangement viewport.
+  void _zoomStep(double factor) {
+    final viewportCentreX = viewWidth / 2;
+    final offset = scrollController.hasClients ? scrollController.offset : 0.0;
+    zoomAnchored(
+      factor: factor,
+      anchorBeat: (offset + viewportCentreX) / pixelsPerBeat,
+      anchorViewportX: viewportCentreX,
+    );
   }
 
   /// Handle playhead set from UnifiedNavBar click.
