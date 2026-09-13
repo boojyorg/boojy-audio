@@ -73,6 +73,13 @@ CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
     bordered box whose children paint their own fills, put the border on a
     `DecoratedBox(position: DecorationPosition.foreground)` so the stroke paints on top:
     same height, fills can't eat it (Loop/Snap split buttons, piano-roll Snap/Quantize chips).
+- **Transport bar centre never scales.** No `FittedBox` around the modifier or readout wells:
+  the flank slots are `OverflowBox`es and the density ladder in `transport_bar.dart` is a table
+  of *measured* centre widths (`2 × wider well + transport + gaps + padding`, because the equal
+  flank slots that pin the transport to the window midpoint make the wider well the binding
+  one). Below the minimum tier's width the rails yield, not the centre. If you change a centre
+  button's width, `test/widgets/transport_bar_density_test.dart` fails at some window width;
+  re-measure the table, don't loosen the test or re-add a scale-down.
 - **Track icons are BI icons keyed by string** (`utils/track_icons.dart`): `customIcon` persists
   a key like `'mic'`; legacy emoji strings from old projects map through the legacy-emoji table.
   Don't reintroduce emoji glyphs in track chrome.
