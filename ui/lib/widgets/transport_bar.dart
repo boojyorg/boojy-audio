@@ -152,23 +152,39 @@ extension TransportDensityValues on TransportDensity {
 /// wordmark; the right group (mixer toggle + help) right-aligns within it.
 const double _kRailWidth = 320.0;
 
-/// Compute density from available width.
-/// The fully-labelled centre group (modifiers + transport + readouts) measures
-/// ~700px now that the readouts carry the BPM split button and uniform boxes.
-TransportDensity _computeDensity(double availableWidth) {
-  // Width at/above which the full labelled layout fits comfortably; below this
-  // the bar sheds labels (never scales). Held a touch above the measured
-  // labelled content width (~700px) so "comfortable" only triggers with genuine
-  // slack — without the margin the readouts sit a sub-pixel over the edge at the
-  // boundary and the signature box reports a "RIGHT OVERFLOWED BY 0" sliver.
-  const preferredWidth = 724.0;
-  final overflow = preferredWidth - availableWidth;
+/// Centre width each tier needs before the bar may use it. Measured from the
+/// rendered wells with Capture MIDI wired (`transport_bar_density_test.dart`
+/// pins the numbers: if a button changes width, that test fails and the row
+/// here is re-measured).
+///
+/// The single-row centre pins the transport to the window midpoint by giving
+/// the modifier and readout wells equal flank slots, so the width a tier needs
+/// is `2 × the wider well + transport well + 2 × clusterGap + the group's 16px
+/// padding`, not the sum of the three wells. The old ladder compared against
+/// the sum (~724px), so between ~1360px and ~1500px windows the labelled
+/// modifiers well was starved by its slot and its buttons shrank.
+const Map<TransportDensity, double> _kRequiredCentreWidth = {
+  // 2×354 + 112 + 32 + 16
+  TransportDensity.comfortable: 872,
+  // 2×223 + 110 + 20 + 16
+  TransportDensity.compact: 596,
+  // 2×217 + 108 + 12 + 16
+  TransportDensity.tight: 582,
+  // 2×217 + 108 + 8 + 16
+  TransportDensity.iconsOnly: 578,
+  // 2×215 + 102 + 6 + 16
+  TransportDensity.compressed: 558,
+  // 2×176 + 98 + 4 + 16 — the floor; below this the wells overflow rather
+  // than shrink (glyphs never go below the outer buttons' size).
+  TransportDensity.minimum: 470,
+};
 
-  if (overflow <= 0) return TransportDensity.comfortable;
-  if (overflow <= 40) return TransportDensity.compact;
-  if (overflow <= 80) return TransportDensity.tight;
-  if (overflow <= 150) return TransportDensity.iconsOnly;
-  if (overflow <= 220) return TransportDensity.compressed;
+/// Compute density from available width: the first (most generous) tier whose
+/// required width fits, else [TransportDensity.minimum].
+TransportDensity _computeDensity(double availableWidth) {
+  for (final density in TransportDensity.values) {
+    if (availableWidth >= _kRequiredCentreWidth[density]!) return density;
+  }
   return TransportDensity.minimum;
 }
 
@@ -450,14 +466,21 @@ class _TransportBarState extends State<TransportBar> {
   /// the `ResizableDivider`s in the panels below, so the bar no longer carries
   /// its own resize handles (the two-row variant C still does).
   Widget _buildSingleRowBody(BoojyColors colors) {
-    // Clamp each rail to at most half the available width so the two fixed
-    // rails can never sum past the window — below ~640px they shrink together
-    // (the centre Expanded never gets a negative constraint), which kills the
-    // RenderFlex "RIGHT OVERFLOWED BY" banner at narrow widths while keeping
-    // the rails equal so the transport stays centred. (B-TB1)
+    // The rails yield before the centre does: each rail is at most half of
+    // what is left once the centre has the width its most-shed tier needs, so
+    // the cluster never has to shrink or clip to fit between them. Above
+    // ~1110px that is the full [_kRailWidth]; at the 960px minimum window the
+    // rails are ~245px, which sheds the Add-track labels and truncates the
+    // project name (the rails shed labels, the centre keeps its glyph size).
+    // Equal rails keep the transport on the window midpoint throughout, and
+    // the centre Expanded never gets a negative constraint. (B-TB1)
     return LayoutBuilder(
       builder: (context, constraints) {
-        final railWidth = (constraints.maxWidth / 2).clamp(0.0, _kRailWidth);
+        final centreFloor = _kRequiredCentreWidth[TransportDensity.minimum]!;
+        final railWidth = ((constraints.maxWidth - centreFloor) / 2).clamp(
+          0.0,
+          _kRailWidth,
+        );
         return Row(
           children: [
             // === LEFT RAIL (clamped width) ===
@@ -778,10 +801,18 @@ class _TransportBarState extends State<TransportBar> {
               // slots collapse to zero and this degrades to the old
               // grouped-centre layout, so the density ladder still prevents
               // overflow.
+              //
+              // The flank slots are OverflowBoxes, not FittedBoxes: a well
+              // that outgrows its slot keeps its size and runs past the slot
+              // edge (the ClipRect above trims it) instead of scaling down.
+              // The old scaleDown guard shrank loop/snap/metronome to 55% at
+              // the 960px minimum window while the rails stayed full size.
               children: [
                 Expanded(
-                  child: Align(
+                  child: OverflowBox(
                     alignment: Alignment.centerRight,
+                    minWidth: 0,
+                    maxWidth: double.infinity,
                     child: _buildModifiersWell(colors, density),
                   ),
                 ),
@@ -792,8 +823,10 @@ class _TransportBarState extends State<TransportBar> {
                 // Fixed size; the density ladder sheds labels (tools → icons,
                 // "BPM"/"Tap") before the bar would overflow.
                 Expanded(
-                  child: Align(
+                  child: OverflowBox(
                     alignment: Alignment.centerLeft,
+                    minWidth: 0,
+                    maxWidth: double.infinity,
                     child: _buildReadoutWell(colors, density),
                   ),
                 ),
@@ -835,49 +868,44 @@ class _TransportBarState extends State<TransportBar> {
     final showLabels = density.showLabels;
     final wGap = density.withinGap;
     return _ClusterWell(
-      // Same scaleDown guard as the readout well: the flank slots split the
-      // leftover width evenly, so this well can be starved by a few pixels
-      // before the next density tier kicks in. Without the guard that gap
-      // rendered as a live "OVERFLOWED BY" banner over the arrangement (H1).
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.centerRight,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            LoopSplitButton(
-              loopEnabled: widget.loopPlaybackEnabled,
-              punchInEnabled: widget.punchInEnabled,
-              punchOutEnabled: widget.punchOutEnabled,
-              showLabel: showLabels,
-              onLoopToggle: widget.transport.onLoopPlaybackToggle,
-              onPunchInToggle: widget.transport.onPunchInToggle,
-              onPunchOutToggle: widget.transport.onPunchOutToggle,
-            ),
+      // Fixed size on purpose: never a FittedBox here. The single-row centre
+      // group gives this well an OverflowBox slot, so a starved slot clips
+      // rather than shrinks (the glyphs stay the outer buttons' size).
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          LoopSplitButton(
+            loopEnabled: widget.loopPlaybackEnabled,
+            punchInEnabled: widget.punchInEnabled,
+            punchOutEnabled: widget.punchOutEnabled,
+            showLabel: showLabels,
+            onLoopToggle: widget.transport.onLoopPlaybackToggle,
+            onPunchInToggle: widget.transport.onPunchInToggle,
+            onPunchOutToggle: widget.transport.onPunchOutToggle,
+          ),
+          SizedBox(width: wGap),
+          SnapSplitButton(
+            value: widget.arrangementSnap,
+            onChanged: widget.onSnapChanged,
+            mode: ButtonDisplayMode.wide,
+            isIconOnly: !showLabels,
+          ),
+          SizedBox(width: wGap),
+          MetronomeSplitButton(
+            isActive: widget.metronomeEnabled,
+            countInBars: widget.countInBars,
+            showLabel: showLabels,
+            onToggle: widget.transport.onMetronomeToggle,
+            onCountInChanged: widget.onCountInChanged,
+          ),
+          // Capture MIDI — momentary bordered button; lives next to the metronome
+          // because it's a utility modifier, not a primary transport control.
+          // Shown only when the backend callback is wired (v0.7+).
+          if (widget.transport.onCaptureMidi != null) ...[
             SizedBox(width: wGap),
-            SnapSplitButton(
-              value: widget.arrangementSnap,
-              onChanged: widget.onSnapChanged,
-              mode: ButtonDisplayMode.wide,
-              isIconOnly: !showLabels,
-            ),
-            SizedBox(width: wGap),
-            MetronomeSplitButton(
-              isActive: widget.metronomeEnabled,
-              countInBars: widget.countInBars,
-              showLabel: showLabels,
-              onToggle: widget.transport.onMetronomeToggle,
-              onCountInChanged: widget.onCountInChanged,
-            ),
-            // Capture MIDI — momentary bordered button; lives next to the metronome
-            // because it's a utility modifier, not a primary transport control.
-            // Shown only when the backend callback is wired (v0.7+).
-            if (widget.transport.onCaptureMidi != null) ...[
-              SizedBox(width: wGap),
-              _CaptureButton(onCaptureMidi: widget.transport.onCaptureMidi),
-            ],
+            _CaptureButton(onCaptureMidi: widget.transport.onCaptureMidi),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -998,37 +1026,31 @@ class _TransportBarState extends State<TransportBar> {
         // to the hero readout. For D the bigger readout also lives pinned in
         // the arrangement; this inline copy stays as the in-bar reference.
         return _ClusterWell(
-          // The two centre flank slots use equal Expanded flex so the transport
-          // pins to the window midpoint — but the readout well is wider than the
-          // modifiers well, so the even split can starve this slot by a sub-pixel
-          // at certain widths (the "RIGHT OVERFLOWED BY 0" sliver). scaleDown
-          // absorbs that fraction invisibly without shedding labels early.
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                PositionDisplay(
-                  playheadPosition: widget.playheadPosition,
-                  tempo: widget.tempo,
-                  beatsPerBar: widget.beatsPerBar,
-                  onPositionChanged: widget.transport.onPositionChanged,
-                  // Uniform size with the tempo / signature boxes (no hero scale)
-                  // for a cleaner, even readout row.
-                  scale: 1.0,
-                ),
-                // At minimum density the tempo + signature shed entirely —
-                // the position readout + transport survive to the end.
-                if (density.showTempoSig) ...[
-                  SizedBox(width: wGap),
-                  // Tempo + tap fused into one split button (tap the BPM zone).
-                  tempo,
-                  SizedBox(width: wGap),
-                  signature,
-                ],
+          // Fixed size, same as the modifiers well: the centre group's
+          // OverflowBox slot absorbs any sub-pixel starvation (the old
+          // "RIGHT OVERFLOWED BY 0" sliver) without scaling the readouts.
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PositionDisplay(
+                playheadPosition: widget.playheadPosition,
+                tempo: widget.tempo,
+                beatsPerBar: widget.beatsPerBar,
+                onPositionChanged: widget.transport.onPositionChanged,
+                // Uniform size with the tempo / signature boxes (no hero scale)
+                // for a cleaner, even readout row.
+                scale: 1.0,
+              ),
+              // At minimum density the tempo + signature shed entirely —
+              // the position readout + transport survive to the end.
+              if (density.showTempoSig) ...[
+                SizedBox(width: wGap),
+                // Tempo + tap fused into one split button (tap the BPM zone).
+                tempo,
+                SizedBox(width: wGap),
+                signature,
               ],
-            ),
+            ],
           ),
         );
       case TopBarVariant.lcd:
@@ -1091,12 +1113,15 @@ class _TransportBarState extends State<TransportBar> {
     // Fixed rail mirroring the left, right-aligned to the far edge. Add-track
     // buttons sit just left of the mixer toggle + Help (a small gap separates
     // the "create" group from the panel chrome). Labels collapse to icon-only
-    // on a narrow rail so they never overflow.
+    // on a narrow rail so they never overflow: the labelled row measures 277px
+    // (pinned by transport_bar_density_test.dart), so the cut sits just above
+    // it. The old 210px cut let the row overflow by up to 67px once the rails
+    // started yielding to the centre below ~1110px windows.
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final showLabels = constraints.maxWidth >= 210;
+          final showLabels = constraints.maxWidth >= 280;
           return Row(
             children: [
               const Spacer(),

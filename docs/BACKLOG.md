@@ -61,12 +61,13 @@ items under Next are secondary to it and are not release work unless promoted he
 
 **Fix before release** (would not block on their own; Tyr wants both in this release)
 
-- **Transport centre cluster shrinks its glyphs at narrow widths** while the outer groups
-  (wordmark, undo/redo, Add MIDI, Add Audio, help) never shed, so the loop, snap, Bar, pencil
-  and fit buttons end up tiny between full-size neighbours. Rule: glyphs never go below the
-  outer buttons' size. Shed labels, then gaps, then overflow the least-used controls. Cheap
-  version for the gate: clamp icon size at the "tight" step and let the cluster overflow. This
-  is the "top-bar overflow" item below failing at a real window size.
+- **Transport centre cluster shrinks its glyphs at narrow widths.** Fixed 2026-09-13 (see
+  Unreleased in the changelog): the wells no longer scale, the density ladder measures the
+  even-split slots the transport's centre pin creates, and below ~1110 px windows the side rails
+  yield (Add-track labels drop, project name truncates) rather than the centre. Regression
+  coverage: `ui/test/widgets/transport_bar_density_test.dart` sweeps every width from 960 to
+  1600 px. The overflow *menu* (trailing chevron vs right-click) is still the open "top-bar
+  overflow" question below; nothing overflows at the supported window sizes now.
 - **Ruler drag zoom in the arrangement doesn't feel right** (target: Ableton's beat-time
   ruler). Three concrete gaps in `unified_nav_bar.dart` and `timeline_view.dart`:
   the timeline's zoom handler receives an anchor beat and ignores it, so the zoom pivots on the
@@ -119,9 +120,9 @@ items under Next are secondary to it and are not release work unless promoted he
   loading (both exist as commands).
 - **Hover/motion language** *(Tyr sign-off)*: candidate hover ~1.02 / press ~0.98 on navigation
   and creation surfaces only; nothing that adds latency on transport, tools, faders or M/S/R/I.
-- **Top-bar overflow.** The bar shrinks through six density steps and drops labels; there is no
-  overflow menu. It failed at a real window size on 2026-09-13 (see the release gate above);
-  the open question is still trailing chevron vs right-click.
+- **Top-bar overflow.** The bar sheds through six density steps and drops labels; there is no
+  overflow menu. Since 2026-09-13 nothing shrinks or clips at supported window sizes (see the
+  release gate above), so this is now only about the menu: trailing chevron vs right-click.
 - **Windows updater** native wiring (see release gate).
 - **Font-size tokens.** 228 hardcoded `fontSize:` values remain across `ui/lib`. Migrate to a
   type scale when a theme pass is open; not worth a standalone PR.

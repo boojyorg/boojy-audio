@@ -23,6 +23,15 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Transport controls no longer shrink at narrow window widths.** The loop, snap, metronome
+  and readout buttons in the centre of the transport bar were scaled down whenever the bar got
+  tight (to about half size at the 960 px minimum window, and already visibly at 1400 px), while
+  the wordmark, undo/redo and Add-track buttons stayed full size. The centre cluster now keeps
+  its glyph size at every width: it sheds labels, then gaps, then the tempo and signature
+  readouts, and below ~1110 px windows the side rails give up the room instead (the Add MIDI /
+  Add Audio labels drop and the project name truncates sooner). The transport stays on the window
+  midpoint throughout.
+
 - **Dragging an audio clip partly over a neighbour no longer deletes it.** Overlap resolution
   deleted any neighbour left shorter than 0.25 seconds after a trim, and snapping at the default
   zoom moves clips in 0.25 second steps, so nudging a clip onto a short sample (most of the
