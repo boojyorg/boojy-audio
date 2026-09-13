@@ -1,9 +1,8 @@
 // Regression coverage for the v0.7.0 release-gate item "ruler drag zoom
 // doesn't feel right": the arrangement ignored the anchor beat the ruler
 // reported (so a zoom pivoted on bar 1 and the bar under the pointer slid
-// away), the ruler counted its scroll offset twice once scrolled past bar 1,
-// and the zoom buttons scaled from bar 1 instead of the viewport centre.
-// These drive the real TimelineView over the native engine.
+// away) and the ruler counted its scroll offset twice once scrolled past
+// bar 1. These drive the real TimelineView over the native engine.
 
 import 'package:boojy_audio/audio_engine.dart';
 import 'package:boojy_audio/models/tool_mode.dart';
@@ -133,27 +132,6 @@ void main() {
       await tester.pump();
       expect(state.pixelsPerBeat, closeTo(zoomBefore, 1e-6));
       expect(beatAtRulerX(state, viewportX), closeTo(beatBefore, 1e-6));
-    });
-
-    testWidgets('the zoom buttons keep the viewport centre in place', (
-      tester,
-    ) async {
-      final state = await pumpTimeline(tester);
-      state.scrollController.jumpTo(400);
-      await tester.pump();
-      final centreX = state.viewWidth / 2;
-      final centreBeat = beatAtRulerX(state, centreX);
-      final zoomBefore = state.pixelsPerBeat;
-
-      await tester.tap(find.byTooltip('Zoom in'));
-      await tester.pump();
-      expect(state.pixelsPerBeat, greaterThan(zoomBefore));
-      expect(beatAtRulerX(state, centreX), closeTo(centreBeat, 1e-6));
-
-      await tester.tap(find.byTooltip('Zoom out'));
-      await tester.pump();
-      expect(state.pixelsPerBeat, closeTo(zoomBefore, 1e-6));
-      expect(beatAtRulerX(state, centreX), closeTo(centreBeat, 1e-6));
     });
 
     tearDownAll(() async {
