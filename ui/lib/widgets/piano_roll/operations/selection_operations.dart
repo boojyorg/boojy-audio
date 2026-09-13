@@ -120,11 +120,7 @@ mixin SelectionOperationsMixin
   @override
   int getNoteAtY(double y) {
     final rowIndex = (y / pixelsPerNote).floor();
-    final rawNote = rowIndexToMidiNote(rowIndex);
-    if (scaleLockEnabled) {
-      return snapNoteToScale(rawNote);
-    }
-    return rawNote;
+    return rowIndexToMidiNote(rowIndex);
   }
 
   /// Get beat at X coordinate.

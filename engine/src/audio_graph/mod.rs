@@ -22,15 +22,10 @@ use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
 use std::sync::Arc;
 
 // Native-only imports
-#[cfg(not(target_arch = "wasm32"))]
 use crate::audio_input::AudioInputManager;
-#[cfg(not(target_arch = "wasm32"))]
 use crate::midi_input::MidiInputManager;
-#[cfg(not(target_arch = "wasm32"))]
 use crate::midi_recorder::MidiRecorder;
-#[cfg(not(target_arch = "wasm32"))]
 use crate::recorder::Recorder;
-#[cfg(not(target_arch = "wasm32"))]
 // Only used by the stream startup in `new()`, which is cfg'd out under test.
 #[cfg(not(test))]
 use cpal::traits::StreamTrait;
@@ -164,21 +159,16 @@ pub struct AudioGraph {
     /// Transport state (atomic: 0=Stopped, 1=Playing, 2=Paused)
     pub(crate) state: Arc<AtomicU8>,
     /// Audio output stream (kept alive) - native only
-    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) stream: Option<cpal::Stream>,
     /// Next clip ID
     pub(crate) next_clip_id: Arc<Mutex<ClipId>>,
     /// Audio input manager - native only
-    #[cfg(not(target_arch = "wasm32"))]
     pub input_manager: Arc<Mutex<AudioInputManager>>,
     /// Audio recorder - native only
-    #[cfg(not(target_arch = "wasm32"))]
     pub recorder: Arc<Recorder>,
     /// MIDI input manager - native only
-    #[cfg(not(target_arch = "wasm32"))]
     pub midi_input_manager: Arc<Mutex<MidiInputManager>>,
     /// MIDI recorder - native only
-    #[cfg(not(target_arch = "wasm32"))]
     pub midi_recorder: Arc<Mutex<MidiRecorder>>,
     // --- M4: Mixing & Effects ---
     /// Track manager (handles all tracks)
@@ -218,7 +208,6 @@ pub struct AudioGraph {
     pub(crate) stream_error: Arc<Mutex<Option<String>>>,
 
     // --- Latency Testing --- (native only)
-    #[cfg(not(target_arch = "wasm32"))]
     pub latency_test: Arc<crate::latency_test::LatencyTest>,
 }
 
@@ -232,7 +221,6 @@ unsafe impl Send for AudioGraph {}
 
 impl AudioGraph {
     /// Create a new audio graph (native platforms)
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn new() -> anyhow::Result<Self> {
         #[cfg_attr(test, allow(unused_mut))]
         let mut input_manager = AudioInputManager::new()?;
@@ -302,43 +290,6 @@ impl AudioGraph {
                 eprintln!("⚠️ [AudioGraph] Failed to query hardware latency: {e}");
             }
         }
-
-        Ok(graph)
-    }
-
-    /// Create a new audio graph (web/WASM platforms)
-    #[cfg(target_arch = "wasm32")]
-    pub fn new() -> anyhow::Result<Self> {
-        // Create playhead
-        let playhead_samples = Arc::new(AtomicU64::new(0));
-
-        // Create M4 managers
-        let track_manager = TrackManager::new();
-        let effect_manager = EffectManager::new();
-        let master_limiter = Limiter::new();
-
-        let graph = Self {
-            clips: Arc::new(Mutex::new(Vec::new())),
-            midi_clips: Arc::new(Mutex::new(Vec::new())),
-            playhead_samples,
-            play_start_position_samples: Arc::new(AtomicU64::new(0)),
-            record_start_position_samples: Arc::new(AtomicU64::new(0)),
-            state: Arc::new(AtomicU8::new(TransportState::Stopped as u8)),
-            next_clip_id: Arc::new(Mutex::new(0)),
-            track_manager: Arc::new(Mutex::new(track_manager)),
-            effect_manager: Arc::new(Mutex::new(effect_manager)),
-            master_limiter: Arc::new(Mutex::new(master_limiter)),
-            track_synth_manager: Arc::new(Mutex::new(TrackSynthManager::new(
-                TARGET_SAMPLE_RATE as f32,
-            ))),
-            preferred_buffer_size: Arc::new(Mutex::new(BufferSizePreset::Balanced)),
-            actual_buffer_size: Arc::new(std::sync::atomic::AtomicU32::new(0)),
-            hardware_input_latency_ms: Arc::new(Mutex::new(0.0)),
-            hardware_output_latency_ms: Arc::new(Mutex::new(0.0)),
-            selected_output_device: Arc::new(Mutex::new(None)),
-            stream_sample_rate: Arc::new(std::sync::atomic::AtomicU32::new(TARGET_SAMPLE_RATE)),
-            stream_error: Arc::new(Mutex::new(None)),
-        };
 
         Ok(graph)
     }
@@ -630,7 +581,6 @@ impl AudioGraph {
         let samples = (position_seconds * f64::from(TARGET_SAMPLE_RATE)) as u64;
         self.playhead_samples.store(samples, Ordering::SeqCst);
         // Sync metronome to the same position so beats stay on beat after seek/loop (native only)
-        #[cfg(not(target_arch = "wasm32"))]
         self.recorder.seek_metronome(samples);
     }
 
@@ -762,7 +712,6 @@ impl AudioGraph {
         // playStartPosition, or recordStartPosition depending on context)
 
         // Reset metronome beat position to match current playhead (native only)
-        #[cfg(not(target_arch = "wasm32"))]
         self.recorder.reset_metronome();
 
         Ok(())

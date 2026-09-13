@@ -144,7 +144,6 @@ CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
   "100–400 ms lag" on track headers and mixer strips (misdiagnosed twice before; the engine lock
   fix in #85 was a real but separate lag). Detect double-click manually instead: keep a
   `DateTime? _lastTapAt` and compare in `onTap` against `kDoubleTapTimeout` (see
-  `track_header.dart` / `track_mixer_strip.dart`; regression test =
-  `test/widgets/track_buttons_latency_test.dart`). Bonus: the first click of a double-click then
+  `track_mixer_strip.dart`). Bonus: the first click of a double-click then
   fires `onTap` immediately instead of being swallowed. `onDoubleTap` on a *leaf* widget with no
   interactive children (fader reset, name-rename) is fine.

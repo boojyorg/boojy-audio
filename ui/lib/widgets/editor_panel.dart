@@ -45,9 +45,6 @@ class EditorPanel extends StatefulWidget {
   final Function(MidiClipData)? onMidiClipUpdated;
   final Function(InstrumentData)? onInstrumentParameterChanged;
 
-  /// Ghost notes from other MIDI tracks to display in Piano Roll
-  final List<MidiNoteData> ghostNotes;
-
   // Audio clip editing
   final ClipData? currentEditingAudioClip;
   final Function(ClipData)? onAudioClipUpdated;
@@ -127,7 +124,6 @@ class EditorPanel extends StatefulWidget {
     this.currentEditingClip,
     this.onMidiClipUpdated,
     this.onInstrumentParameterChanged,
-    this.ghostNotes = const [],
     this.currentEditingAudioClip,
     this.onAudioClipUpdated,
     this.currentTrackPlugins,
@@ -1535,7 +1531,6 @@ class _EditorPanelState extends State<EditorPanel>
       audioEngine: widget.audioEngine,
       clipData: clipData,
       onClipUpdated: widget.onMidiClipUpdated,
-      ghostNotes: widget.ghostNotes,
       toolMode: widget.toolMode,
       onToolModeChanged: widget.callbacks.onToolModeChanged,
       highlightedNote: _highlightedNote,

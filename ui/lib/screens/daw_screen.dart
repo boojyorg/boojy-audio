@@ -4,9 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 // Conditional import for platform-specific code
-// ignore: unnecessary_import
-import 'daw_screen_io.dart'
-    if (dart.library.js_interop) 'daw_screen_io_web.dart';
+import 'daw_screen_io.dart';
 import '../audio_engine.dart';
 import '../theme/animation_constants.dart';
 import '../theme/boojy_icons.dart';
@@ -58,7 +56,6 @@ import '../widgets/settings_dialog.dart';
 import '../widgets/app_settings_dialog.dart';
 import '../widgets/project_settings_dialog.dart';
 import '../widgets/export_dialog.dart';
-import '../services/version_manager.dart';
 import '../services/midi_file_service.dart';
 import '../widgets/start_screen/start_screen_modal.dart';
 import '../state/ui_layout_state.dart';
@@ -2747,14 +2744,6 @@ class _DAWScreenState extends State<DAWScreen>
   }
 
   Future<void> _openProjectSettings() async {
-    // Initialize version manager if needed
-    final projectPath = projectManager?.currentPath;
-    if (projectPath != null) {
-      final projectFolder = File(projectPath).parent.path;
-      versionManager ??= VersionManager(projectFolder);
-      await versionManager!.refresh();
-    }
-
     if (!mounted) return;
 
     // Open project-specific settings dialog (accessed via clicking song name)

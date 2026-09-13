@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../models/scale_data.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
@@ -49,26 +48,14 @@ class PianoRollControlsBar extends StatefulWidget {
 
   // View section
   final bool foldEnabled;
-  final bool ghostNotesEnabled;
   final VoidCallback? onFoldToggle;
-  final VoidCallback? onGhostNotesToggle;
 
   // Scale section
-  final String scaleRoot;
-  final ScaleType scaleType;
   final bool highlightEnabled;
-  final bool lockEnabled;
-  final Function(String)? onRootChanged;
-  final Function(ScaleType)? onTypeChanged;
   final VoidCallback? onHighlightToggle;
-  final VoidCallback? onLockToggle;
 
   // Transform section
-  final double stretchAmount;
   final VoidCallback? onLegato;
-  final Function(double)? onStretchChanged;
-  final VoidCallback? onStretchApply;
-  final VoidCallback? onReverse;
 
   // Lane visibility toggles (Randomize/CC type moved to lane headers)
   final bool velocityLaneVisible;
@@ -114,24 +101,12 @@ class PianoRollControlsBar extends StatefulWidget {
     this.effectiveGridDivision = 0.25,
     // View section
     this.foldEnabled = false,
-    this.ghostNotesEnabled = false,
     this.onFoldToggle,
-    this.onGhostNotesToggle,
     // Scale section
-    required this.scaleRoot,
-    required this.scaleType,
     this.highlightEnabled = false,
-    this.lockEnabled = false,
-    this.onRootChanged,
-    this.onTypeChanged,
     this.onHighlightToggle,
-    this.onLockToggle,
     // Transform section
-    this.stretchAmount = 1.0,
     this.onLegato,
-    this.onStretchChanged,
-    this.onStretchApply,
-    this.onReverse,
     // Lane visibility toggles
     this.velocityLaneVisible = false,
     this.onVelocityLaneToggle,
@@ -369,10 +344,8 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
   }
 
   // ============ SCALE GROUP ============
-  // Minimal Scale Highlight toggle. The root/type pickers and Lock are still
-  // plumbed through this widget but not yet rendered — this one toggle makes
-  // the existing scale-highlight rendering (root band + out-of-scale dimming)
-  // reachable, keyed to the default root/scale (C major).
+  // Scale Highlight toggle, keyed to the default root/scale (C major). Root and
+  // type pickers are a future feature (docs/BACKLOG.md).
   Widget _buildScaleGroup(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -391,7 +364,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
   }
 
   // ============ TRANSFORM GROUP ============
-  // Minimal: Legato only. Stretch/Reverse/Humanize remain plumbed but unrendered.
+  // Legato only.
   // Legato is a one-shot action — uses the same press-flash pattern as Quantize.
   Widget _buildTransformGroup(BuildContext context) {
     return Row(

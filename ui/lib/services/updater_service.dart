@@ -1,19 +1,15 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'dart:io' show Platform;
 import '../utils/logger.dart';
 
 /// Service for managing application updates.
-/// Uses Sparkle on macOS and WinSparkle on Windows.
-/// No-op on web and other platforms.
+/// Uses Sparkle on macOS. Windows has no native updater channel yet, so the
+/// Settings section is hidden there (see docs/BACKLOG.md, Windows updater).
 class UpdaterService {
   static const _channel = MethodChannel('boojy_audio/updater');
 
   /// Check if updates are supported on this platform
-  static bool get isSupported {
-    if (kIsWeb) return false;
-    return Platform.isMacOS || Platform.isWindows;
-  }
+  static bool get isSupported => Platform.isMacOS;
 
   /// Trigger a manual check for updates.
   /// Shows the update UI if an update is available.

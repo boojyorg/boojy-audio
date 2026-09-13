@@ -13,7 +13,6 @@ import '../../../services/library_service.dart';
 import '../../../services/library_preview_service.dart';
 import '../../../services/vst3_plugin_manager.dart';
 import '../../../services/project_manager.dart';
-import '../../../services/version_manager.dart';
 import '../../../services/midi_playback_manager.dart';
 import '../../../services/user_settings.dart';
 import '../../../services/auto_save_service.dart';
@@ -72,7 +71,6 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
   /// Set of VST3 effect IDs currently in floating windows
   final Set<int> floatedPluginEffectIds = {};
   ProjectManager? projectManager;
-  VersionManager? versionManager;
   MidiPlaybackManager? midiPlaybackManager;
   final UserSettings userSettings = UserSettings();
   final AutoSaveService autoSaveService = AutoSaveService();

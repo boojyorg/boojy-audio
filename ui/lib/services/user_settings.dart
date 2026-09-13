@@ -90,7 +90,6 @@ class UserSettings extends ChangeNotifier {
   static const String _keyPreferredOutputDevice = 'preferred_output_device';
   static const String _keyPreferredInputDevice = 'preferred_input_device';
   static const String _keyDevicePerDriver = 'device_per_driver'; // JSON map
-  static const String _keySampleRate = 'sample_rate';
   static const String _keyBufferSize = 'buffer_size';
 
   // MIDI setting keys
@@ -167,7 +166,6 @@ class UserSettings extends ChangeNotifier {
   String? _preferredInputDevice;
   Map<String, DevicePreference> _devicePerDriver =
       {}; // Remember device per driver
-  int _sampleRate = 48000; // 44100 or 48000
   int _bufferSize = 256; // 64/128/256/512/1024
 
   // MIDI settings
@@ -383,15 +381,6 @@ class UserSettings extends ChangeNotifier {
   }
 
   /// Sample rate: 44100 or 48000
-  int get sampleRate => _sampleRate;
-  set sampleRate(int value) {
-    if (_sampleRate != value && [44100, 48000].contains(value)) {
-      _sampleRate = value;
-      _saveAudioSettings();
-      notifyListeners();
-    }
-  }
-
   /// Buffer size: 64, 128, 256, 512, or 1024 samples
   int get bufferSize => _bufferSize;
   set bufferSize(int value) {
@@ -699,7 +688,6 @@ class UserSettings extends ChangeNotifier {
       _audioDriver = _prefs?.getString(_keyAudioDriver) ?? 'wasapi';
       _preferredOutputDevice = _prefs?.getString(_keyPreferredOutputDevice);
       _preferredInputDevice = _prefs?.getString(_keyPreferredInputDevice);
-      _sampleRate = _prefs?.getInt(_keySampleRate) ?? 48000;
       _bufferSize = _prefs?.getInt(_keyBufferSize) ?? 256;
 
       // Load device per driver preferences
@@ -845,7 +833,6 @@ class UserSettings extends ChangeNotifier {
       } else {
         await _prefs!.remove(_keyPreferredInputDevice);
       }
-      await _prefs!.setInt(_keySampleRate, _sampleRate);
       await _prefs!.setInt(_keyBufferSize, _bufferSize);
 
       // Save device per driver preferences

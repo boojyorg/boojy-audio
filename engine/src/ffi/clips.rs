@@ -222,17 +222,6 @@ pub extern "C" fn free_waveform_peaks_ffi(ptr: *mut f32, length: usize) {
     );
 }
 
-/// Move clip to track
-#[no_mangle]
-pub extern "C" fn move_clip_to_track_ffi(track_id: u64, clip_id: u64) -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::move_clip_to_track(track_id, clip_id) {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
-    })
-}
-
 /// Duplicate an audio clip on the same track at a new position
 ///
 /// Returns the new clip ID on success, or -1 on failure.

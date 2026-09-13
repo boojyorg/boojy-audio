@@ -62,34 +62,19 @@ pub mod synth;
 mod track; // M4: Track system // Library audio preview
 
 // ============================================
-// Native platform modules (non-WASM)
+// Native platform modules
 // ============================================
-#[cfg(not(target_arch = "wasm32"))]
 mod api;
-#[cfg(not(target_arch = "wasm32"))]
 mod audio_input;
-#[cfg(not(target_arch = "wasm32"))]
 mod ffi;
-#[cfg(not(target_arch = "wasm32"))]
 mod latency_test;
-#[cfg(not(target_arch = "wasm32"))]
 mod midi_input;
-#[cfg(not(target_arch = "wasm32"))]
 mod midi_recorder;
-#[cfg(not(target_arch = "wasm32"))]
 mod recorder;
 
-// VST3 plugin hosting - desktop only (not available on iOS/WASM) and requires vst3 feature
-#[cfg(all(feature = "vst3", not(target_os = "ios"), not(target_arch = "wasm32")))]
+// VST3 plugin hosting - desktop only (not available on iOS) and requires vst3 feature
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
 mod vst3_host;
-
-// ============================================
-// Web/WASM platform modules
-// ============================================
-#[cfg(target_arch = "wasm32")]
-mod web_audio;
-#[cfg(target_arch = "wasm32")]
-mod web_bindings;
 
 // ============================================
 // Re-exports: Core (all platforms)
@@ -107,59 +92,40 @@ pub use synth::*;
 pub use track::*;
 
 // ============================================
-// Re-exports: Native platform only
+// Re-exports: native platform
 // ============================================
-#[cfg(not(target_arch = "wasm32"))]
 #[allow(ambiguous_glob_reexports)]
 pub use api::*;
-#[cfg(not(target_arch = "wasm32"))]
 pub use audio_input::*;
-#[cfg(not(target_arch = "wasm32"))]
 pub use latency_test::*;
-#[cfg(not(target_arch = "wasm32"))]
 pub use midi_input::*;
-#[cfg(not(target_arch = "wasm32"))]
 pub use midi_recorder::*;
-#[cfg(not(target_arch = "wasm32"))]
 pub use recorder::*;
 
-#[cfg(all(feature = "vst3", not(target_os = "ios"), not(target_arch = "wasm32")))]
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
 pub use vst3_host::*;
-
-// ============================================
-// Re-exports: Web/WASM platform only
-// ============================================
-#[cfg(target_arch = "wasm32")]
-pub use web_audio::*;
-#[cfg(target_arch = "wasm32")]
-pub use web_bindings::*;
 
 // ============================================
 // Native AudioEngine (cpal-based)
 // ============================================
-#[cfg(not(target_arch = "wasm32"))]
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-#[cfg(not(target_arch = "wasm32"))]
 use cpal::Stream;
 // ============================================
 // Native AudioEngine implementation (cpal-based)
 // ============================================
 use parking_lot::Mutex;
-#[cfg(not(target_arch = "wasm32"))]
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
 
 /// Simple audio engine that outputs silence to default device (native platforms)
-#[cfg(not(target_arch = "wasm32"))]
 pub struct AudioEngine {
     is_running: Arc<AtomicBool>,
     // Store stream to prevent it from being dropped (and to allow proper cleanup)
     stream: Arc<Mutex<Option<Stream>>>,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl AudioEngine {
     #[allow(clippy::arc_with_non_send_sync)]
     pub fn new() -> Result<Self, anyhow::Error> {
@@ -223,7 +189,7 @@ impl AudioEngine {
     }
 }
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(test)]
 mod tests {
     use super::*;
 

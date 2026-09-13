@@ -8,8 +8,7 @@ import '../../../services/vst3_editor_service.dart';
 import '../../../utils/csv_field.dart';
 import '../../../widgets/instrument_browser.dart';
 import '../../daw_screen.dart';
-import '../../daw_screen_io.dart'
-    if (dart.library.js_interop) '../../daw_screen_io_web.dart';
+import '../../daw_screen_io.dart';
 import 'daw_screen_state.dart';
 import 'daw_recording_mixin.dart';
 import 'daw_ui_mixin.dart';

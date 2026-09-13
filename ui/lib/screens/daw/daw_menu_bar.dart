@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart'
-    show kIsWeb, defaultTargetPlatform, TargetPlatform;
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -7,16 +7,10 @@ import '../../services/undo_redo_manager.dart';
 import '../../services/updater_service.dart';
 import '../../state/ui_layout_state.dart';
 
-// Platform detection that works on web
-bool get _isMacOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+bool get _isMacOS => defaultTargetPlatform == TargetPlatform.macOS;
 
-// Web-safe exit function
 void _exitApp() {
-  if (!kIsWeb) {
-    // On native, we need to use SystemNavigator or exit
-    SystemNavigator.pop();
-  }
-  // On web, do nothing - browser handles window closing
+  SystemNavigator.pop();
 }
 
 /// Configuration object for DAW menu bar callbacks and state
@@ -335,21 +329,6 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
         PlatformMenuItem(
           label: 'Settings...',
           onSelected: config.onAppSettings,
-        ),
-        const PlatformMenuItem(
-          label: 'Zoom In',
-          shortcut: SingleActivator(LogicalKeyboardKey.equal, meta: true),
-          onSelected: null, // Disabled - future feature
-        ),
-        const PlatformMenuItem(
-          label: 'Zoom Out',
-          shortcut: SingleActivator(LogicalKeyboardKey.minus, meta: true),
-          onSelected: null, // Disabled - future feature
-        ),
-        const PlatformMenuItem(
-          label: 'Zoom to Fit',
-          shortcut: SingleActivator(LogicalKeyboardKey.digit0, meta: true),
-          onSelected: null, // Disabled - future feature
         ),
       ],
     ),

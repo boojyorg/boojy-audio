@@ -6,5 +6,4 @@
 // - Web: Uses desktop_drop directly (has web support)
 
 export 'platform_drop_target_stub.dart'
-    if (dart.library.io) 'platform_drop_target_native.dart'
-    if (dart.library.js_interop) 'platform_drop_target_web.dart';
+    if (dart.library.io) 'platform_drop_target_native.dart';

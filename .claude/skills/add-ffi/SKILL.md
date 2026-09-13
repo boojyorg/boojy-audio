@@ -1,6 +1,6 @@
 ---
 name: add-ffi
-description: Add a new FFI function bridging the Rust audio engine and Flutter/Dart UI. Handles all 7-8 files that need updating.
+description: Add a new FFI function bridging the Rust audio engine and Flutter/Dart UI. Handles all 7 files that need updating.
 ---
 
 # Add FFI Function
@@ -165,26 +165,6 @@ Add the stub implementation:
 ```dart
 @override
 String myFunction(int param) => throw UnsupportedError('stub');
-```
-
-## Step 8: Web (`ui/lib/audio_engine_web.dart`)
-
-Add the web implementation. If web support isn't needed yet, add a TODO stub:
-```dart
-@override
-String myFunction(int param) {
-  // TODO: implement web support
-  return 'Not supported on web';
-}
-```
-
-If web IS supported, use the JS interop helpers:
-```dart
-@override
-String myFunction(int param) {
-  final result = _callEngineWith('my_function', [param.toJS]);
-  return _jsToString(result) ?? 'Error';
-}
 ```
 
 ## Verification Checklist

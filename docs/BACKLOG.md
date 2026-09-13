@@ -26,28 +26,17 @@ including the v0.6.1 fixes that were never tagged. Release gate, on top of `RELE
 - Confirm Sparkle actually offers the update: install v0.5.4 or v0.6.0 on a Mac, launch, expect
   the offer. The appcast now carries build number 10 for v0.6.0, so the fix is published but has
   never been observed working.
-- Windows smoke checklist. Windows still has **no native updater**: the Dart service and the
-  Settings toggle exist, but `ui/windows/runner/` implements no `boojy_audio/updater` channel.
-  Either wire it before release or make sure the toggle is hidden on Windows.
+- Windows smoke checklist. Windows still has **no native updater**: `ui/windows/runner/`
+  implements no `boojy_audio/updater` channel, so since 2026-09-13 `UpdaterService.isSupported`
+  is macOS-only and the Updates section is hidden on Windows. Confirm it stays hidden.
 - macOS "check for updates automatically" is persisted by Sparkle itself, not by app settings.
   Toggle it, relaunch, confirm it sticks.
 
 ### Small, certain fixes (each under a day; found in the code check)
 
-- **Project sample-rate dropdown is cosmetic.** The engine always requests 48 kHz stereo and
-  falls back to the device default only if that fails; the 44.1/48 picker in Project Settings
-  changes metadata only. Per the "inert controls work or are hidden" decision: hide it, or make
-  it real.
-- **Menu-bar Zoom In / Zoom Out / Zoom to Fit are disabled placeholders.** Same rule. Zoom that
-  does exist: Cmd-scroll, ruler drag, nav-bar buttons, middle-drag in the piano roll. No pinch.
-- **Scale toggle has no scale picker.** The piano-roll Scale highlight works, but the root and
-  type pickers are plumbed and never rendered, and Project Settings lost its key/scale fields in
-  v0.7. Users can highlight a scale they cannot choose. Render the two pickers in the controls bar.
-- **Ghost notes render but cannot be switched on.** The painter and state are wired; no visible
-  toggle exists (a dead `piano_roll_scale_controls.dart` carries one and is imported nowhere).
-  Add the toggle and delete the dead widget.
-- **Swing is dead code.** The `applySwing` operation exists and nothing calls it; there is no
-  control to hide. Delete it, or wire it as a one-shot action beside Quantize and Legato.
+- **Scale highlight is fixed to C major.** The root and type pickers were deleted in the
+  2026-09-13 dead-code pass (they were plumbed but never rendered). Bring them back as a small
+  feature when the piano roll is next open: two dropdowns in the controls bar.
 - **CC lane is unreachable.** Full editing code, but `ccLaneExpanded` is only ever set false; the
   clip-automation lane is behind a constant set to false. Decide: expose one lane toggle, or
   remove the code.
@@ -55,16 +44,13 @@ including the v0.6.1 fixes that were never tagged. Release gate, on top of `RELE
   a future/cached load.
 - **Tooltip coverage is uneven.** `BoojyTooltip` covers transport buttons and mixer M/S/R;
   piano-roll Quantize/Legato/Snap use the plain Flutter tooltip; track-header Mute/Solo have none.
-- **Residual pre-migration menu sites** (verified 2026-09-12): two `showMenu` calls in
-  `track_mixer_strip.dart`, a `PopupMenuButton` in `file_menu_button.dart`, a local `_showMenu`
-  in `view_menu_button.dart`. Migrate when those files are next open.
+- **Residual pre-migration menu sites** (verified 2026-09-13): two `showMenu` calls in
+  `track_mixer_strip.dart` and a `PopupMenuButton` in `file_menu_button.dart`. Migrate when
+  those files are next open.
 - **UI Labs dev switchers are still in the build** (canvas background, editor-button style,
   playhead lab, palette editor, behind Cmd+Shift shortcuts). Pick winners, promote the tokens,
   delete the switchers. *(Tyr picks.)*
 - **Missing-ffmpeg message has no Windows line** (`.claude/rules/audio-export.md`).
-- **The web target is a Dart-side fake.** `audio_engine_web.dart` simulates transport and clips
-  and the WASM engine never renders. Delete it in the dead-code pass; the real web version
-  ([PLATFORMS.md](PLATFORMS.md)) starts from the engine, not from this.
 
 ### Larger pieces (need Tyr's design input first)
 
@@ -118,13 +104,13 @@ Ideas with no owner and no date. A candidate's presence here is not a decision.
 | Area | Candidates |
 | --- | --- |
 | Recording | Pre/post-roll; auto-arm a new audio track when a mic is present and show its level; per-track-type effect presets. Already true and not work: loop on, snap to bar, metronome on while recording, input monitoring on for armed tracks. |
-| MIDI | Chord tools, humanize; drum per-step velocity, pattern length, variable step resolution, choke groups; compound x/8 feel; an arpeggiator (compatible with linear arrangement). |
+| MIDI | Chord tools; note transforms removed as dead code on 2026-09-13 and worth rebuilding as one-shot buttons beside Quantize and Legato (humanize, reverse, stretch, swing); ghost notes from other tracks in the piano roll; drum per-step velocity, pattern length, variable step resolution, choke groups; compound x/8 feel; an arpeggiator (compatible with linear arrangement). |
 | Audio editing | Crossfades, transient detection, normalize; clarify "merge" against the existing join/consolidate. |
 | Automation | Per-parameter lanes beyond volume. |
 | Mixing | Sidechain UI, pre-fader sends, folders/linked tracks/groups, plugin delay compensation, RMS/LUFS metering; a unity tick on faders (not built); an explicit add-return control (returns are created implicitly by the FX picker's shared path). |
 | Tracks | Freeze, bounce in place, templates, markers/locators, arranger sections. |
 | Library | File browser, collections, tempo-synced preview. |
-| Projects | Backup/version-history UX, templates, collect-all-and-save; one-click export that names the file after the project and opens the folder. |
+| Projects | Version history (the half-built `VersionManager` and its dialog were deleted on 2026-09-13; start fresh from the product need, not the old code), templates, collect-all-and-save; one-click export that names the file after the project and opens the folder. |
 | Export | FLAC. (MP3 ID3 metadata is shipped and reachable.) |
 | Plugins | VST3 load/reopen lifecycle hardening, preset browsing reachability, a plugin manager, AU. |
 | Instruments | Thin synth presets (First Sound); wavetable or advanced sampler modes need a fresh product decision. |

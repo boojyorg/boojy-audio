@@ -41,9 +41,6 @@ class PianoRoll extends StatefulWidget {
   final VoidCallback? onClose;
   final Function(MidiClipData)? onClipUpdated;
 
-  /// Ghost notes from other MIDI tracks (displayed at 30% opacity)
-  final List<MidiNoteData> ghostNotes;
-
   /// Current tool mode (managed by parent EditorPanel)
   final ToolMode toolMode;
 
@@ -104,7 +101,6 @@ class PianoRoll extends StatefulWidget {
     this.clipData,
     this.onClose,
     this.onClipUpdated,
-    this.ghostNotes = const [],
     this.toolMode = ToolMode.draw,
     this.onToolModeChanged,
     this.highlightedNote,
@@ -301,13 +297,7 @@ class _PianoRollState extends State<PianoRoll>
   }
 
   int _getNoteAtY(double y) {
-    final rawNote =
-        PianoRollStateMixin.maxMidiNote - (y / pixelsPerNote).floor();
-    // Apply scale lock if enabled
-    if (scaleLockEnabled) {
-      return snapNoteToScale(rawNote);
-    }
-    return rawNote;
+    return PianoRollStateMixin.maxMidiNote - (y / pixelsPerNote).floor();
   }
 
   double _getBeatAtX(double x) {
@@ -532,26 +522,13 @@ class _PianoRollState extends State<PianoRoll>
           setState(() => quantizeTripletEnabled = v),
       // View section
       foldEnabled: foldViewEnabled,
-      ghostNotesEnabled: ghostNotesEnabled,
       onFoldToggle: () => setState(() => foldViewEnabled = !foldViewEnabled),
-      onGhostNotesToggle: () =>
-          setState(() => ghostNotesEnabled = !ghostNotesEnabled),
       // Scale section
-      scaleRoot: scaleRoot,
-      scaleType: scaleType,
       highlightEnabled: scaleHighlightEnabled,
-      lockEnabled: scaleLockEnabled,
-      onRootChanged: (root) => setState(() => scaleRoot = root),
-      onTypeChanged: (type) => setState(() => scaleType = type),
       onHighlightToggle: () =>
           setState(() => scaleHighlightEnabled = !scaleHighlightEnabled),
-      onLockToggle: () => setState(() => scaleLockEnabled = !scaleLockEnabled),
       // Transform section
-      stretchAmount: stretchAmount,
       onLegato: applyLegato,
-      onStretchChanged: (v) => setState(() => stretchAmount = v),
-      onStretchApply: applyStretch,
-      onReverse: reverseNotes,
       // Lane visibility toggles (Randomize/CC type are in lane headers)
       velocityLaneVisible: velocityLaneExpanded,
       onVelocityLaneToggle: toggleVelocityLane,
@@ -910,8 +887,6 @@ class _PianoRollState extends State<PianoRoll>
                                         PianoRollStateMixin.maxMidiNote,
                                     selectionStart: selectionStart,
                                     selectionEnd: selectionEnd,
-                                    ghostNotes: widget.ghostNotes,
-                                    showGhostNotes: ghostNotesEnabled,
                                     foldedPitches: foldViewEnabled
                                         ? foldedPitches
                                         : null,
@@ -2397,12 +2372,7 @@ class _PianoRollState extends State<PianoRoll>
                 final newStartTime =
                     (isShiftPressed ? rawStartTime : snapToGrid(rawStartTime))
                         .clamp(0.0, 64.0);
-                var newNote = (originalNote.note + deltaNote).clamp(0, 127);
-
-                // Apply scale lock if enabled
-                if (scaleLockEnabled) {
-                  newNote = snapNoteToScale(newNote);
-                }
+                final newNote = (originalNote.note + deltaNote).clamp(0, 127);
 
                 // Capture the new pitch for audition
                 if (newPitchForAudition == null) {

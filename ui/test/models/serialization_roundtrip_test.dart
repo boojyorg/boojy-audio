@@ -7,12 +7,9 @@ import 'package:boojy_audio/models/instrument_data.dart';
 import 'package:boojy_audio/models/midi_cc_data.dart';
 import 'package:boojy_audio/models/midi_event.dart';
 import 'package:boojy_audio/models/project_metadata.dart';
-import 'package:boojy_audio/models/project_version.dart' hide Snapshot;
 import 'package:boojy_audio/models/project_view_state.dart';
-import 'package:boojy_audio/models/snapshot.dart';
 import 'package:boojy_audio/models/track_automation_data.dart';
 import 'package:boojy_audio/models/track_data.dart';
-import 'package:boojy_audio/models/version_type.dart';
 
 void main() {
   // =========================================================================
@@ -337,119 +334,6 @@ void main() {
       final json = original.toJson();
       final restored = ProjectViewState.fromJson(json);
       expect(restored, equals(original));
-    });
-  });
-
-  // =========================================================================
-  // Snapshot
-  // =========================================================================
-  group('Snapshot roundtrip', () {
-    test('with all fields', () {
-      final created = DateTime(2025, 3, 10, 8, 45, 30);
-      final original = Snapshot(
-        id: 'snap-123',
-        name: 'Chorus Idea 1',
-        note: 'Added new synth lead',
-        created: created,
-        fileName: 'Chorus Idea 1.boojy',
-      );
-
-      final json = original.toJson();
-      final restored = Snapshot.fromJson(json);
-      expect(restored, equals(original));
-    });
-
-    test('with null note', () {
-      final original = Snapshot(
-        id: 'snap-456',
-        name: 'Version 2',
-        note: null,
-        created: DateTime(2025, 1, 1),
-        fileName: 'Version 2.boojy',
-      );
-
-      final json = original.toJson();
-      final restored = Snapshot.fromJson(json);
-      expect(restored, equals(original));
-      expect(restored.note, isNull);
-    });
-  });
-
-  // =========================================================================
-  // ProjectVersion
-  // =========================================================================
-  group('ProjectVersion roundtrip', () {
-    test('with all fields', () {
-      final created = DateTime(2025, 7, 20, 16, 30, 0);
-      final original = ProjectVersion(
-        id: 'ver-abc',
-        name: 'Mix Down v2',
-        note: 'Balanced drums better',
-        created: created,
-        fileName: 'Mix Down v2.boojy',
-        versionType: VersionType.mix,
-        versionNumber: 5,
-      );
-
-      final json = original.toJson();
-      final restored = ProjectVersion.fromJson(json);
-      expect(restored, equals(original));
-    });
-
-    test('with null note and demo type', () {
-      final original = ProjectVersion(
-        id: 'ver-def',
-        name: 'Demo 1',
-        note: null,
-        created: DateTime(2025, 2, 14),
-        fileName: 'Demo 1.boojy',
-        versionType: VersionType.demo,
-        versionNumber: 1,
-      );
-
-      final json = original.toJson();
-      final restored = ProjectVersion.fromJson(json);
-      expect(restored, equals(original));
-    });
-
-    test('master version type', () {
-      final original = ProjectVersion(
-        id: 'ver-ghi',
-        name: 'Final Master',
-        created: DateTime(2025, 12, 25),
-        fileName: 'Final Master.boojy',
-        versionType: VersionType.master,
-        versionNumber: 10,
-      );
-
-      final json = original.toJson();
-      final restored = ProjectVersion.fromJson(json);
-      expect(restored.versionType, equals(VersionType.master));
-      expect(restored.versionNumber, equals(10));
-      expect(restored, equals(original));
-    });
-  });
-
-  // =========================================================================
-  // VersionType
-  // =========================================================================
-  group('VersionType roundtrip', () {
-    test('all version types', () {
-      for (final vt in VersionType.values) {
-        final json = vt.toJson();
-        final restored = VersionType.fromJson(json);
-        expect(restored, equals(vt));
-      }
-    });
-
-    test('null input defaults to demo', () {
-      final restored = VersionType.fromJson(null);
-      expect(restored, equals(VersionType.demo));
-    });
-
-    test('unknown input defaults to demo', () {
-      final restored = VersionType.fromJson('unknown');
-      expect(restored, equals(VersionType.demo));
     });
   });
 
