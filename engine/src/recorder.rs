@@ -734,7 +734,10 @@ mod tests {
                 break;
             }
         }
-        assert!(heard_click, "count-in must click even with the metronome off");
+        assert!(
+            heard_click,
+            "count-in must click even with the metronome off"
+        );
 
         // Once the count-in ends, the metronome toggle is back in charge: no
         // click while recording with the metronome off.
@@ -751,7 +754,10 @@ mod tests {
                 break;
             }
         }
-        assert!(!heard_click, "metronome off must stay silent while recording");
+        assert!(
+            !heard_click,
+            "metronome off must stay silent while recording"
+        );
     }
 
     #[test]
