@@ -109,10 +109,6 @@ class TimelineView extends StatefulWidget {
   final double loopEndBeats;
   final Function(double startBeats, double endBeats)? onLoopRegionChanged;
 
-  // Punch in/out state (reuses loop region boundaries)
-  final bool punchInEnabled;
-  final bool punchOutEnabled;
-
   // Vertical scroll controller (synced with track mixer panel)
   final ScrollController? verticalScrollController;
 
@@ -174,8 +170,6 @@ class TimelineView extends StatefulWidget {
     this.loopStartBeats = 0.0,
     this.loopEndBeats = 4.0,
     this.onLoopRegionChanged,
-    this.punchInEnabled = false,
-    this.punchOutEnabled = false,
     this.verticalScrollController,
     this.toolMode = ToolMode.draw,
     this.onToolModeChanged,
@@ -820,8 +814,6 @@ class TimelineViewState extends State<TimelineView>
                           loopEnd: widget.loopEndBeats,
                           playheadPosition: _calculatePlayheadBeat(),
                           isPlaying: widget.isPlaying,
-                          punchInEnabled: widget.punchInEnabled,
-                          punchOutEnabled: widget.punchOutEnabled,
                         ),
                         callbacks: UnifiedNavBarCallbacks(
                           onHorizontalScroll: _handleNavBarScroll,

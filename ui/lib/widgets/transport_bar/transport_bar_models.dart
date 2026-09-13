@@ -88,8 +88,11 @@ class FileMenuCallbacks {
   final VoidCallback? onProjectSettings;
   final VoidCallback? onCloseProject;
 
-  /// Open the Start screen (the wordmark's home action).
+  /// Open the Start screen (an "Audio" menu item).
   final VoidCallback? onStartScreen;
+
+  /// Show the keyboard-shortcuts sheet (an "Audio" menu item; also the ? key).
+  final VoidCallback? onKeyboardShortcuts;
 
   const FileMenuCallbacks({
     this.onNewProject,
@@ -103,6 +106,7 @@ class FileMenuCallbacks {
     this.onProjectSettings,
     this.onCloseProject,
     this.onStartScreen,
+    this.onKeyboardShortcuts,
   });
 }
 
@@ -124,13 +128,11 @@ class TransportCallbacks {
   final VoidCallback? onMetronomeToggle;
   final VoidCallback? onPianoToggle;
   final VoidCallback? onLoopPlaybackToggle;
-  final VoidCallback? onPunchInToggle;
-  final VoidCallback? onPunchOutToggle;
   final Function(double seconds)? onPositionChanged;
 
   /// Capture what was played unarmed — opens the CaptureMidiDialog.
-  /// Backend is in daw_clip_mixin.dart:captureMidi(); button was removed in
-  /// v0.2.1 but the backend was retained.
+  /// Backend is in daw_clip_mixin.dart:captureMidi(); the button sits right
+  /// of Record.
   final VoidCallback? onCaptureMidi;
 
   const TransportCallbacks({
@@ -147,8 +149,6 @@ class TransportCallbacks {
     this.onMetronomeToggle,
     this.onPianoToggle,
     this.onLoopPlaybackToggle,
-    this.onPunchInToggle,
-    this.onPunchOutToggle,
     this.onPositionChanged,
     this.onCaptureMidi,
   });
@@ -161,9 +161,6 @@ class PanelCallbacks {
   final VoidCallback? onToggleEditor;
   final VoidCallback? onTogglePiano;
   final VoidCallback? onResetPanelLayout;
-  final VoidCallback? onHelpPressed;
-  final VoidCallback? onAddMidiTrack;
-  final VoidCallback? onAddAudioTrack;
 
   const PanelCallbacks({
     this.onToggleLibrary,
@@ -171,9 +168,6 @@ class PanelCallbacks {
     this.onToggleEditor,
     this.onTogglePiano,
     this.onResetPanelLayout,
-    this.onHelpPressed,
-    this.onAddMidiTrack,
-    this.onAddAudioTrack,
   });
 }
 

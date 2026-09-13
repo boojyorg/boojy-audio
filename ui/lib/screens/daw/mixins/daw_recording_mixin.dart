@@ -71,25 +71,8 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     recordingController.onRecordingComplete = handleRecordingComplete;
     recordingController.onRecordStartPositionChanged =
         playbackController.setRecordStartPosition;
-    recordingController.onPunchComplete = _handlePunchComplete;
 
-    // Read punch state from UI layout — punch region reuses loop boundaries
-    final punchIn = uiLayout.punchInEnabled;
-    final punchOut = uiLayout.punchOutEnabled;
-    double punchInSeconds = 0.0;
-    double punchOutSeconds = 0.0;
-    if (punchIn || punchOut) {
-      punchInSeconds = uiLayout.loopStartBeats * 60.0 / tempo;
-      punchOutSeconds = uiLayout.loopEndBeats * 60.0 / tempo;
-    }
-
-    recordingController.startRecording(
-      isAlreadyPlaying: isAlreadyPlaying,
-      punchInEnabled: punchIn,
-      punchOutEnabled: punchOut,
-      punchInSeconds: punchInSeconds,
-      punchOutSeconds: punchOutSeconds,
-    );
+    recordingController.startRecording(isAlreadyPlaying: isAlreadyPlaying);
 
     // Don't start playhead polling during count-in — the playhead should stay
     // frozen at the recording start position. Listen for the count-in → recording
@@ -143,26 +126,6 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
       recordingController.removeListener(_onRecordingStateChanged);
       playbackController.startPlayheadPolling(displayOffset: offset);
     }
-  }
-
-  /// Handle auto-punch-out completion — transport keeps playing
-  void _handlePunchComplete(RecordingResult result) {
-    // Capture live recording notes BEFORE cleanup
-    final liveClip = liveRecordingNotifier.buildLiveClipData();
-    final capturedNotes = liveClip?.notes ?? [];
-
-    // Clean up listeners
-    liveRecordingNotifier.removeListener(_onLiveRecordingUpdate);
-    recordingController.removeListener(_onRecordingStateChanged);
-    midiPlaybackManager?.setLiveRecordingClip(null);
-
-    // Re-enable preview playback
-    libraryPreviewService?.setRecordingState(false);
-
-    // Process the recording (place clip on timeline) — transport keeps running
-    handleRecordingComplete(result, capturedNotes: capturedNotes);
-
-    // Playhead polling continues since transport is still running
   }
 
   /// Pause recording: Stop recording, stay at current position

@@ -3,13 +3,16 @@ import '../../theme/animation_constants.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
-import '../shared/pill_toggle_button.dart' show ButtonDisplayMode;
+import '../shared/boojy_dropdown.dart';
+import '../shared/boojy_tooltip.dart';
 
-/// File menu button showing project name with dropdown menu
+/// The project name as a plain text button; clicking it opens the project
+/// menu (New, Open, Save, Export, Project Settings, Close). No chevron — the
+/// hover lift and the tooltip say it's a menu, and it sits beside the equally
+/// plain "Audio" app menu.
 class FileMenuButton extends StatefulWidget {
   final String projectName;
   final bool hasProject;
-  final ButtonDisplayMode mode;
   final VoidCallback? onNewProject;
   final VoidCallback? onOpenProject;
   final VoidCallback? onSaveProject;
@@ -24,7 +27,6 @@ class FileMenuButton extends StatefulWidget {
     super.key,
     required this.projectName,
     this.hasProject = false,
-    required this.mode,
     this.onNewProject,
     this.onOpenProject,
     this.onSaveProject,
@@ -42,159 +44,98 @@ class FileMenuButton extends StatefulWidget {
 
 class _FileMenuButtonState extends State<FileMenuButton> {
   bool _isHovered = false;
+  final GlobalKey _buttonKey = GlobalKey();
+
+  Future<void> _showMenu(BuildContext context) async {
+    final box = _buttonKey.currentContext?.findRenderObject() as RenderBox?;
+    final overlayBox =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (box == null || overlayBox == null) return;
+    // Non-listening read: this runs from a tap handler (flutter-ui rules).
+    final colors = context.themeProvider.colors;
+    final anchor = Rect.fromPoints(
+      box.localToGlobal(Offset.zero, ancestor: overlayBox),
+      box.localToGlobal(
+        box.size.bottomRight(Offset.zero),
+        ancestor: overlayBox,
+      ),
+    );
+
+    final selected = await showBoojyMenu<String>(
+      context: context,
+      anchor: anchor,
+      items: [
+        BoojyMenuItem(value: 'new', icon: BI.fileText, label: 'New Project'),
+        BoojyMenuItem(
+          value: 'open',
+          icon: BI.folderOpen,
+          label: 'Open Project…',
+        ),
+        const BoojyMenuDivider(),
+        BoojyMenuItem(value: 'save', icon: BI.save, label: 'Save'),
+        BoojyMenuItem(
+          value: 'save_as',
+          icon: BI.saveAs,
+          label: 'Save As…',
+          shortcut: '⇧⌘S',
+        ),
+        if (widget.hasProject) ...[
+          const BoojyMenuDivider(),
+          BoojyMenuItem(value: 'rename', icon: BI.rename, label: 'Rename…'),
+          BoojyMenuItem(
+            value: 'save_new_version',
+            icon: BI.history,
+            label: 'Save New Version…',
+          ),
+        ],
+        const BoojyMenuDivider(),
+        BoojyMenuItem(
+          value: 'export_audio',
+          icon: BI.waveform,
+          label: 'Export Audio…',
+        ),
+        BoojyMenuItem(
+          value: 'project_settings',
+          icon: BI.settings,
+          label: 'Project Settings…',
+          shortcut: '⌘,',
+        ),
+        const BoojyMenuDivider(),
+        BoojyMenuItem(value: 'close', icon: BI.close, label: 'Close Project'),
+      ],
+      selectedValue: null,
+      colors: colors,
+    );
+    switch (selected) {
+      case 'new':
+        widget.onNewProject?.call();
+      case 'open':
+        widget.onOpenProject?.call();
+      case 'save':
+        widget.onSaveProject?.call();
+      case 'save_as':
+        widget.onSaveProjectAs?.call();
+      case 'rename':
+        widget.onRenameProject?.call();
+      case 'save_new_version':
+        widget.onSaveNewVersion?.call();
+      case 'export_audio':
+        widget.onExportAudio?.call();
+      case 'project_settings':
+        widget.onProjectSettings?.call();
+      case 'close':
+        widget.onCloseProject?.call();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final displayName = widget.projectName;
-    // Capture colors here — itemBuilder's context is in the overlay,
-    // outside the Provider tree.
     final colors = context.colors;
 
-    return PopupMenuButton<String>(
-      tooltip: 'File Menu',
-      offset: const Offset(0, 40),
-      onSelected: (String value) {
-        switch (value) {
-          case 'new':
-            widget.onNewProject?.call();
-            break;
-          case 'open':
-            widget.onOpenProject?.call();
-            break;
-          case 'save':
-            widget.onSaveProject?.call();
-            break;
-          case 'save_as':
-            widget.onSaveProjectAs?.call();
-            break;
-          case 'rename':
-            widget.onRenameProject?.call();
-            break;
-          case 'save_new_version':
-            widget.onSaveNewVersion?.call();
-            break;
-          case 'export_audio':
-            widget.onExportAudio?.call();
-            break;
-          case 'project_settings':
-            widget.onProjectSettings?.call();
-            break;
-          case 'close':
-            widget.onCloseProject?.call();
-            break;
-        }
-      },
-      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-        PopupMenuItem<String>(
-          value: 'new',
-          child: Row(
-            children: [
-              Icon(BI.fileText, size: BT.iconLg),
-              const SizedBox(width: 8),
-              const Text('New Project'),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'open',
-          child: Row(
-            children: [
-              Icon(BI.folderOpen, size: BT.iconLg),
-              const SizedBox(width: 8),
-              const Text('Open Project...'),
-            ],
-          ),
-        ),
-        // Future: Open Recent submenu (v0.6.0)
-        const PopupMenuDivider(),
-        PopupMenuItem<String>(
-          value: 'save',
-          child: Row(
-            children: [
-              Icon(BI.save, size: BT.iconLg),
-              const SizedBox(width: 8),
-              const Text('Save'),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'save_as',
-          child: Row(
-            children: [
-              Icon(BI.saveAs, size: BT.iconLg),
-              const SizedBox(width: 8),
-              const Text('Save As...'),
-              const Spacer(),
-              Text(
-                '⇧⌘S',
-                style: TextStyle(fontSize: 12, color: colors.textMuted),
-              ),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(),
-        // Only show Rename and Save New Version when project has been saved
-        if (widget.hasProject)
-          PopupMenuItem<String>(
-            value: 'rename',
-            child: Row(
-              children: [
-                Icon(BI.rename, size: BT.iconLg),
-                const SizedBox(width: 8),
-                const Text('Rename...'),
-              ],
-            ),
-          ),
-        if (widget.hasProject)
-          PopupMenuItem<String>(
-            value: 'save_new_version',
-            child: Row(
-              children: [
-                Icon(BI.history, size: BT.iconLg),
-                const SizedBox(width: 8),
-                const Text('Save New Version...'),
-              ],
-            ),
-          ),
-        if (widget.hasProject) const PopupMenuDivider(),
-        PopupMenuItem<String>(
-          value: 'export_audio',
-          child: Row(
-            children: [
-              Icon(BI.settings, size: BT.iconLg),
-              const SizedBox(width: 8),
-              const Text('Export Audio...'),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem<String>(
-          value: 'project_settings',
-          child: Row(
-            children: [
-              Icon(BI.settings, size: BT.iconLg),
-              const SizedBox(width: 8),
-              const Text('Project Settings...'),
-              const Spacer(),
-              Text(
-                '⌘,',
-                style: TextStyle(fontSize: 12, color: colors.textMuted),
-              ),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem<String>(
-          value: 'close',
-          child: Row(
-            children: [
-              Icon(BI.close, size: BT.iconLg),
-              const SizedBox(width: 8),
-              const Text('Close Project'),
-            ],
-          ),
-        ),
-      ],
+    return BoojyTooltip(
+      // The full name, since the slot truncates long ones.
+      title: widget.projectName,
+      description: 'Project menu',
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) {
@@ -211,24 +152,29 @@ class _FileMenuButtonState extends State<FileMenuButton> {
             });
           }
         },
-        child: AnimatedContainer(
-          duration: AnimationConstants.hoverDuration,
-          padding: EdgeInsets.symmetric(
-            horizontal: widget.mode == ButtonDisplayMode.narrow ? 8 : 12,
-            vertical: 6,
-          ),
-          decoration: BoxDecoration(
-            color: _isHovered ? colors.elevated : Colors.transparent,
-            borderRadius: BorderRadius.circular(BT.radiusMd),
-          ),
-          child: Text(
-            displayName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: _isHovered ? colors.textPrimary : colors.textSecondary,
-              fontSize: 14,
-              fontWeight: BT.weightMedium,
+        child: GestureDetector(
+          onTap: () => _showMenu(context),
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            key: _buttonKey,
+            duration: AnimationConstants.hoverDuration,
+            // 6px, not 8: the only slack left in the 320px rail at 1280px
+            // once the traffic-light inset grew to 81, and the difference
+            // between "Untitled" and "Untitl…" at the default window.
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            decoration: BoxDecoration(
+              color: _isHovered ? colors.elevated : Colors.transparent,
+              borderRadius: BorderRadius.circular(BT.radiusMd),
+            ),
+            child: Text(
+              widget.projectName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: _isHovered ? colors.textPrimary : colors.textSecondary,
+                fontSize: 14,
+                fontWeight: BT.weightMedium,
+              ),
             ),
           ),
         ),

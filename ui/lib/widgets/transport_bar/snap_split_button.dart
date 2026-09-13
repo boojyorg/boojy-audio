@@ -3,22 +3,32 @@ import '../../state/ui_layout_state.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
+import '../shared/boojy_dropdown.dart';
 import '../shared/boojy_tooltip.dart';
-import '../shared/pill_toggle_button.dart' show ButtonDisplayMode;
 
-/// Snap split button: icon toggles on/off, chevron opens grid size menu
+/// Snap split button: the grid glyph toggles snapping on and off; the value
+/// zone ("Bar ▾") opens the grid-resolution menu. On/off and the resolution
+/// are separate state, so the value stays visible (dimmed) while snap is off —
+/// the layout never shifts and the remembered grid is always readable.
 class SnapSplitButton extends StatefulWidget {
-  final SnapValue value;
-  final Function(SnapValue)? onChanged;
-  final ButtonDisplayMode mode;
-  final bool isIconOnly;
+  final bool isEnabled;
+
+  /// The grid the arrangement snaps to when enabled — never [SnapValue.off].
+  final SnapValue resolution;
+  final VoidCallback? onToggle;
+  final ValueChanged<SnapValue>? onResolutionChanged;
+
+  /// At the bar's narrowest density the value zone hugs its text instead of
+  /// reserving the widest entry's slot.
+  final bool compactValue;
 
   const SnapSplitButton({
     super.key,
-    required this.value,
-    this.onChanged,
-    required this.mode,
-    this.isIconOnly = false,
+    required this.isEnabled,
+    required this.resolution,
+    this.onToggle,
+    this.onResolutionChanged,
+    this.compactValue = false,
   });
 
   @override
@@ -27,253 +37,156 @@ class SnapSplitButton extends StatefulWidget {
 
 class _SnapSplitButtonState extends State<SnapSplitButton> {
   bool _isIconHovered = false;
-  bool _isChevronHovered = false;
-  SnapValue? _lastNonOffValue; // Remember last grid size for toggle
+  bool _isValueHovered = false;
   final GlobalKey _buttonKey = GlobalKey();
 
-  @override
-  void initState() {
-    super.initState();
-    // Remember initial value if not off
-    if (widget.value != SnapValue.off) {
-      _lastNonOffValue = widget.value;
-    } else {
-      _lastNonOffValue = SnapValue.beat; // Default to beat if starting off
-    }
-  }
+  /// Value-zone width pinned to the widest entry ("1/16T" + chevron) so the
+  /// button keeps one width whatever grid is chosen.
+  static const double _valueZoneMinWidth = 58;
 
-  @override
-  void didUpdateWidget(SnapSplitButton oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Remember when user selects a non-off value
-    if (widget.value != SnapValue.off) {
-      _lastNonOffValue = widget.value;
-    }
-  }
-
-  void _toggleSnap() {
-    if (widget.value == SnapValue.off) {
-      // Turn on: restore last value
-      widget.onChanged?.call(_lastNonOffValue ?? SnapValue.beat);
-    } else {
-      // Turn off
-      widget.onChanged?.call(SnapValue.off);
-    }
-  }
-
-  PopupMenuItem<SnapValue> _snapMenuItem(
-    SnapValue snapValue,
-    Color accentColor,
-  ) {
-    final isSelected = snapValue == widget.value;
-    return PopupMenuItem<SnapValue>(
-      value: snapValue,
-      child: Row(
-        children: [
-          SizedBox(
-            width: 18,
-            child: isSelected
-                ? Icon(BI.radioChecked, size: BT.iconMd, color: accentColor)
-                : Icon(BI.circle, size: BT.iconMd),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            snapValue.displayName,
-            style: TextStyle(
-              color: isSelected ? accentColor : null,
-              fontWeight: isSelected ? BT.weightSemiBold : null,
-            ),
-          ),
-        ],
+  Future<void> _showResolutionMenu(BuildContext context) async {
+    final box = _buttonKey.currentContext?.findRenderObject() as RenderBox?;
+    final overlayBox =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (box == null || overlayBox == null) return;
+    // Non-listening read: this runs from a tap handler (flutter-ui rules).
+    final colors = context.themeProvider.colors;
+    final anchor = Rect.fromPoints(
+      box.localToGlobal(Offset.zero, ancestor: overlayBox),
+      box.localToGlobal(
+        box.size.bottomRight(Offset.zero),
+        ancestor: overlayBox,
       ),
     );
-  }
 
-  void _showSnapMenu(BuildContext context, Color accentColor) {
-    final RenderBox button =
-        _buttonKey.currentContext!.findRenderObject() as RenderBox;
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
-    final Offset position = button.localToGlobal(
-      Offset(0, button.size.height),
-      ancestor: overlay,
-    );
-
-    showMenu<SnapValue>(
+    final selected = await showBoojyMenu<SnapValue>(
       context: context,
-      position: RelativeRect.fromRect(
-        position & const Size(1, 1),
-        Offset.zero & overlay.size,
-      ),
+      anchor: anchor,
       items: [
-        // Smart snap
-        _snapMenuItem(SnapValue.auto, accentColor),
-        const PopupMenuDivider(),
-        // Standard grid sizes
-        _snapMenuItem(SnapValue.bar, accentColor),
-        _snapMenuItem(SnapValue.beat, accentColor),
-        _snapMenuItem(SnapValue.half, accentColor),
-        _snapMenuItem(SnapValue.quarter, accentColor),
-        const PopupMenuDivider(),
-        // Triplets
-        _snapMenuItem(SnapValue.eighthTriplet, accentColor),
-        _snapMenuItem(SnapValue.sixteenthTriplet, accentColor),
-        const PopupMenuDivider(),
-        // Off
-        _snapMenuItem(SnapValue.off, accentColor),
+        const BoojyMenuItem(
+          value: SnapValue.auto,
+          label: 'Auto (follows zoom)',
+        ),
+        const BoojyMenuDivider(),
+        const BoojyMenuItem(value: SnapValue.bar, label: 'Bar'),
+        const BoojyMenuItem(value: SnapValue.beat, label: 'Beat'),
+        const BoojyMenuItem(value: SnapValue.half, label: '1/2 beat'),
+        const BoojyMenuItem(value: SnapValue.quarter, label: '1/4 beat'),
+        const BoojyMenuDivider(),
+        const BoojyMenuItem(
+          value: SnapValue.eighthTriplet,
+          label: '1/8 triplet',
+        ),
+        const BoojyMenuItem(
+          value: SnapValue.sixteenthTriplet,
+          label: '1/16 triplet',
+        ),
       ],
-    ).then((value) {
-      if (value != null) {
-        widget.onChanged?.call(value);
-      }
-    });
+      selectedValue: widget.resolution,
+      colors: colors,
+    );
+    if (selected != null) widget.onResolutionChanged?.call(selected);
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final isActive = widget.value != SnapValue.off;
-    final leftBg = isActive ? colors.selectionFill : colors.surface;
+    final isActive = widget.isEnabled;
+    final restingFill = isActive ? colors.selectionFill : colors.surface;
+    final hoverFill = isActive
+        ? colors.selectionFillHover
+        : colors.textPrimary.withValues(alpha: BT.opacitySubtle);
     final iconColor = isActive ? colors.accent : colors.textSecondary;
-    final textColor = isActive ? colors.textPrimary : colors.textSecondary;
+    final valueColor = isActive ? colors.accent : colors.textMuted;
+    final valueName = widget.resolution.displayName;
 
     return BoojyTooltip(
-      title: isActive ? 'Snap On' : 'Snap Off',
+      title: isActive ? 'Snap to $valueName' : 'Snap Off',
       description: isActive
-          ? 'Grid: ${widget.value.displayName} · Click to toggle, ▾ to change'
-          : 'Click to snap edits to the grid',
+          ? 'Click the grid to turn snap off · $valueName ▾ changes the grid'
+          : 'Click the grid to snap edits to $valueName again',
       child: DecoratedBox(
         key: _buttonKey,
-        // Foreground border, no clip: clipping shaves the stroke at the
-        // corner arcs, and a background border gets painted over by the
-        // opaque zone fills (DecoratedBox doesn't inset its child the way
-        // Container does). Painting the stroke ON TOP keeps it visible over
-        // the fills without changing the button's height.
+        // Foreground border, no clip — the zone fills can't paint over the
+        // stroke because it is drawn on top (flutter-ui rules).
         position: DecorationPosition.foreground,
         decoration: BoxDecoration(
           borderRadius: BT.borderMd,
           border: Border.all(
-            // Off-state outline matches the active accent one in weight
-            // (textMuted, not the near-invisible divider) — grey, not blue.
             color: isActive ? colors.selectionBorder : colors.textMuted,
             width: 1,
           ),
         ),
-        // Pinned to a shared height (not IntrinsicHeight) so Loop · Snap ·
-        // Metronome align despite differing zone content; stretch then makes
-        // the inter-zone divider span that full height (not the bar).
         child: SizedBox(
           height: BT.splitButtonHeight,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Left zone: icon + "Snap" label (toggle on/off)
+              // Left zone: grid glyph — toggles snap on/off
               MouseRegion(
                 cursor: SystemMouseCursors.click,
-                onEnter: (_) {
-                  if (!_isIconHovered) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) setState(() => _isIconHovered = true);
-                    });
-                  }
-                },
-                onExit: (_) {
-                  if (_isIconHovered) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) setState(() => _isIconHovered = false);
-                    });
-                  }
-                },
+                onEnter: (_) => _setHover(icon: true),
+                onExit: (_) => _setHover(icon: false),
                 child: GestureDetector(
-                  onTap: _toggleSnap,
+                  onTap: widget.onToggle,
                   behavior: HitTestBehavior.opaque,
                   child: Container(
-                    padding: BT.splitLeftPadding,
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
                     decoration: BoxDecoration(
-                      color: _isIconHovered
-                          ? (isActive
-                                ? colors.selectionFillHover
-                                : colors.textPrimary.withValues(
-                                    alpha: BT.opacitySubtle,
-                                  ))
-                          : leftBg,
+                      color: _isIconHovered ? hoverFill : restingFill,
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(BT.radiusMd - 1),
                         bottomLeft: Radius.circular(BT.radiusMd - 1),
                       ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(BI.gridOn, size: BT.iconMd, color: iconColor),
-                        if (!widget.isIconOnly) ...[
-                          const SizedBox(width: BT.xs),
-                          Text(
-                            'Snap',
-                            style: TextStyle(
-                              color: textColor,
-                              fontSize: BT.fontLabel,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+                    child: Icon(BI.gridOn, size: BT.iconMd, color: iconColor),
                   ),
                 ),
               ),
-              // Divider — full-height, selection-border when engaged to match the outline.
+              // Divider between the zones
               Container(
                 width: 1,
                 color: isActive
                     ? colors.selectionBorder
                     : colors.textPrimary.withValues(alpha: BT.opacityMedium),
               ),
-              // Right zone: current value text (opens dropdown)
+              // Right zone: current grid + chevron — opens the resolution menu
               MouseRegion(
                 cursor: SystemMouseCursors.click,
-                onEnter: (_) {
-                  if (!_isChevronHovered) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) setState(() => _isChevronHovered = true);
-                    });
-                  }
-                },
-                onExit: (_) {
-                  if (_isChevronHovered) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) setState(() => _isChevronHovered = false);
-                    });
-                  }
-                },
+                onEnter: (_) => _setHover(value: true),
+                onExit: (_) => _setHover(value: false),
                 child: GestureDetector(
-                  onTap: () => _showSnapMenu(context, colors.accent),
+                  onTap: () => _showResolutionMenu(context),
                   behavior: HitTestBehavior.opaque,
                   child: Container(
                     alignment: Alignment.center,
-                    constraints: const BoxConstraints(minWidth: 37),
-                    padding: BT.splitRightPadding,
+                    constraints: BoxConstraints(
+                      minWidth: widget.compactValue ? 0 : _valueZoneMinWidth,
+                    ),
+                    padding: const EdgeInsets.only(left: 7, right: 4),
                     decoration: BoxDecoration(
-                      color: _isChevronHovered
-                          ? (isActive
-                                ? colors.selectionFillHover
-                                : colors.textPrimary.withValues(
-                                    alpha: BT.opacitySubtle,
-                                  ))
-                          : leftBg,
+                      color: _isValueHovered ? hoverFill : restingFill,
                       borderRadius: const BorderRadius.only(
                         topRight: Radius.circular(BT.radiusMd - 1),
                         bottomRight: Radius.circular(BT.radiusMd - 1),
                       ),
                     ),
-                    child: Text(
-                      widget.value.displayName,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: isActive ? colors.accent : colors.textMuted,
-                        fontSize: BT.fontLabel,
-                        fontWeight: BT.weightSemiBold,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          valueName,
+                          style: TextStyle(
+                            color: valueColor,
+                            fontSize: BT.fontLabel,
+                            fontWeight: BT.weightSemiBold,
+                          ),
+                        ),
+                        const SizedBox(width: 1),
+                        Icon(BI.expandMore, size: BT.iconMd, color: valueColor),
+                      ],
                     ),
                   ),
                 ),
@@ -283,5 +196,15 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
         ),
       ),
     );
+  }
+
+  void _setHover({bool? icon, bool? value}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        if (icon != null) _isIconHovered = icon;
+        if (value != null) _isValueHovered = value;
+      });
+    });
   }
 }

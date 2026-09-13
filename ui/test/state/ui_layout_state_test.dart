@@ -78,9 +78,9 @@ void main() {
         expect(layout.loopAutoFollow, isTrue);
       });
 
-      test('punch in/out disabled by default', () {
-        expect(layout.punchInEnabled, isFalse);
-        expect(layout.punchOutEnabled, isFalse);
+      test('arrangement snap is on, at Bar, by default', () {
+        expect(layout.arrangementSnapEnabled, isTrue);
+        expect(layout.arrangementSnapResolution, SnapValue.bar);
       });
     });
 
@@ -503,21 +503,39 @@ void main() {
         expect(layout.loopStartBeats, 0.0);
         expect(layout.loopEndBeats, 4.0);
       });
+    });
 
-      test('togglePunchIn toggles state', () {
-        expect(layout.punchInEnabled, isFalse);
-        layout.togglePunchIn();
-        expect(layout.punchInEnabled, isTrue);
-        layout.togglePunchIn();
-        expect(layout.punchInEnabled, isFalse);
+    // ── Arrangement snap ───────────────────────
+
+    group('arrangement snap', () {
+      test('toggling off keeps the resolution and reports Off', () {
+        layout.setArrangementSnap(SnapValue.beat);
+        layout.toggleArrangementSnap();
+        expect(layout.arrangementSnapEnabled, isFalse);
+        expect(layout.arrangementSnap, SnapValue.off);
+        expect(layout.arrangementSnapResolution, SnapValue.beat);
       });
 
-      test('togglePunchOut toggles state', () {
-        expect(layout.punchOutEnabled, isFalse);
-        layout.togglePunchOut();
-        expect(layout.punchOutEnabled, isTrue);
-        layout.togglePunchOut();
-        expect(layout.punchOutEnabled, isFalse);
+      test('toggling back on restores the remembered resolution', () {
+        layout.setArrangementSnap(SnapValue.quarter);
+        layout.toggleArrangementSnap();
+        layout.toggleArrangementSnap();
+        expect(layout.arrangementSnap, SnapValue.quarter);
+      });
+
+      test('choosing a resolution turns snap on', () {
+        layout.toggleArrangementSnap();
+        expect(layout.arrangementSnapEnabled, isFalse);
+        layout.setArrangementSnap(SnapValue.half);
+        expect(layout.arrangementSnapEnabled, isTrue);
+        expect(layout.arrangementSnap, SnapValue.half);
+      });
+
+      test('setting Off disables without forgetting the resolution', () {
+        layout.setArrangementSnap(SnapValue.beat);
+        layout.setArrangementSnap(SnapValue.off);
+        expect(layout.arrangementSnap, SnapValue.off);
+        expect(layout.arrangementSnapResolution, SnapValue.beat);
       });
     });
 
@@ -580,10 +598,17 @@ void main() {
         expect(notified, isTrue);
       });
 
-      test('arrangementSnap setter notifies listeners', () {
+      test('setArrangementSnap notifies listeners', () {
         var notified = false;
         layout.addListener(() => notified = true);
-        layout.arrangementSnap = SnapValue.beat;
+        layout.setArrangementSnap(SnapValue.beat);
+        expect(notified, isTrue);
+      });
+
+      test('toggleArrangementSnap notifies listeners', () {
+        var notified = false;
+        layout.addListener(() => notified = true);
+        layout.toggleArrangementSnap();
         expect(notified, isTrue);
       });
     });

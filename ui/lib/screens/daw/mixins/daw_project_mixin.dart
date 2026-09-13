@@ -211,6 +211,12 @@ mixin DAWProjectMixin
     // project saved at a different BPM (e.g. 140).
     recordingController.setTempo(audioEngine!.getTempo());
 
+    // The project file also carries a count-in value which the engine has just
+    // restored; the user's preference is the single source of truth, so push
+    // it back (otherwise a project saved with 2 or 4 bars counts in longer
+    // than the toolbar says).
+    audioEngine!.setCountInBars(userSettings.countInBars);
+
     // Restore MIDI clips from engine for UI display, merging the saved UI
     // metadata (name/colour/offset/loop/mute/automation) from ui_layout.json.
     midiPlaybackManager?.restoreClipsFromEngine(
@@ -706,6 +712,8 @@ mixin DAWProjectMixin
         final result = await projectManager?.loadProject(backupPath);
         if (result?.result.success == true) {
           midiPlaybackManager?.clearClipIdMappings();
+          // User preference wins over the count-in stored in the backup.
+          audioEngine?.setCountInBars(userSettings.countInBars);
           midiPlaybackManager?.restoreClipsFromEngine(
             tempo,
             savedMetadata: result?.uiLayout?.midiClips,

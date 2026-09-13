@@ -49,7 +49,7 @@ fn default_true() -> bool {
     true
 }
 fn default_count_in() -> u32 {
-    2
+    1
 }
 fn default_buffer_size() -> u32 {
     2
@@ -68,7 +68,7 @@ impl ProjectData {
             tracks: Vec::new(),
             audio_files: Vec::new(),
             metronome_enabled: true,
-            count_in_bars: 2,
+            count_in_bars: 1,
             buffer_size_preset: 2, // Balanced
         }
     }

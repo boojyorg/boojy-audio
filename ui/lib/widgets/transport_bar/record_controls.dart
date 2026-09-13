@@ -1,16 +1,14 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../theme/animation_constants.dart';
-import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
-import '../shared/boojy_dropdown.dart';
 import '../shared/boojy_tooltip.dart';
 
 /// Record button states for the CustomPainter
 enum _RecordButtonVisualState { idle, disabled, countingIn, recording }
 
-/// Record button with count-in ring timer and right-click context menu.
+/// Record button with the count-in ring timer.
 ///
 /// During count-in: depleting orange ring + beat number inside.
 /// During recording: solid red fill + white dot + glow.
@@ -18,24 +16,20 @@ enum _RecordButtonVisualState { idle, disabled, countingIn, recording }
 class RecordButton extends StatefulWidget {
   final bool isRecording;
   final bool isCountingIn;
-  final int countInBars;
   final int countInBeat; // 1-indexed beat number from engine
   final double countInProgress; // 0.0-1.0 from engine
   final int beatsPerBar; // time signature numerator
   final VoidCallback? onPressed;
-  final Function(int)? onCountInChanged;
   final double size;
 
   const RecordButton({
     super.key,
     required this.isRecording,
     required this.isCountingIn,
-    required this.countInBars,
     this.countInBeat = 0,
     this.countInProgress = 0.0,
     this.beatsPerBar = 4,
     required this.onPressed,
-    required this.onCountInChanged,
     this.size = 40,
   });
 
@@ -84,25 +78,6 @@ class _RecordButtonState extends State<RecordButton>
     super.dispose();
   }
 
-  void _showCountInMenu(BuildContext context, Offset position) {
-    final colors = context.themeProvider.colors;
-
-    showBoojyMenu<int>(
-      context: context,
-      anchor: Rect.fromLTWH(position.dx, position.dy, 0, 0),
-      items: [
-        BoojyMenuItem(value: 0, icon: BI.close, label: 'Count-in: Off'),
-        BoojyMenuItem(value: 1, icon: BI.countOne, label: 'Count-in: 1 Bar'),
-        BoojyMenuItem(value: 2, icon: BI.countTwo, label: 'Count-in: 2 Bars'),
-        BoojyMenuItem(value: 4, icon: BI.countFour, label: 'Count-in: 4 Bars'),
-      ],
-      selectedValue: widget.countInBars,
-      colors: colors,
-    ).then((value) {
-      if (value != null) widget.onCountInChanged?.call(value);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final isEnabled = widget.onPressed != null;
@@ -122,17 +97,8 @@ class _RecordButtonState extends State<RecordButton>
     } else if (widget.isCountingIn) {
       tipTitle = 'Counting In…';
     } else {
-      final countInText = widget.countInBars == 0
-          ? 'Off'
-          : widget.countInBars == 1
-          ? '1 Bar'
-          : widget.countInBars == 2
-          ? '2 Bars'
-          : '4 Bars';
       tipTitle = 'Record';
-      tipDescription =
-          'Capture to the armed track · Right-click: count-in '
-          '($countInText)';
+      tipDescription = 'Record onto the armed track';
       tipShortcut = 'R';
     }
 
@@ -170,9 +136,6 @@ class _RecordButtonState extends State<RecordButton>
             widget.onPressed?.call();
           },
           onTapCancel: () => setState(() => _isPressed = false),
-          onSecondaryTapDown: (details) {
-            _showCountInMenu(context, details.globalPosition);
-          },
           child: AnimatedScale(
             scale: scale,
             duration: AnimationConstants.hoverDuration,

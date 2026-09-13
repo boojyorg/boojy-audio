@@ -13,8 +13,6 @@ class UnifiedNavBarConfig {
   final double loopEnd;
   final double? insertMarkerPosition;
   final double? playheadPosition; // in beats (null = not shown)
-  final bool punchInEnabled;
-  final bool punchOutEnabled;
   final bool isPlaying;
   final int beatsPerBar;
 
@@ -26,8 +24,6 @@ class UnifiedNavBarConfig {
     this.loopEnd = 4.0,
     this.insertMarkerPosition,
     this.playheadPosition,
-    this.punchInEnabled = false,
-    this.punchOutEnabled = false,
     this.isPlaying = false,
     this.beatsPerBar = 4,
   });
@@ -183,8 +179,6 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
                 hoverBeat: _isHoveringLoopEdge ? _hoverBeat : null,
                 isHoveringPlayhead: _isHoveringPlayhead,
                 isPlaying: widget.config.isPlaying,
-                punchInEnabled: widget.config.punchInEnabled,
-                punchOutEnabled: widget.config.punchOutEnabled,
                 colors: context.colors,
                 textScale: MediaQuery.textScalerOf(context).scale(1.0),
               ),

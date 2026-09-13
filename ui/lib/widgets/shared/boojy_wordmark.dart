@@ -45,7 +45,7 @@ String boojyTextAsset(BuildContext context, String mark) {
 // with the letters, 18px gap; the trimmed udio asset is 670×266 with the
 // letters 241 tall (the i-tittle accounts for the top 25px).
 const double _kTriW = 268, _kTriH = 239, _kGap = 18;
-const double _kUdioH = 266;
+const double _kUdioW = 670, _kUdioH = 266;
 
 /// The "▲udio" wordmark: a brand-accent code-drawn triangle ("A") + the brand
 /// "udio" raster art.
@@ -82,9 +82,14 @@ class BoojyWordmark extends StatelessWidget {
           painter: BoojyTrianglePainter(triangleColor),
         ),
         SizedBox(width: triHeight * (_kGap / _kTriH)),
+        // Explicit width as well as height: the raster's footprint is then
+        // known before it decodes, so the toolbar's left rail lays out the
+        // same on first paint, in widget tests, and in the running app.
         Image.asset(
           boojyTextAsset(context, 'udio'),
+          width: triHeight * (_kUdioH / _kTriH) * (_kUdioW / _kUdioH),
           height: triHeight * (_kUdioH / _kTriH),
+          fit: BoxFit.contain,
           filterQuality: FilterQuality.medium,
         ),
       ],

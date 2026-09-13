@@ -11,7 +11,6 @@ import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../widgets/transport_bar.dart';
-import '../widgets/transport_bar/title_strip.dart';
 import '../widgets/dev_tools/palette_editor.dart';
 import '../widgets/dev_tools/ui_labs_switcher.dart';
 import '../widgets/dev_tools/editor_button_switcher.dart';
@@ -600,8 +599,8 @@ class _DAWScreenState extends State<DAWScreen>
     return context.findAncestorWidgetOfExactType<EditableText>() != null;
   }
 
-  /// App-level handler for transport/loop single-key shortcuts (Space, L, M,
-  /// I, O). Registered on [HardwareKeyboard] in initState so it runs *before*
+  /// App-level handler for transport/loop single-key shortcuts (Space, L, M).
+  /// Registered on [HardwareKeyboard] in initState so it runs *before*
   /// focus-based key dispatch — this is what makes Space keep working after
   /// you click a button (a focused Material button would otherwise consume
   /// Space via its activate-on-space binding). Returns true to consume the
@@ -634,12 +633,6 @@ class _DAWScreenState extends State<DAWScreen>
         return true;
       case LogicalKeyboardKey.keyM:
         _toggleMetronome();
-        return true;
-      case LogicalKeyboardKey.keyI:
-        uiLayout.togglePunchIn();
-        return true;
-      case LogicalKeyboardKey.keyO:
-        uiLayout.togglePunchOut();
         return true;
       default:
         return false;
@@ -725,14 +718,17 @@ class _DAWScreenState extends State<DAWScreen>
 
   void _setCountInBars(int bars) {
     userSettings.countInBars = bars;
-    audioEngine?.setCountInBars(bars);
+    // Read back: the setting clamps to Off / 1 bar.
+    final applied = userSettings.countInBars;
+    audioEngine?.setCountInBars(applied);
+    playbackController.setStatusMessage(
+      applied == 0 ? 'Count-in off' : 'Count-in: 1 bar',
+    );
+  }
 
-    final message = bars == 0
-        ? 'Count-in disabled'
-        : bars == 1
-        ? 'Count-in: 1 bar'
-        : 'Count-in: 2 bars';
-    playbackController.setStatusMessage(message);
+  /// Toolbar Count-in toggle: Off ↔ one bar.
+  void _toggleCountIn() {
+    _setCountInBars(userSettings.countInBars > 0 ? 0 : 1);
   }
 
   /// Convert buffer size in samples to preset index
@@ -2494,6 +2490,8 @@ class _DAWScreenState extends State<DAWScreen>
           // project's BPM, not the stale default (notes would shift off-grid).
           midiPlaybackManager?.clearClipIdMappings();
           recordingController.setTempo(audioEngine!.getTempo());
+          // User preference wins over the count-in stored in the backup.
+          audioEngine!.setCountInBars(userSettings.countInBars);
           midiPlaybackManager?.restoreClipsFromEngine(
             tempo,
             savedMetadata: result?.uiLayout?.midiClips,
@@ -2937,6 +2935,7 @@ class _DAWScreenState extends State<DAWScreen>
             onProjectSettings: _openProjectSettings,
             onCloseProject: _closeProject,
             onStartScreen: _showStartScreen,
+            onKeyboardShortcuts: _showKeyboardShortcuts,
           ),
           transport: TransportCallbacks(
             onPlay: _playWithLoopCheck,
@@ -2952,8 +2951,6 @@ class _DAWScreenState extends State<DAWScreen>
             onMetronomeToggle: _toggleMetronome,
             onPianoToggle: _toggleVirtualPiano,
             onLoopPlaybackToggle: uiLayout.toggleLoopPlayback,
-            onPunchInToggle: uiLayout.togglePunchIn,
-            onPunchOutToggle: uiLayout.togglePunchOut,
             onPositionChanged: (seconds) {
               playbackController.seek(seconds);
             },
@@ -2965,9 +2962,6 @@ class _DAWScreenState extends State<DAWScreen>
             onToggleEditor: _toggleEditor,
             onTogglePiano: _toggleVirtualPiano,
             onResetPanelLayout: _resetPanelLayout,
-            onHelpPressed: _showKeyboardShortcuts,
-            onAddMidiTrack: _addMidiTrackWithClip,
-            onAddAudioTrack: _addAudioTrack,
           ),
           dividers: DividerState(
             sidebarWidth: uiLayout.libraryPanelWidth,
@@ -3038,10 +3032,9 @@ class _DAWScreenState extends State<DAWScreen>
           onTempoChanged: _onTempoChanged,
           onTempoDragStart: _onTempoDragStart,
           onTempoDragEnd: _onTempoDragEnd,
-          onCountInChanged: _setCountInBars,
-          countInBars: userSettings.countInBars,
+          countInEnabled: userSettings.countInBars > 0,
+          onCountInToggle: _toggleCountIn,
           projectName: projectMetadata.name,
-          hasTitleStrip: hasMacTitleStrip,
           hasProject: projectManager?.hasProject ?? false,
           libraryVisible: !uiLayout.isLibraryPanelCollapsed,
           mixerVisible: uiLayout.isMixerVisible,
@@ -3051,11 +3044,11 @@ class _DAWScreenState extends State<DAWScreen>
           canRedo: undoRedoManager.canRedo,
           undoDescription: undoRedoManager.undoDescription,
           redoDescription: undoRedoManager.redoDescription,
-          arrangementSnap: uiLayout.arrangementSnap,
-          onSnapChanged: (value) => uiLayout.setArrangementSnap(value),
+          snapEnabled: uiLayout.arrangementSnapEnabled,
+          snapResolution: uiLayout.arrangementSnapResolution,
+          onSnapToggle: uiLayout.toggleArrangementSnap,
+          onSnapResolutionChanged: uiLayout.setArrangementSnap,
           loopPlaybackEnabled: uiLayout.loopPlaybackEnabled,
-          punchInEnabled: uiLayout.punchInEnabled,
-          punchOutEnabled: uiLayout.punchOutEnabled,
           beatsPerBar: projectMetadata.timeSignatureNumerator,
           onTimeSignatureChanged: _onTimeSignatureChanged,
           onTimeSignatureDragStart: _onTimeSignatureDragStart,
@@ -3285,8 +3278,6 @@ class _DAWScreenState extends State<DAWScreen>
           loopPlaybackEnabled: uiLayout.loopPlaybackEnabled,
           loopStartBeats: uiLayout.loopStartBeats,
           loopEndBeats: uiLayout.loopEndBeats,
-          punchInEnabled: uiLayout.punchInEnabled,
-          punchOutEnabled: uiLayout.punchOutEnabled,
           onLoopRegionChanged: (start, end) {
             // Mark as manual adjustment - disables auto-follow
             uiLayout.setLoopRegion(start, end, manual: true);
@@ -3399,6 +3390,8 @@ class _DAWScreenState extends State<DAWScreen>
                   onDeleteRequested: _onDeleteTrackRequested,
                   onMidiTrackCreated: createDefaultMidiClip,
                   onTrackCreated: _onTrackCreatedFromMixer,
+                  onAddMidiTrack: _addMidiTrackWithClip,
+                  onAddAudioTrack: _addAudioTrack,
                   onReordered: _onTrackReordered,
                   onOrderSync: trackController.syncTrackOrder,
                   onDoubleClick: (trackId) {
@@ -3634,7 +3627,7 @@ class _DAWScreenState extends State<DAWScreen>
             shift: true,
           ): _cycleAppTheme,
         },
-        // Transport keys (Space, L, M, I, O) are handled globally via
+        // Transport keys (Space, L, M) are handled globally via
         // HardwareKeyboard (_handleGlobalTransportKey) so they survive focus
         // drift onto buttons. Q/Delete stay here on Focus.onKeyEvent. Both
         // paths skip text fields so they don't interfere with typing.
@@ -3648,14 +3641,9 @@ class _DAWScreenState extends State<DAWScreen>
               children: [
                 Column(
                   children: [
-                    // Reserve space for the title strip + transport bar (both
-                    // rendered in the Stack above). Height tracks the active
-                    // top-bar variant plus the macOS title strip (0 elsewhere).
-                    SizedBox(
-                      height:
-                          (hasMacTitleStrip ? kMacTitleStripHeight : 0.0) +
-                          _topBarVariant.barHeight,
-                    ),
+                    // Reserve space for the transport bar (rendered in the
+                    // Stack above). Height tracks the active top-bar variant.
+                    SizedBox(height: _topBarVariant.barHeight),
 
                     // Main content area - 3-column layout
                     Expanded(
@@ -3887,24 +3875,14 @@ class _DAWScreenState extends State<DAWScreen>
                   ],
                 ),
                 // Transport bar: rendered in Stack (after Column) so its shadow
-                // paints on top. Offset below the title strip on macOS.
+                // paints on top. On macOS it is the top chrome (native title
+                // hidden): it insets past the traffic lights itself.
                 Positioned(
-                  top: hasMacTitleStrip ? kMacTitleStripHeight : 0,
+                  top: 0,
                   left: 0,
                   right: 0,
                   child: _buildTransportBar(),
                 ),
-                // macOS title strip: full-width band above the transport bar,
-                // hosting the traffic lights + window-centred project title.
-                // Painted AFTER the bar so its solid fill masks the bar's upward
-                // shadow bleed — strip + bar read as one seamless chrome.
-                if (hasMacTitleStrip)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: MacTitleStrip(projectName: projectMetadata.name),
-                  ),
                 if (_showPaletteEditor)
                   PaletteEditor(onClose: _togglePaletteEditor),
                 if (_showUiLabsSwitcher)
