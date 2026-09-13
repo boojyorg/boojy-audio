@@ -23,8 +23,9 @@ paths:
 - **Native-engine tests live in `ui/test/native/`** (moved out of `ui/integration_test/`). They load
   `libengine` over `dart:ffi` and need no device, so they run as **plain `flutter test`**, with
   no `-d macos`. A `testWidgets` there is fine (`clip_drag_overlap_test.dart` pumps the real
-  timeline over the engine to drive a drag end to end); what they never do is launch the app. Run `./build.sh` first so the dylib exists. As of the v0.5 C92 fix the
-  suite never silently early-returns when the engine is absent: under `BOOJY_CI` (CI passes
+  timeline over the engine to drive a drag end to end); what they never do is launch the app.
+  Run `./build.sh` first so the dylib exists. As of the v0.5 C92 fix the suite never silently
+  early-returns when the engine is absent: under `BOOJY_CI` (CI passes
   `--dart-define=BOOJY_CI=true`) it registers a **failing** test so a forgotten `./build.sh` can't
   produce a vacuous "N passed"; locally without the flag it reports **skipped**. The per-test
   `isNativeEngineAvailable` guards were removed. One top-of-`main()` guard handles it; don't re-add.
