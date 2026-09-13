@@ -30,7 +30,7 @@ import 'platform_drop_target.dart';
 import 'shared/add_track_button.dart';
 import 'shared/editors/zoomable_editor_mixin.dart';
 import 'shared/editors/unified_nav_bar.dart';
-import 'shared/editors/nav_bar_with_zoom.dart';
+import 'shared/editors/scrollable_nav_bar.dart';
 import 'timeline/timeline_models.dart';
 import 'timeline/timeline_state.dart';
 import 'timeline/clip_preview_builders.dart';
@@ -133,8 +133,8 @@ class TimelineView extends StatefulWidget {
   /// When false, the master timeline row is hidden (v0.3).
   final bool masterTimelineVisible;
 
-  // Automation state — global: when true, every track shows its lane
-  final bool automationVisible;
+  // Tracks whose automation lane is shown (per-track, from the track menu)
+  final Set<int> automationVisibleTrackIds;
   final ScrollController?
   automationScrollController; // For syncing automation lane scroll
 
@@ -179,7 +179,7 @@ class TimelineView extends StatefulWidget {
     this.verticalScrollController,
     this.toolMode = ToolMode.draw,
     this.onToolModeChanged,
-    this.automationVisible = false,
+    this.automationVisibleTrackIds = const {},
     this.automationScrollController,
     this.isPlaying = false,
     this.onAddMidiTrack,
@@ -772,8 +772,9 @@ class TimelineViewState extends State<TimelineView>
       totalTracksHeight +=
           widget.trackHeightState.clipHeights[track.id] ??
           UIConstants.defaultClipHeight;
-      // Add automation lane height when lanes are shown (global toggle)
-      if (UIConstants.enableAutomation && widget.automationVisible) {
+      // Add automation lane height for tracks whose lane is shown
+      if (UIConstants.enableAutomation &&
+          widget.automationVisibleTrackIds.contains(track.id)) {
         totalTracksHeight +=
             widget.trackHeightState.automationHeights[track.id] ??
             UIConstants.defaultAutomationHeight;
@@ -801,14 +802,9 @@ class TimelineViewState extends State<TimelineView>
               // Main timeline content
               Column(
                 children: [
-                  // Unified nav bar (loop region + bar numbers + zoom controls)
-                  NavBarWithZoom(
+                  // Unified nav bar (loop region + bar numbers)
+                  ScrollableNavBar(
                     scrollController: navBarScrollController,
-                    // Buttons zoom about the viewport centre (they used to
-                    // scale from bar 1, so the view slid off whatever you
-                    // were looking at).
-                    onZoomIn: () => _zoomStep(UIConstants.zoomStepFactor),
-                    onZoomOut: () => _zoomStep(1 / UIConstants.zoomStepFactor),
                     height: UIConstants.navBarHeight,
                     pixelsPerBeat: pixelsPerBeat,
                     beatsPerBar: widget.beatsPerBar,
@@ -1227,17 +1223,6 @@ class TimelineViewState extends State<TimelineView>
     double anchorViewportX,
   ) {
     handleNavBarZoom(factor, anchorBeat, anchorViewportX);
-  }
-
-  /// Zoom button step about the centre of the arrangement viewport.
-  void _zoomStep(double factor) {
-    final viewportCentreX = viewWidth / 2;
-    final offset = scrollController.hasClients ? scrollController.offset : 0.0;
-    zoomAnchored(
-      factor: factor,
-      anchorBeat: (offset + viewportCentreX) / pixelsPerBeat,
-      anchorViewportX: viewportCentreX,
-    );
   }
 
   /// Handle playhead set from UnifiedNavBar click.

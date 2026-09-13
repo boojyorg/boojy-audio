@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:boojy_audio/theme/theme_provider.dart';
 import 'package:boojy_audio/widgets/shared/editors/anchored_zoom.dart';
-import 'package:boojy_audio/widgets/shared/editors/nav_bar_with_zoom.dart';
+import 'package:boojy_audio/widgets/shared/editors/scrollable_nav_bar.dart';
 import 'package:boojy_audio/widgets/shared/editors/unified_nav_bar.dart';
 
 /// The ruler (UnifiedNavBar) inside its scrolling wrapper, as every editor
@@ -32,10 +32,8 @@ void main() {
               alignment: Alignment.topLeft,
               child: SizedBox(
                 width: 400,
-                child: NavBarWithZoom(
+                child: ScrollableNavBar(
                   scrollController: scroll,
-                  onZoomIn: () {},
-                  onZoomOut: () {},
                   child: UnifiedNavBar(
                     config: const UnifiedNavBarConfig(
                       pixelsPerBeat: ppb,

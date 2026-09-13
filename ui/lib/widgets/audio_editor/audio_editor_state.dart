@@ -162,28 +162,6 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
   }
 
   // ============================================
-  // ZOOM ACTIONS
-  // ============================================
-
-  /// Zoom in by 50% (1.5x multiplier)
-  void zoomIn() {
-    setState(() {
-      final maxZoom = calculateMaxPixelsPerBeat();
-      final minZoom = calculateMinPixelsPerBeat();
-      pixelsPerBeat = (pixelsPerBeat * 1.5).clamp(minZoom, maxZoom);
-    });
-  }
-
-  /// Zoom out by 50% (divide by 1.5)
-  void zoomOut() {
-    setState(() {
-      final maxZoom = calculateMaxPixelsPerBeat();
-      final minZoom = calculateMinPixelsPerBeat();
-      pixelsPerBeat = (pixelsPerBeat / 1.5).clamp(minZoom, maxZoom);
-    });
-  }
-
-  // ============================================
   // SCROLL SYNCHRONIZATION
   // ============================================
 

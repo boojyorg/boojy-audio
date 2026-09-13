@@ -33,29 +33,6 @@ mixin ZoomMixin on State<PianoRoll>, PianoRollStateMixin {
   // ZOOM ACTIONS
   // ============================================
 
-  /// Zoom in by 50% (1.5x multiplier), centered on viewport center
-  void zoomIn() {
-    _zoomAtViewportCenter(1.5);
-  }
-
-  /// Zoom out by 50% (divide by 1.5), centered on viewport center
-  void zoomOut() {
-    _zoomAtViewportCenter(1 / 1.5);
-  }
-
-  /// Zoom centered on the viewport center
-  void _zoomAtViewportCenter(double factor) {
-    final currentScroll = horizontalScroll.hasClients
-        ? horizontalScroll.offset
-        : 0.0;
-    final centerX = viewWidth / 2;
-    zoomAnchored(
-      factor: factor,
-      anchorBeat: (currentScroll + centerX) / pixelsPerBeat,
-      anchorViewportX: centerX,
-    );
-  }
-
   /// Zoom at a specific X position (for mouse-based zoom)
   /// [localX] is the X coordinate relative to the grid (not including piano keys)
   /// [factor] > 1 zooms in, < 1 zooms out

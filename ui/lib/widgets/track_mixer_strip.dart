@@ -61,6 +61,7 @@ class TrackMixerStrip extends StatefulWidget {
   final VoidCallback? onArmShiftClick; // Shift+click for multi-arm mode
   final VoidCallback? onMonitorToggle; // Toggle input monitoring (audio tracks)
   final bool showAutomation; // Whether automation lane is visible
+  final VoidCallback? onToggleAutomation; // Show/hide this track's lane
   final AutomationParameter selectedParameter; // Lane parameter (dropdown)
   final Function(AutomationParameter)? onParameterChanged;
   final VoidCallback? onResetAutomation; // Clear all points on the lane
@@ -153,6 +154,7 @@ class TrackMixerStrip extends StatefulWidget {
     this.onArmShiftClick,
     this.onMonitorToggle,
     this.showAutomation = false,
+    this.onToggleAutomation,
     this.selectedParameter = AutomationParameter.volume,
     this.onParameterChanged,
     this.onResetAutomation,
@@ -1326,6 +1328,21 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           ],
         ),
       ),
+      // Per-track automation lane (regular tracks only; returns have no lane)
+      if (!isReturn && widget.onToggleAutomation != null)
+        PopupMenuItem<String>(
+          value: 'toggle_automation',
+          child: Row(
+            children: [
+              Icon(BI.chartLine, size: 16, color: colors.textPrimary),
+              const SizedBox(width: 8),
+              Text(
+                widget.showAutomation ? 'Hide Automation' : 'Show Automation',
+                style: TextStyle(color: colors.textPrimary),
+              ),
+            ],
+          ),
+        ),
       // Show "Convert to Sampler" only for Audio tracks
       if (!isReturn && isAudioTrack && widget.onConvertToSampler != null)
         PopupMenuItem<String>(
@@ -1392,6 +1409,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
       } else if (value == 'convert_to_sampler' &&
           widget.onConvertToSampler != null) {
         widget.onConvertToSampler!();
+      } else if (value == 'toggle_automation') {
+        widget.onToggleAutomation?.call();
       } else if (value != null && value.startsWith('send_')) {
         final returnId = int.tryParse(value.substring(5));
         if (returnId != null) {

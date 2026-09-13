@@ -1,26 +1,19 @@
 import 'package:flutter/material.dart';
-import '../../../theme/boojy_icons.dart';
 import '../../../theme/theme_extension.dart';
 import '../../../theme/tokens.dart';
-import 'zoom_button.dart';
 
-/// A wrapper widget that combines a nav bar with zoom controls.
-/// The nav bar is horizontally scrollable, and zoom controls are
-/// overlaid at the right edge (no background, transparent).
+/// Horizontally scrolling wrapper for an editor's ruler (nav bar), with an
+/// optional pinned orientation chip at the left edge.
 ///
-/// Used by both Piano Roll and Arrangement views for consistent behavior.
-class NavBarWithZoom extends StatelessWidget {
+/// Zooming is a ruler gesture (drag vertically / scroll wheel), so there are
+/// no zoom buttons here. Used by the arrangement, piano roll, audio editor
+/// and sampler for consistent behaviour.
+class ScrollableNavBar extends StatelessWidget {
   /// The nav bar content (e.g., UnifiedNavBar)
   final Widget child;
 
   /// Controller for horizontal scrolling of the nav bar
   final ScrollController scrollController;
-
-  /// Callback when zoom in button is pressed
-  final VoidCallback onZoomIn;
-
-  /// Callback when zoom out button is pressed
-  final VoidCallback onZoomOut;
 
   /// Height of the nav bar (default 24.0)
   final double height;
@@ -34,12 +27,10 @@ class NavBarWithZoom extends StatelessWidget {
   /// Time-signature numerator, paired with [pixelsPerBeat] for the chip.
   final int? beatsPerBar;
 
-  const NavBarWithZoom({
+  const ScrollableNavBar({
     super.key,
     required this.child,
     required this.scrollController,
-    required this.onZoomIn,
-    required this.onZoomOut,
     this.height = 24.0,
     this.pixelsPerBeat,
     this.beatsPerBar,
@@ -63,39 +54,6 @@ class NavBarWithZoom extends StatelessWidget {
           // shown once scrolled past bar 1. Opt-in via pixelsPerBeat/beatsPerBar.
           if (pixelsPerBeat != null && beatsPerBar != null)
             _buildOrientationChip(context),
-          // Zoom controls pinned at the right edge. Opaque backing (like the
-          // orientation chip on the left) so scrolling bar numbers don't
-          // collide with the buttons underneath them.
-          Positioned(
-            right: 0,
-            top: 0,
-            bottom: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: context.colors.dark,
-                border: Border(left: BorderSide(color: context.colors.divider)),
-              ),
-              child: Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ZoomButton(
-                      icon: BI.remove,
-                      tooltip: 'Zoom out',
-                      onTap: onZoomOut,
-                    ),
-                    const SizedBox(width: 2),
-                    ZoomButton(
-                      icon: BI.add,
-                      tooltip: 'Zoom in',
-                      onTap: onZoomIn,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );

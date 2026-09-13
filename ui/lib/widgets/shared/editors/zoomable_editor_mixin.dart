@@ -94,16 +94,6 @@ mixin ZoomableEditorMixin<T extends StatefulWidget> on State<T> {
   // ZOOM ACTIONS
   // ============================================
 
-  /// Zoom in by 50% (1.5x multiplier), centered on viewport center.
-  void zoomIn() {
-    _zoomAtViewportCenter(1.5);
-  }
-
-  /// Zoom out by 50% (divide by 1.5), centered on viewport center.
-  void zoomOut() {
-    _zoomAtViewportCenter(1 / 1.5);
-  }
-
   /// Zoom centered on the viewport center.
   void _zoomAtViewportCenter(double factor) {
     final currentScroll = horizontalScrollController.hasClients

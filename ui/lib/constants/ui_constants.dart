@@ -73,9 +73,6 @@ class UIConstants {
   /// Maximum horizontal zoom level for the timeline (pixels per beat).
   static const double timelineMaxZoom = 500.0;
 
-  /// Zoom step factor for button-based zoom in / zoom out.
-  static const double zoomStepFactor = 1.1;
-
   /// Default view width used before the actual layout width is known.
   static const double defaultViewWidth = 800.0;
 

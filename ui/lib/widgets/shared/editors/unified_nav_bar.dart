@@ -203,7 +203,7 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
       widget.scrollController.hasClients ? widget.scrollController.offset : 0.0;
 
   /// Beat at a pointer x. The ruler is laid out at full content width INSIDE
-  /// the horizontal scroll view (see [NavBarWithZoom]), so gesture and hover
+  /// the horizontal scroll view (see [ScrollableNavBar]), so gesture and hover
   /// positions arrive in content space already: never add the scroll offset
   /// here. Doing so put every click, hover and zoom anchor `offset / ppb`
   /// beats too far right whenever the ruler was scrolled past bar 1.

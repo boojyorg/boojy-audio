@@ -71,9 +71,10 @@ mixin TimelineTrackListMixin
               ? midiCount
               : 0;
 
-          // Automation lanes show for all tracks when the global toggle is on
+          // Each track shows its automation lane only when toggled on
           final showAutomation =
-              UIConstants.enableAutomation && widget.automationVisible;
+              UIConstants.enableAutomation &&
+              widget.automationVisibleTrackIds.contains(track.id);
 
           return RepaintBoundary(
             child: _buildTrack(
@@ -1027,8 +1028,11 @@ mixin TimelineTrackListMixin
                                       .trackHeightState
                                       .clipHeights[regularTracks[i].id] ??
                                   UIConstants.defaultClipHeight;
-                              // Include automation height when lanes are shown
-                              if (widget.automationVisible) {
+                              // Include automation height for tracks whose
+                              // lane is shown
+                              if (widget.automationVisibleTrackIds.contains(
+                                regularTracks[i].id,
+                              )) {
                                 trackYOffset +=
                                     widget
                                         .trackHeightState
