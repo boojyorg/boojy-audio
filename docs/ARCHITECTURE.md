@@ -6,7 +6,7 @@ the hazards to respect when changing it live in `.claude/rules/`.
 ## The split
 
 A Flutter desktop UI (macOS, Windows) drives a Rust audio engine over a raw `dart:ffi`
-boundary. The engine owns everything that makes sound: the audio graph, instruments, effects,
+boundary. Why this stack, and the plan for other platforms: [PLATFORMS.md](PLATFORMS.md). The engine owns everything that makes sound: the audio graph, instruments, effects,
 recording, VST3 hosting and offline export. The UI owns layout, editing gestures, undo/redo and
 project files that describe the UI's own state.
 

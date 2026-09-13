@@ -63,6 +63,7 @@ gates and the rules files live in [AGENTS.md](AGENTS.md).
 | [PRODUCT.md](docs/PRODUCT.md) | What Boojy is for and the principles that decide what goes in |
 | [BACKLOG.md](docs/BACKLOG.md) | What's next, what's parked, and decisions already made |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the Flutter UI and Rust engine fit together |
+| [PLATFORMS.md](docs/PLATFORMS.md) | Which platforms ship when, and why the stack is what it is |
 | [RELEASING.md](docs/RELEASING.md) | How a release is cut and checked |
 | [CHANGELOG.md](CHANGELOG.md) | What changed, release by release |
 

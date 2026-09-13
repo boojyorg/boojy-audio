@@ -29,6 +29,10 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Platform plan recorded** (`docs/PLATFORMS.md`). Beta ships on macOS and Windows; Linux, web
+  and iPad are v1.0 candidates. The doc records why the stack stays Flutter + Rust, the
+  alternatives assessed, a quality ceiling per platform, and the work each platform needs. The
+  backlog's platform decisions and v1.0 prep items were updated to match.
 - **README rewritten for musicians first.** Opens with what Boojy is for, then downloads for
   macOS and Windows, an alpha note, five capabilities checked against v0.6.0, and a
   developer-only "Build from source" section. Removes claims the build doesn't back (pan
