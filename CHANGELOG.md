@@ -78,6 +78,11 @@ All notable changes to Boojy Audio will be documented in this file.
   editor, sampler) zooms by dragging vertically or with the scroll wheel, so the pinned buttons
   at the right edge only covered the last bar numbers. Removing them frees that strip.
 
+- **Automation lanes open per track.** The global Automation button at the top of the mixer
+  panel is gone. Right-click a track and choose Show Automation to open that track's lane under
+  its clips (Hide Automation closes it); other tracks stay as they were. The lane's parameter
+  picker and clear button still appear on the track strip while the lane is open.
+
 - **Dead-code pass.** Removed about 10,000 lines that no user could reach: the Dart-side fake
   web target and the engine's WASM modules, the legacy Snapshot and half-built project-version
   features, the superseded VST3 parameter panel and plugin browser, an old track header, a

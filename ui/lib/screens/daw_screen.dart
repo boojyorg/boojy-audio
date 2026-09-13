@@ -3310,7 +3310,7 @@ class _DAWScreenState extends State<DAWScreen>
           isRecording: isRecording,
           masterTimelineVisible: masterTimelineVisible,
           // Automation state
-          automationVisible: automationController.visible,
+          automationVisibleTrackIds: automationController.visibleTrackIds,
           automationScrollController:
               timelineKey.currentState?.scrollController,
         ),
@@ -3452,10 +3452,10 @@ class _DAWScreenState extends State<DAWScreen>
                   ),
                 ),
                 automationState: MixerAutomationState(
-                  visible: automationController.visible,
-                  onToggle: () {
+                  isVisible: automationController.isVisible,
+                  onToggleVisible: (trackId) {
                     setState(() {
-                      automationController.toggleVisible();
+                      automationController.toggleTrackVisible(trackId);
                     });
                   },
                   parameter: automationController.visibleParameter,

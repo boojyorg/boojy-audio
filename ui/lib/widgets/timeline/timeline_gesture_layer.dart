@@ -148,8 +148,9 @@ mixin TimelineGestureLayerMixin
         trackTop +=
             widget.trackHeightState.clipHeights[regularTracks[i].id] ??
             UIConstants.defaultClipHeight;
-        // Include automation height when lanes are shown (global toggle)
-        if (UIConstants.enableAutomation && widget.automationVisible) {
+        // Include automation height for tracks whose lane is shown
+        if (UIConstants.enableAutomation &&
+            widget.automationVisibleTrackIds.contains(regularTracks[i].id)) {
           trackTop +=
               widget.trackHeightState.automationHeights[regularTracks[i].id] ??
               UIConstants.defaultAutomationHeight;
@@ -191,8 +192,9 @@ mixin TimelineGestureLayerMixin
         trackTop +=
             widget.trackHeightState.clipHeights[regularTracks[i].id] ??
             UIConstants.defaultClipHeight;
-        // Include automation height when lanes are shown (global toggle)
-        if (UIConstants.enableAutomation && widget.automationVisible) {
+        // Include automation height for tracks whose lane is shown
+        if (UIConstants.enableAutomation &&
+            widget.automationVisibleTrackIds.contains(regularTracks[i].id)) {
           trackTop +=
               widget.trackHeightState.automationHeights[regularTracks[i].id] ??
               UIConstants.defaultAutomationHeight;

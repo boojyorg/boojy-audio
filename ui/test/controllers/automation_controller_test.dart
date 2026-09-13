@@ -19,33 +19,36 @@ void main() {
     // ========================================
     group('visibility', () {
       test('initially hidden', () {
-        expect(controller.visible, isFalse);
+        expect(controller.isVisible(1), isFalse);
+        expect(controller.visibleTrackIds, isEmpty);
       });
 
-      test('setting visible shows lanes globally', () {
-        controller.visible = true;
-        expect(controller.visible, isTrue);
+      test('setTrackVisible shows one track only', () {
+        controller.setTrackVisible(1, visible: true);
+        expect(controller.isVisible(1), isTrue);
+        expect(controller.isVisible(2), isFalse);
+        expect(controller.visibleTrackIds, {1});
       });
 
-      test('toggleVisible flips visibility', () {
-        controller.toggleVisible();
-        expect(controller.visible, isTrue);
+      test('toggleTrackVisible flips one track', () {
+        controller.toggleTrackVisible(1);
+        expect(controller.isVisible(1), isTrue);
 
-        controller.toggleVisible();
-        expect(controller.visible, isFalse);
+        controller.toggleTrackVisible(1);
+        expect(controller.isVisible(1), isFalse);
       });
 
       test('setting the same value does not notify', () {
         var notifications = 0;
         controller.addListener(() => notifications++);
 
-        controller.visible = false; // already false
+        controller.setTrackVisible(1, visible: false); // already hidden
         expect(notifications, 0);
 
-        controller.visible = true;
+        controller.setTrackVisible(1, visible: true);
         expect(notifications, 1);
 
-        controller.visible = true; // already true
+        controller.setTrackVisible(1, visible: true); // already shown
         expect(notifications, 1);
       });
     });
@@ -707,13 +710,13 @@ void main() {
           AutomationParameter.volume,
           AutomationPoint(time: 0.0, value: 0.5),
         );
-        controller.visible = true;
+        controller.setTrackVisible(1, visible: true);
         controller.setVisibleParameter(AutomationParameter.pan);
 
         controller.loadFromJson(null);
 
         expect(controller.hasAutomation(1), isFalse);
-        expect(controller.visible, isFalse);
+        expect(controller.isVisible(1), isFalse);
         expect(controller.visibleParameter, AutomationParameter.volume);
       });
 
@@ -745,14 +748,14 @@ void main() {
       });
 
       test('loadFromJson resets visibility state', () {
-        controller.visible = true;
+        controller.setTrackVisible(1, visible: true);
         controller.setVisibleParameter(AutomationParameter.pan);
 
         controller.loadFromJson(<String, dynamic>{
           'automation': <String, dynamic>{},
         });
 
-        expect(controller.visible, isFalse);
+        expect(controller.isVisible(1), isFalse);
         expect(controller.visibleParameter, AutomationParameter.volume);
       });
 
@@ -807,17 +810,16 @@ void main() {
         expect(controller.hasAutomation(1), isFalse);
       });
 
-      test('onTrackDeleted hides automation if deleted track was visible', () {
+      test("onTrackDeleted forgets the deleted track's visibility", () {
         controller.addPoint(
           1,
           AutomationParameter.volume,
           AutomationPoint(time: 0.0, value: 0.5),
         );
-        controller.visible = true;
+        controller.setTrackVisible(1, visible: true);
 
         controller.onTrackDeleted(1);
-        // Global visibility is unaffected by deleting a track
-        expect(controller.visible, isTrue);
+        expect(controller.isVisible(1), isFalse);
         expect(controller.hasAutomation(1), isFalse);
       });
 
@@ -838,10 +840,10 @@ void main() {
         expect(controller.hasAutomation(2), isTrue);
       });
 
-      test('onTrackDeleted does not affect global visibility', () {
-        controller.visible = true;
+      test("onTrackDeleted does not affect other tracks' visibility", () {
+        controller.setTrackVisible(2, visible: true);
         controller.onTrackDeleted(1);
-        expect(controller.visible, isTrue);
+        expect(controller.isVisible(2), isTrue);
       });
 
       test('onTrackDuplicated copies automation to new track', () {
@@ -955,10 +957,11 @@ void main() {
       });
 
       test('resets visibility', () {
-        controller.visible = true;
+        controller.setTrackVisible(1, visible: true);
         controller.clear();
 
-        expect(controller.visible, isFalse);
+        expect(controller.isVisible(1), isFalse);
+        expect(controller.visibleTrackIds, isEmpty);
       });
 
       test('resets visible parameter to volume', () {
@@ -998,19 +1001,19 @@ void main() {
     // 9. Notifications
     // ========================================
     group('notifications', () {
-      test('setting visible notifies listeners', () {
+      test('setTrackVisible notifies listeners', () {
         var notified = false;
         controller.addListener(() => notified = true);
 
-        controller.visible = true;
+        controller.setTrackVisible(1, visible: true);
         expect(notified, isTrue);
       });
 
-      test('toggleVisible notifies listeners', () {
+      test('toggleTrackVisible notifies listeners', () {
         var notified = false;
         controller.addListener(() => notified = true);
 
-        controller.toggleVisible();
+        controller.toggleTrackVisible(1);
         expect(notified, isTrue);
       });
 

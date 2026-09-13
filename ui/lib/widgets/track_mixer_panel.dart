@@ -796,56 +796,12 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
 
   Widget _buildHeader() {
     // 24px strip mirroring the timeline nav bar's height so the first track
-    // strip lines up with the first arrangement row. Hosts the global
-    // automation toggle (GarageBand model: one switch shows every track's
-    // lane in the timeline).
+    // strip lines up with the first arrangement row.
     return Container(
-      height: 24, // Match timeline nav bar height
+      height: 24,
       decoration: BoxDecoration(
         color: context.colors.dark,
         border: Border(bottom: BorderSide(color: context.colors.divider)),
-      ),
-      child: UIConstants.enableAutomation
-          ? Row(children: [const SizedBox(width: 6), _buildAutomationToggle()])
-          : null,
-    );
-  }
-
-  /// Global automation toggle: shows/hides automation lanes for all tracks.
-  Widget _buildAutomationToggle() {
-    final colors = context.colors;
-    final isActive = widget.automationState.visible;
-    return GestureDetector(
-      onTap: widget.automationState.onToggle,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          height: 18,
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          decoration: BoxDecoration(
-            color: isActive ? colors.accent : colors.surface,
-            borderRadius: BorderRadius.circular(2),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                BI.chartLine,
-                size: 11,
-                color: isActive ? colors.darkest : colors.textSecondary,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                'Automation',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: BT.weightMedium,
-                  color: isActive ? colors.darkest : colors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -1577,7 +1533,10 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
               onMonitorToggle: track.type.toLowerCase() == 'audio'
                   ? () => _handleMonitorToggle(track)
                   : null,
-              showAutomation: widget.automationState.visible,
+              showAutomation:
+                  widget.automationState.isVisible?.call(track.id) ?? false,
+              onToggleAutomation: () =>
+                  widget.automationState.onToggleVisible?.call(track.id),
               selectedParameter: widget.automationState.parameter,
               onParameterChanged: widget.automationState.onParameterChanged,
               onResetAutomation: () =>

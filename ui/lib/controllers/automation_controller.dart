@@ -2,19 +2,24 @@ import 'package:flutter/material.dart';
 import '../models/track_automation_data.dart';
 
 /// Manages track automation state including lanes, points, and visibility.
-/// Visibility is global (GarageBand model): one toggle shows every track's
-/// lane at once.
+/// Visibility is per track: each track's lane is shown or hidden on its own
+/// (from the track's context menu). The lane parameter is shared.
 class AutomationController extends ChangeNotifier {
   // Automation data per track: Map<trackId, Map<parameter, lane>>
   final Map<int, Map<AutomationParameter, TrackAutomationLane>>
   _trackAutomation = {};
 
-  // Global visibility (all tracks at once)
-  bool _visible = false;
+  // Tracks whose automation lane is currently shown
+  final Set<int> _visibleTrackIds = {};
   AutomationParameter _visibleParameter = AutomationParameter.volume;
 
   // Getters
-  bool get visible => _visible;
+  /// Whether [trackId]'s automation lane is shown.
+  bool isVisible(int trackId) => _visibleTrackIds.contains(trackId);
+
+  /// Ids of every track whose lane is shown (read-only view).
+  Set<int> get visibleTrackIds => Set.unmodifiable(_visibleTrackIds);
+
   AutomationParameter get visibleParameter => _visibleParameter;
 
   /// Get all track IDs that have automation data
@@ -37,15 +42,17 @@ class AutomationController extends ChangeNotifier {
     return _trackAutomation[trackId]?[param]?.hasAutomation ?? false;
   }
 
-  /// Show/hide automation lanes for all tracks
-  set visible(bool value) {
-    if (_visible == value) return;
-    _visible = value;
-    notifyListeners();
+  /// Show/hide the automation lane for one track
+  void setTrackVisible(int trackId, {required bool visible}) {
+    final changed = visible
+        ? _visibleTrackIds.add(trackId)
+        : _visibleTrackIds.remove(trackId);
+    if (changed) notifyListeners();
   }
 
-  /// Toggle global automation lane visibility
-  void toggleVisible() => visible = !_visible;
+  /// Toggle one track's automation lane
+  void toggleTrackVisible(int trackId) =>
+      setTrackVisible(trackId, visible: !isVisible(trackId));
 
   /// Set the visible parameter (Volume, Pan)
   void setVisibleParameter(AutomationParameter param) {
@@ -124,6 +131,7 @@ class AutomationController extends ChangeNotifier {
 
   /// Handle track deletion - clean up automation
   void onTrackDeleted(int trackId) {
+    _visibleTrackIds.remove(trackId);
     clearTrackAutomation(trackId);
   }
 
@@ -178,7 +186,7 @@ class AutomationController extends ChangeNotifier {
   /// Load from JSON
   void loadFromJson(Map<String, dynamic>? json) {
     _trackAutomation.clear();
-    _visible = false;
+    _visibleTrackIds.clear();
     _visibleParameter = AutomationParameter.volume;
 
     if (json == null) return;
@@ -215,7 +223,7 @@ class AutomationController extends ChangeNotifier {
   /// Clear all state (for new project)
   void clear() {
     _trackAutomation.clear();
-    _visible = false;
+    _visibleTrackIds.clear();
     _visibleParameter = AutomationParameter.volume;
     notifyListeners();
   }
