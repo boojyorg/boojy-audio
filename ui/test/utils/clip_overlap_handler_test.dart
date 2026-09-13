@@ -95,14 +95,66 @@ void main() {
       expect(result.updates.first.updated.duration, equals(2));
     });
 
-    test('Case 2: overlaps end — deletes if trimmed too small', () {
-      // Existing (0-4), new starts at 0.1 → trimmed to 0.1s < minClipSize
+    test('Case 2: overlaps end — keeps a remainder shorter than 0.25s', () {
+      // Existing (0-4), new starts at 0.1 → existing keeps its first 0.1s.
+      // This used to delete the clip (remainder under the old 0.25s floor).
       final result = ClipOverlapHandler.resolveAudioOverlaps(
         newStart: 0.1,
         newEnd: 6,
         existingClips: [_audioClip(startTime: 0, duration: 4)],
         trackId: 0,
       );
+      expect(result.removals, isEmpty);
+      expect(result.updates.length, equals(1));
+      expect(result.updates.first.updated.duration, closeTo(0.1, 1e-9));
+    });
+
+    test("Case 3: overlaps start — keeps a short neighbour's tail", () {
+      // The dogfooding repro: a 2s clip dragged so it ends 0.25s into a 0.4s
+      // drum one-shot at 2.0s. Expected: the one-shot keeps its last 0.15s.
+      final result = ClipOverlapHandler.resolveAudioOverlaps(
+        newStart: 0.25,
+        newEnd: 2.25,
+        existingClips: [_audioClip(clipId: 7, startTime: 2.0, duration: 0.4)],
+        trackId: 0,
+        excludeClipId: 1,
+      );
+      expect(result.removals, isEmpty);
+      expect(result.updates.length, equals(1));
+      final kept = result.updates.first.updated;
+      expect(kept.clipId, equals(7));
+      expect(kept.startTime, closeTo(2.25, 1e-9));
+      expect(kept.duration, closeTo(0.15, 1e-9));
+      expect(kept.offset, closeTo(0.25, 1e-9));
+    });
+
+    test('Case 4: inside existing — keeps short parts on both sides', () {
+      // Existing (0-4), new (0.1-3.9) → partA 0.1s + partB 0.1s, both kept.
+      final result = ClipOverlapHandler.resolveAudioOverlaps(
+        newStart: 0.1,
+        newEnd: 3.9,
+        existingClips: [_audioClip(startTime: 0, duration: 4)],
+        trackId: 0,
+      );
+      expect(result.removals, isEmpty);
+      expect(result.splits.length, equals(1));
+      final split = result.splits.first;
+      expect(split.partA, isNotNull);
+      expect(split.partA!.duration, closeTo(0.1, 1e-9));
+      expect(split.partBTemplate, isNotNull);
+      expect(split.partBTemplate!.startTime, closeTo(3.9, 1e-9));
+      expect(split.partBTemplate!.duration, closeTo(0.1, 1e-9));
+    });
+
+    test('a sub-millisecond sliver is dropped as float noise', () {
+      // Existing (0-4), new starts 0.5µs in → nothing usable remains.
+      final result = ClipOverlapHandler.resolveAudioOverlaps(
+        newStart: 0.0000005,
+        newEnd: 6,
+        existingClips: [_audioClip(startTime: 0, duration: 4)],
+        trackId: 0,
+      );
+      expect(result.updates, isEmpty);
       expect(result.removals.length, equals(1));
     });
 
@@ -193,6 +245,52 @@ void main() {
       );
       expect(result.updates.length, equals(1));
       expect(result.updates.first.updated.startTime, equals(2));
+    });
+
+    test(
+      'Case 2: overlaps end — keeps a remainder shorter than 0.25 beats',
+      () {
+        final result = ClipOverlapHandler.resolveMidiOverlaps(
+          newStart: 0.1,
+          newEnd: 6,
+          existingClips: [_midiClip(startTime: 0, duration: 4)],
+          trackId: 0,
+        );
+        expect(result.removals, isEmpty);
+        expect(result.updates.length, equals(1));
+        expect(result.updates.first.updated.duration, closeTo(0.1, 1e-9));
+      },
+    );
+
+    test(
+      'Case 3: overlaps start — keeps a remainder shorter than 0.25 beats',
+      () {
+        final result = ClipOverlapHandler.resolveMidiOverlaps(
+          newStart: -2,
+          newEnd: 3.9,
+          existingClips: [_midiClip(startTime: 0, duration: 4)],
+          trackId: 0,
+        );
+        expect(result.removals, isEmpty);
+        expect(result.updates.length, equals(1));
+        expect(result.updates.first.updated.startTime, closeTo(3.9, 1e-9));
+        expect(result.updates.first.updated.duration, closeTo(0.1, 1e-9));
+      },
+    );
+
+    test('Case 4: inside existing — keeps short parts on both sides', () {
+      final result = ClipOverlapHandler.resolveMidiOverlaps(
+        newStart: 0.1,
+        newEnd: 3.9,
+        existingClips: [_midiClip(startTime: 0, duration: 4)],
+        trackId: 0,
+      );
+      expect(result.removals, isEmpty);
+      expect(result.splits.length, equals(1));
+      expect(result.splits.first.partA, isNotNull);
+      expect(result.splits.first.partA!.duration, closeTo(0.1, 1e-9));
+      expect(result.splits.first.partB, isNotNull);
+      expect(result.splits.first.partB!.duration, closeTo(0.1, 1e-9));
     });
 
     test('Case 4: inside existing — splits into two', () {

@@ -54,13 +54,10 @@ items under Next are secondary to it and are not release work unless promoted he
 
 **Blocks release**
 
-- **Dragging an audio clip over a neighbour on the same track deletes the neighbour.** The
-  intended rule is "new clip wins": a partial overlap should trim the neighbour's start. The
-  drag-end path calls the overlap resolver with the right region and excludes the moved clip, so
-  either the resolver misclassifies the overlap as a complete cover or the trim (set start,
-  offset, duration on the engine) fails and the refresh drops the clip. Every branch logs
-  `[OVERLAP]`; one repro with the console open shows which. Losing audio on an ordinary drag is
-  a minute-two bug for a new user.
+- None open. The clip-overlap deletion found on 2026-09-13 is fixed (a partial overlap left a
+  neighbour shorter than 0.25 s, which the resolver deleted instead of trimming; see Unreleased
+  in the changelog). Regression coverage: `ui/test/native/clip_drag_overlap_test.dart` drives
+  the real drag over the native engine, including undo and redo.
 
 **Fix before release** (would not block on their own; Tyr wants both in this release)
 

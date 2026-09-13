@@ -23,6 +23,14 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Dragging an audio clip partly over a neighbour no longer deletes it.** Overlap resolution
+  deleted any neighbour left shorter than 0.25 seconds after a trim, and snapping at the default
+  zoom moves clips in 0.25 second steps, so nudging a clip onto a short sample (most of the
+  bundled drum hits) wiped it instead of trimming it. A partial overlap now always trims: the
+  neighbour keeps whatever remains, however short, and only a full cover deletes. The same rule
+  applies to MIDI clips, splits, file drops and recordings, which share the resolver. Undo
+  restores the trimmed clip exactly, in the engine as well as on screen.
+
 - **MIDI keyboard plugged in after launch now works automatically.** A background poll detects
   newly connected keyboards and opens the MIDI port — no Settings visit needed. Also fixes the
   Refresh button which re-enumerated devices but never re-opened the port.
