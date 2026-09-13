@@ -15,7 +15,9 @@ All notable changes to Boojy Audio will be documented in this file.
   it scopes the search box to that section (the placeholder and a chip say so; the chip's × goes
   back to searching everything). Arrow keys walk the tree: Up/Down move, Right opens or steps
   in, Left closes or steps out, Enter loads, Space previews. Preview, drag to the arrangement,
-  favourites and the folder and item context menus work as before.
+  favourites and the folder and item context menus work as before. The panel also opens
+  narrower now that it has no second column: 240px by default (was 308) and it can be dragged
+  down to 160px (was 208).
 
 - **Capture MIDI button in the transport bar.** A corner-bracket button in the modifiers cluster
   (next to the metronome) captures the phrase you just played unarmed into a new clip at the

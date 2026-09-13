@@ -69,12 +69,15 @@ class UILayoutState extends ChangeNotifier {
   double _editorPanelHeight = 250.0;
 
   // Library panel column widths (stored separately, panel width is computed)
-  double _libraryLeftColumnWidth = 130.0;
-  double _libraryRightColumnWidth = 170.0;
+  // The library is one tree; "left" + divider + "right" is the legacy split
+  // that projects and settings persist, and only their sum is shown. Keep the
+  // left part at its floor so the sum tracks the right part.
+  double _libraryLeftColumnWidth = 60.0;
+  double _libraryRightColumnWidth = 172.0;
 
   // Memory of last size before collapse (for restore on expand)
-  double _libraryLastLeftColumnWidth = 130.0;
-  double _libraryLastRightColumnWidth = 170.0;
+  double _libraryLastLeftColumnWidth = 60.0;
+  double _libraryLastRightColumnWidth = 172.0;
   double _mixerLastWidth = 380.0;
   double _editorLastHeight = 250.0;
 
@@ -102,13 +105,13 @@ class UILayoutState extends ChangeNotifier {
   bool _loopAutoFollow = true;
 
   // Fixed minimums (usability floor)
-  static const double libraryMinWidth = 208.0; // left min + divider + right min
+  static const double libraryMinWidth = 160.0; // left min + divider + right min
 
   // Library panel internal column constraints
-  static const double libraryLeftColumnMin = 100.0;
+  static const double libraryLeftColumnMin = 60.0;
   static const double libraryLeftColumnMax = 250.0;
-  static const double libraryLeftColumnDefault = 130.0;
-  static const double libraryRightColumnMin = 100.0;
+  static const double libraryLeftColumnDefault = 60.0;
+  static const double libraryRightColumnMin = 92.0;
   static const double libraryRightColumnMax = 400.0;
   static const double libraryDividerWidth = 8.0;
   static const double mixerMinWidth = 200.0;
