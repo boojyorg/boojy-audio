@@ -1,150 +1,76 @@
 # Boojy Audio — Product
 
-Who Boojy is for, and the principles that decide what goes in. Scope decisions in
-[BACKLOG.md](BACKLOG.md) trace back here.
+What Boojy is and the principles that decide what goes in. Scheduling and platform commitments
+live in [BACKLOG.md](BACKLOG.md); accepted behaviour lives in specs and engineering rules.
 
----
+## Product promise
 
-## The Positioning
+Boojy Audio is a free, open-source DAW for composing, recording, arranging, mixing and mastering
+music. It combines programmed instruments and recorded performances in a calm, spacious
+interface, with sensible defaults and minimal setup. It is designed for musicians, from their
+first song to finished releases.
 
-Boojy Audio sits between GarageBand (too simple) and Ableton/Logic (too complex). It's for musicians who outgrew GarageBand but find professional DAWs intimidating.
+Free forever and open source (GPL v3). Cross-platform is a product goal; which platforms ship
+when is a backlog decision, not a promise made here.
 
-**GarageBand** feels like a toy — friendly but limiting.
-**Ableton** feels like a cockpit — powerful but intimidating.
-**Boojy** should feel like a comfortable studio — everything's within reach, nothing's confusing, and the room sounds good.
+## Primary use
 
----
+Making a complete song from idea to export:
 
-## Scope anchors
+- Play, draw or sequence musical ideas.
+- Record vocals and instruments.
+- Combine parts into an arrangement.
+- Mix, master and export a finished song.
 
-Standing decisions that shape every feature discussion:
+These overlap. Someone making beats also mixes and masters; a vocalist uses sequenced parts; a
+band uses samples. Do not assume a user "doesn't care" about a stage of the workflow.
 
-- **Beginner-first.** Silence when healthy, progressive disclosure, a small polished toolset.
-  A missing pro feature is usually correctly out of scope.
-- **Linear arrangement stays.** No pattern-first workflow.
-- **The built-in synth is deliberately small:** one oscillator (sine/saw/square/triangle), a
-  one-pole lowpass, ADSR, eight voices. Not three oscillators, a resonant filter, an LFO or a
-  modulation matrix. Growing it needs an explicit product decision.
-- **Prefer simple, minimal implementations**; add complexity only when explicitly asked.
+Tyr's own hip-hop and instrumental projects, typically 4–14 tracks, are the reference workflow.
+That is a reference, not a track limit or a genre restriction. Beginner accessibility is a
+second, equal lens: the vanilla experience should work well without extensive configuration.
 
----
+## Principles
 
-## Three Core Users
+- **Listen first.** Controls should encourage listening and musical judgement. Visuals support
+  editing, understanding and essential feedback without dominating the experience. Effects
+  should offer useful, restrained starting points. This does not prohibit an EQ graph or a
+  spectrum display; it is how to judge whether one helps.
+- **Calm interface.** Spacious, quiet when healthy, progressive disclosure. Show what the
+  current task needs; keep the rest one step away.
+- **Fast capture.** An idea disappears in a minute. Sound should be a few actions from opening
+  the app, and a phrase played before pressing record should not be lost.
+- **Forgiveness.** Unlimited undo, non-destructive editing, punch-in. The app should feel safe
+  to try things in.
+- **Minimal setup.** Sensible defaults, few required choices, no routing to configure before
+  recording. Precision and control stay available where they matter.
 
-### 1. The Beat Maker
+## Included tools and plugins
 
-Sits down with an idea in their head. Wants a drum pattern going in 30 seconds, layer a bass, add a melody, hear it loop.
+A small, good collection of stock instruments and effects. The goal is that a song can be
+finished with nothing installed, and extended with VST3 plugins when wanted. Stock instruments
+stay focused and approachable; their exact designs are engineering decisions recorded in
+[ARCHITECTURE.md](ARCHITECTURE.md), and growing one is a deliberate decision, not drift.
 
-**Cares about:**
-- Fast instrument loading
-- Good built-in sounds
-- Snappy piano roll
-- Easy looping
-- Export to MP3 to send to mates or post on SoundCloud
+## Scope boundaries
 
-**Doesn't care about:**
-- Detailed mixing
-- Automation curves
-- Sidechain routing
-- Mastering meters
+- **Complete the core workflows.** Include the capabilities that let someone finish real music:
+  recording, editing, arranging, mixing, mastering, export. Simplicity describes the experience,
+  not an assumption that the musician has simple ambitions.
+- **Reduce setup, unnecessary choices and repeated steps** before adding features.
+- **Defer niche capabilities unless there is a clear need.** Specialist extensions are
+  considered individually, on evidence, in the backlog.
+- **Linear arrangement** describes how a song is laid out on the timeline. It does not prohibit
+  sequencing within a track (an arpeggiator, a drum step sequencer). It does rule out a
+  pattern-first, clip-launch workflow as the primary model.
+- **Excluded directions** are recorded in the backlog's decisions section; check there before
+  re-proposing one.
 
-### 2. The Vocalist / Singer-Songwriter
+## Decision filter
 
-Plugs in a mic, hits record, sings over a simple chord progression.
+For any proposed feature, default or change, answer both:
 
-**Cares about:**
-- Easy audio recording
-- A simple way to lay down chords (piano or guitar plugin)
-- Basic effects on their voice (reverb, compression)
-- Punch-in to fix mistakes
+1. Does this help someone make or finish music?
+2. What complexity does it add, for the user and for the codebase, and is that paid for by (1)?
 
-**Doesn't care about:**
-- MIDI velocity editing
-- Complex plugin chains
-- Step sequencers
-
-### 3. The Home Band
-
-Guitarist, bassist, vocalist, maybe a drummer recording at home.
-
-**Cares about:**
-- Multi-track audio recording
-- Overdubbing (record one instrument at a time over the others)
-- Basic mixing (volume balance between instruments)
-- Exporting stems to share with bandmates or send to a mixer
-
-**Doesn't care about:**
-- MIDI synthesis
-- Sample libraries
-- Beat-making workflows
-
----
-
-## What They All Have in Common
-
-### Every musician wants:
-- To hear their idea quickly (low friction from "open app" to "making sound")
-- Recording that works first try (input selection, levels, count-in)
-- The app to not get in the way of creativity
-- Simple mixing (just make it sound decent)
-- Easy export (send to someone, post online)
-- To not feel stupid using it
-
-### Nobody wants:
-- To read a manual before making sound
-- To configure audio routing before recording
-- To see 50 buttons they don't understand
-- To feel like the app is judging their skill level
-
----
-
-## Design Principles (from this thinking)
-
-### 1. Speed of Capture
-A musician has an idea that will disappear in 60 seconds. The app needs to get out of the way. The MIDI Capture button is a perfect example — it respects that creativity doesn't wait for you to press record.
-
-### 2. Forgiveness
-Musicians make mistakes and want to fix them without starting over. Punch-in recording, unlimited undo, non-destructive editing. The app should feel safe — "I can try anything and undo it."
-
-### 3. Sound Quality Out of the Box
-A musician doesn't want to learn mixing to make their recording sound good. Consider preset effect chains — a simple "enhance" on vocal tracks (subtle compression + EQ + reverb) that makes a raw recording sound polished with zero effort. Not auto-tune, just "make my voice not sound like a raw mic recording." GarageBand does this and musicians love it.
-
-### 4. Collaboration-Friendly Export
-Musicians work with other people. "Send this to my bandmate" should be easy. Export to MP3 and open in Finder, or a "Share" button that creates an MP3 and opens the system share sheet.
-
-### 5. The Emotional Experience Matters More Than Features
-A musician choosing between Boojy and GarageBand isn't comparing feature lists. They're comparing how the app makes them feel. The star field, the clean design, the "everything you need, nothing you don't" philosophy — that's already building the "comfortable studio" feeling.
-
----
-
-## Concrete Implications for Development
-
-### Auto-arm audio tracks
-When a user creates a new audio track and has a mic connected, auto-arm it for recording and show the input level immediately. Don't make them find the record-arm button and the input selector. The app should say "I see your mic, I'm ready when you are."
-
-### Preset effect chains
-"Vocal" track preset: auto-applies subtle compression + EQ + reverb. "Guitar" track preset: light compression + cabinet sim. The user gets a good sound without touching any knobs.
-
-### One-click export
-Export button that defaults to MP3, names the file after the project, and opens the destination folder. No format dialog, no sample rate selection, no dithering options. Just "Export" → done.
-
-### Smart defaults everywhere
-- New project: 120 BPM, 4/4, one empty MIDI track ready to go
-- Input monitoring: on by default for armed tracks
-- Loop: on by default (musicians think in loops)
-- Snap: on by default, to bar (not to tick)
-- Metronome: on by default during recording, off during playback
-
----
-
-## Current Design Lean
-
-Boojy currently leans toward **beat makers** — piano roll, MIDI instruments, sample browser. That's a strong core. But to reach vocalists and bands, the audio recording experience needs equal attention. A vocalist opening Boojy for the first time should be able to:
-
-1. Open app
-2. Create project
-3. See their mic is detected
-4. Hit record
-5. Sing, hit stop, hear it back
-
-That's five steps. If any step requires configuration or hunting through menus, you've lost them.
+Specific behaviour proposals (default states, automatic actions, preset chains) go to the
+backlog as candidates until accepted. A principle here is never on its own a requirement.

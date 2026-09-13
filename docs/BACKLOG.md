@@ -89,6 +89,14 @@ Loop recording / comping was explicitly deferred for later pre-1.0 scoping, not 
 | Platforms | Windows hardening; iPad reintroduction was proposed but untested in CI, iPhone not targeted. Linux only if requested; Web remains a strategic question. |
 | Hardware | Optional sample-rate selector using supported device rates; continue following device rate by default. ASIO deferred: WASAPI remains beginner default; revisit for demonstrated interface latency needs (SDK/licence/CI prerequisites). |
 
+**Audience-doc proposals (unaccepted, carried from the old `target_audience.md`):** auto-arm a new
+audio track when a mic is present and show its input level; input monitoring on by default for
+armed tracks; per-track-type preset effect chains ("Vocal", "Guitar"); one-click export that
+defaults to MP3, names the file after the project and opens the folder; loop, snap-to-bar and
+metronome-during-recording on by default. Two conflict with settled direction and should not be
+revived as written: an always-applied "enhance" chain (listen-first says let the musician hear
+and judge the raw recording) and a system share sheet (excluded at the June triage).
+
 ### Engineering and UI follow-ups
 
 These are inherited candidates; inspect code and later changes before treating old review IDs as open bugs.
@@ -173,6 +181,6 @@ per the triage-then-retire rule in `RELEASING.md`. One caveat carried forward: t
 **2026-06-10 bug hunt's lower-tier ledger was never itemised in a triage** — its six must-fix
 items shipped before v0.6.0, but the remainder are unverified candidates, not known open bugs.
 
-Older plans and the product doc's concrete implications (`docs/PRODUCT.md`) are still pass-3 work. Preserve
+Older plans are still pass-3 work. Preserve
 unique decisions and unresolved findings here or in specs before removing them. Git retains
 retired planning docs.

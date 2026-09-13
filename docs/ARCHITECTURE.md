@@ -69,8 +69,10 @@ return bus: per-return accumulator → return FX chain ────────�
   factoring it out. Details and the export processing order: `.claude/rules/audio-export.md`.
 - **No plugin delay compensation.** Return-chain latency is not aligned against the dry signal.
 
-The built-in synth is deliberately one oscillator, a one-pole lowpass, ADSR and eight voices
-([PRODUCT.md](PRODUCT.md)).
+**Stock instrument designs are kept deliberately small** ([PRODUCT.md](PRODUCT.md) says why).
+The built-in synth is one oscillator (sine/saw/square/triangle), a one-pole lowpass, ADSR and
+eight-voice polyphony — not three oscillators, a resonant filter, an LFO or a modulation matrix.
+Growing it is a product decision, not a refactor.
 
 ## UI structure
 

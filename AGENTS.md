@@ -85,8 +85,9 @@ Rules with no better home:
   review (`docs/RELEASING.md`), not guesswork.
 - **UI/UX before code:** brainstorm tradeoffs with Tyr first; when layout is ambiguous, offer
   3–4 ASCII mockups and let him pick.
-- **Prefer simple, minimal.** The product anchors that decide scope (beginner-first, one-oscillator
-  synth, linear arrangement) are in `docs/PRODUCT.md`.
+- **Prefer simple, minimal.** The principles and decision filter that decide scope (listen first,
+  minimal setup, complete core workflows) are in `docs/PRODUCT.md`; stock-instrument designs are
+  in `docs/ARCHITECTURE.md`.
 
 ## Claude Code–specific
 
