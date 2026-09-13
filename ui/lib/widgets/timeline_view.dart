@@ -30,7 +30,7 @@ import 'platform_drop_target.dart';
 import 'shared/add_track_button.dart';
 import 'shared/editors/zoomable_editor_mixin.dart';
 import 'shared/editors/unified_nav_bar.dart';
-import 'shared/editors/nav_bar_with_zoom.dart';
+import 'shared/editors/scrollable_nav_bar.dart';
 import 'timeline/timeline_models.dart';
 import 'timeline/timeline_state.dart';
 import 'timeline/clip_preview_builders.dart';
@@ -801,14 +801,9 @@ class TimelineViewState extends State<TimelineView>
               // Main timeline content
               Column(
                 children: [
-                  // Unified nav bar (loop region + bar numbers + zoom controls)
-                  NavBarWithZoom(
+                  // Unified nav bar (loop region + bar numbers)
+                  ScrollableNavBar(
                     scrollController: navBarScrollController,
-                    // Buttons zoom about the viewport centre (they used to
-                    // scale from bar 1, so the view slid off whatever you
-                    // were looking at).
-                    onZoomIn: () => _zoomStep(UIConstants.zoomStepFactor),
-                    onZoomOut: () => _zoomStep(1 / UIConstants.zoomStepFactor),
                     height: UIConstants.navBarHeight,
                     pixelsPerBeat: pixelsPerBeat,
                     beatsPerBar: widget.beatsPerBar,
@@ -1227,17 +1222,6 @@ class TimelineViewState extends State<TimelineView>
     double anchorViewportX,
   ) {
     handleNavBarZoom(factor, anchorBeat, anchorViewportX);
-  }
-
-  /// Zoom button step about the centre of the arrangement viewport.
-  void _zoomStep(double factor) {
-    final viewportCentreX = viewWidth / 2;
-    final offset = scrollController.hasClients ? scrollController.offset : 0.0;
-    zoomAnchored(
-      factor: factor,
-      anchorBeat: (offset + viewportCentreX) / pixelsPerBeat,
-      anchorViewportX: viewportCentreX,
-    );
   }
 
   /// Handle playhead set from UnifiedNavBar click.

@@ -13,7 +13,7 @@ import '../../theme/tokens.dart';
 import '../../theme/app_colors.dart';
 import '../shared/editors/unified_nav_bar.dart';
 import '../shared/editors/anchored_zoom.dart';
-import '../shared/editors/nav_bar_with_zoom.dart';
+import '../shared/editors/scrollable_nav_bar.dart';
 import 'audio_editor_state.dart';
 import 'audio_editor_controls_bar.dart';
 import 'painters/waveform_editor_painter.dart';
@@ -219,15 +219,13 @@ class _AudioEditorState extends State<AudioEditor>
     );
   }
 
-  /// Unified navigation bar (loop region + bar numbers + zoom controls)
+  /// Unified navigation bar (loop region + bar numbers)
   /// Matches Piano Roll's UnifiedNavBar exactly
   Widget _buildNavBar(BoojyColors colors) {
     final totalBeats = calculateTotalBeats();
 
-    return NavBarWithZoom(
+    return ScrollableNavBar(
       scrollController: loopBarScroll,
-      onZoomIn: zoomIn,
-      onZoomOut: zoomOut,
       height: 24.0,
       child: UnifiedNavBar(
         config: UnifiedNavBarConfig(

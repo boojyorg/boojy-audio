@@ -44,8 +44,7 @@ All notable changes to Boojy Audio will be documented in this file.
   continuous motion, and the zoom is exponential, so equal travel is an equal ratio in both
   directions and a round trip lands back where it started. Drag down zooms in (matching
   Ableton's beat-time ruler; it was up = in). The piano roll's middle-mouse grid drag follows the
-  same direction and feel. The ruler's zoom buttons now zoom about the centre of the view instead
-  of bar 1.
+  same direction and feel.
 
 - **Clicking the ruler once scrolled past bar 1 set the playhead at the wrong bar.** The ruler
   counted its scroll offset twice, so a click, a hover highlight or a loop-edge grab landed
@@ -74,6 +73,10 @@ All notable changes to Boojy Audio will be documented in this file.
   Refresh button which re-enumerated devices but never re-opened the port.
 
 ### Improvements
+
+- **The ruler's [-] [+] zoom buttons are gone.** Every ruler (arrangement, piano roll, audio
+  editor, sampler) zooms by dragging vertically or with the scroll wheel, so the pinned buttons
+  at the right edge only covered the last bar numbers. Removing them frees that strip.
 
 - **Dead-code pass.** Removed about 10,000 lines that no user could reach: the Dart-side fake
   web target and the engine's WASM modules, the legacy Snapshot and half-built project-version

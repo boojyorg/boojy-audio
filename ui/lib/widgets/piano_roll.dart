@@ -27,7 +27,7 @@ import 'piano_roll/velocity_lane_mixin.dart';
 import 'piano_roll/zoom_mixin.dart';
 import 'shared/editors/unified_nav_bar.dart';
 import 'shared/editors/interactive_gutter.dart';
-import 'shared/editors/nav_bar_with_zoom.dart';
+import 'shared/editors/scrollable_nav_bar.dart';
 import 'context_menus/note_context_menu.dart';
 import '../utils/logger.dart';
 
@@ -306,7 +306,7 @@ class _PianoRollState extends State<PianoRoll>
 
   // Zoom methods now provided by ZoomMixin:
   // - calculateMaxPixelsPerBeat(), calculateMinPixelsPerBeat()
-  // - zoomIn(), zoomOut(), toggleSnap()
+  // - toggleSnap()
 
   @override
   Widget build(BuildContext context) {
@@ -551,12 +551,10 @@ class _PianoRollState extends State<PianoRoll>
       children: [
         // Audition button (aligned with piano keys width)
         _buildAuditionCorner(context),
-        // UnifiedNavBar with zoom controls overlaid
+        // UnifiedNavBar in its scrolling wrapper
         Expanded(
-          child: NavBarWithZoom(
+          child: ScrollableNavBar(
             scrollController: navBarScroll,
-            onZoomIn: zoomIn,
-            onZoomOut: zoomOut,
             height: UIConstants.navBarHeight,
             // Repaint the ruler on every playhead tick so the grabber sweeps
             // during playback (mirrors the arrangement). Without a notifier

@@ -10,7 +10,7 @@ import '../../theme/tokens.dart';
 import '../../theme/app_colors.dart';
 import '../../models/library_item.dart';
 import '../platform_drop_target.dart';
-import '../shared/editors/nav_bar_with_zoom.dart';
+import '../shared/editors/scrollable_nav_bar.dart';
 import 'sampler_controls_bar.dart';
 import 'sampler_waveform_painter.dart';
 
@@ -402,9 +402,6 @@ class _SamplerEditorState extends State<SamplerEditor> {
     _auditionNote = null;
   }
 
-  void _zoomIn() => _zoomByFactor(1.3);
-  void _zoomOut() => _zoomByFactor(1.0 / 1.3);
-
   void _zoomByFactor(double factor) {
     final oldPps = _pixelsPerSecond;
     final newPps = (oldPps * factor).clamp(20.0, 800.0);
@@ -513,10 +510,8 @@ class _SamplerEditorState extends State<SamplerEditor> {
                   ),
 
                   // Navigation bar with loop drag interaction
-                  NavBarWithZoom(
+                  ScrollableNavBar(
                     scrollController: _rulerScroll,
-                    onZoomIn: _zoomIn,
-                    onZoomOut: _zoomOut,
                     height: 24.0,
                     child: Listener(
                       onPointerSignal: (event) {
