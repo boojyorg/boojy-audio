@@ -13,6 +13,7 @@ import '../services/commands/track_commands.dart';
 import '../services/commands/mixer_commands.dart';
 import '../services/commands/send_commands.dart';
 import 'platform_drop_target.dart';
+import 'shared/add_track_button.dart';
 import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
@@ -796,12 +797,45 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
 
   Widget _buildHeader() {
     // 24px strip mirroring the timeline nav bar's height so the first track
-    // strip lines up with the first arrangement row.
+    // strip lines up with the first arrangement row. Hosts the add-track
+    // buttons: this panel IS the track list, so new tracks start here.
+    final colors = context.colors;
     return Container(
       height: 24,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        color: context.colors.dark,
-        border: Border(bottom: BorderSide(color: context.colors.divider)),
+        color: colors.dark,
+        border: Border(bottom: BorderSide(color: colors.divider)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: AddTrackButton(
+              label: 'MIDI',
+              typeIcon: BI.piano,
+              typeColor:
+                  TrackColors.categoryColors[TrackColorCategory.synth] ??
+                  colors.accent,
+              onTap: widget.trackCallbacks.onAddMidiTrack,
+              tooltip: 'Add MIDI Track',
+              // 1px shorter than the strip so the bottom border keeps its room.
+              height: 22,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: AddTrackButton(
+              label: 'Audio',
+              typeIcon: BI.waveform,
+              typeColor:
+                  TrackColors.categoryColors[TrackColorCategory.audio] ??
+                  colors.accent,
+              onTap: widget.trackCallbacks.onAddAudioTrack,
+              tooltip: 'Add Audio Track',
+              height: 22,
+            ),
+          ),
+        ],
       ),
     );
   }

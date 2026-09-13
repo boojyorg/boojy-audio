@@ -68,6 +68,7 @@ class BoojyIcons {
   static IconData get power => Icons.power_settings_new;
   static IconData get search => Icons.search;
   static IconData get settings => Icons.settings;
+  static IconData get home => Icons.home_outlined;
   static IconData get check => Icons.check;
   static IconData get checkCircle => Icons.check_circle;
   static IconData get refresh => Icons.refresh;
@@ -172,5 +173,4 @@ class BoojyIcons {
   // ignore: non_constant_identifier_names
   static IconData get list => Icons.photo_library_outlined;
   // Capture MIDI — corner-bracket viewfinder glyph
-  static IconData get captureMidi => Icons.crop_free;
 }

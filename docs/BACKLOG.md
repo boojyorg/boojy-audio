@@ -221,6 +221,15 @@ Verified against the tree on 2026-09-12 unless noted.
 
 ## Decisions: don't re-raise
 
+- **Punch in/out is out of the UI (2026-09-13).** Removed with the toolbar pass: no menu, no
+  I/O keys, no ruler colouring. The engine's punch code stays dormant (never enabled by the UI).
+  Re-adding it is a design decision, not a toggle to flip back on.
+- **Count-in is Off / 1 bar only, default on, and always clicks** (2026-09-13). The user
+  preference is the single source of truth; the value in the project file is ignored on load.
+- **The toolbar carries no add-track buttons and no ? button** (2026-09-13). Tracks are added
+  from the mixer panel header, the empty-arrangement prompt, Record with nothing armed, or a
+  library drag. The shortcuts sheet is under the Audio menu and on the ? key.
+
 - **One shared dropdown and context-menu surface** (filled-chip triggers, `showBoojyMenu`).
 - **Device editors share one shell** (header glyph, name, power dot, collapse; visualiser; 2–3
   hero params; fixed MIX knob). The old effect-parameter panel is deleted. Editor height adapts

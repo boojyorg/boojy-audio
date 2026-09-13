@@ -88,17 +88,16 @@ class UILayoutState extends ChangeNotifier {
   bool _isVirtualPianoVisible = false;
   bool _isVirtualPianoEnabled = false;
 
-  // Arrangement snap setting (independent from Piano Roll snap)
-  SnapValue _arrangementSnap = SnapValue.bar;
+  // Arrangement snap (independent from Piano Roll snap). On/off and the grid
+  // resolution are stored separately so turning snap off never forgets the
+  // grid: the toolbar keeps showing the remembered value while off.
+  bool _arrangementSnapEnabled = true;
+  SnapValue _arrangementSnapResolution = SnapValue.bar;
 
   // Loop playback state (controls if arrangement playback loops)
   bool _loopPlaybackEnabled = true; // Loop ON by default
   double _loopStartBeats = 0.0;
   double _loopEndBeats = 4.0; // Default 1 bar (4 beats)
-
-  // Punch in/out recording — reuses loop region boundaries
-  bool _punchInEnabled = false;
-  bool _punchOutEnabled = false;
 
   // Auto-follow: loop region automatically tracks longest clip
   // Set to false when user manually adjusts loop region
@@ -440,14 +439,34 @@ class UILayoutState extends ChangeNotifier {
   // ARRANGEMENT SNAP
   // ============================================
 
-  SnapValue get arrangementSnap => _arrangementSnap;
-  set arrangementSnap(SnapValue value) {
-    _arrangementSnap = value;
+  /// Effective snap for arrangement edits: the remembered resolution while
+  /// enabled, [SnapValue.off] while disabled. Consumers keep reading this one
+  /// value; the two-part state below is the toolbar's concern.
+  SnapValue get arrangementSnap =>
+      _arrangementSnapEnabled ? _arrangementSnapResolution : SnapValue.off;
+
+  bool get arrangementSnapEnabled => _arrangementSnapEnabled;
+
+  /// The grid the arrangement snaps to when enabled — never [SnapValue.off].
+  SnapValue get arrangementSnapResolution => _arrangementSnapResolution;
+
+  void toggleArrangementSnap() {
+    _arrangementSnapEnabled = !_arrangementSnapEnabled;
     notifyListeners();
   }
 
+  /// Pick a grid resolution; also turns snap on, since choosing a grid you
+  /// can't feel is never what the click meant. [SnapValue.off] is accepted
+  /// for callers that still speak the old single-value form and maps to
+  /// "disabled, resolution unchanged".
   void setArrangementSnap(SnapValue value) {
-    arrangementSnap = value;
+    if (value == SnapValue.off) {
+      _arrangementSnapEnabled = false;
+    } else {
+      _arrangementSnapResolution = value;
+      _arrangementSnapEnabled = true;
+    }
+    notifyListeners();
   }
 
   // ============================================
@@ -506,30 +525,6 @@ class UILayoutState extends ChangeNotifier {
 
   /// Get loop duration in beats
   double get loopDurationBeats => _loopEndBeats - _loopStartBeats;
-
-  // ── Punch In/Out ──────────────────────────────────────────────
-
-  bool get punchInEnabled => _punchInEnabled;
-  set punchInEnabled(bool value) {
-    _punchInEnabled = value;
-    notifyListeners();
-  }
-
-  bool get punchOutEnabled => _punchOutEnabled;
-  set punchOutEnabled(bool value) {
-    _punchOutEnabled = value;
-    notifyListeners();
-  }
-
-  void togglePunchIn() {
-    _punchInEnabled = !_punchInEnabled;
-    notifyListeners();
-  }
-
-  void togglePunchOut() {
-    _punchOutEnabled = !_punchOutEnabled;
-    notifyListeners();
-  }
 
   /// Reset all panel sizes and visibility to defaults
   void resetLayout() {

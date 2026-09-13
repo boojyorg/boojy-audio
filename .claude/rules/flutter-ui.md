@@ -31,8 +31,9 @@ The load-bearing rules:
   `NSToolbar` style gives "centred + compact": `.expanded` centres the title but adds an empty,
   taller toolbar row; `.unifiedCompact` is compact but left-aligned. So we hide the native title via
   `window_manager` `TitleBarStyle.hidden` (keeping the traffic lights) and let the transport bar run
-  edge-to-edge. A centred Flutter-drawn title exists but is **off by default** because it collides
-  with the transport controls in single-row layouts. Don't re-enable the native title bar.
+  edge-to-edge: the bar insets its left rail past the lights (`_kTrafficLightInset`) and collapses
+  that inset in full screen via `WindowListener`. The separate 28px title strip that once hosted
+  the lights was removed in v0.7. Don't re-enable the native title bar or re-add the strip.
 - **Reorderable lists use `onReorderItem`**, not the deprecated `onReorder`. `onReorderItem` already
   adjusts `newIndex` for the removed item, so do **not** add a manual `if (newIndex > oldIndex)
   newIndex--`.
@@ -81,13 +82,16 @@ CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
   animation starts). The ruler drag ratio is `rulerDragZoomFactor(dy)`: exponential, down = in.
   The ruler (`UnifiedNavBar`) is a content-width child INSIDE its scroll view, so its local x is
   content space: never add the scroll offset to it.
-- **Transport bar centre never scales.** No `FittedBox` around the modifier or readout wells:
-  the flank slots are `OverflowBox`es and the density ladder in `transport_bar.dart` is a table
-  of *measured* centre widths (`2 × wider well + transport + gaps + padding`, because the equal
-  flank slots that pin the transport to the window midpoint make the wider well the binding
-  one). Below the minimum tier's width the rails yield, not the centre. If you change a centre
-  button's width, `test/widgets/transport_bar_density_test.dart` fails at some window width;
-  re-measure the table, don't loosen the test or re-add a scale-down.
+- **Transport bar centre never scales; the window decides the layout.** `_SingleRowLayout` in
+  `transport_bar.dart` allocates from the window width alone: the project name gets a budget
+  (56–220px) that depends on width, never on the name, so renaming moves nothing; the transport
+  sits on the window midpoint where that leaves the name its minimum and otherwise slides right
+  by exactly the shortfall (continuous during a resize, nothing hidden or relocated); density
+  tiers shed by the side-by-side sum of the three wells (`_kWellWidths`, measured with the app's
+  real typefaces via `test/helpers/load_app_fonts.dart` + `ThemeData(fontFamily: 'Inter')`). The
+  flank slots are `OverflowBox`es, never `FittedBox`es. If you change a centre button's width,
+  `test/widgets/transport_bar_density_test.dart` fails at some window width; re-measure the well
+  table, don't loosen the test or re-add a scale-down.
 - **Track icons are BI icons keyed by string** (`utils/track_icons.dart`): `customIcon` persists
   a key like `'mic'`; legacy emoji strings from old projects map through the legacy-emoji table.
   Don't reintroduce emoji glyphs in track chrome.

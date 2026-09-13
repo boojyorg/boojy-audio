@@ -12,22 +12,19 @@ import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../state/ui_layout_state.dart';
-import '../utils/track_colors.dart';
-import 'shared/add_track_button.dart';
-import 'shared/boojy_wordmark.dart';
 import 'shared/boojy_tooltip.dart';
 import 'shared/button_hover_mixin.dart';
 import 'shared/circular_toggle_button.dart';
 import 'shared/boojy_dropdown.dart';
-import 'shared/pill_toggle_button.dart';
-import 'transport_bar/signature_dropdown.dart';
-import 'transport_bar/tempo_controls.dart';
-import 'transport_bar/snap_split_button.dart';
-import 'transport_bar/metronome_split_button.dart';
+import 'transport_bar/app_menu_button.dart';
+import 'transport_bar/count_in_toggle_button.dart';
 import 'transport_bar/file_menu_button.dart';
-
-import 'transport_bar/loop_split_button.dart';
+import 'transport_bar/loop_toggle_button.dart';
+import 'transport_bar/metronome_toggle_button.dart';
 import 'transport_bar/position_display.dart';
+import 'transport_bar/signature_dropdown.dart';
+import 'transport_bar/snap_split_button.dart';
+import 'transport_bar/tempo_controls.dart';
 import 'transport_bar/record_controls.dart';
 import 'transport_bar/transport_bar_models.dart';
 
@@ -127,6 +124,16 @@ extension TransportDensityValues on TransportDensity {
     }
   }
 
+  /// Whether the Count-in chip shows its word. It is the one labelled chip in
+  /// the modifiers well, and it stays labelled through every tier but the
+  /// last — at [TransportDensity.minimum] it drops to a "1" glyph so the rails
+  /// keep room for the traffic lights and undo/redo at the 960px window.
+  bool get showCountInLabel => this != TransportDensity.minimum;
+
+  /// Whether the Snap value zone gives up its fixed "1/16T"-wide slot and
+  /// hugs the current value. Only at [TransportDensity.minimum].
+  bool get compactSnapValue => this == TransportDensity.minimum;
+
   /// Compact the LCD readouts ("120 BPM" → "120", Tap → narrow). One stage
   /// later than [showLabels], so the tool names shed first.
   bool get compactReadouts {
@@ -143,49 +150,139 @@ extension TransportDensityValues on TransportDensity {
   }
 }
 
-/// Fixed width of the left and right chrome rails in the single-row bar. Both
-/// sides are pinned to the SAME width on purpose: with equal rails flanking an
-/// Expanded centre, the transport cluster lands on the true window midpoint
-/// regardless of the sidebar/mixer panel widths below — and the left chrome
-/// (▲udio wordmark + undo/redo + library toggle) never reflows when the Library
-/// is collapsed. Wide enough to hold the full left group without clipping the
-/// wordmark; the right group (mixer toggle + help) right-aligns within it.
-const double _kRailWidth = 320.0;
+/// Left inset that clears the macOS traffic lights when the bar is the top
+/// chrome (native title bar hidden). MainFlutterWindow nudges the lights 5pt
+/// right, so they span x≈12–64; the wordmark starts 17pt past them (Tyr-tuned
+/// by eye). In full screen macOS hides the lights and the inset collapses to
+/// the plain rail padding, so the whole left group shifts left together.
+const double _kTrafficLightInset = 81.0;
+const double _kRailPadding = 16.0;
 
-/// Centre width each tier needs before the bar may use it. Measured from the
-/// rendered wells with Capture MIDI wired (`transport_bar_density_test.dart`
-/// pins the numbers: if a button changes width, that test fails and the row
-/// here is re-measured).
-///
-/// The single-row centre pins the transport to the window midpoint by giving
-/// the modifier and readout wells equal flank slots, so the width a tier needs
-/// is `2 × the wider well + transport well + 2 × clusterGap + the group's 16px
-/// padding`, not the sum of the three wells. The old ladder compared against
-/// the sum (~724px), so between ~1360px and ~1500px windows the labelled
-/// modifiers well was starved by its slot and its buttons shrank.
-const Map<TransportDensity, double> _kRequiredCentreWidth = {
-  // 2×354 + 112 + 32 + 16
-  TransportDensity.comfortable: 872,
-  // 2×223 + 110 + 20 + 16
-  TransportDensity.compact: 596,
-  // 2×217 + 108 + 12 + 16
-  TransportDensity.tight: 582,
-  // 2×217 + 108 + 8 + 16
-  TransportDensity.iconsOnly: 578,
-  // 2×215 + 102 + 6 + 16
-  TransportDensity.compressed: 558,
-  // 2×176 + 98 + 4 + 16 — the floor; below this the wells overflow rather
-  // than shrink (glyphs never go below the outer buttons' size).
-  TransportDensity.minimum: 470,
+/// Width of everything in the left rail except the inset and the project
+/// name's text: wordmark (80) · gap (10) · name pill padding (12) · gap (6) ·
+/// undo (26) · gap (2) · redo (26) · gap (6) · Library toggle (26), rounded up;
+/// `transport_bar_density_test.dart` pins it. The compact wordmark (narrow
+/// windows) is 15px narrower.
+const double _kLeftRailFixed = 195.0;
+const double _kCompactWordmarkSaving = 15.0;
+
+/// Width of the right rail: padding · Mixer toggle · padding.
+const double _kRightRailWidth = _kRailPadding + 26.0 + _kRailPadding;
+
+/// Project-name text budget. It depends on the window width only — never on
+/// the current name — so renaming a project can't move a control or change
+/// which labels show. [_kNameMinWidth] is "Untitled" in Inter 14 medium with
+/// a few px to spare; it grows with the window up to [_kNameMaxWidth]; longer
+/// names truncate (full name on hover).
+const double _kNameMinWidth = 56.0;
+const double _kNameMaxWidth = 220.0;
+
+/// Measured widths of the three centre wells at each density tier, with the
+/// app's real typefaces and Capture wired (`transport_bar_density_test.dart`
+/// re-measures these when a button changes width). Each well includes its
+/// own 8px cluster padding.
+class _WellWidths {
+  const _WellWidths(this.modifiers, this.transport, this.readouts);
+  final double modifiers;
+  final double transport;
+  final double readouts;
+}
+
+const Map<TransportDensity, _WellWidths> _kWellWidths = {
+  TransportDensity.comfortable: _WellWidths(221, 146, 219),
+  TransportDensity.compact: _WellWidths(218, 143, 175),
+  TransportDensity.tight: _WellWidths(215, 140, 169),
+  TransportDensity.iconsOnly: _WellWidths(215, 140, 169),
+  TransportDensity.compressed: _WellWidths(212, 125, 167),
+  TransportDensity.minimum: _WellWidths(161, 113, 72),
 };
 
-/// Compute density from available width: the first (most generous) tier whose
-/// required width fits, else [TransportDensity.minimum].
+/// Centre width a tier needs when its three wells simply sit side by side:
+/// wells + two cluster gaps + the centre group's 16px padding.
+double _centreSumWidth(TransportDensity t) {
+  final w = _kWellWidths[t]!;
+  return w.modifiers + w.transport + w.readouts + 2 * t.clusterGap + 2 * BT.sm;
+}
+
+/// Most comfortable tier whose wells fit side by side in [availableWidth],
+/// else [TransportDensity.minimum] (the wells then overflow rather than
+/// shrink; the centre's ClipRect trims them).
 TransportDensity _computeDensity(double availableWidth) {
   for (final density in TransportDensity.values) {
-    if (availableWidth >= _kRequiredCentreWidth[density]!) return density;
+    if (availableWidth >= _centreSumWidth(density)) return density;
   }
   return TransportDensity.minimum;
+}
+
+/// The single-row bar's width allocation for one window width.
+///
+/// Priorities, in order: every control visible at its full size; the project
+/// name gets at least [_kNameMinWidth]; the transport sits on the window
+/// midpoint. When the last two conflict (narrow windows), the transport gives
+/// way: it slides right by exactly the shortfall, so a live resize is
+/// continuous and nothing is hidden, shrunk or relocated. Below that, the
+/// centre sheds density tiers by the side-by-side sum ([_computeDensity]).
+class _SingleRowLayout {
+  _SingleRowLayout({
+    required double windowWidth,
+    required double leftInset,
+    required bool compactWordmark,
+  }) : compactWordmark = compactWordmark {
+    final leftFixed =
+        leftInset +
+        _kLeftRailFixed -
+        (compactWordmark ? _kCompactWordmarkSaving : 0);
+    const c = TransportDensity.comfortable;
+    final comfortable = _kWellWidths[c]!;
+    // What the left half must hold besides the name when the transport is
+    // centred at the comfortable tier: rail, modifiers well, its cluster
+    // gap, half the centre padding, half the transport well.
+    final leftHalfFixed =
+        leftFixed +
+        comfortable.modifiers +
+        c.clusterGap +
+        BT.sm +
+        comfortable.transport / 2;
+    nameWidth = (windowWidth / 2 - leftHalfFixed).clamp(
+      _kNameMinWidth,
+      _kNameMaxWidth,
+    );
+    leftRailWidth = leftFixed + nameWidth;
+    rightRailWidth = _kRightRailWidth;
+    centreWidth = windowWidth - leftRailWidth - rightRailWidth;
+    density = _computeDensity(centreWidth);
+
+    final wells = _kWellWidths[density]!;
+    final modsNeed = wells.modifiers + density.clusterGap + BT.sm;
+    final readoutsNeed = wells.readouts + density.clusterGap + BT.sm;
+    // Slot that puts the transport on the window midpoint…
+    final centredLeftSlot =
+        windowWidth / 2 - leftRailWidth - wells.transport / 2;
+    // …unless the modifiers can't fit in it: then the transport slides right
+    // by the shortfall (never left — the readouts always have room).
+    var leftSlot = math.max(centredLeftSlot, modsNeed);
+    // Never push the readouts out of the centre either.
+    leftSlot = math.min(
+      leftSlot,
+      math.max(modsNeed, centreWidth - wells.transport - readoutsNeed),
+    );
+    leftSlotWidth = leftSlot - BT.sm;
+    rightSlotWidth = math.max(
+      0,
+      centreWidth - 2 * BT.sm - leftSlotWidth - wells.transport,
+    );
+  }
+
+  final bool compactWordmark;
+  late final double nameWidth;
+  late final double leftRailWidth;
+  late final double rightRailWidth;
+  late final double centreWidth;
+  late final TransportDensity density;
+
+  /// Flank slot widths inside the centre group's padding.
+  late final double leftSlotWidth;
+  late final double rightSlotWidth;
 }
 
 /// Transport control bar for play/pause/stop/record controls
@@ -209,8 +306,10 @@ class TransportBar extends StatefulWidget {
   final Function(double)? onTempoChanged;
   final VoidCallback? onTempoDragStart;
   final VoidCallback? onTempoDragEnd;
-  final Function(int)? onCountInChanged;
-  final int countInBars;
+
+  /// Count-in: Off or one bar. The labelled toggle beside Metronome.
+  final bool countInEnabled;
+  final VoidCallback? onCountInToggle;
 
   // Count-in ring timer data
   final int countInBeat;
@@ -219,11 +318,6 @@ class TransportBar extends StatefulWidget {
   // Project name
   final String projectName;
   final bool hasProject;
-
-  /// True when a separate macOS title strip is drawn above the bar (it hosts the
-  /// traffic lights), so the bar no longer needs to inset its left group to
-  /// clear them — the wordmark can sit at the true left edge.
-  final bool hasTitleStrip;
 
   // Panel visibility state
   final bool libraryVisible;
@@ -238,16 +332,15 @@ class TransportBar extends StatefulWidget {
   final String? undoDescription;
   final String? redoDescription;
 
-  // Snap control
-  final SnapValue arrangementSnap;
-  final Function(SnapValue)? onSnapChanged;
+  // Snap control: on/off and the grid are separate, so the value stays visible
+  // (dimmed) while snap is off.
+  final bool snapEnabled;
+  final SnapValue snapResolution;
+  final VoidCallback? onSnapToggle;
+  final ValueChanged<SnapValue>? onSnapResolutionChanged;
 
   // Loop playback
   final bool loopPlaybackEnabled;
-
-  // Punch in/out
-  final bool punchInEnabled;
-  final bool punchOutEnabled;
 
   // Time signature
   final int beatsPerBar;
@@ -260,7 +353,7 @@ class TransportBar extends StatefulWidget {
 
   final bool isLoading;
 
-  // Engine status. [engineFailed] turns the ▲ wordmark red as a quiet
+  // Engine status. [engineFailed] puts a red dot on the Audio menu as a quiet
   // "engine didn't start" cue.
   final bool engineFailed;
 
@@ -285,12 +378,11 @@ class TransportBar extends StatefulWidget {
     this.onTempoChanged,
     this.onTempoDragStart,
     this.onTempoDragEnd,
-    this.onCountInChanged,
-    this.countInBars = 1,
+    this.countInEnabled = true,
+    this.onCountInToggle,
     this.countInBeat = 0,
     this.countInProgress = 0.0,
     this.projectName = 'Untitled',
-    this.hasTitleStrip = false,
     this.hasProject = false,
     this.libraryVisible = true,
     this.mixerVisible = true,
@@ -301,11 +393,11 @@ class TransportBar extends StatefulWidget {
     this.hasArmedTracks = true,
     this.undoDescription,
     this.redoDescription,
-    this.arrangementSnap = SnapValue.bar,
-    this.onSnapChanged,
+    this.snapEnabled = true,
+    this.snapResolution = SnapValue.bar,
+    this.onSnapToggle,
+    this.onSnapResolutionChanged,
     this.loopPlaybackEnabled = false,
-    this.punchInEnabled = false,
-    this.punchOutEnabled = false,
     this.beatsPerBar = 4,
     this.onTimeSignatureChanged,
     this.onTimeSignatureDragStart,
@@ -319,8 +411,11 @@ class TransportBar extends StatefulWidget {
   State<TransportBar> createState() => _TransportBarState();
 }
 
-class _TransportBarState extends State<TransportBar> {
-  bool _logoHovered = false;
+class _TransportBarState extends State<TransportBar> with WindowListener {
+  /// macOS full screen hides the traffic lights, so the left inset that clears
+  /// them collapses. Tracked here (not in the screen) because only the bar
+  /// cares; false everywhere the bar isn't the top chrome.
+  bool _isFullScreen = false;
   bool _sidebarHandleHovered = false;
   bool _sidebarHandleDragging = false;
   bool _mixerHandleHovered = false;
@@ -381,6 +476,30 @@ class _TransportBarState extends State<TransportBar> {
     super.initState();
     widget.dividers.leftDividerNotifier?.addListener(_onLeftNotifierChanged);
     widget.dividers.rightDividerNotifier?.addListener(_onRightNotifierChanged);
+    if (_replacesTitleBar) {
+      windowManager.addListener(this);
+      // Catch a window that is already full screen (relaunch into the saved
+      // state). The plugin call is unavailable under `flutter test`; the
+      // inset simply stays in place there.
+      windowManager
+          .isFullScreen()
+          .then((full) {
+            if (mounted && full != _isFullScreen) {
+              setState(() => _isFullScreen = full);
+            }
+          })
+          .catchError((Object _) {});
+    }
+  }
+
+  @override
+  void onWindowEnterFullScreen() {
+    if (mounted) setState(() => _isFullScreen = true);
+  }
+
+  @override
+  void onWindowLeaveFullScreen() {
+    if (mounted) setState(() => _isFullScreen = false);
   }
 
   @override
@@ -406,6 +525,7 @@ class _TransportBarState extends State<TransportBar> {
 
   @override
   void dispose() {
+    if (_replacesTitleBar) windowManager.removeListener(this);
     widget.dividers.leftDividerNotifier?.removeListener(_onLeftNotifierChanged);
     widget.dividers.rightDividerNotifier?.removeListener(
       _onRightNotifierChanged,
@@ -418,15 +538,17 @@ class _TransportBarState extends State<TransportBar> {
   /// a drag region for moving the window.
   bool get _replacesTitleBar => defaultTargetPlatform == TargetPlatform.macOS;
 
+  /// Left padding of the left rail: clears the traffic lights on macOS while
+  /// windowed, plain rail padding otherwise (Windows, or macOS full screen).
+  double get _trafficLightInset =>
+      _replacesTitleBar && !_isFullScreen ? _kTrafficLightInset : _kRailPadding;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    // Extra floor on macOS so the left group is wide enough to fully clear the
-    // traffic lights (78px) even when the sidebar is collapsed. When a title
-    // strip hosts the lights above the bar, that clearance is unnecessary.
-    final needsTrafficLightClearance =
-        _replacesTitleBar && !widget.hasTitleStrip;
-    final leftMinWidth = needsTrafficLightClearance ? 214.0 : 200.0;
+    // Extra floor on macOS so the two-row variant's left group is wide enough
+    // to fully clear the traffic lights even when the sidebar is collapsed.
+    final leftMinWidth = _trafficLightInset > _kRailPadding ? 214.0 : 200.0;
 
     // C splits the bar into two rows; A/B/D keep the single-row layout.
     final body = widget.topBarVariant == TopBarVariant.twoRow
@@ -459,38 +581,34 @@ class _TransportBarState extends State<TransportBar> {
     );
   }
 
-  /// A/B/D — the standard single-row bar: fixed left rail · centre clusters ·
-  /// fixed right rail. The two rails are pinned to the same [_kRailWidth] so the
-  /// transport cluster sits on the true window midpoint and the left chrome
-  /// never reflows when the Library panel is collapsed. Panel resizing lives on
-  /// the `ResizableDivider`s in the panels below, so the bar no longer carries
-  /// its own resize handles (the two-row variant C still does).
+  /// A/B/D — the standard single-row bar: left rail · centre · right rail,
+  /// allocated by [_SingleRowLayout] from the window width alone.
   Widget _buildSingleRowBody(BoojyColors colors) {
-    // The rails yield before the centre does: each rail is at most half of
-    // what is left once the centre has the width its most-shed tier needs, so
-    // the cluster never has to shrink or clip to fit between them. Above
-    // ~1110px that is the full [_kRailWidth]; at the 960px minimum window the
-    // rails are ~245px, which sheds the Add-track labels and truncates the
-    // project name (the rails shed labels, the centre keeps its glyph size).
-    // Equal rails keep the transport on the window midpoint throughout, and
-    // the centre Expanded never gets a negative constraint. (B-TB1)
     return LayoutBuilder(
       builder: (context, constraints) {
-        final centreFloor = _kRequiredCentreWidth[TransportDensity.minimum]!;
-        final railWidth = ((constraints.maxWidth - centreFloor) / 2).clamp(
-          0.0,
-          _kRailWidth,
+        final w = constraints.maxWidth;
+        final layout = _SingleRowLayout(
+          windowWidth: w,
+          leftInset: _trafficLightInset,
+          // Narrow windows: the wordmark steps down a size to give the
+          // transport back some of its drift.
+          compactWordmark: w < 1100,
         );
         return Row(
           children: [
-            // === LEFT RAIL (clamped width) ===
-            SizedBox(width: railWidth, child: _buildLeftGroup(colors)),
-
-            // === CENTRE GROUP (expanded → window-centred) ===
-            Expanded(child: _buildCentreGroup(colors)),
-
-            // === RIGHT RAIL (clamped width, content right-aligned) ===
-            SizedBox(width: railWidth, child: _buildRightGroup(colors)),
+            SizedBox(
+              width: layout.leftRailWidth,
+              child: _buildLeftGroup(
+                colors,
+                nameWidth: layout.nameWidth,
+                compactWordmark: layout.compactWordmark,
+              ),
+            ),
+            Expanded(child: _buildCentreGroup(colors, layout)),
+            SizedBox(
+              width: layout.rightRailWidth,
+              child: _buildRightGroup(colors),
+            ),
           ],
         );
       },
@@ -510,7 +628,11 @@ class _TransportBarState extends State<TransportBar> {
             children: [
               SizedBox(
                 width: math.max(widget.dividers.sidebarWidth, leftMinWidth),
-                child: _buildLeftGroup(colors),
+                child: _buildLeftGroup(
+                  colors,
+                  nameWidth: _kNameMaxWidth,
+                  compactWordmark: false,
+                ),
               ),
               _buildSidebarHandle(colors),
               Expanded(child: Center(child: _buildCentredTitle(colors))),
@@ -639,24 +761,37 @@ class _TransportBarState extends State<TransportBar> {
   // LEFT GROUP
   // ============================================
 
-  Widget _buildLeftGroup(BoojyColors colors) {
-    // Fixed rail (see [_kRailWidth]): the wordmark + undo/redo + toggle sit at a
-    // stable position and never reflow when the Library is collapsed. The
-    // project name is the only flexible item — it truncates with an ellipsis.
+  Widget _buildLeftGroup(
+    BoojyColors colors, {
+    required double nameWidth,
+    required bool compactWordmark,
+  }) {
+    // The wordmark menu + undo/redo + Library toggle keep their spacing at
+    // every width; only the project name's slot changes, and only with the
+    // window ([_SingleRowLayout.nameWidth]).
     return Padding(
-      padding: const EdgeInsets.only(left: 16, right: 0),
+      padding: EdgeInsets.only(left: _trafficLightInset),
       child: Row(
         children: [
-          _buildLogo(colors),
+          AppMenuButton(
+            engineFailed: widget.engineFailed,
+            compact: compactWordmark,
+            onSettings: widget.fileMenu.onAppSettings,
+            onKeyboardShortcuts: widget.fileMenu.onKeyboardShortcuts,
+            onStartScreen: widget.fileMenu.onStartScreen,
+          ),
 
-          const SizedBox(width: 12),
+          // Breathing room between the brand mark and the project name
+          // (Tyr-tuned by eye, 2026-09-13).
+          const SizedBox(width: 10),
 
-          // Project name — only flexible item, truncates with ellipsis
-          Flexible(
+          // Project name — fixed slot from the window width; long names
+          // truncate with an ellipsis and show in full on hover.
+          SizedBox(
+            width: nameWidth + 12,
             child: FileMenuButton(
               projectName: widget.projectName,
               hasProject: widget.hasProject,
-              mode: ButtonDisplayMode.wide,
               onNewProject: widget.fileMenu.onNewProject,
               onOpenProject: widget.fileMenu.onOpenProject,
               onSaveProject: widget.fileMenu.onSaveProject,
@@ -669,7 +804,7 @@ class _TransportBarState extends State<TransportBar> {
             ),
           ),
 
-          const SizedBox(width: 12),
+          const SizedBox(width: 6),
 
           // Undo button
           _SvgIconButton(
@@ -681,7 +816,7 @@ class _TransportBarState extends State<TransportBar> {
                 : 'Undo (⌘Z)',
           ),
 
-          const SizedBox(width: 4),
+          const SizedBox(width: 2),
 
           // Redo button
           _SvgIconButton(
@@ -693,11 +828,11 @@ class _TransportBarState extends State<TransportBar> {
                 : 'Redo (⇧⌘Z)',
           ),
 
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
 
-          // Sidebar toggle [|]
+          // Library panel toggle — sits above the panel it controls
           _PanelToggleButton(
-            assetPath: 'assets/icons/sidebar_toggle.svg',
+            assetPath: 'assets/icons/library.svg',
             isActive: widget.libraryVisible,
             onTap: widget.panels.onToggleLibrary,
             tooltip: widget.libraryVisible ? 'Hide Library' : 'Show Library',
@@ -707,134 +842,58 @@ class _TransportBarState extends State<TransportBar> {
     );
   }
 
-  Widget _buildLogo(BoojyColors colors) {
-    // Nudge the whole wordmark up ~2px so its optical centre lines up with the
-    // smaller siblings (project name, undo/redo) in the centre-aligned row.
-    //
-    // The ENTIRE wordmark (▲ + "udio") is the home button — it opens the
-    // Start screen (Settings lives on the gear; a logo that opened Settings
-    // confounded users, v0.6 dogfood A9). A ~20px triangle alone was too
-    // small a target (user testing). The triangle's hover-scale is the
-    // affordance, and it still doubles as the engine-health light
-    // (red ⇒ engine didn't start).
-    return Transform.translate(
-      offset: const Offset(0, -2),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) {
-          if (!_logoHovered) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) setState(() => _logoHovered = true);
-            });
-          }
-        },
-        onExit: (_) {
-          if (_logoHovered) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) setState(() => _logoHovered = false);
-            });
-          }
-        },
-        child: Tooltip(
-          message: widget.engineFailed
-              ? "Audio engine didn't start — check Settings (gear)"
-              : 'Start screen',
-          child: GestureDetector(
-            onTap: () => widget.fileMenu.onStartScreen?.call(),
-            behavior: HitTestBehavior.opaque,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              // Bottom-align: the raster's bottom edge IS the letter
-              // baseline, matching the triangle's base (per the brand
-              // lockup; same maths as BoojyWordmark).
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                AnimatedScale(
-                  scale: _logoHovered ? AnimationConstants.hoverScale : 1.0,
-                  duration: AnimationConstants.hoverDuration,
-                  curve: Curves.easeInOut,
-                  child: CustomPaint(
-                    // Equilateral: height = base * √3/2. ~10% larger than the
-                    // first cut so it reads at the wordmark's weight.
-                    size: const Size(22, 19.05),
-                    painter: BoojyTrianglePainter(
-                      widget.engineFailed ? colors.error : colors.accent,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 1.5),
-                // Brand "udio" raster (theme-picked black/white) — height
-                // scaled to the 19.05px triangle at the lockup's 239:266
-                // triangle:art ratio. The fixed left rail gives it a stable
-                // home, so it renders at full size and never clips.
-                Image.asset(
-                  boojyTextAsset(context, 'udio'),
-                  height: 19.05 * (266 / 239),
-                  filterQuality: FilterQuality.medium,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   // ============================================
   // CENTRE GROUP
   // ============================================
 
-  Widget _buildCentreGroup(BoojyColors colors) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final density = _computeDensity(constraints.maxWidth);
-        // The hard clip is the last line of defence: even if a well outgrows
-        // its slot for a frame, nothing may paint over the arrangement below.
-        return ClipRect(
-          clipBehavior: Clip.hardEdge,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: BT.sm),
-            child: Row(
-              // Transport (play/stop/record) is pinned to the centre of the
-              // bar; the modifier and readout wells flank it, hugging inward
-              // via the flexible side slots. When the bar narrows the Expanded
-              // slots collapse to zero and this degrades to the old
-              // grouped-centre layout, so the density ladder still prevents
-              // overflow.
-              //
-              // The flank slots are OverflowBoxes, not FittedBoxes: a well
-              // that outgrows its slot keeps its size and runs past the slot
-              // edge (the ClipRect above trims it) instead of scaling down.
-              // The old scaleDown guard shrank loop/snap/metronome to 55% at
-              // the 960px minimum window while the rails stayed full size.
-              children: [
-                Expanded(
-                  child: OverflowBox(
-                    alignment: Alignment.centerRight,
-                    minWidth: 0,
-                    maxWidth: double.infinity,
-                    child: _buildModifiersWell(colors, density),
-                  ),
+  Widget _buildCentreGroup(BoojyColors colors, _SingleRowLayout layout) {
+    final density = layout.density;
+    // The hard clip is the last line of defence: even if a well outgrows
+    // its slot for a frame, nothing may paint over the arrangement below.
+    return ClipRect(
+      clipBehavior: Clip.hardEdge,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: BT.sm),
+        child: Row(
+          // The flank slots are sized by [_SingleRowLayout]: equal around the
+          // window midpoint where the name has its minimum, otherwise the
+          // left slot is exactly the modifiers well and the transport sits
+          // right of centre by the shortfall.
+          //
+          // The slots are OverflowBoxes, not FittedBoxes: a well that
+          // outgrows its slot keeps its size and runs past the slot edge (the
+          // ClipRect above trims it) instead of scaling down.
+          children: [
+            SizedBox(
+              width: layout.leftSlotWidth,
+              child: OverflowBox(
+                alignment: Alignment.centerRight,
+                minWidth: 0,
+                maxWidth: double.infinity,
+                child: Padding(
+                  padding: EdgeInsets.only(right: density.clusterGap),
+                  child: _buildModifiersWell(colors, density),
                 ),
-                SizedBox(width: density.clusterGap),
-                _buildTransportWell(colors, density),
-                SizedBox(width: density.clusterGap),
-                // Well 3: Readouts — layout chosen by the UI Labs variant.
-                // Fixed size; the density ladder sheds labels (tools → icons,
-                // "BPM"/"Tap") before the bar would overflow.
-                Expanded(
-                  child: OverflowBox(
-                    alignment: Alignment.centerLeft,
-                    minWidth: 0,
-                    maxWidth: double.infinity,
-                    child: _buildReadoutWell(colors, density),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        );
-      },
+            _buildTransportWell(colors, density),
+            // Well 3: Readouts — layout chosen by the UI Labs variant. Fixed
+            // size; the density ladder sheds labels ("BPM"/"Tap") before the
+            // bar would overflow.
+            Expanded(
+              child: OverflowBox(
+                alignment: Alignment.centerLeft,
+                minWidth: 0,
+                maxWidth: double.infinity,
+                child: Padding(
+                  padding: EdgeInsets.only(left: density.clusterGap),
+                  child: _buildReadoutWell(colors, density),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -862,10 +921,10 @@ class _TransportBarState extends State<TransportBar> {
     );
   }
 
-  /// Modifier cluster (loop · snap · metronome). Extracted so both the
-  /// single-row centre group and C's row 2 can compose it in either order.
+  /// Modifier cluster: Snap · Loop · Metronome · Count-in, the familiar
+  /// left-of-transport order. Extracted so both the single-row centre group
+  /// and C's row 2 can compose it in either order.
   Widget _buildModifiersWell(BoojyColors colors, TransportDensity density) {
-    final showLabels = density.showLabels;
     final wGap = density.withinGap;
     return _ClusterWell(
       // Fixed size on purpose: never a FittedBox here. The single-row centre
@@ -874,43 +933,35 @@ class _TransportBarState extends State<TransportBar> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          LoopSplitButton(
-            loopEnabled: widget.loopPlaybackEnabled,
-            punchInEnabled: widget.punchInEnabled,
-            punchOutEnabled: widget.punchOutEnabled,
-            showLabel: showLabels,
-            onLoopToggle: widget.transport.onLoopPlaybackToggle,
-            onPunchInToggle: widget.transport.onPunchInToggle,
-            onPunchOutToggle: widget.transport.onPunchOutToggle,
-          ),
-          SizedBox(width: wGap),
           SnapSplitButton(
-            value: widget.arrangementSnap,
-            onChanged: widget.onSnapChanged,
-            mode: ButtonDisplayMode.wide,
-            isIconOnly: !showLabels,
+            isEnabled: widget.snapEnabled,
+            resolution: widget.snapResolution,
+            onToggle: widget.onSnapToggle,
+            onResolutionChanged: widget.onSnapResolutionChanged,
+            compactValue: density.compactSnapValue,
           ),
           SizedBox(width: wGap),
-          MetronomeSplitButton(
-            isActive: widget.metronomeEnabled,
-            countInBars: widget.countInBars,
-            showLabel: showLabels,
-            onToggle: widget.transport.onMetronomeToggle,
-            onCountInChanged: widget.onCountInChanged,
+          LoopToggleButton(
+            isActive: widget.loopPlaybackEnabled,
+            onToggle: widget.transport.onLoopPlaybackToggle,
           ),
-          // Capture MIDI — momentary bordered button; lives next to the metronome
-          // because it's a utility modifier, not a primary transport control.
-          // Shown only when the backend callback is wired (v0.7+).
-          if (widget.transport.onCaptureMidi != null) ...[
-            SizedBox(width: wGap),
-            _CaptureButton(onCaptureMidi: widget.transport.onCaptureMidi),
-          ],
+          SizedBox(width: wGap),
+          MetronomeToggleButton(
+            isActive: widget.metronomeEnabled,
+            onToggle: widget.transport.onMetronomeToggle,
+          ),
+          SizedBox(width: wGap),
+          CountInToggleButton(
+            isActive: widget.countInEnabled,
+            onToggle: widget.onCountInToggle,
+            showLabel: density.showCountInLabel,
+          ),
         ],
       ),
     );
   }
 
-  /// Transport cluster (play/pause · stop · record). Extracted alongside
+  /// Transport cluster (play/pause · stop · record · capture). Extracted alongside
   /// [_buildModifiersWell] so C's row 2 can reorder the clusters.
   Widget _buildTransportWell(BoojyColors colors, TransportDensity density) {
     final wGap = density.withinGap;
@@ -970,7 +1021,6 @@ class _TransportBarState extends State<TransportBar> {
             key: _recordKey,
             isRecording: widget.isRecording,
             isCountingIn: widget.isCountingIn,
-            countInBars: widget.countInBars,
             countInBeat: widget.countInBeat,
             countInProgress: widget.countInProgress,
             beatsPerBar: widget.beatsPerBar,
@@ -986,9 +1036,15 @@ class _TransportBarState extends State<TransportBar> {
                 _showRecordTrackMenu();
               }
             },
-            onCountInChanged: widget.onCountInChanged,
             size: transportBtnSize,
           ),
+          // Capture MIDI — momentary button immediately right of Record: "grab
+          // what I just played" belongs with the take controls. Shown only when
+          // the backend callback is wired.
+          if (widget.transport.onCaptureMidi != null) ...[
+            SizedBox(width: wGap + BT.xs),
+            _CaptureButton(onCaptureMidi: widget.transport.onCaptureMidi),
+          ],
         ],
       ),
     );
@@ -1110,61 +1166,21 @@ class _TransportBarState extends State<TransportBar> {
   // ============================================
 
   Widget _buildRightGroup(BoojyColors colors) {
-    // Fixed rail mirroring the left, right-aligned to the far edge. Add-track
-    // buttons sit just left of the mixer toggle + Help (a small gap separates
-    // the "create" group from the panel chrome). Labels collapse to icon-only
-    // on a narrow rail so they never overflow: the labelled row measures 277px
-    // (pinned by transport_bar_density_test.dart), so the cut sits just above
-    // it. The old 210px cut let the row overflow by up to 67px once the rails
-    // started yielding to the centre below ~1110px windows.
+    // Fixed rail mirroring the left, right-aligned to the far edge: just the
+    // Mixer toggle, sitting above the panel it controls. Track creation moved
+    // into the mixer panel's header (the panel IS the track list).
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final showLabels = constraints.maxWidth >= 280;
-          return Row(
-            children: [
-              const Spacer(),
-
-              // Add MIDI / Audio track
-              AddTrackButton(
-                label: showLabels ? 'MIDI' : '',
-                typeIcon: BI.piano,
-                typeColor:
-                    TrackColors.categoryColors[TrackColorCategory.synth]!,
-                onTap: widget.panels.onAddMidiTrack,
-                tooltip: 'Add MIDI Track',
-              ),
-              const SizedBox(width: 6),
-              AddTrackButton(
-                label: showLabels ? 'Audio' : '',
-                // Same glyph as the library's Samples category, so "Audio
-                // track" and "samples" read as one concept.
-                typeIcon: BI.equalizer,
-                typeColor:
-                    TrackColors.categoryColors[TrackColorCategory.audio]!,
-                onTap: widget.panels.onAddAudioTrack,
-                tooltip: 'Add Audio Track',
-              ),
-
-              const SizedBox(width: 12),
-
-              // Mixer toggle (mirrored sidebar icon)
-              _PanelToggleButton(
-                assetPath: 'assets/icons/sidebar_toggle.svg',
-                isActive: widget.mixerVisible,
-                onTap: widget.panels.onToggleMixer,
-                tooltip: widget.mixerVisible ? 'Hide Mixer' : 'Show Mixer',
-                mirrored: true,
-              ),
-
-              const SizedBox(width: 8),
-
-              // Help button — far right
-              _HelpButton(onTap: widget.panels.onHelpPressed),
-            ],
-          );
-        },
+      padding: const EdgeInsets.symmetric(horizontal: _kRailPadding),
+      child: Row(
+        children: [
+          const Spacer(),
+          _PanelToggleButton(
+            assetPath: 'assets/icons/mixer.svg',
+            isActive: widget.mixerVisible,
+            onTap: widget.panels.onToggleMixer,
+            tooltip: widget.mixerVisible ? 'Hide Mixer' : 'Show Mixer',
+          ),
+        ],
       ),
     );
   }
@@ -1239,7 +1255,7 @@ class _SvgIconButtonState extends State<_SvgIconButton> with ButtonHoverMixin {
             duration: AnimationConstants.pressDuration,
             curve: AnimationConstants.standardCurve,
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 5),
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
               decoration: BoxDecoration(
                 color: isHovered ? colors.surface : Colors.transparent,
                 borderRadius: BorderRadius.circular(4),
@@ -1264,20 +1280,22 @@ class _SvgIconButtonState extends State<_SvgIconButton> with ButtonHoverMixin {
   }
 }
 
-/// Panel toggle button using SVG sidebar icon
+/// Panel toggle (Library / Mixer): a semantic glyph for the panel, no box.
+/// State is carried by brightness alone — a slightly brighter neutral grey
+/// while the panel is open, the standard chrome grey while it is closed (still
+/// readable, never "disabled"). Hover is distinct from both: white glyph on a
+/// soft surface pill, plus the usual press scale (Tyr, 2026-09-13).
 class _PanelToggleButton extends StatefulWidget {
   final String assetPath;
   final bool isActive;
   final VoidCallback? onTap;
   final String tooltip;
-  final bool mirrored;
 
   const _PanelToggleButton({
     required this.assetPath,
     required this.isActive,
     this.onTap,
     required this.tooltip,
-    this.mirrored = false,
   });
 
   @override
@@ -1292,25 +1310,12 @@ class _PanelToggleButtonState extends State<_PanelToggleButton>
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-
-    Widget svgIcon = SvgPicture.asset(
-      widget.assetPath,
-      width: 18,
-      height: 18,
-      colorFilter: ColorFilter.mode(
-        // Rest colour matches the help (?) glyph — textSecondary, the one
-        // chrome-icon grey — and we no longer dim the collapsed-panel state to
-        // 0.5, which made these toggles read darker/heavier than the help icon.
-        // Deliberately NO active/open treatment (selection fill was tried and
-        // rejected 2026-06-09) — these stay quiet chrome.
-        isHovered ? colors.textPrimary : colors.textSecondary,
-        BlendMode.srcIn,
-      ),
-    );
-
-    if (widget.mirrored) {
-      svgIcon = Transform.flip(flipX: true, child: svgIcon);
-    }
+    final openGrey =
+        Color.lerp(colors.textSecondary, colors.textPrimary, 0.6) ??
+        colors.textPrimary;
+    final glyphColor = isHovered
+        ? colors.textPrimary
+        : (widget.isActive ? openGrey : colors.textSecondary);
 
     return Tooltip(
       message: widget.tooltip,
@@ -1330,65 +1335,16 @@ class _PanelToggleButtonState extends State<_PanelToggleButton>
             duration: AnimationConstants.pressDuration,
             curve: AnimationConstants.standardCurve,
             child: Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: isHovered ? colors.surface : Colors.transparent,
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(BT.radiusMd),
               ),
-              child: svgIcon,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Help button with consistent sizing.
-class _HelpButton extends StatefulWidget {
-  final VoidCallback? onTap;
-
-  const _HelpButton({this.onTap});
-
-  @override
-  State<_HelpButton> createState() => _HelpButtonState();
-}
-
-class _HelpButtonState extends State<_HelpButton> with ButtonHoverMixin {
-  @override
-  double get hoverScale => AnimationConstants.subtleHoverScale;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Tooltip(
-      message: 'Keyboard Shortcuts (?)',
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: handleHoverEnter,
-        onExit: handleHoverExit,
-        child: GestureDetector(
-          onTapDown: handleTapDown,
-          onTapUp: (details) {
-            handleTapUp(details);
-            widget.onTap?.call();
-          },
-          onTapCancel: handleTapCancel,
-          child: AnimatedScale(
-            scale: scale,
-            duration: AnimationConstants.pressDuration,
-            curve: AnimationConstants.standardCurve,
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: isHovered ? colors.surface : Colors.transparent,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Icon(
-                BI.help,
-                size: BT.iconLg,
-                color: isHovered ? colors.textPrimary : colors.textSecondary,
+              child: SvgPicture.asset(
+                widget.assetPath,
+                width: BT.iconLg,
+                height: BT.iconLg,
+                colorFilter: ColorFilter.mode(glyphColor, BlendMode.srcIn),
               ),
             ),
           ),
@@ -1427,8 +1383,8 @@ class _CaptureButtonState extends State<_CaptureButton> {
     final iconColor = _pulse ? colors.accent : colors.textSecondary;
 
     return BoojyTooltip(
-      title: 'Capture MIDI',
-      description: 'Save the phrase you just played into a new clip',
+      title: 'Capture what you just played',
+      description: 'Saves the phrase into a new clip at the playhead',
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
@@ -1446,10 +1402,14 @@ class _CaptureButtonState extends State<_CaptureButton> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: Center(
-                  child: Icon(
-                    BI.captureMidi,
-                    size: BT.iconMd,
-                    color: iconColor,
+                  // Lucide "scan" corners (Tyr's pick), keyed so tests can
+                  // find the button without an IconData.
+                  child: SvgPicture.asset(
+                    'assets/icons/scan.svg',
+                    key: const Key('captureMidi'),
+                    width: BT.iconMd,
+                    height: BT.iconMd,
+                    colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
                   ),
                 ),
               ),
@@ -1460,5 +1420,3 @@ class _CaptureButtonState extends State<_CaptureButton> {
     );
   }
 }
-
-/// Filled equilateral triangle used as the "A" in the ▲udio wordmark.

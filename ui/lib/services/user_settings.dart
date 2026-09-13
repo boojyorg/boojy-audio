@@ -172,7 +172,7 @@ class UserSettings extends ChangeNotifier {
   String? _preferredMidiInput; // null = all devices
 
   // Recording settings
-  int _countInBars = 1; // 0 = off, 1 = 1 bar, 2 = 2 bars
+  int _countInBars = 1; // 0 = off, 1 = 1 bar (the only two choices)
 
   // Project settings
   bool _continueWhereLeftOff = true;
@@ -409,15 +409,21 @@ class UserSettings extends ChangeNotifier {
   // Recording Settings
   // ========================================================================
 
-  /// Count-in bars before recording starts: 0 = off, 1 = 1 bar, 2 = 2 bars
+  /// Count-in bars before recording starts: 0 = off, 1 = 1 bar. Longer
+  /// count-ins were dropped in v0.7 (the toolbar toggle is Off / 1 bar);
+  /// anything else is clamped to 1 so old preferences load as "on".
   int get countInBars => _countInBars;
   set countInBars(int value) {
-    if (_countInBars != value && [0, 1, 2].contains(value)) {
-      _countInBars = value;
+    final clamped = clampCountInBars(value);
+    if (_countInBars != clamped) {
+      _countInBars = clamped;
       _saveRecordingSettings();
       notifyListeners();
     }
   }
+
+  /// 0 stays off; every other value (1, or a legacy 2 / 4) becomes 1 bar.
+  static int clampCountInBars(int value) => value <= 0 ? 0 : 1;
 
   // ========================================================================
   // Project Settings
@@ -710,7 +716,7 @@ class UserSettings extends ChangeNotifier {
       _preferredMidiInput = _prefs?.getString(_keyPreferredMidiInput);
 
       // Load recording settings
-      _countInBars = _prefs?.getInt(_keyCountInBars) ?? 1;
+      _countInBars = clampCountInBars(_prefs?.getInt(_keyCountInBars) ?? 1);
 
       // Load project settings
       _continueWhereLeftOff = _prefs?.getBool(_keyContinueWhereLeftOff) ?? true;

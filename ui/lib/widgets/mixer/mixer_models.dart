@@ -27,6 +27,11 @@ class TrackManagementCallbacks {
   final Function(int trackId, String icon)? onIconChanged;
   final Function(int)? onConvertToSampler;
 
+  /// Header "+ MIDI" / "+ Audio" buttons — the panel is the track list, so
+  /// track creation lives at its top (the transport bar no longer carries it).
+  final VoidCallback? onAddMidiTrack;
+  final VoidCallback? onAddAudioTrack;
+
   const TrackManagementCallbacks({
     this.onDuplicated,
     this.onDeleted,
@@ -40,6 +45,8 @@ class TrackManagementCallbacks {
     this.onColorChanged,
     this.onIconChanged,
     this.onConvertToSampler,
+    this.onAddMidiTrack,
+    this.onAddAudioTrack,
   });
 }
 

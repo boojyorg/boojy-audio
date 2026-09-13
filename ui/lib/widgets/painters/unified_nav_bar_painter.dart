@@ -17,8 +17,6 @@ class UnifiedNavBarPainter extends CustomPainter {
   final bool isHoveringPlayhead; // For expanded hover state
   final bool isPlaying; // For playhead glow during playback
   final int beatsPerBar;
-  final bool punchInEnabled;
-  final bool punchOutEnabled;
   final BoojyColors colors;
   final double textScale;
 
@@ -35,8 +33,6 @@ class UnifiedNavBarPainter extends CustomPainter {
     this.isHoveringPlayhead = false,
     this.isPlaying = false,
     this.beatsPerBar = 4,
-    this.punchInEnabled = false,
-    this.punchOutEnabled = false,
     this.textScale = 1.0,
   }) : super(repaint: PlayheadLab.notifier);
 
@@ -65,7 +61,7 @@ class UnifiedNavBarPainter extends CustomPainter {
     final darkBgPaint = Paint()..color = colors.editor;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), darkBgPaint);
 
-    // 2. Always draw the loop/punch region (grey when inactive)
+    // 2. Always draw the loop region (grey when inactive)
     _drawLoopRegion(canvas, size);
 
     // 3. Draw grid lines and bar numbers
@@ -91,28 +87,13 @@ class UnifiedNavBarPainter extends CustomPainter {
 
     final loopRect = Rect.fromLTWH(loopStartX, 0, loopWidth, size.height);
 
-    // Determine colors based on mode:
-    //   Loop + Punch → solid red (lit recordActive)
-    //   Punch only   → faded red (dim recordActive)
-    //   Loop only    → muted amber (dim warning)
-    //   All off      → grey (elevated/divider)
-    final hasPunch = punchInEnabled || punchOutEnabled;
+    // Loop on → muted amber; off → grey bar with a darker grey edge.
     Color fillColor;
     Color borderColor;
     Color hoverColor;
 
-    if (hasPunch && loopEnabled) {
-      // Mode 3: Loop + Punch — solid red (lit)
-      fillColor = colors.recordActive;
-      borderColor = colors.recordActive.withValues(alpha: BT.opacityBorder);
-      hoverColor = colors.error;
-    } else if (hasPunch) {
-      // Mode 4: Punch only (no loop) — faded red (dim)
-      fillColor = colors.recordActive.withValues(alpha: BT.opacityMedium);
-      borderColor = colors.recordActive.withValues(alpha: BT.opacityStrong);
-      hoverColor = colors.error.withValues(alpha: BT.opacityBorder);
-    } else if (loopEnabled) {
-      // Mode 2: Loop only — muted amber (dim warning)
+    if (loopEnabled) {
+      // Loop on — muted amber (dim warning)
       fillColor = colors.warning.withValues(alpha: BT.opacityMedium);
       borderColor = colors.warning.withValues(alpha: BT.opacityBorder);
       hoverColor = colors.warning;
@@ -422,8 +403,6 @@ class UnifiedNavBarPainter extends CustomPainter {
         isHoveringPlayhead != oldDelegate.isHoveringPlayhead ||
         isPlaying != oldDelegate.isPlaying ||
         beatsPerBar != oldDelegate.beatsPerBar ||
-        punchInEnabled != oldDelegate.punchInEnabled ||
-        punchOutEnabled != oldDelegate.punchOutEnabled ||
         colors != oldDelegate.colors ||
         textScale != oldDelegate.textScale;
   }

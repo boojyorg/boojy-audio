@@ -38,10 +38,6 @@ class RecordingController extends ChangeNotifier {
   bool _isMetronomeEnabled = true;
   double _tempo = 120.0;
 
-  // Punch recording state
-  bool _isPunchRecording = false;
-  bool _hasPunchOut = false;
-
   // Count-in UI state
   int _countInBeat = 0;
   double _countInProgress = 0.0;
@@ -58,9 +54,6 @@ class RecordingController extends ChangeNotifier {
 
   // Callback for when recording stops
   void Function(RecordingResult result)? onRecordingComplete;
-
-  // Callback for when auto-punch-out completes (transport keeps running)
-  void Function(RecordingResult result)? onPunchComplete;
 
   // Live recording notifier for real-time MIDI note display
   LiveRecordingNotifier? _liveRecordingNotifier;
@@ -94,7 +87,6 @@ class RecordingController extends ChangeNotifier {
   bool get isCountingIn => _isCountingIn;
   bool get isWaitingForPunchIn => _isWaitingForPunchIn;
   bool get isMidiRecording => _isMidiRecording;
-  bool get isPunchRecording => _isPunchRecording;
   bool get isMetronomeEnabled => _isMetronomeEnabled;
   double get tempo => _tempo;
   int get countInBeat => _countInBeat;
@@ -189,15 +181,7 @@ class RecordingController extends ChangeNotifier {
 
   /// Start recording
   /// [isAlreadyPlaying]: If true, skips count-in and starts recording immediately
-  /// [punchInEnabled]/[punchOutEnabled]: Configure punch boundaries
-  /// [punchInSeconds]/[punchOutSeconds]: Region boundaries in seconds
-  void startRecording({
-    required bool isAlreadyPlaying,
-    bool punchInEnabled = false,
-    bool punchOutEnabled = false,
-    double punchInSeconds = 0.0,
-    double punchOutSeconds = 0.0,
-  }) {
+  void startRecording({required bool isAlreadyPlaying}) {
     if (_audioEngine == null) {
       Log.d('🎙️ [REC_CTRL] startRecording() — audioEngine is null, aborting');
       return;
@@ -209,8 +193,7 @@ class RecordingController extends ChangeNotifier {
       // Save playhead position before starting — this is where the clip will be placed
       _recordingStartPosition = _audioEngine!.getPlayheadPosition();
       Log.d(
-        '🎙️ [REC_CTRL] startRecording(isAlreadyPlaying=$isAlreadyPlaying, '
-        'punchIn=$punchInEnabled, punchOut=$punchOutEnabled) called',
+        '🎙️ [REC_CTRL] startRecording(isAlreadyPlaying=$isAlreadyPlaying) called',
       );
       Log.d(
         '🎙️ [REC_CTRL]   tempo=$tempo, recordingStartPosition=${_recordingStartPosition.toStringAsFixed(4)}s',
@@ -218,27 +201,6 @@ class RecordingController extends ChangeNotifier {
       Log.d(
         '🎙️ [REC_CTRL]   hasArmedAudioTracks=${hasArmedAudioTracks?.call() ?? "null callback"}',
       );
-
-      // Configure engine punch state before starting
-      if (punchInEnabled || punchOutEnabled) {
-        _isPunchRecording = true;
-        _hasPunchOut = punchOutEnabled;
-        _audioEngine!.setPunchInEnabled(enabled: punchInEnabled);
-        _audioEngine!.setPunchOutEnabled(enabled: punchOutEnabled);
-        _audioEngine!.setPunchRegion(punchInSeconds, punchOutSeconds);
-        Log.d(
-          '🎙️ [REC_CTRL]   Punch configured: in=$punchInEnabled out=$punchOutEnabled '
-          'region=${punchInSeconds.toStringAsFixed(3)}s-${punchOutSeconds.toStringAsFixed(3)}s',
-        );
-      }
-
-      // For punch-in, the clip is placed at the punch-in point
-      if (punchInEnabled) {
-        _recordingStartPosition = punchInSeconds;
-        Log.d(
-          '🎙️ [REC_CTRL]   Punch-in: recordingStartPosition overridden to ${punchInSeconds.toStringAsFixed(4)}s',
-        );
-      }
 
       // If already playing, disable count-in for immediate recording
       if (isAlreadyPlaying) {
@@ -331,17 +293,6 @@ class RecordingController extends ChangeNotifier {
       _countInProgress = 0.0;
       _countInDurationSeconds = 0.0;
 
-      // Clear engine punch flags (best-effort cleanup, but never silent)
-      if (_isPunchRecording) {
-        try {
-          _audioEngine!.setPunchInEnabled(enabled: false);
-          _audioEngine!.setPunchOutEnabled(enabled: false);
-        } catch (e) {
-          Log.e('RecordingController: failed to clear punch flags: $e');
-        }
-        _isPunchRecording = false;
-        _hasPunchOut = false;
-      }
       notifyListeners();
 
       _recordingStateTimer?.cancel();
@@ -385,8 +336,6 @@ class RecordingController extends ChangeNotifier {
       _isCountingIn = false;
       _isWaitingForPunchIn = false;
       _isMidiRecording = false;
-      _isPunchRecording = false;
-      _hasPunchOut = false;
       _countInBeat = 0;
       _countInProgress = 0.0;
       notifyListeners();
@@ -488,17 +437,6 @@ class RecordingController extends ChangeNotifier {
         notifyListeners();
       } else if (state == 0 &&
           (_isRecording || _isCountingIn || _isWaitingForPunchIn)) {
-        // Check if this was an auto-punch-out completion
-        if (_isRecording &&
-            _isPunchRecording &&
-            _hasPunchOut &&
-            _audioEngine!.isPunchComplete()) {
-          _handleAutoPunchComplete();
-          timer.cancel();
-          _recordingStateTimer = null;
-          return;
-        }
-
         Log.d(
           '🎙️ [REC_CTRL] State timer: → Idle (state=0), was recording=$_isRecording, '
           'countingIn=$_isCountingIn, waitingForPunch=$_isWaitingForPunchIn',
@@ -531,65 +469,6 @@ class RecordingController extends ChangeNotifier {
         );
       }
     });
-  }
-
-  /// Handle auto-punch-out completion — recording stops but transport keeps playing
-  void _handleAutoPunchComplete() {
-    Log.d('🎙️ [REC_CTRL] Auto-punch-out complete');
-    _liveRecordingNotifier?.clear();
-
-    // Get recording results from engine (recorder already went to Idle, but
-    // stop_recording returns the clip when punch_complete is true)
-    final rawAudioClipId = _audioEngine!.stopRecording();
-    final audioClipId = _audioRecordingStarted ? rawAudioClipId : -1;
-    final midiClipId = _audioEngine!.stopMidiRecording();
-    Log.d('🎙️ [REC_CTRL]   audioClipId=$audioClipId, midiClipId=$midiClipId');
-
-    final duration = audioClipId >= 0
-        ? _audioEngine!.getClipDuration(audioClipId)
-        : 0.0;
-    final peakResolution = (duration * 8000).clamp(8000, 240000).toInt();
-    final midiClipInfo = midiClipId >= 0
-        ? _audioEngine!.getMidiClipInfo(midiClipId)
-        : null;
-
-    final result = RecordingResult(
-      audioClipId: audioClipId >= 0 ? audioClipId : null,
-      midiClipId: midiClipId >= 0 ? midiClipId : null,
-      duration: duration > 0 ? duration : null,
-      waveformPeaks: audioClipId >= 0
-          ? _audioEngine!.getWaveformPeaks(audioClipId, peakResolution)
-          : null,
-      midiClipInfo: midiClipInfo,
-    );
-
-    // Reset recording state but DON'T stop transport
-    _isRecording = false;
-    _isCountingIn = false;
-    _isWaitingForPunchIn = false;
-    _isMidiRecording = false;
-    _audioRecordingStarted = false;
-
-    // Clear engine punch flags (best-effort cleanup, but never silent)
-    try {
-      _audioEngine!.setPunchInEnabled(enabled: false);
-      _audioEngine!.setPunchOutEnabled(enabled: false);
-    } catch (e) {
-      Log.e('RecordingController: failed to clear punch flags: $e');
-    }
-    _isPunchRecording = false;
-    _hasPunchOut = false;
-
-    _countInBeat = 0;
-    _countInProgress = 0.0;
-    _countInDurationSeconds = 0.0;
-    notifyListeners();
-
-    // Call punch-specific callback (transport continues running)
-    Log.d(
-      '🎙️ [REC_CTRL]   Calling onPunchComplete callback (${onPunchComplete != null ? "set" : "NULL"})',
-    );
-    onPunchComplete?.call(result);
   }
 
   /// Toggle metronome on/off

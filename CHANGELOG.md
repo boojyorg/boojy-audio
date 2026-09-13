@@ -19,10 +19,37 @@ All notable changes to Boojy Audio will be documented in this file.
   narrower now that it has no second column: 240px by default (was 308) and it can be dragged
   down to 160px (was 208).
 
-- **Capture MIDI button in the transport bar.** A corner-bracket button in the modifiers cluster
-  (next to the metronome) captures the phrase you just played unarmed into a new clip at the
-  playhead. Press it once — it flashes to confirm it fired. (Backend existed since v0.2; button
-  re-added in v0.7.)
+- **Capture MIDI button in the transport bar.** A button immediately right of Record captures the
+  phrase you just played unarmed into a new clip at the playhead. Press it once — it flashes to
+  confirm it fired. (Backend existed since v0.2; button re-added in v0.7.)
+
+- **A simpler toolbar.** The top of the window is one bar again: the separate title row is
+  gone (macOS keeps its traffic lights on the bar, nudged a touch down and right to sit with
+  the controls; the bar still drags the window and the lights' space closes up in full screen),
+  the ▲udio
+  wordmark now opens the app menu (Settings, Keyboard Shortcuts, Start Screen; its triangle
+  still turns red when the audio engine didn't start), and the project name beside it opens
+  the project menu as before. The permanent ? button and the two add-track buttons leave the bar: the
+  shortcuts sheet is under Audio and on the ? key, and **+ MIDI / + Audio now sit at the top of
+  the mixer panel**, which is the track list. Library and Mixer get glyphs that name the panel
+  (books, sliders), a lighter grey while the panel is open and darker while it is closed. The centre reads Snap · Loop ·
+  Metronome · Count-in · Play · Stop · Record · Capture, then the position, tempo and time
+  signature.
+
+- **Snap remembers its grid.** The grid glyph turns snapping on and off; the value beside it
+  ("Bar ▾") picks the resolution. Turning snap off dims the value instead of hiding it, so the
+  layout never shifts and you can see what grid comes back. Piano-roll snap is untouched.
+
+- **Count-in is a labelled toggle** beside Metronome: Off or one bar, on by default. The lead-in
+  bar always clicks, even with the metronome off, so a silent count never looks like a stuck
+  Record button; the metronome toggle governs the click during playback and recording only.
+  Two- and four-bar count-ins are gone (an old preference or project value loads as one bar),
+  and the count-in stored in a project file no longer overrides your preference when the
+  project opens.
+
+- **Punch in/out is removed for now.** The Loop dropdown, the I and O keys and the red punch
+  colouring on the ruler are gone; Loop and Metronome are plain toggles. Nothing in a saved
+  project depended on punch, and the engine can no longer be put into punch mode from the UI.
 
 - **Audio Cmd+D now duplicates audio clips.** Previously Cmd+D only worked when a MIDI clip was
   open for editing. Now it also duplicates the selected audio clip in the arrangement.

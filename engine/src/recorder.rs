@@ -531,8 +531,13 @@ impl RecorderCallbackRefs {
         // through a loop wrap instead of being truncated and restarted.
         let monotonic = self.monotonic_frames.fetch_add(1, Ordering::Relaxed);
 
+        // The count-in always clicks, whatever the metronome toggle says: a
+        // silent lead-in reads as "record is broken". The toggle governs the
+        // click during playback and recording only.
+        let click_audible = metronome_enabled || current_state == RecordingState::CountingIn;
+
         // Only generate click if not in cooldown period (prevents overlapping clicks after seek)
-        if metronome_enabled && cooldown == 0 {
+        if click_audible && cooldown == 0 {
             let position_in_bar = sample_idx % samples_per_bar;
             let beat_in_bar = position_in_bar / samples_per_beat;
             let position_in_beat = position_in_bar % samples_per_beat;
@@ -708,6 +713,45 @@ mod tests {
 
         recorder.set_tempo(10.0);
         assert!((recorder.get_tempo() - 20.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn count_in_clicks_with_metronome_off() {
+        let recorder = Recorder::new();
+        recorder.set_count_in_bars(1);
+        recorder.set_metronome_enabled(false);
+        recorder.start_recording().unwrap();
+        assert_eq!(recorder.get_state(), RecordingState::CountingIn);
+
+        let refs = recorder.get_callback_refs();
+        // The first frame of the count-in lands on a downbeat, so a click
+        // starts at once and rings for CLICK_FRAMES frames.
+        let mut heard_click = false;
+        for _ in 0..(CLICK_FRAMES / 2) {
+            let (l, _) = refs.process_frame(0.0, 0.0, false, 0.0);
+            if l.abs() > 0.0 {
+                heard_click = true;
+                break;
+            }
+        }
+        assert!(heard_click, "count-in must click even with the metronome off");
+
+        // Once the count-in ends, the metronome toggle is back in charge: no
+        // click while recording with the metronome off.
+        recorder.set_count_in_bars(0);
+        recorder.stop_recording(TARGET_SAMPLE_RATE).unwrap();
+        recorder.start_recording().unwrap();
+        assert_eq!(recorder.get_state(), RecordingState::Recording);
+        let refs = recorder.get_callback_refs();
+        let mut heard_click = false;
+        for _ in 0..(CLICK_FRAMES * 2) {
+            let (l, _) = refs.process_frame(0.0, 0.0, false, 0.0);
+            if l.abs() > 0.0 {
+                heard_click = true;
+                break;
+            }
+        }
+        assert!(!heard_click, "metronome off must stay silent while recording");
     }
 
     #[test]

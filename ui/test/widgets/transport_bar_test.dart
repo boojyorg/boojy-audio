@@ -136,7 +136,6 @@ void main() {
             onToggleEditor: () {},
             onTogglePiano: () {},
             onResetPanelLayout: () {},
-            onHelpPressed: () {},
           ),
         ),
       ),
