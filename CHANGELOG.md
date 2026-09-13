@@ -29,6 +29,12 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- Docs cleanup, pass 3 of 3 — `docs/BACKLOG.md` rewritten against the code. Every item is
+  self-describing (no review IDs), sorted into Now / Next / Parked / Decisions, and each "verify
+  before claiming" note was checked on 2026-09-13: swing has no control, the CC lane and ghost
+  notes are unreachable, the scale toggle has no picker, the project sample-rate dropdown is
+  cosmetic, menu zoom items are disabled placeholders, master has no branch protection. The June
+  triage moved to `docs/archive/reviews/`.
 - Docs cleanup, pass 2 of 3 — one home per fact. `AGENTS.md` is now a ~100-line index that
   points at `.claude/rules/` instead of repeating them; release process, version sync, the
   Windows smoke test and review cadence moved to `docs/RELEASING.md`; `ARCHITECTURE.md`
