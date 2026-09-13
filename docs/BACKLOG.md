@@ -1,4 +1,4 @@
-# Boojy Audio — Backlog
+# Boojy Audio Backlog
 
 The one planning document. Four sections: **Now** (the single active priority), **Next** (what
 could follow, verified against code), **Parked** (kept with the reason), **Decisions** (settled,
@@ -8,7 +8,7 @@ to engineering rules and specs. Nothing here is a release commitment.
 Every item below was checked against the source tree on **2026-09-13** unless it says otherwise.
 Items marked *(Tyr)* need a design call from Tyr before an agent should start.
 
-## Now — documentation health
+## Now: documentation health
 
 Tyr paused the v0.7 "Devices & Feel" feature theme on 2026-09-12. The three docs passes
 (consolidate planning · one home per fact · rewrite this backlog against code) are complete
@@ -16,7 +16,7 @@ with this PR. **The next priority is Tyr's choice**; the recommended pick is the
 because three months of finished work is sitting unreleased and the update path has never been
 exercised end to end.
 
-## Next — candidates
+## Next: candidates
 
 ### Release v0.7.0 (recommended)
 
@@ -63,7 +63,7 @@ including the v0.6.1 fixes that were never tagged. Release gate, on top of `RELE
   delete the switchers. *(Tyr picks.)*
 - **Missing-ffmpeg message has no Windows line** (`.claude/rules/audio-export.md`).
 
-### Larger pieces — need Tyr's design input first
+### Larger pieces (need Tyr's design input first)
 
 - **Zoom spec** *(Tyr)*: anchor point, modifiers, pinch, ruler drag, zoom-to-fit, whether
   horizontal and vertical zoom are independent, and the note-height repro. One spec, then one PR.
@@ -125,12 +125,11 @@ Ideas with no owner and no date. A candidate's presence here is not a decision.
 Guardrails verified present in CI (2026-09-13): `cargo fmt --check`, toolchain pin,
 pubspec-vs-tag gate, Sparkle feed-URL assert, signing key in `$RUNNER_TEMP` with cleanup trap,
 DMG-exists assert, no swallowed appcast errors, CompositeCommand round-trip test, transport tap
-and latency tests, golden painter tests, sampler pitch tests.
+and latency tests, golden painter tests, sampler pitch tests. Branch protection on master is on
+(2026-09-13): PR required, `flutter-checks` and `rust-checks` must pass, no force-push, no deletion.
 
 Still open:
 
-- **Branch protection on master** *(Tyr, settings click)*: the API reports none. Require
-  `flutter-checks` + `rust-checks`. Until then the rule is watch CI, then merge.
 - **No audio-thread logging gate.** `audio_graph/` still contains `eprintln!` calls and nothing
   in CI catches new ones.
 - **macOS CI links the committed VST3 `.a` libraries** rather than rebuilding them; Windows CI
@@ -166,7 +165,7 @@ Verified against the tree on 2026-09-12 unless noted.
   lints; ADRs; accessibility (semantic labels, keyboard navigation, screen reader); a widget
   catalogue. None has a measured problem behind it. Require evidence before scheduling.
 
-## Decisions — don't re-raise
+## Decisions: don't re-raise
 
 - **One shared dropdown and context-menu surface** (filled-chip triggers, `showBoojyMenu`).
 - **Device editors share one shell** (header glyph, name, power dot, collapse; visualiser; 2–3
