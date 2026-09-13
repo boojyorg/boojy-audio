@@ -19,7 +19,7 @@ the easiest step to forget. On every release:
 
 Documentation cleanup never implies a release or a version bump.
 
-## Windows smoke test — every release, before publishing the draft
+## Windows smoke test (every release, before publishing the draft)
 
 Development happens on macOS, so the installed Windows build is the one artifact nobody has run.
 Install the freshly built `Boojy-Audio-win.exe` on the Windows machine (~5 min):

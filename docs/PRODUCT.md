@@ -1,4 +1,4 @@
-# Boojy Audio — Product
+# Boojy Audio Product
 
 What Boojy is and the principles that decide what goes in. Scheduling and platform commitments
 live in [BACKLOG.md](BACKLOG.md); accepted behaviour lives in specs and engineering rules.

@@ -3,7 +3,7 @@
 Boojy Audio is a free, open-source, cross-platform DAW for composing, recording, arranging,
 mixing and mastering music. It combines MIDI programming with audio recording in a calm,
 approachable interface. Designed for musicians: sensible defaults, minimal setup, and sound
-first — visuals support listening. Flutter UI over a Rust audio engine, joined by raw `dart:ffi`;
+first. Visuals support listening. Flutter UI over a Rust audio engine, joined by raw `dart:ffi`;
 ships on macOS and Windows. Detailed positioning and scope: `docs/PRODUCT.md`.
 
 Suite-wide process (memory model, changelog, branch discipline, context hygiene, working
@@ -28,7 +28,7 @@ touching each area. **Each fact has one home; everything else here is a pointer.
 - **Toolchains:** Rust **1.98.1** (`engine/rust-toolchain.toml`); Flutter **3.44.0 / Dart 3.12**
   via FVM (`ui/.fvmrc`). Run Flutter/Dart from `ui/` as `fvm flutter …` / `fvm dart …`. CI pins
   the same versions (`FLUTTER_VERSION` in `.github/workflows/*.yml`).
-- **Engine:** `./build.sh` (debug) or `./build.sh release` — builds Rust, refreshes the dylib
+- **Engine:** `./build.sh` (debug) or `./build.sh release` builds Rust and refreshes the dylib
   symlink. Uses `sccache` automatically if installed. Dev deps build at `opt-level = 2`.
 - **App:** `cd ui && fvm flutter run -d macos`. Don't auto-start it from an agent shell.
 - Stuck on "initializing" → missing FFI symbol → `.claude/rules/ffi.md`.
@@ -42,13 +42,13 @@ screens/daw/mixins,widgets,theme}` (Flutter) · `ui/test/native/` (engine tests 
 A post-edit hook runs the fast gate on every edit: `.rs` under `engine/` → `cargo check` +
 `cargo clippy --all-targets -- -D warnings`; `.dart` under `ui/` → `flutter analyze --fatal-infos`.
 
-**Local before committing — scope to what changed.** UI-only diff → the hook's analyze +
+**Local before committing: scope to what changed.** UI-only diff → the hook's analyze +
 `fvm dart format` + the test files near the change (e.g. `fvm flutter test test/widgets/`).
 Engine diff → `cargo test` + clippy, plus `test/native/` if the FFI surface moved. Always re-run
 analyze after format (format can reflow into a lint violation).
 
 **CI runs the full matrix on every PR** (macOS full pipeline + Windows analyze/test/clippy).
-CI is not a required status check, so: open the PR, watch it go green, then merge. Full set:
+Master is protected: `flutter-checks` and `rust-checks` must pass before a PR can merge. Full set:
 
 - `./build.sh` then `cd ui && fvm flutter test` (CI adds `--dart-define=BOOJY_CI=true` so
   `test/native` fails loudly when the dylib is missing)
@@ -59,11 +59,11 @@ Lints: Dart `flutter_lints` + strict rules in `analysis_options.yaml`; Rust `cli
 with exceptions in `lib.rs`. Logging: Rust `println!`; Dart `Log.d()/.e()/.i()` from
 `utils/logger.dart`, never `print()`.
 
-## Rules index — read before touching
+## Rules index: read before touching
 
 | Area | Read | The one-line version |
 | --- | --- | --- |
-| `engine/src/api/`, `engine/src/ffi/`, `ui/lib/audio_engine_*.dart` | `.claude/rules/ffi.md` | Raw `dart:ffi`, three layers (`api/` → `ffi/` shim → Dart binding); use the `add-ffi` skill. **Engine is real seconds everywhere, UI thinks in beats** — every tempo write goes through `_onTempoChanged`, never bare `setTempo`. Locks are non-reentrant: snapshot, drop the guard, then call `TrackManager`. |
+| `engine/src/api/`, `engine/src/ffi/`, `ui/lib/audio_engine_*.dart` | `.claude/rules/ffi.md` | Raw `dart:ffi`, three layers (`api/` → `ffi/` shim → Dart binding); use the `add-ffi` skill. **Engine is real seconds everywhere, UI thinks in beats.** Every tempo write goes through `_onTempoChanged`, never bare `setTempo`. Locks are non-reentrant: snapshot, drop the guard, then call `TrackManager`. |
 | `ui/lib/**` | `.claude/rules/flutter-ui.md` | `BI.*` icons only. One shared menu surface (`showBoojyMenu`), never `showMenu`/`PopupMenuButton`. Never read `context.colors` in an event handler. `ui_layout.json` fields go through `ProjectPersistence`. Import `timeline_view.dart`, never its part files. |
 | `engine/src/export/` | `.claude/rules/audio-export.md` | Range → LUFS → mixdown → normalise, in that order. Stems = mix minus the master stage. |
 | `build.sh`, `ui/test/native/`, `ui/test/goldens/` | `.claude/rules/build-and-test.md` | Rust must be built release for the symlink to see it. Goldens refresh on macOS only. |
@@ -71,10 +71,10 @@ with exceptions in `lib.rs`. Logging: Rust `println!`; Dart `Log.d()/.e()/.i()` 
 Rules with no better home:
 
 - **Undo/redo is the command pattern** (`Command`, `CompositeCommand`, `UndoRedoManager`). Every
-  state-changing user action is wrapped in a Command — clip edits, mixer controls, effect params,
+  state-changing user action is wrapped in a Command: clip edits, mixer controls, effect params,
   new controls alike.
-- **Don't reintroduce `flutter_rust_bridge`, `phosphor_flutter`, or any icon package** —
-  reasons in the rules files above.
+- **Don't reintroduce `flutter_rust_bridge`, `phosphor_flutter`, or any icon package.**
+  Reasons are in the rules files above.
 - **`.claude/rules/` `paths:` auto-loading is flaky.** Read the matching file deliberately.
 
 ## Working style

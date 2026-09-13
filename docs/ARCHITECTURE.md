@@ -1,4 +1,4 @@
-# Boojy Audio — Architecture
+# Boojy Audio Architecture
 
 How the system works today. What should change about it lives in [BACKLOG.md](BACKLOG.md);
 the hazards to respect when changing it live in `.claude/rules/`.
@@ -15,7 +15,7 @@ engine/                       Rust → libengine.{dylib,dll}
   src/api/                    business logic, one module per domain, no raw pointers
   src/ffi/                    extern "C" shims over api/, one file per domain
   src/audio_graph/            realtime renderer, offline renderer, device management, project I/O
-  src/export/                 WAV (pure Rust) and MP3 (ffmpeg shell-out) — .claude/rules/audio-export.md
+  src/export/                 WAV (pure Rust) and MP3 (ffmpeg shell-out), see .claude/rules/audio-export.md
   src/{synth,sampler,drum_kit,effects,stretch,midi*,recorder}.rs
   vst3_host/                  C++ wrapper over the VST3 SDK (see its README); vst3sdk/ submodule
 ui/lib/
@@ -71,7 +71,7 @@ return bus: per-return accumulator → return FX chain ────────�
 
 **Stock instrument designs are kept deliberately small** ([PRODUCT.md](PRODUCT.md) says why).
 The built-in synth is one oscillator (sine/saw/square/triangle), a one-pole lowpass, ADSR and
-eight-voice polyphony — not three oscillators, a resonant filter, an LFO or a modulation matrix.
+eight-voice polyphony, not three oscillators, a resonant filter, an LFO or a modulation matrix.
 Growing it is a product decision, not a refactor.
 
 ## UI structure
@@ -92,7 +92,7 @@ AudioEngine (dart:ffi)
   returns the new clip id, and `daw_recording_mixin.dart` builds the clip and captured notes.
 - **Large editors are mixin-composed too.** `PianoRoll` and `TimelineView` split behaviour into
   state, gesture, selection and operation mixins; `timeline_view.dart` additionally uses `part`
-  files, so it is one library — import the entry file only.
+  files, so it is one library. Import the entry file only.
 - **Painting** is `CustomPainter` (`widgets/painters/`): grid, notes, velocity and CC lanes,
   automation, ruler, nav bar. Golden tests cover the load-bearing ones.
 - **Menus and pickers** share one overlay surface, `showBoojyMenu` in `widgets/shared/`;
