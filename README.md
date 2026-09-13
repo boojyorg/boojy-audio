@@ -35,31 +35,15 @@ Development priority: documentation health. The v0.7 feature theme is paused; se
 - **FFI:** C bindings (Rust ↔ Dart via `dart:ffi`)
 - **Plugins:** VST3 hosting (C++ bridge)
 
-## Project Structure
-
-```text
-/engine              # Rust audio engine
-  /src               # Core modules: audio graph, synth, effects, sampler, FFI
-  /vst3sdk           # VST3 SDK (submodule)
-  /vst3_host         # VST3 C++ bridge
-/ui                  # Flutter application
-  /lib               # Dart source
-    /screens          # Main views (DAW screen, mixins)
-    /widgets          # UI components (timeline, mixer, transport, piano roll)
-    /services         # Commands (undo/redo), audio engine interface
-    /theme            # Boojy Design System (colors, themes)
-    /state            # State management
-    /models           # Data models
-/docs                # Documentation
-```
-
 ## Documentation
 
 | Doc | What it covers |
 |-----|----------------|
 | [BACKLOG.md](docs/BACKLOG.md) | Active priority, paused work, open decisions, future candidates and exclusions |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, Flutter/Rust split, FFI patterns, folder structure |
-| [AGENTS.md](AGENTS.md) | Engineering conventions and pointers to detailed rules |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | How it works: Flutter/Rust split, FFI boundary, mixer routing, persistence, folder map |
+| [PRODUCT.md](docs/PRODUCT.md) | Who it's for and the principles that decide scope |
+| [RELEASING.md](docs/RELEASING.md) | Release steps, version sync, Windows smoke test, review cadence |
+| [AGENTS.md](AGENTS.md) | Build, gates, and the index of engineering rules |
 | [CHANGELOG.md](CHANGELOG.md) | Completed changes, with unreleased work separated from releases |
 
 ## Setup
