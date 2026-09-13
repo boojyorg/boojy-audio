@@ -3,9 +3,17 @@ import '../models/clip_data.dart';
 import '../models/midi_note_data.dart';
 import '../widgets/timeline/gestures/midi_clip_gestures.dart';
 
-/// Minimum clip size (beats for MIDI, seconds for audio).
-/// Clips trimmed smaller than this are deleted instead.
-const double _minClipSize = 0.25;
+/// Smallest remainder worth keeping after a trim or split (seconds for audio,
+/// beats for MIDI).
+///
+/// A partial overlap never deletes the neighbour: "new clip wins" means the
+/// loser keeps whatever is left of it, however short. This used to be 0.25,
+/// which silently deleted any neighbour left shorter than a 1/8 note, and at
+/// the default zoom the snap grid quantises overlaps to exactly that step, so
+/// dragging a clip onto a bundled drum one-shot (most are under half a second)
+/// deleted it instead of trimming it. Only float-noise slivers below this are
+/// dropped, because a zero-width clip can be neither seen nor grabbed.
+const double _minRemainder = 0.001;
 
 // ---------------------------------------------------------------------------
 // Result types
@@ -43,7 +51,7 @@ class AudioSplitOperation {
   /// The original clip being split (will be removed).
   final ClipData original;
 
-  /// Part A (left portion). Null if duration < minClipSize.
+  /// Part A (left portion). Null only if the remainder is below [_minRemainder].
   final ClipData? partA;
 
   /// Part B template (right portion). Has clipId = -1 as placeholder;
@@ -88,10 +96,10 @@ class MidiSplitOperation {
   /// The original clip being split (will be removed).
   final MidiClipData original;
 
-  /// Part A (left portion). Null if duration < minClipSize.
+  /// Part A (left portion). Null only if the remainder is below [_minRemainder].
   final MidiClipData? partA;
 
-  /// Part B (right portion). Null if duration < minClipSize.
+  /// Part B (right portion). Null only if the remainder is below [_minRemainder].
   final MidiClipData? partB;
 
   const MidiSplitOperation({required this.original, this.partA, this.partB});
@@ -108,6 +116,9 @@ class MidiSplitOperation {
 /// 2. **Overlaps end**: new starts inside existing → trim existing end
 /// 3. **Overlaps start**: new ends inside existing → trim existing start
 /// 4. **Inside existing**: new is inside existing → split into two parts
+///
+/// Only case 1 deletes. A partial overlap keeps whatever remains of the
+/// existing clip, however short (see [_minRemainder]).
 ///
 /// Returns a pure result describing the operations needed. The caller is
 /// responsible for applying the result to the engine and UI state.
@@ -162,9 +173,9 @@ class ClipOverlapHandler {
           newStart < clipEnd &&
           newEnd >= clipEnd) {
         final newDuration = newStart - clip.startTime;
-        if (newDuration < _minClipSize) {
+        if (newDuration < _minRemainder) {
           Log.d(
-            '[OVERLAP]   Case 2 TRIM END: clip ${clip.clipId} too small (${newDuration.toStringAsFixed(3)}s) → DELETE',
+            '[OVERLAP]   Case 2 TRIM END: clip ${clip.clipId} remainder ${newDuration.toStringAsFixed(3)}s is below ${_minRemainder}s → DELETE',
           );
           removals.add(clip);
         } else {
@@ -186,9 +197,9 @@ class ClipOverlapHandler {
           newEnd < clipEnd &&
           newStart <= clip.startTime) {
         final newDuration = clipEnd - newEnd;
-        if (newDuration < _minClipSize) {
+        if (newDuration < _minRemainder) {
           Log.d(
-            '[OVERLAP]   Case 3 TRIM START: clip ${clip.clipId} too small (${newDuration.toStringAsFixed(3)}s) → DELETE',
+            '[OVERLAP]   Case 3 TRIM START: clip ${clip.clipId} remainder ${newDuration.toStringAsFixed(3)}s is below ${_minRemainder}s → DELETE',
           );
           removals.add(clip);
         } else {
@@ -221,12 +232,12 @@ class ClipOverlapHandler {
         );
 
         ClipData? partA;
-        if (partADuration >= _minClipSize) {
+        if (partADuration >= _minRemainder) {
           partA = clip.copyWith(duration: partADuration);
         }
 
         ClipData? partBTemplate;
-        if (partBDuration >= _minClipSize) {
+        if (partBDuration >= _minRemainder) {
           partBTemplate = clip.copyWith(
             clipId: -1, // Placeholder — caller assigns from engine
             startTime: newEnd,
@@ -300,9 +311,9 @@ class ClipOverlapHandler {
           newStart < clipEnd &&
           newEnd >= clipEnd) {
         final newDuration = newStart - clip.startTime;
-        if (newDuration < _minClipSize) {
+        if (newDuration < _minRemainder) {
           Log.d(
-            '[OVERLAP]   Case 2 TRIM END: MIDI clip ${clip.clipId} too small (${newDuration.toStringAsFixed(3)} beats) → DELETE',
+            '[OVERLAP]   Case 2 TRIM END: MIDI clip ${clip.clipId} remainder ${newDuration.toStringAsFixed(3)} beats is below $_minRemainder → DELETE',
           );
           removals.add(clip);
         } else {
@@ -324,9 +335,9 @@ class ClipOverlapHandler {
           newEnd < clipEnd &&
           newStart <= clip.startTime) {
         final newDuration = clipEnd - newEnd;
-        if (newDuration < _minClipSize) {
+        if (newDuration < _minRemainder) {
           Log.d(
-            '[OVERLAP]   Case 3 TRIM START: MIDI clip ${clip.clipId} too small (${newDuration.toStringAsFixed(3)} beats) → DELETE',
+            '[OVERLAP]   Case 3 TRIM START: MIDI clip ${clip.clipId} remainder ${newDuration.toStringAsFixed(3)} beats is below $_minRemainder → DELETE',
           );
           removals.add(clip);
         } else {
@@ -363,7 +374,7 @@ class ClipOverlapHandler {
         );
 
         MidiClipData? partA;
-        if (partADuration >= _minClipSize) {
+        if (partADuration >= _minRemainder) {
           partA = clip.copyWith(
             clipId: generateUniqueClipId(),
             duration: partADuration,
@@ -372,7 +383,7 @@ class ClipOverlapHandler {
         }
 
         MidiClipData? partB;
-        if (partBDuration >= _minClipSize) {
+        if (partBDuration >= _minRemainder) {
           final adjustedNotes = MidiClipGestureUtils.adjustNotesForTrim(
             notes: clip.notes,
             trimOffset: splitOffset,
