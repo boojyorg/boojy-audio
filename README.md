@@ -1,126 +1,92 @@
 # Boojy Audio
 
-A modern, cross-platform DAW (Digital Audio Workstation) designed for **speed and simplicity**.
+**Make music with less setup and distraction.**
 
-![Boojy Audio Screenshot](docs/screenshots/screenshot_v0.6.0.png)
+Boojy Audio is a free, open-source digital audio workstation for combining beats, melodies and
+recorded performances into complete songs. Play instruments, draw notes, record vocals, arrange
+and mix, all in a calm interface with sensible defaults. It's designed for musicians: sound comes
+first, and the visuals are there to support listening.
+
+![Boojy Audio showing a four-track arrangement with the piano-roll editor open](docs/screenshots/screenshot_v0.6.0.png)
 
 ## Download
 
-[![Download for macOS](https://img.shields.io/badge/Download-macOS-blue?style=for-the-badge&logo=apple)](https://github.com/tyrbujac/boojy-audio/releases/latest)
+[![Download for macOS](https://img.shields.io/badge/Download-macOS-blue?style=for-the-badge&logo=apple)](https://github.com/boojyorg/boojy-audio/releases/latest)
+[![Download for Windows](https://img.shields.io/badge/Download-Windows-blue?style=for-the-badge)](https://github.com/boojyorg/boojy-audio/releases/latest)
 
-Or visit [boojy.org](https://boojy.org) for more information.
+Latest release: **v0.6.0**. More at [boojy.org](https://boojy.org).
 
-**Current Status:** Alpha — latest release v0.6.0. See [CHANGELOG.md](CHANGELOG.md) and [docs/BACKLOG.md](docs/BACKLOG.md).
+**Alpha software.** Boojy is actively developed and some workflows are still incomplete. The
+[changelog](CHANGELOG.md) lists what changed in each release, and the
+[backlog](docs/BACKLOG.md) is honest about what's missing. The screenshot above is from the
+released build.
 
-## Features
+## What you can do
 
-- **Multi-track recording** — Audio and MIDI, with count-in, punch in/out, and input monitoring
-- **Piano roll editor** — Note drawing, velocity editing, scale/key highlighting, real-time preview
-- **Mixing** — Per-track volume, pan, mute/solo, built-in EQ, compressor, reverb, delay, limiter
-- **Track automation** — Volume and pan lanes with draw, select, delete, duplicate, slice tools
-- **VST3 plugin support** — Scan, load, and host instruments and effects (docked or floating UI)
-- **Audio editing** — Warp/time-stretch, pitch shift, clip splitting, consolidation, looping
-- **Library browser** — Browse sounds, instruments, effects, and plugins with audio preview
-- **MIDI import/export** — Standard MIDI file support (.mid)
-- **Project management** — Save/load projects, auto-save, WAV/MP3/stem export
-- **Keyboard-driven workflow** — Command palette (Cmd+K) and shortcuts for everything
+- **Compose.** Play the built-in synth, sampler and drum kit from a MIDI keyboard or the virtual
+  piano, draw notes in the piano roll, and program drum patterns in the step sequencer.
+- **Record.** Capture vocals and instruments with input monitoring, a count-in and punch in/out.
+  A phrase you played before pressing record can be captured after the fact.
+- **Arrange and edit.** Move, trim, split, join, loop and time-stretch audio and MIDI clips on
+  a linear timeline. Undo is unlimited and edits are non-destructive.
+- **Mix.** Balance tracks with faders and pan, use the built-in EQ, compressor, reverb, delay
+  and limiter, automate volume, and host VST3 instruments and effects.
+- **Save and export.** Projects auto-save. Export a mix or individual stems to WAV or MP3, and
+  MIDI clips to standard `.mid` files.
 
-Development priority: documentation health. The v0.7 feature theme is paused; see
-[BACKLOG.md](docs/BACKLOG.md) for unfinished work and decisions.
+## Build from source
 
-## Tech Stack
+This section is for developers. You don't need any of it to use Boojy: download a release above.
 
-- **UI:** Flutter (Dart)
-- **Audio Engine:** Rust (native performance, WASM-ready)
-- **FFI:** C bindings (Rust ↔ Dart via `dart:ffi`)
-- **Plugins:** VST3 hosting (C++ bridge)
+You'll need Rust and Flutter. Both are pinned to exact versions in the repo (Rust in
+`engine/rust-toolchain.toml`, Flutter in `ui/.fvmrc`), so install [rustup](https://rustup.rs)
+and [FVM](https://fvm.app) and they'll pick up the right ones. On macOS you also need the Xcode
+Command Line Tools.
+
+```bash
+git clone https://github.com/boojyorg/boojy-audio.git
+cd boojy-audio
+./build.sh                  # builds the Rust engine and links it into the app
+cd ui
+fvm install                 # first time only: fetches the pinned Flutter SDK
+fvm flutter run -d macos
+```
+
+Windows builds also need the VST3 host libraries compiled with Visual Studio; the steps are in
+[`engine/vst3_host/README.md`](engine/vst3_host/README.md). Engineering conventions, build
+gates and the rules files live in [AGENTS.md](AGENTS.md).
 
 ## Documentation
 
 | Doc | What it covers |
-|-----|----------------|
-| [BACKLOG.md](docs/BACKLOG.md) | Active priority, paused work, open decisions, future candidates and exclusions |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | How it works: Flutter/Rust split, FFI boundary, mixer routing, persistence, folder map |
-| [PRODUCT.md](docs/PRODUCT.md) | Who it's for and the principles that decide scope |
-| [RELEASING.md](docs/RELEASING.md) | Release steps, version sync, Windows smoke test, review cadence |
-| [AGENTS.md](AGENTS.md) | Build, gates, and the index of engineering rules |
-| [CHANGELOG.md](CHANGELOG.md) | Completed changes, with unreleased work separated from releases |
+| --- | --- |
+| [PRODUCT.md](docs/PRODUCT.md) | What Boojy is for and the principles that decide what goes in |
+| [BACKLOG.md](docs/BACKLOG.md) | What's next, what's parked, and decisions already made |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the Flutter UI and Rust engine fit together |
+| [RELEASING.md](docs/RELEASING.md) | How a release is cut and checked |
+| [CHANGELOG.md](CHANGELOG.md) | What changed, release by release |
 
-## Setup
+## Keyboard shortcuts
 
-### Prerequisites
-
-- **Rust 1.98.1** (pinned in `engine/rust-toolchain.toml`): `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-- **Flutter 3.44+ via [FVM](https://fvm.app):** `brew install fvm` — the repo pins the exact version in `ui/.fvmrc`, so use `fvm flutter …` for Flutter commands
-- **macOS:** Xcode Command Line Tools
-- **sccache (optional):** `brew install sccache` — speeds up Rust rebuilds
-
-### Build & Run
-
-```bash
-# Clone the repository
-git clone https://github.com/tyrbujac/boojy-audio.git
-cd boojy-audio
-
-# Build Rust engine (handles symlinking + dylib copies)
-./build.sh           # debug
-./build.sh release   # release
-
-# Run Flutter app (FVM uses the version pinned in ui/.fvmrc)
-cd ui
-fvm install              # one-time: fetch the pinned Flutter SDK
-fvm flutter run -d macos
-```
-
-### Windows VST3 Setup
-
-For VST3 plugin support on Windows:
-
-1. Install CMake: `winget install Kitware.CMake`
-2. Install Visual Studio 2022 with "Desktop development with C++" workload
-3. Build VST3 C++ libraries:
-
-   ```powershell
-   cd engine/vst3_host
-   mkdir build_win && cd build_win
-   cmake -G "Visual Studio 17 2022" -A x64 ..
-   cmake --build . --config Release
-   cd ../../..
-   copy engine/vst3_host/build_win/lib/Release/*.lib engine/lib/
-   ```
-
-4. VST3 plugin path: `C:\Program Files\Common Files\VST3\`
-
-## Keyboard Shortcuts
+The full list is behind the **?** button in the transport bar (or press `?`). The ones you'll
+reach for first:
 
 | Shortcut | Action |
-|----------|--------|
-| Space | Play/Stop |
-| R | Record |
-| L | Toggle Loop |
-| B | Toggle Library |
-| M | Toggle Mixer |
-| Cmd+K | Command Palette |
-| Cmd+S | Save |
-| Cmd+E | Split clip |
-| Q | Quantize clip |
+| --- | --- |
+| Space | Play / pause |
+| R | Start / stop recording |
+| L | Toggle loop |
+| M | Toggle metronome |
+| Q | Quantise selected |
 | Cmd+J | Join clips |
-| Cmd+Z / Cmd+Shift+Z | Undo / Redo |
+| Cmd+L / Cmd+M / Cmd+E | Toggle library / mixer / editor panel |
+| Cmd+P | Virtual piano |
+| Cmd+Z / Shift+Cmd+Z | Undo / redo |
 
-## Contributing
+## Feedback and licence
 
-Boojy Audio is a personal project and isn't accepting code contributions or pull requests right now.
-Feedback and bug reports are welcome by email at [tyr@boojy.org](mailto:tyr@boojy.org).
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+Boojy Audio is a personal project and isn't taking code contributions or pull requests right now
+(see [CONTRIBUTING.md](CONTRIBUTING.md)). Bug reports and feedback are very welcome by email at
+[tyr@boojy.org](mailto:tyr@boojy.org).
 
-## License
-
-Boojy Audio is licensed under the **GNU General Public License v3.0** — see [LICENSE](LICENSE).
-
-Copyright (c) 2025–2026 Tyr Bujac
-
-## Contact
-
-- **Email:** [tyr@boojy.org](mailto:tyr@boojy.org)
-- **GitHub:** [@tyrbujac](https://github.com/tyrbujac)
-- **Repository:** [boojy-audio](https://github.com/tyrbujac/boojy-audio)
+Licensed under the [GNU General Public License v3.0](LICENSE). Copyright 2025–2026 Tyr Bujac.

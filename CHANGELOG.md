@@ -29,6 +29,12 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **README rewritten for musicians first.** Opens with what Boojy is for, then downloads for
+  macOS and Windows, an alpha note, five capabilities checked against v0.6.0, and a
+  developer-only "Build from source" section. Removes claims the build doesn't back (pan
+  automation lanes, a Cmd+K command palette, "WASM-ready") and fixes the shortcut table
+  (library/mixer are Cmd+L/Cmd+M; M is the metronome). All GitHub links now point at the
+  `boojyorg` organisation instead of relying on the rename redirect.
 - Docs cleanup, pass 3 of 3 — `docs/BACKLOG.md` rewritten against the code. Every item is
   self-describing (no review IDs), sorted into Now / Next / Parked / Decisions, and each "verify
   before claiming" note was checked on 2026-09-13: swing has no control, the CC lane and ghost
