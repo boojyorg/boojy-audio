@@ -1,5 +1,11 @@
 # AGENTS.md
 
+Boojy Audio is a free, open-source, cross-platform DAW for composing, recording, arranging,
+mixing and mastering music. It combines MIDI programming with audio recording in a calm,
+approachable interface. Designed for musicians: sensible defaults, minimal setup, and sound
+first — visuals support listening. Flutter UI over a Rust audio engine, joined by raw `dart:ffi`;
+ships on macOS and Windows. Detailed positioning and scope: `docs/PRODUCT.md`.
+
 Suite-wide process (memory model, changelog, branch discipline, context hygiene, working
 preferences) lives in the suite root `~/Documents/Projects/boojy/AGENTS.md`. This file is the
 boojy-audio index: where things are, how to build and gate, and which rules file to read before
