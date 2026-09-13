@@ -62,6 +62,9 @@ including the v0.6.1 fixes that were never tagged. Release gate, on top of `RELE
   playhead lab, palette editor, behind Cmd+Shift shortcuts). Pick winners, promote the tokens,
   delete the switchers. *(Tyr picks.)*
 - **Missing-ffmpeg message has no Windows line** (`.claude/rules/audio-export.md`).
+- **The web target is a Dart-side fake.** `audio_engine_web.dart` simulates transport and clips
+  and the WASM engine never renders. Delete it in the dead-code pass; the real web version
+  ([PLATFORMS.md](PLATFORMS.md)) starts from the engine, not from this.
 
 ### Larger pieces (need Tyr's design input first)
 
@@ -99,6 +102,15 @@ engine's `ExportOptions` already supports platform targets and ranges; the Dart 
 only peak normalize) · localisation · loop recording and take comping (not implemented; the one
 engineering-heavy parity gap, scoped pre-1.0).
 
+**Platform prep for v1.0** (decided 2026-09-13, details in [PLATFORMS.md](PLATFORMS.md)):
+
+- **Web:** pure engine render path (no threads or clocks in the renderer) · a `dart:js_interop`
+  binding beside `dart:ffi` · AudioWorklet host with a shared-memory ring for playhead and meters
+  · origin-private filesystem storage · verify `signalsmith-stretch` builds for WASM. The
+  render-path cleanup is worth doing first because it improves the desktop engine too.
+- **iPad:** touch-first gesture pass · CoreMIDI channel in Swift · AUv3 is a separate decision.
+- **Linux:** packaging decision (AppImage or Flatpak) · a CI job mirroring Windows.
+
 ### Feature candidates by area
 
 Ideas with no owner and no date. A candidate's presence here is not a decision.
@@ -117,7 +129,7 @@ Ideas with no owner and no date. A candidate's presence here is not a decision.
 | Plugins | VST3 load/reopen lifecycle hardening, preset browsing reachability, a plugin manager, AU. |
 | Instruments | Thin synth presets (First Sound); wavetable or advanced sampler modes need a fresh product decision. |
 | Usability | High-contrast themes stay hidden until their tokens render correctly; secondary-monitor plugin windows; shortcut overlay and customisation; undo-history panel. |
-| Platforms | Windows hardening; iPad was proposed but is untested in CI; Linux only if asked; Web is a strategic question, not a plan. |
+| Platforms | Windows hardening for beta. Linux, web and iPad are v1.0 candidates; the plan and what each needs are in [PLATFORMS.md](PLATFORMS.md). |
 | Hardware | Optional sample-rate selector driven by supported device rates (see the cosmetic dropdown above). ASIO deferred; WASAPI stays the default. |
 
 ### Engineering follow-ups
@@ -178,6 +190,9 @@ Verified against the tree on 2026-09-12 unless noted.
 - **Quiet panel-toggle chrome**; no "active" state treatment.
 - **No peak-hold marker on meters** (proposed June 2026, not adopted; meters use instant-attack,
   smooth-decay ballistics).
+- **Beta ships on macOS and Windows; Linux, web and iPad are v1.0 candidates.** The stack stays
+  Flutter + Rust; alternatives were assessed on 2026-09-13 and the stack question is not reopened
+  before v1.0 ([PLATFORMS.md](PLATFORMS.md)).
 - **Linear arrangement is the primary model.** No pattern-first or clip-launch workflow. Sequencing
   within a track (arpeggiator, drum step sequencer) is compatible ([PRODUCT.md](PRODUCT.md)).
 - **Excluded:** tagging system, read/write automation modes, Drummer/Session Player, AI

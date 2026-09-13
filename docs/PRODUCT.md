@@ -11,7 +11,7 @@ interface, with sensible defaults and minimal setup. It is designed for musician
 first song to finished releases.
 
 Free forever and open source (GPL v3). Cross-platform is a product goal; which platforms ship
-when is a backlog decision, not a promise made here.
+when, and what each needs, is in [PLATFORMS.md](PLATFORMS.md), not a promise made here.
 
 ## Primary use
 
