@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../../../theme/theme_extension.dart';
 import '../../painters/unified_nav_bar_painter.dart';
+import 'anchored_zoom.dart';
 
 /// Configuration for UnifiedNavBar behavior and state.
 class UnifiedNavBarConfig {
@@ -34,14 +35,20 @@ class UnifiedNavBarConfig {
 
 /// Callbacks for UnifiedNavBar interactions.
 class UnifiedNavBarCallbacks {
-  /// Called when user drags horizontally to scroll timeline.
+  /// Called when the scroll wheel moves over the ruler.
   /// [delta] is the amount to scroll (negative = scroll left).
   final void Function(double delta)? onHorizontalScroll;
 
-  /// Called when user drags vertically to zoom.
-  /// [factor] is the zoom multiplier (> 1 = zoom in).
-  /// [anchorBeat] is the beat position to anchor zoom to.
-  final void Function(double factor, double anchorBeat)? onZoom;
+  /// Called on every pointer move of a navigation drag on the ruler.
+  ///
+  /// The beat grabbed at drag start must stay under the pointer for the
+  /// whole gesture: hold [anchorBeat] at [anchorViewportX] pixels from the
+  /// left edge of the ruler viewport after multiplying the zoom by [factor]
+  /// (> 1 = zoom in; exactly 1 for a purely horizontal move). Horizontal
+  /// travel therefore scrolls and vertical travel zooms, as one continuous
+  /// gesture. See `anchoredScrollOffset` / `applyZoomScroll`.
+  final void Function(double factor, double anchorBeat, double anchorViewportX)?
+  onZoom;
 
   /// Called when user clicks to set playhead position.
   final void Function(double beat)? onPlayheadSet;
@@ -107,9 +114,22 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
 
   // Drag state
   _DragMode _dragMode = _DragMode.none;
-  double? _dragStartX;
-  double? _dragStartY;
-  double? _dragStartPixelsPerBeat;
+
+  // Navigation drag: the beat under the pointer at pan start and where it
+  // sat in the viewport. Each move reports the incremental zoom ratio for the
+  // vertical travel since the previous move plus the pointer's current
+  // viewport x, so the consumer keeps that beat under the pointer throughout.
+  double? _navAnchorBeat;
+  double? _navStartViewportX;
+  double? _navStartGlobalX;
+  double? _navLastGlobalY;
+
+  // Where the pointer went down. A pan is only recognised after the pointer
+  // has travelled the gesture slop, so the anchor is taken from the press
+  // itself (the beat the user aimed at) and the swallowed travel is folded
+  // into the first update rather than lost.
+  Offset? _downLocal;
+  Offset? _downGlobal;
 
   // Hover state for cursor and edge highlighting
   double? _hoverBeat;
@@ -126,6 +146,7 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapUp: _handleTapUp,
+        onPanDown: _handlePanDown,
         onPanStart: _handlePanStart,
         onPanUpdate: _handlePanUpdate,
         onPanEnd: _handlePanEnd,
@@ -178,12 +199,15 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
   // COORDINATE HELPERS
   // ============================================
 
-  double _beatAtX(double x) {
-    final scrollOffset = widget.scrollController.hasClients
-        ? widget.scrollController.offset
-        : 0.0;
-    return (x + scrollOffset) / widget.config.pixelsPerBeat;
-  }
+  double get _scrollOffset =>
+      widget.scrollController.hasClients ? widget.scrollController.offset : 0.0;
+
+  /// Beat at a pointer x. The ruler is laid out at full content width INSIDE
+  /// the horizontal scroll view (see [NavBarWithZoom]), so gesture and hover
+  /// positions arrive in content space already: never add the scroll offset
+  /// here. Doing so put every click, hover and zoom anchor `offset / ppb`
+  /// beats too far right whenever the ruler was scrolled past bar 1.
+  double _beatAtX(double x) => x / widget.config.pixelsPerBeat;
 
   double _xAtBeat(double beat) {
     return beat * widget.config.pixelsPerBeat;
@@ -191,22 +215,14 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
 
   bool _isNearLoopStart(double beat) {
     // Bar is always visible, so edges are always interactive
-    final loopStartX = _xAtBeat(widget.config.loopStart);
-    final beatX = _xAtBeat(beat);
-    final scrollOffset = widget.scrollController.hasClients
-        ? widget.scrollController.offset
-        : 0.0;
-    return (beatX - loopStartX + scrollOffset).abs() < _edgeHitZone;
+    return (_xAtBeat(beat) - _xAtBeat(widget.config.loopStart)).abs() <
+        _edgeHitZone;
   }
 
   bool _isNearLoopEnd(double beat) {
     // Bar is always visible, so edges are always interactive
-    final loopEndX = _xAtBeat(widget.config.loopEnd);
-    final beatX = _xAtBeat(beat);
-    final scrollOffset = widget.scrollController.hasClients
-        ? widget.scrollController.offset
-        : 0.0;
-    return (beatX - loopEndX + scrollOffset).abs() < _edgeHitZone;
+    return (_xAtBeat(beat) - _xAtBeat(widget.config.loopEnd)).abs() <
+        _edgeHitZone;
   }
 
   bool _isNearPlayhead(double beat) {
@@ -277,8 +293,15 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
   // PAN HANDLING (Drag for scroll/zoom/loop resize)
   // ============================================
 
+  void _handlePanDown(DragDownDetails details) {
+    _downLocal = details.localPosition;
+    _downGlobal = details.globalPosition;
+  }
+
   void _handlePanStart(DragStartDetails details) {
-    final beat = _beatAtX(details.localPosition.dx);
+    final local = _downLocal ?? details.localPosition;
+    final global = _downGlobal ?? details.globalPosition;
+    final beat = _beatAtX(local.dx);
 
     // Check if on playhead first (highest priority for dragging)
     if (_isNearPlayhead(beat)) {
@@ -290,11 +313,14 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
     } else if (_isNearLoopEnd(beat)) {
       _dragMode = _DragMode.loopEnd;
     } else {
-      // Navigation mode
+      // Navigation mode: grab the beat under the pointer.
       _dragMode = _DragMode.navigation;
-      _dragStartX = details.globalPosition.dx;
-      _dragStartY = details.globalPosition.dy;
-      _dragStartPixelsPerBeat = widget.config.pixelsPerBeat;
+      _navAnchorBeat = beat;
+      _navStartViewportX = local.dx - _scrollOffset;
+      _navStartGlobalX = global.dx;
+      _navLastGlobalY = global.dy;
+      // Apply the travel between the press and recognition straight away.
+      _emitNavigation(details.globalPosition);
     }
 
     setState(() {});
@@ -322,9 +348,12 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
   void _handlePanEnd(DragEndDetails details) {
     setState(() {
       _dragMode = _DragMode.none;
-      _dragStartX = null;
-      _dragStartY = null;
-      _dragStartPixelsPerBeat = null;
+      _navAnchorBeat = null;
+      _navStartViewportX = null;
+      _navStartGlobalX = null;
+      _navLastGlobalY = null;
+      _downLocal = null;
+      _downGlobal = null;
     });
   }
 
@@ -362,28 +391,34 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
     widget.callbacks.onPlayheadDrag?.call(newPosition);
   }
 
-  void _handleNavigationDrag(DragUpdateDetails details) {
-    if (_dragStartX == null || _dragStartY == null) return;
+  void _handleNavigationDrag(DragUpdateDetails details) =>
+      _emitNavigation(details.globalPosition);
 
-    final deltaX = details.globalPosition.dx - _dragStartX!;
-    final deltaY = details.globalPosition.dy - _dragStartY!;
-
-    // Horizontal drag = scroll (opposite direction - drag right = scroll left)
-    if (deltaX.abs() > 2) {
-      widget.callbacks.onHorizontalScroll?.call(-deltaX);
-      // Reset start position for continuous scrolling
-      _dragStartX = details.globalPosition.dx;
+  void _emitNavigation(Offset globalPosition) {
+    final anchorBeat = _navAnchorBeat;
+    final startViewportX = _navStartViewportX;
+    final startGlobalX = _navStartGlobalX;
+    final lastGlobalY = _navLastGlobalY;
+    if (anchorBeat == null ||
+        startViewportX == null ||
+        startGlobalX == null ||
+        lastGlobalY == null) {
+      return;
     }
 
-    // Vertical drag = zoom (drag up = zoom in, drag down = zoom out)
-    if (deltaY.abs() > 2 && _dragStartPixelsPerBeat != null) {
-      // Sensitivity: 100px drag = 1.5x zoom change
-      final factor = 1.0 - (deltaY / 200.0);
-      final anchorBeat = _beatAtX(details.localPosition.dx);
-      widget.callbacks.onZoom?.call(factor, anchorBeat);
-      // Reset start position for continuous zooming
-      _dragStartY = details.globalPosition.dy;
-    }
+    // Vertical travel since the previous move → incremental zoom ratio. No
+    // dead zone: a 1px move is a 1px move, and the ratios multiply, so the
+    // gesture is smooth and a round trip returns to the starting zoom.
+    final deltaY = globalPosition.dy - lastGlobalY;
+    _navLastGlobalY = globalPosition.dy;
+    final factor = rulerDragZoomFactor(deltaY);
+
+    // Pointer x in the viewport, tracked from the press by global travel:
+    // the ruler itself moves under the pointer as the consumer scrolls, so
+    // its local x is not a stable reference during the drag.
+    final viewportX = startViewportX + (globalPosition.dx - startGlobalX);
+
+    widget.callbacks.onZoom?.call(factor, anchorBeat, viewportX);
   }
 
   // ============================================

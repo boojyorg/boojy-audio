@@ -12,6 +12,7 @@ import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 import '../../theme/app_colors.dart';
 import '../shared/editors/unified_nav_bar.dart';
+import '../shared/editors/anchored_zoom.dart';
 import '../shared/editors/nav_bar_with_zoom.dart';
 import 'audio_editor_state.dart';
 import 'audio_editor_controls_bar.dart';
@@ -261,28 +262,35 @@ class _AudioEditorState extends State<AudioEditor>
     horizontalScroll.jumpTo(newOffset);
   }
 
-  void _handleNavBarZoom(double factor, double anchorBeat) {
-    final maxZoom = calculateMaxPixelsPerBeat();
-    final minZoom = calculateMinPixelsPerBeat();
-    final newPixelsPerBeat = (pixelsPerBeat * factor).clamp(minZoom, maxZoom);
-
-    if (newPixelsPerBeat == pixelsPerBeat) return;
-
+  /// Ruler drag from the nav bar: hold the grabbed beat under the pointer
+  /// (this used to re-centre the anchor in the viewport on every move).
+  void _handleNavBarZoom(
+    double factor,
+    double anchorBeat,
+    double anchorViewportX,
+  ) {
+    final newPixelsPerBeat = (pixelsPerBeat * factor).clamp(
+      calculateMinPixelsPerBeat(),
+      calculateMaxPixelsPerBeat(),
+    );
+    final offset = anchoredScrollOffset(
+      anchorBeat: anchorBeat,
+      anchorViewportX: anchorViewportX,
+      pixelsPerBeat: newPixelsPerBeat,
+    );
+    if (newPixelsPerBeat == pixelsPerBeat &&
+        horizontalScroll.hasClients &&
+        offset == horizontalScroll.offset) {
+      return;
+    }
     setState(() {
       pixelsPerBeat = newPixelsPerBeat;
     });
-
-    // Adjust scroll to keep anchor beat in place
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!horizontalScroll.hasClients) return;
-      final newAnchorX = anchorBeat * newPixelsPerBeat;
-      final viewportCenter = viewWidth / 2;
-      final newScroll = (newAnchorX - viewportCenter).clamp(
-        0.0,
-        horizontalScroll.position.maxScrollExtent,
-      );
-      horizontalScroll.jumpTo(newScroll);
-    });
+    applyZoomScroll(
+      controllers: [horizontalScroll, rulerScroll, loopBarScroll],
+      offset: offset,
+      contentWidth: calculateTotalBeats() * newPixelsPerBeat,
+    );
   }
 
   void _handleLoopRegionChanged(double start, double end) {

@@ -68,19 +68,15 @@ items under Next are secondary to it and are not release work unless promoted he
   coverage: `ui/test/widgets/transport_bar_density_test.dart` sweeps every width from 960 to
   1600 px. The overflow *menu* (trailing chevron vs right-click) is still the open "top-bar
   overflow" question below; nothing overflows at the supported window sizes now.
-- **Ruler drag zoom in the arrangement doesn't feel right** (target: Ableton's beat-time
-  ruler). Three concrete gaps in `unified_nav_bar.dart` and `timeline_view.dart`:
-  the timeline's zoom handler receives an anchor beat and ignores it, so the zoom pivots on the
-  left edge of the view and the bar under the pointer slides away; the factor is linear per
-  event with a 2 px dead zone, so the motion is lumpy and asymmetric; vertical and horizontal
-  drag are handled as separate steps rather than one continuous gesture. The piano roll has a
-  second copy of the same maths (`piano_roll/zoom_mixin.dart`, plus a third in
-  `shared/editors/zoomable_editor_mixin.dart`) with a from-start linear factor that saturates
-  at 200 px and a scroll correction one frame late, which wobbles. Fix: one shared
-  implementation, exponential factor (equal drag = equal ratio both ways), anchor beat captured
-  at drag start and held under the pointer with the scroll correction applied in the same
-  frame, both axes live throughout. Check the drag direction against Ableton (down = in there;
-  Boojy is up = in). The wider zoom spec (pinch, modifiers, zoom-to-fit) stays a separate item.
+- **Ruler drag zoom in the arrangement doesn't feel right.** Fixed 2026-09-13 (see Unreleased
+  in the changelog): one shared implementation (`shared/editors/anchored_zoom.dart`), anchor
+  held under the pointer in the same frame, exponential factor, both axes live, drag down =
+  zoom in. Found on the way: the ruler double-counted its scroll offset, so a click past bar 1
+  set the playhead at the wrong bar; also fixed. Regression coverage:
+  `ui/test/widgets/unified_nav_bar_test.dart` (ruler gesture and click),
+  `ui/test/widgets/shared/anchored_zoom_test.dart` (maths and same-frame scroll),
+  `ui/test/native/ruler_zoom_anchor_test.dart` (the real arrangement over the engine). The
+  wider zoom spec (pinch, modifiers, zoom-to-fit) is still the separate item under Next.
 
 **After release**
 

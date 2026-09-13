@@ -2,20 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart'
     show PointerScrollEvent, PointerSignalEvent;
 import 'package:flutter/services.dart' show HardwareKeyboard;
+import 'anchored_zoom.dart';
 
-/// Mixin providing horizontal zoom functionality for editors (Piano Roll, Timeline).
+/// Mixin providing horizontal zoom functionality for the arrangement.
 ///
 /// Subclasses must provide:
 /// - [horizontalScrollController] for scroll management
-/// - [pixelsPerBeat] getter/setter for zoom level
+/// - [pixelsPerBeat] getter/setter for zoom level (the setter must rebuild)
 /// - [viewWidth] for calculating zoom limits
+/// - [contentWidthAt] so scroll can be corrected in the same frame as zoom
 ///
 /// Features:
 /// - Cmd/Ctrl + scroll wheel zoom
 /// - Zoom in/out actions with viewport center anchor
 /// - Zoom at specific position (for mouse-based zoom)
-/// - Ableton-style drag zoom (click and drag up/down)
+/// - Ruler drag zoom (see [handleNavBarZoom])
 /// - Configurable zoom limits (min/max pixelsPerBeat)
+///
+/// The maths (drag ratio, anchored offset, same-frame scroll) is shared with
+/// the piano roll and audio editor through `anchored_zoom.dart`.
 ///
 /// Usage:
 /// ```dart
@@ -58,6 +63,17 @@ mixin ZoomableEditorMixin<T extends StatefulWidget> on State<T> {
   /// View width for calculating zoom limits.
   double get viewWidth;
 
+  /// Width of the scrollable content at a given zoom, so the scroll
+  /// controllers can be told their post-zoom extent before the viewport
+  /// lays out (see [applyZoomScroll]).
+  double contentWidthAt(double pixelsPerBeat);
+
+  /// Every controller that must move with [horizontalScrollController]
+  /// (a mirrored ruler, for instance). Defaults to the main one only.
+  List<ScrollController> get zoomLinkedScrollControllers => [
+    horizontalScrollController,
+  ];
+
   // ============================================
   // ZOOM LIMITS (override to customize)
   // ============================================
@@ -75,23 +91,6 @@ mixin ZoomableEditorMixin<T extends StatefulWidget> on State<T> {
   double get maxZoom => 500.0;
 
   // ============================================
-  // DRAG ZOOM STATE
-  // ============================================
-
-  /// Whether drag zoom is currently active.
-  bool _isDragZooming = false;
-  bool get isDragZooming => _isDragZooming;
-
-  /// Starting Y position for drag zoom.
-  double? _dragZoomStartY;
-
-  /// Starting X position (anchor point for zoom).
-  double? _dragZoomAnchorX;
-
-  /// pixelsPerBeat at drag zoom start.
-  double? _dragZoomStartPPB;
-
-  // ============================================
   // ZOOM ACTIONS
   // ============================================
 
@@ -107,68 +106,74 @@ mixin ZoomableEditorMixin<T extends StatefulWidget> on State<T> {
 
   /// Zoom centered on the viewport center.
   void _zoomAtViewportCenter(double factor) {
-    final maxZ = calculateMaxZoom();
-    final minZ = calculateMinZoom();
-
-    // Get current scroll position and viewport center
-    final currentScroll = horizontalScrollController.offset;
-    final viewportCenter = currentScroll + (viewWidth / 2);
-
-    // Calculate the beat at viewport center
-    final centerBeat = viewportCenter / pixelsPerBeat;
-
-    // Apply zoom
-    final oldPixelsPerBeat = pixelsPerBeat;
-    final newPixelsPerBeat = (pixelsPerBeat * factor).clamp(minZ, maxZ);
-
-    if (newPixelsPerBeat == oldPixelsPerBeat) return;
-
-    pixelsPerBeat = newPixelsPerBeat;
-
-    // Adjust scroll to keep the same beat at viewport center
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!horizontalScrollController.hasClients) return;
-      final newCenterX = centerBeat * newPixelsPerBeat;
-      final newScroll = (newCenterX - (viewWidth / 2)).clamp(
-        0.0,
-        horizontalScrollController.position.maxScrollExtent,
-      );
-      horizontalScrollController.jumpTo(newScroll);
-    });
+    final currentScroll = horizontalScrollController.hasClients
+        ? horizontalScrollController.offset
+        : 0.0;
+    final centerX = viewWidth / 2;
+    zoomAnchored(
+      factor: factor,
+      anchorBeat: (currentScroll + centerX) / pixelsPerBeat,
+      anchorViewportX: centerX,
+    );
   }
 
   /// Zoom at a specific X position (for mouse-based zoom).
-  /// [localX] is the X coordinate relative to the scrollable content.
+  /// [localX] is the X coordinate relative to the viewport.
   /// [factor] > 1 zooms in, < 1 zooms out.
   void zoomAtPosition(double localX, double factor) {
-    final maxZ = calculateMaxZoom();
-    final minZ = calculateMinZoom();
+    final currentScroll = horizontalScrollController.hasClients
+        ? horizontalScrollController.offset
+        : 0.0;
+    zoomAnchored(
+      factor: factor,
+      anchorBeat: (currentScroll + localX) / pixelsPerBeat,
+      anchorViewportX: localX,
+    );
+  }
 
-    // Get current scroll position
-    final currentScroll = horizontalScrollController.offset;
+  /// Ruler drag from [UnifiedNavBarCallbacks.onZoom]: hold [anchorBeat]
+  /// under the pointer at [anchorViewportX] while the zoom changes by
+  /// [factor]. A factor of exactly 1 is a pure scroll.
+  void handleNavBarZoom(
+    double factor,
+    double anchorBeat,
+    double anchorViewportX,
+  ) {
+    zoomAnchored(
+      factor: factor,
+      anchorBeat: anchorBeat,
+      anchorViewportX: anchorViewportX,
+    );
+  }
 
-    // Calculate the beat at the mouse position
-    final mouseX = currentScroll + localX;
-    final mouseBeat = mouseX / pixelsPerBeat;
-
-    // Apply zoom
-    final oldPixelsPerBeat = pixelsPerBeat;
-    final newPixelsPerBeat = (pixelsPerBeat * factor).clamp(minZ, maxZ);
-
-    if (newPixelsPerBeat == oldPixelsPerBeat) return;
-
+  /// The one zoom path: multiply the zoom by [factor] (clamped to the
+  /// editor's limits) and scroll so [anchorBeat] sits at [anchorViewportX],
+  /// both in the same frame.
+  void zoomAnchored({
+    required double factor,
+    required double anchorBeat,
+    required double anchorViewportX,
+  }) {
+    final newPixelsPerBeat = (pixelsPerBeat * factor).clamp(
+      calculateMinZoom(),
+      calculateMaxZoom(),
+    );
+    final offset = anchoredScrollOffset(
+      anchorBeat: anchorBeat,
+      anchorViewportX: anchorViewportX,
+      pixelsPerBeat: newPixelsPerBeat,
+    );
+    if (newPixelsPerBeat == pixelsPerBeat &&
+        horizontalScrollController.hasClients &&
+        offset == horizontalScrollController.offset) {
+      return;
+    }
     pixelsPerBeat = newPixelsPerBeat;
-
-    // Adjust scroll to keep the same beat under the mouse
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!horizontalScrollController.hasClients) return;
-      final newMouseX = mouseBeat * newPixelsPerBeat;
-      final newScroll = (newMouseX - localX).clamp(
-        0.0,
-        horizontalScrollController.position.maxScrollExtent,
-      );
-      horizontalScrollController.jumpTo(newScroll);
-    });
+    applyZoomScroll(
+      controllers: zoomLinkedScrollControllers,
+      offset: offset,
+      contentWidth: contentWidthAt(newPixelsPerBeat),
+    );
   }
 
   // ============================================
@@ -200,95 +205,9 @@ mixin ZoomableEditorMixin<T extends StatefulWidget> on State<T> {
     }
   }
 
-  /// Simplified zoom handler that uses fixed clamp values.
-  /// Useful for editors that don't need dynamic zoom limits.
+  /// Cmd/Ctrl + wheel anywhere in the editor: zoom about the viewport
+  /// centre (the pointer position is not known here).
   void handlePointerSignalSimple(PointerSignalEvent event) {
-    if (event is PointerScrollEvent) {
-      final isModifierPressed =
-          HardwareKeyboard.instance.isMetaPressed ||
-          HardwareKeyboard.instance.isControlPressed;
-
-      if (isModifierPressed) {
-        final scrollDelta = event.scrollDelta.dy;
-        final oldValue = pixelsPerBeat;
-        final newValue = scrollDelta < 0
-            ? (pixelsPerBeat * 1.1).clamp(minZoom, maxZoom)
-            : (pixelsPerBeat / 1.1).clamp(minZoom, maxZoom);
-        // Only rebuild if value actually changed
-        if (newValue != oldValue) {
-          pixelsPerBeat = newValue;
-        }
-      }
-    }
-  }
-
-  // ============================================
-  // DRAG ZOOM (Ableton-style click+drag)
-  // ============================================
-
-  /// Start drag zoom operation.
-  /// [localX] is the X position relative to scrollable content where the drag started.
-  /// [globalY] is the Y position for tracking drag distance.
-  void startDragZoom(double localX, double globalY) {
-    _isDragZooming = true;
-    _dragZoomStartY = globalY;
-    _dragZoomAnchorX = localX;
-    _dragZoomStartPPB = pixelsPerBeat;
-  }
-
-  /// Update drag zoom based on mouse movement.
-  /// [globalY] is the current Y position.
-  void updateDragZoom(double globalY) {
-    if (!_isDragZooming ||
-        _dragZoomStartY == null ||
-        _dragZoomStartPPB == null ||
-        _dragZoomAnchorX == null) {
-      return;
-    }
-
-    final maxZ = calculateMaxZoom();
-    final minZ = calculateMinZoom();
-
-    // Calculate zoom factor based on vertical drag distance
-    // Drag up = zoom in, drag down = zoom out
-    final deltaY = _dragZoomStartY! - globalY;
-    // Sensitivity: 200 pixels of drag = 2x zoom change
-    final zoomFactor = 1.0 + (deltaY / 200.0);
-
-    // Calculate new pixelsPerBeat
-    final newPixelsPerBeat = (_dragZoomStartPPB! * zoomFactor).clamp(
-      minZ,
-      maxZ,
-    );
-
-    if (newPixelsPerBeat == pixelsPerBeat) return;
-
-    // Get current scroll position
-    final currentScroll = horizontalScrollController.offset;
-
-    // Calculate the beat at the anchor point
-    final anchorX = currentScroll + _dragZoomAnchorX!;
-    final anchorBeat = anchorX / pixelsPerBeat;
-
-    pixelsPerBeat = newPixelsPerBeat;
-
-    // Adjust scroll to keep the same beat under the anchor point
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!horizontalScrollController.hasClients) return;
-      final newAnchorX = anchorBeat * newPixelsPerBeat;
-      final newScroll = (newAnchorX - _dragZoomAnchorX!).clamp(
-        0.0,
-        horizontalScrollController.position.maxScrollExtent,
-      );
-      horizontalScrollController.jumpTo(newScroll);
-    });
-  }
-
-  /// End drag zoom operation.
-  void endDragZoom() {
-    _isDragZooming = false;
-    _dragZoomStartY = null;
-    _dragZoomAnchorX = null;
-    _dragZoomStartPPB = null;
+    handlePointerSignal(event);
   }
 }

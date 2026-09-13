@@ -191,8 +191,8 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   /// Starting X position for drag zoom (anchor point for zoom).
   double? dragZoomAnchorX;
 
-  /// pixelsPerBeat at drag zoom start.
-  double? dragZoomStartPPB;
+  /// Beat under the pointer when the drag zoom started; held there.
+  double? dragZoomAnchorBeat;
 
   // ============================================
   // VELOCITY LANE STATE
