@@ -6,6 +6,17 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- **The library is one tree.** The two-column browser (categories on the left, contents on the
+  right) is replaced by a single full-width tree. Favorites, Sounds, Samples, Instruments, Effects,
+  Plugins and each added folder are root rows: click one to open it in place, click again to
+  close it, and keep as many open as you like. Subfolders open with a chevron in place of a
+  folder icon, so every level indents by the same small step and long sample names get the whole
+  panel width. Names that still truncate show in full on hover. Opening a root or clicking into
+  it scopes the search box to that section (the placeholder and a chip say so; the chip's × goes
+  back to searching everything). Arrow keys walk the tree: Up/Down move, Right opens or steps
+  in, Left closes or steps out, Enter loads, Space previews. Preview, drag to the arrangement,
+  favourites and the folder and item context menus work as before.
+
 - **Capture MIDI button in the transport bar.** A corner-bracket button in the modifiers cluster
   (next to the metronome) captures the phrase you just played unarmed into a new clip at the
   playhead. Press it once — it flashes to confirm it fired. (Backend existed since v0.2; button

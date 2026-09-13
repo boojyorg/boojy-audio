@@ -230,6 +230,11 @@ Verified against the tree on 2026-09-12 unless noted.
 - **Light theme must read correctly everywhere.** Shipped in v0.7 slice 1; regressions are bugs.
 - **No extra piano-roll canvas tool badge**; toolbar selection and cursor convey the tool.
 - **Quiet panel-toggle chrome**; no "active" state treatment.
+- **The library browser is one full-width tree, not two columns** (2026-09-13). Root rows have
+  icons and labels but no chevrons; subfolders use a chevron in place of a folder icon; several
+  roots can be open at once; opening is not selecting. Don't re-add the left category column or
+  its divider. Sticky section headers, shared-prefix folding of long sample names and search
+  results shown in place in the tree are follow-up candidates, not part of the tree change.
 - **No peak-hold marker on meters** (proposed June 2026, not adopted; meters use instant-attack,
   smooth-decay ballistics).
 - **Beta ships on macOS and Windows; Linux, web and iPad are v1.0 candidates.** The stack stays
