@@ -4,7 +4,7 @@
 //! armed state, and clip management.
 
 use super::helpers::{encode_csv_field, get_audio_graph};
-use crate::track::{ClipId, TrackId, TrackType};
+use crate::track::{TrackId, TrackType};
 
 // ============================================================================
 // TRACK CREATION
@@ -344,39 +344,3 @@ pub fn get_track_peak_levels(track_id: TrackId) -> Result<String, String> {
 // ============================================================================
 // CLIP MANAGEMENT
 // ============================================================================
-
-/// Move an existing clip to a track
-///
-/// This migrates clips from the legacy global timeline to track-based system
-pub fn move_clip_to_track(track_id: TrackId, clip_id: ClipId) -> Result<String, String> {
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-    let track_manager = graph.track_manager.lock();
-
-    // Find the clip in the global timeline
-    let mut clips = graph.get_clips().lock();
-    let clip_idx = clips
-        .iter()
-        .position(|c| c.id == clip_id)
-        .ok_or(format!("Clip {clip_id} not found in global timeline"))?;
-
-    // Remove from global timeline
-    let timeline_clip = clips.remove(clip_idx);
-
-    // Add to track
-    if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock();
-
-        // Verify track type matches clip type
-        if track.track_type != TrackType::Audio && track.track_type != TrackType::Group {
-            clips.insert(clip_idx, timeline_clip); // Put it back
-            return Err(format!("Track {track_id} is not an audio track"));
-        }
-
-        track.audio_clips.push(timeline_clip);
-        Ok(format!("Moved clip {clip_id} to track {track_id}"))
-    } else {
-        clips.insert(clip_idx, timeline_clip); // Put it back
-        Err(format!("Track {track_id} not found"))
-    }
-}

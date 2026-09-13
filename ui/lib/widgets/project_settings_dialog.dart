@@ -136,7 +136,10 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
             ),
             const SizedBox(height: 16),
 
-            // Time Signature + Sample Rate (side by side)
+            // Time Signature (half width; the right half is reserved so the
+            // layout matches the old two-column row). The sample-rate picker was
+            // removed: the engine always runs at 48 kHz, so the control was
+            // cosmetic. Metadata still round-trips the stored value.
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -190,23 +193,7 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                 ),
                 const SizedBox(width: 16),
 
-                // Sample Rate
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel(context, 'Sample Rate'),
-                      const SizedBox(height: 4),
-                      BoojyDropdown<int>(
-                        value: _sampleRate,
-                        items: [44100, 48000]
-                            .map((r) => BoojyMenuItem(value: r, label: '$r Hz'))
-                            .toList(),
-                        onChanged: (v) => setState(() => _sampleRate = v),
-                      ),
-                    ],
-                  ),
-                ),
+                const Expanded(child: SizedBox()),
               ],
             ),
             const SizedBox(height: 20),

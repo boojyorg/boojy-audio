@@ -1,7 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
-
-import 'bundled_content_io.dart'
-    if (dart.library.js_interop) 'bundled_content_io_web.dart';
+import 'bundled_content_io.dart';
 
 /// Installs bundled content (drum samples) from Flutter assets to a real
 /// folder on disk, because the Rust engine loads samples by filesystem path
@@ -76,7 +73,6 @@ class BundledContentService {
   /// the absolute path of the Drums folder, or null on web / on failure.
   /// Safe to call repeatedly and concurrently.
   static Future<String?> ensureInstalled() {
-    if (kIsWeb) return Future.value(null);
     if (_installedDrumsRoot != null) {
       return Future.value(_installedDrumsRoot);
     }

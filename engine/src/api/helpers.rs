@@ -59,37 +59,6 @@ where
     f(&mut graph)
 }
 
-/// Try to execute a closure with a locked audio graph, spawning a background thread if busy
-/// Returns Ok with result if lock acquired immediately, or spawns thread and returns queued message
-pub fn try_with_graph_mut<F>(action_name: &str, queued_msg: &str, f: F) -> Result<String, String>
-where
-    F: FnOnce(&mut AudioGraph) -> Result<String, String> + Send + 'static,
-{
-    let graph_mutex = get_audio_graph()?;
-
-    if let Some(mut graph) = graph_mutex.try_lock() {
-        f(&mut graph)
-    } else {
-        // Lock is busy - spawn thread to retry (UI won't freeze)
-        let action = action_name.to_string();
-        eprintln!("⚠️ [API] {action}: lock busy, spawning thread");
-        std::thread::spawn(move || {
-            if let Some(m) = AUDIO_GRAPH.get() {
-                let mut g = m.lock();
-                // Surface a background failure instead of dropping it on the
-                // floor — the caller already received `queued_msg` and can't see
-                // this Result, so logging is the only signal the deferred action
-                // failed. (C46)
-                match f(&mut g) {
-                    Ok(_) => eprintln!("✅ [API] {action}: completed in background thread"),
-                    Err(e) => eprintln!("❌ [API] {action}: failed in background thread: {e}"),
-                }
-            }
-        });
-        Ok(queued_msg.to_string())
-    }
-}
-
 /// Percent-encode a free-text field (e.g. a track name) for the engine's
 /// `,`/`;`-delimited CSV result strings (C34). Encodes `%`, `,` and `;` so a
 /// name like "Drums, Kit" can't shift later fields or split entries. The Dart

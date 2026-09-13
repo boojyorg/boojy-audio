@@ -4,9 +4,7 @@ import '../utils/logger.dart';
 import 'project_manager.dart';
 import 'user_settings.dart';
 
-// Conditional import for path_provider (not available on web)
-import 'auto_save_service_io.dart'
-    if (dart.library.js_interop) 'auto_save_service_io_web.dart';
+import 'auto_save_service_io.dart';
 
 /// Auto-save service that periodically saves the project
 /// Also manages crash recovery backups

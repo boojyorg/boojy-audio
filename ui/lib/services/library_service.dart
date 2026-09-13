@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,8 +7,7 @@ import 'bundled_content_service.dart';
 import '../theme/boojy_icons.dart';
 import '../widgets/device_chain/builtin_devices.dart';
 import '../widgets/instrument_browser.dart';
-import '../screens/daw_screen_io.dart'
-    if (dart.library.js_interop) '../screens/daw_screen_io_web.dart';
+import '../screens/daw_screen_io.dart';
 
 /// Service for managing library content, favorites, and user folders
 class LibraryService extends ChangeNotifier {
@@ -70,8 +68,8 @@ class LibraryService extends ChangeNotifier {
 
   /// Get default user content path based on platform
   static Future<String> getDefaultUserContentPath() async {
-    if (kIsWeb || isIOS) {
-      // On web/iOS, we can't use HOME environment variable
+    if (isIOS) {
+      // On iOS, we can't use HOME environment variable
       // Use the app's documents directory which is sandboxed
       // This will be set during initialization
       return ''; // Will be set by _loadPreferences
@@ -113,9 +111,8 @@ class LibraryService extends ChangeNotifier {
     final savedPath = prefs.getString(_userContentPathKey);
     if (savedPath != null && savedPath.isNotEmpty) {
       _userContentPath = savedPath;
-    } else if (kIsWeb || isIOS) {
-      // On web/iOS, skip folder creation - use IndexedDB/sandbox instead
-      // User content will be managed differently on web/mobile
+    } else if (isIOS) {
+      // On iOS, skip folder creation - the sandbox manages user content
       _userContentPath = '';
       notifyListeners();
       return;
@@ -134,8 +131,8 @@ class LibraryService extends ChangeNotifier {
 
   /// Ensure default user content folder exists
   Future<void> _ensureDefaultFolderExists() async {
-    // Skip folder creation on web/iOS - use IndexedDB/sandbox instead
-    if (kIsWeb || isIOS || _userContentPath.isEmpty) {
+    // Skip folder creation on iOS - the sandbox manages user content
+    if (isIOS || _userContentPath.isEmpty) {
       return;
     }
 

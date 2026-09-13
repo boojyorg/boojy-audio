@@ -21,7 +21,7 @@ engine/                       Rust → libengine.{dylib,dll}
 ui/lib/
   audio_engine*.dart          the Dart side of the FFI boundary
   models/                     immutable data classes with JSON (ClipData, MidiNoteData, TrackData…)
-  services/                   ProjectManager, ProjectPersistence, UndoRedoManager + commands/, library, auto-save, snapshots, MIDI playback/capture, VST3, updater, settings
+  services/                   ProjectManager, ProjectPersistence, UndoRedoManager + commands/, library, auto-save, MIDI playback/capture, VST3, updater, settings
   controllers/                playback, recording, track, MIDI-clip, automation (ChangeNotifiers)
   screens/daw/                DAWScreen + mixins/ (clip, track, playback, recording, project, library, VST3, UI)
   widgets/                    transport_bar, timeline, piano_roll, mixer, device_chain, editors, library, start_screen, dialogs, shared/, painters/
@@ -38,9 +38,8 @@ Three layers, no codegen: `engine/src/api/` (pure Rust, returns `Result`) → `e
 each symbol. On the Dart side `AudioEngine` is composed from per-domain mixins
 (`_TransportMixin`, `_RecordingMixin`, `_TracksMixin`, `_SendsMixin`, `_PluginsMixin`) over
 `_AudioEngineBase`, and every engine method is declared on `AudioEngineInterface`.
-`audio_engine.dart` selects the implementation by conditional export: native (FFI), web
-(JS interop stub), or stub. The same native/web/stub pattern is used for project management,
-drop targets and file dialogs.
+`audio_engine.dart` selects the implementation by conditional export: native (FFI) or stub.
+The same native/stub pattern is used for project management, drop targets and file dialogs.
 
 Every FFI call serialises on one global graph mutex; the realtime audio callback is the only
 concurrent thread. Lock order, the non-reentrant track locks, and the beats-vs-seconds contract
@@ -118,6 +117,6 @@ so manual save, auto-save and crash recovery stay in sync.
 
 Save: `DAWProjectMixin.getCurrentUILayout()` → `ProjectPersistence.collect()` →
 `ProjectManager.saveProject()`, which writes `ui_layout.json` beside the engine's `project.json`.
-Load: `ProjectManager.loadProject()` → `applyUILayout()`. `AutoSaveService` and
-`SnapshotManager` reuse the same path. Bundled samples are copied from the asset bundle to app
+Load: `ProjectManager.loadProject()` → `applyUILayout()`. `AutoSaveService` reuses the same
+path. Bundled samples are copied from the asset bundle to app
 support on first use (`bundled_content_service.dart`); the engine loads by filesystem path only.

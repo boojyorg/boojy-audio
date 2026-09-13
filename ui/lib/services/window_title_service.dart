@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart'
-    show kIsWeb, defaultTargetPlatform, TargetPlatform;
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:window_manager/window_manager.dart';
 
 /// Service for managing the application window title.
@@ -13,7 +13,7 @@ class WindowTitleService {
 
   /// Initialize the window manager (call once at app startup)
   static Future<void> initialize() async {
-    if (kIsWeb || _initialized) return;
+    if (_initialized) return;
 
     await windowManager.ensureInitialized();
 
@@ -57,7 +57,7 @@ class WindowTitleService {
 
   /// Update the window title based on current state
   static Future<void> _updateTitle() async {
-    if (kIsWeb || !_initialized) return;
+    if (!_initialized) return;
 
     final unsavedIndicator = _hasUnsavedChanges ? '*' : '';
     final title = '$_currentProjectName$unsavedIndicator - $_appName';

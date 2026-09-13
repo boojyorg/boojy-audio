@@ -3,7 +3,6 @@ use super::{AudioGraph, BufferSizePreset};
 use crate::audio_file::TARGET_SAMPLE_RATE;
 use std::sync::atomic::Ordering;
 
-#[cfg(not(target_arch = "wasm32"))]
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
 impl AudioGraph {
@@ -11,7 +10,6 @@ impl AudioGraph {
 
     /// Set the preferred buffer size preset
     /// Requires restarting the audio stream to take effect (native only)
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn set_buffer_size(&mut self, preset: BufferSizePreset) -> anyhow::Result<()> {
         {
             let mut current = self.preferred_buffer_size.lock();
@@ -208,7 +206,6 @@ impl AudioGraph {
     }
 
     /// Restart the audio stream (used when changing buffer size) - native only
-    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn restart_audio_stream(&mut self) -> anyhow::Result<()> {
         // Stop current stream
         if let Some(stream) = self.stream.take() {
@@ -239,7 +236,6 @@ impl AudioGraph {
     /// Get list of available audio output devices - native only
     /// Returns: Vec of (id, name, `is_default`)
     /// When ASIO feature is enabled, ASIO devices are listed first with [ASIO] prefix
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn get_output_devices() -> Vec<(String, String, bool)> {
         let mut all_devices = Vec::new();
 
@@ -311,7 +307,6 @@ impl AudioGraph {
 
     /// Get list of available audio input devices - native only
     /// Returns: Vec of (id, name, `is_default`)
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn get_input_devices() -> Vec<(String, String, bool)> {
         let host = cpal::default_host();
         let default_name = host.default_input_device().and_then(|d| d.name().ok());
@@ -334,7 +329,6 @@ impl AudioGraph {
 
     /// Set the audio output device by name - native only
     /// Pass empty string or None to use system default
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn set_output_device(&mut self, device_name: Option<String>) -> anyhow::Result<()> {
         let device_name = device_name.filter(|s| !s.is_empty());
 

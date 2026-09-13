@@ -2,7 +2,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart'
-    show kIsWeb, defaultTargetPlatform, TargetPlatform;
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:window_manager/window_manager.dart';
@@ -400,8 +400,7 @@ class _TransportBarState extends State<TransportBar> {
   /// macOS hides its native title bar (see WindowTitleService), so the bar
   /// becomes the top chrome: it insets to clear the traffic lights and provides
   /// a drag region for moving the window.
-  bool get _replacesTitleBar =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+  bool get _replacesTitleBar => defaultTargetPlatform == TargetPlatform.macOS;
 
   @override
   Widget build(BuildContext context) {

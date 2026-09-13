@@ -322,19 +322,6 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   int? currentlyHeldNote;
 
   // ============================================
-  // TRANSFORM TOOL VALUES
-  // ============================================
-
-  /// Time stretch amount.
-  double stretchAmount = 1.0;
-
-  /// Humanize amount.
-  double humanizeAmount = 0.0;
-
-  /// Swing amount.
-  double swingAmount = 0.0;
-
-  // ============================================
   // SCALE SETTINGS
   // ============================================
 
@@ -347,14 +334,8 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   /// Whether scale highlighting is enabled.
   bool scaleHighlightEnabled = false;
 
-  /// Whether scale lock is enabled.
-  bool scaleLockEnabled = false;
-
   /// Whether fold view is enabled.
   bool foldViewEnabled = false;
-
-  /// Whether ghost notes are enabled.
-  bool ghostNotesEnabled = false;
 
   /// Get current scale.
   Scale get currentScale => Scale(root: scaleRoot, type: scaleType);

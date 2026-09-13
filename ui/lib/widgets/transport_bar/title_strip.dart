@@ -10,10 +10,9 @@ import '../../theme/theme_extension.dart';
 const double kMacTitleStripHeight = 28.0;
 
 /// True when the app draws its own thin title strip in place of the native
-/// title bar — macOS only. Windows/web keep their native title bar, so the
+/// title bar — macOS only. Windows keeps its native title bar, so the
 /// strip is not drawn and reserves no space.
-bool get hasMacTitleStrip =>
-    !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+bool get hasMacTitleStrip => defaultTargetPlatform == TargetPlatform.macOS;
 
 /// A thin, full-window-width strip above the transport bar (macOS). It hosts the
 /// native traffic lights on the left and a window-centred project title

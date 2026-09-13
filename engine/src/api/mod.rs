@@ -53,8 +53,8 @@ pub use latency::{
 pub use midi_clips::{
     add_midi_clip_to_track_api, add_midi_clip_to_track_api as add_midi_clip_to_track,
     add_midi_note_to_clip, clear_midi_clip, create_midi_clip, get_all_midi_clips_info,
-    get_midi_clip_count, get_midi_clip_events, get_midi_clip_info, get_midi_clip_notes,
-    quantize_midi_clip, remove_midi_clip, remove_midi_event, send_midi_note_off, send_midi_note_on,
+    get_midi_clip_events, get_midi_clip_info, get_midi_clip_notes, quantize_midi_clip,
+    remove_midi_clip, remove_midi_event, send_midi_note_off, send_midi_note_on,
 };
 pub use midi_input::{
     get_midi_input_devices, get_midi_recorder_live_events, get_midi_recording_state,
@@ -100,9 +100,9 @@ pub use timing::{
 };
 pub use tracks::{
     create_track, get_all_track_ids, get_track_count, get_track_info, get_track_input,
-    get_track_peak_levels, move_clip_to_track, set_track_armed, set_track_input,
-    set_track_input_monitoring, set_track_mute, set_track_name, set_track_pan, set_track_solo,
-    set_track_volume, set_track_volume_automation,
+    get_track_peak_levels, set_track_armed, set_track_input, set_track_input_monitoring,
+    set_track_mute, set_track_name, set_track_pan, set_track_solo, set_track_volume,
+    set_track_volume_automation,
 };
 pub use transport::{
     get_play_start_position, get_playhead_position, get_record_start_position, get_transport_state,

@@ -29,6 +29,16 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Dead-code pass.** Removed about 10,000 lines that no user could reach: the Dart-side fake
+  web target and the engine's WASM modules, the legacy Snapshot and half-built project-version
+  features, the superseded VST3 parameter panel and plugin browser, an old track header, a
+  horizontal meter, a file drop zone, a standalone clip-automation lane, the unused View menu,
+  seven barrel files, unrendered piano-roll controls (ghost notes, scale root/type pickers and
+  lock, swing, humanize, stretch, reverse), an "Export MIDI coming soon" placeholder, two engine
+  functions no UI called, and two unused images. Per the "inert controls work or are hidden"
+  decision: the cosmetic project sample-rate picker is gone (the engine always runs at 48 kHz),
+  the disabled Zoom items left the View menu, and the Updates section in Settings is hidden on
+  Windows until a native updater exists.
 - **Platform plan recorded** (`docs/PLATFORMS.md`). Beta ships on macOS and Windows; Linux, web
   and iPad are v1.0 candidates. The doc records why the stack stays Flutter + Rust, the
   alternatives assessed, a quality ceiling per platform, and the work each platform needs. The

@@ -13,12 +13,6 @@ class NotePainter extends CustomPainter {
   final Offset? selectionStart;
   final Offset? selectionEnd;
 
-  /// Ghost notes from other MIDI tracks (rendered at 30% opacity)
-  final List<MidiNoteData> ghostNotes;
-
-  /// Whether to show ghost notes
-  final bool showGhostNotes;
-
   /// Fold mode - when provided, only these pitches are visible (in order)
   /// Used for calculating Y coordinates in fold view
   final List<int>? foldedPitches;
@@ -42,8 +36,6 @@ class NotePainter extends CustomPainter {
     required this.colors,
     this.selectionStart,
     this.selectionEnd,
-    this.ghostNotes = const [],
-    this.showGhostNotes = false,
     this.foldedPitches,
     required this.noteColor,
     this.textScale = 1.0,
@@ -61,13 +53,6 @@ class NotePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Draw ghost notes first (behind regular notes)
-    if (showGhostNotes) {
-      for (final note in ghostNotes) {
-        _drawGhostNote(canvas, note);
-      }
-    }
-
     // Draw all notes
     for (final note in notes) {
       _drawNote(canvas, note, isSelected: note.isSelected);
@@ -95,31 +80,6 @@ class NotePainter extends CustomPainter {
         ..strokeWidth = 2;
       canvas.drawRect(rect, borderPaint);
     }
-  }
-
-  /// Draw a ghost note (from another track) at 30% opacity
-  void _drawGhostNote(Canvas canvas, MidiNoteData note) {
-    final x = note.startTime * pixelsPerBeat;
-    final y = _calculateNoteY(note.note);
-    if (y < 0) return; // Skip notes not visible in fold mode
-    final width = note.duration * pixelsPerBeat;
-    final height = pixelsPerNote - 2;
-
-    final rect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(x, y + 1, width, height),
-      const Radius.circular(4),
-    );
-
-    // Ghost note fill - muted grey at 30% opacity
-    final fillPaint = Paint()..color = colors.textMuted.withValues(alpha: 0.3);
-    canvas.drawRRect(rect, fillPaint);
-
-    // Ghost note border - subtle
-    final borderPaint = Paint()
-      ..color = colors.textMuted.withValues(alpha: 0.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    canvas.drawRRect(rect, borderPaint);
   }
 
   void _drawNote(
@@ -245,8 +205,6 @@ class NotePainter extends CustomPainter {
         pixelsPerNote != oldDelegate.pixelsPerNote ||
         selectionStart != oldDelegate.selectionStart ||
         selectionEnd != oldDelegate.selectionEnd ||
-        ghostNotes != oldDelegate.ghostNotes ||
-        showGhostNotes != oldDelegate.showGhostNotes ||
         noteColor != oldDelegate.noteColor ||
         colors != oldDelegate.colors ||
         textScale != oldDelegate.textScale ||

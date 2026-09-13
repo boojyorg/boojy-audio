@@ -231,12 +231,6 @@ pub extern "C" fn quantize_midi_clip_ffi(clip_id: u64, grid_division: u32) -> *m
     })
 }
 
-/// Get MIDI clip count
-#[no_mangle]
-pub extern "C" fn get_midi_clip_count_ffi() -> usize {
-    ffi_catch(0, || api::get_midi_clip_count().unwrap_or(0))
-}
-
 /// Get MIDI clip info as CSV: "`clip_id,track_id,start_time,duration,note_count`"
 /// `track_id` is -1 if not assigned to a track
 #[no_mangle]

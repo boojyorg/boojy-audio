@@ -673,34 +673,6 @@ mixin DAWProjectMixin
     }
   }
 
-  /// Export MIDI dialog
-  void exportMidi() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Export MIDI'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Export MIDI functionality coming soon.'),
-            SizedBox(height: 16),
-            Text('This will export:'),
-            Text('- All MIDI tracks as .mid file'),
-            Text('- Preserve tempo and time signatures'),
-            Text('- Include all note data and velocities'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
   // Project settings + versioning live in daw_screen.dart
   // (_openProjectSettings / _createVersion / _restoreVersion) — the copies
   // that used to live here were dead duplicates (the CLAUDE.md mixin trap)

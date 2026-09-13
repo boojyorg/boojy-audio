@@ -7,5 +7,4 @@
 
 export 'project_persistence.dart';
 export 'project_manager_stub.dart'
-    if (dart.library.io) 'project_manager_native.dart'
-    if (dart.library.js_interop) 'project_manager_web.dart';
+    if (dart.library.io) 'project_manager_native.dart';

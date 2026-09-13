@@ -6,7 +6,6 @@ use crate::track::{AutomationPoint, TimelineClip, TimelineMidiClip, TrackId, Tra
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-#[cfg(not(target_arch = "wasm32"))]
 use cpal::traits::DeviceTrait;
 
 /// Realtime lock-contention counters. Incremented from the audio thread with
@@ -24,7 +23,6 @@ static EFFECT_LOCK_CONTENTION: AtomicU64 = AtomicU64::new(0);
 /// The device callback size is only a hint (and a 1024 buffer preset exists),
 /// so the realtime path renders in sub-blocks of at most this many frames.
 /// Matches `OFFLINE_BLOCK` in `offline.rs`.
-#[cfg(not(target_arch = "wasm32"))]
 const MAX_VST3_BLOCK: usize = 512;
 
 /// `(synth_manager, effect_manager)` realtime lock-contention counts since the
@@ -43,7 +41,6 @@ pub fn lock_contention_counts() -> (u64, u64) {
 /// from a misbehaving plugin or a denormal-driven blow-up would otherwise reach
 /// the DAC as full-scale noise — the master limiter passes NaN straight through
 /// (`NaN > threshold` is `false`, so its gain stays 1.0).
-#[cfg(not(target_arch = "wasm32"))]
 #[inline]
 fn sanitize_sample(x: f32) -> f32 {
     if x.is_finite() {
@@ -58,7 +55,6 @@ fn sanitize_sample(x: f32) -> f32 {
 /// with more than two channels get L/R in the first two and silence elsewhere.
 /// Centralizes the device-boundary write so the NaN/Inf guard and channel layout
 /// live in exactly one place (was an un-guarded `data[i*2] = ..` at each site).
-#[cfg(not(target_arch = "wasm32"))]
 #[inline]
 fn write_frame(data: &mut [f32], frame_idx: usize, channels: usize, left: f32, right: f32) {
     let base = frame_idx * channels;
@@ -79,7 +75,6 @@ fn write_frame(data: &mut [f32], frame_idx: usize, channels: usize, left: f32, r
 /// `(channels, min_hz, max_hz)` ranges, return the index of the first stereo
 /// range that covers `target_hz`. Extracted so it can be unit-tested without a
 /// real audio device.
-#[cfg(not(target_arch = "wasm32"))]
 fn pick_stereo_config_index(ranges: &[(u16, u32, u32)], target_hz: u32) -> Option<usize> {
     ranges
         .iter()
@@ -89,7 +84,6 @@ fn pick_stereo_config_index(ranges: &[(u16, u32, u32)], target_hz: u32) -> Optio
 /// Find a device output config that is stereo and supports `target_rate`,
 /// pinned to that rate. Returns `None` if the device exposes no stereo config
 /// covering the target rate (caller falls back to the device default).
-#[cfg(not(target_arch = "wasm32"))]
 fn select_stereo_48k_config(
     device: &cpal::Device,
     target_rate: cpal::SampleRate,
@@ -151,7 +145,6 @@ struct StoppedTrackSnapshot {
 
 /// Read stereo input samples from the input manager.
 /// Uses try_lock to avoid blocking the audio thread.
-#[cfg(not(target_arch = "wasm32"))]
 #[inline]
 fn read_input_samples(
     input_manager: &parking_lot::Mutex<crate::audio_input::AudioInputManager>,
@@ -307,7 +300,6 @@ fn process_effect_chain(
 }
 
 /// Peak (max absolute value) of a sample buffer.
-#[cfg(not(target_arch = "wasm32"))]
 #[inline]
 fn block_peak(buf: &[f32]) -> f32 {
     buf.iter().fold(0.0f32, |m, &x| m.max(x.abs()))
@@ -325,7 +317,6 @@ fn block_peak(buf: &[f32]) -> f32 {
 /// whole chain still runs (keeps VST3 plugins ticking on muted/non-solo tracks).
 /// `meter_gain` scales `update_peaks` values to post-fader level — see
 /// [`process_effect_chain`] for the contract.
-#[cfg(not(target_arch = "wasm32"))]
 fn process_effect_chain_block(
     fx_chain: &[u64],
     effect_mgr: &mut EffectManager,
@@ -365,7 +356,6 @@ fn process_effect_chain_block(
 
 impl AudioGraph {
     /// Create the audio output stream - native only
-    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn create_audio_stream(&self) -> anyhow::Result<cpal::Stream> {
         use cpal::traits::HostTrait;
         use cpal::SupportedBufferSize;
@@ -1369,7 +1359,7 @@ impl AudioGraph {
     }
 }
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(test)]
 mod tests {
     // Exact float comparisons are intentional here: the values under test are
     // deterministic sentinels produced by clamping/sanitizing (exactly 0.0 / ±1.0).

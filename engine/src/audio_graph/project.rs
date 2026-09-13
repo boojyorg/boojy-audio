@@ -12,7 +12,6 @@ impl AudioGraph {
     // ========================================================================
 
     /// Export current state to `ProjectData` (for saving) - native only (uses recorder)
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn export_to_project_data(&self, project_name: String) -> crate::project::ProjectData {
         use crate::effects::EffectType as ET;
         use crate::project::{
@@ -310,7 +309,6 @@ impl AudioGraph {
     }
 
     /// Restore state from `ProjectData` (for loading) - native only (uses recorder)
-    #[cfg(not(target_arch = "wasm32"))]
     /// Restore graph state from project data. Returns a map of save-time
     /// track IDs to fresh-load track IDs so the API layer can remap audio
     /// clip attachments (audio clips are restored after this method runs).

@@ -7,5 +7,4 @@
 
 // Export the appropriate implementation based on platform
 export 'audio_engine_stub.dart'
-    if (dart.library.ffi) 'audio_engine_native.dart'
-    if (dart.library.js_interop) 'audio_engine_web.dart';
+    if (dart.library.ffi) 'audio_engine_native.dart';

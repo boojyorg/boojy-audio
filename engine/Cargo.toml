@@ -10,7 +10,6 @@ crate-type = ["cdylib", "staticlib", "lib"]
 default = ["desktop"]
 desktop = ["vst3", "midi", "native-audio"]  # Native platforms with full features
 mobile = ["native-audio"]                    # iOS/Android with native audio
-web = []                                     # Web/WASM target (uses Web Audio API)
 native-audio = []                            # Flag for cpal-based audio
 vst3 = []
 midi = []
@@ -21,8 +20,9 @@ midi = []
 asio = ["cpal/asio"]
 
 [dependencies]
-# Audio decoding (works on all platforms including WASM)
+# Audio decoding
 symphonia = { version = "0.5", features = ["aac", "mp3", "isomp4", "alac"] }
+cpal = "0.15"                    # Cross-platform audio I/O
 rubato = "0.15"                  # Sample rate conversion
 ringbuf = "0.4"                  # Lock-free audio buffers
 signalsmith-stretch = "0.1"      # Pitch-preserved time-stretching
@@ -46,53 +46,13 @@ flate2 = "1.0"                   # Plugin state compression
 base64 = "0.21"                  # Base64 encoding for plugin state
 walkdir = "2.4"                  # Directory traversal for plugin scanning
 
-# ============================================
-# Native platform dependencies (non-WASM)
-# ============================================
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-cpal = "0.15"                    # Cross-platform audio I/O
-
-# MIDI I/O (desktop only - midir doesn't support iOS or WASM)
-[target.'cfg(all(not(target_os = "ios"), not(target_arch = "wasm32")))'.dependencies]
+# MIDI I/O (desktop only - midir doesn't support iOS)
+[target.'cfg(not(target_os = "ios"))'.dependencies]
 midir = "0.9"                    # Cross-platform MIDI I/O
 
 # CoreAudio device latency querying (macOS only)
 [target.'cfg(target_os = "macos")'.dependencies]
 coreaudio-rs = "0.11"            # CoreAudio bindings for accurate latency measurement
-
-# ============================================
-# Web/WASM platform dependencies
-# ============================================
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4"
-js-sys = "0.3"
-web-sys = { version = "0.3", features = [
-    "console",
-    "Window",
-    "Document",
-    "AudioContext",
-    "AudioContextState",
-    "AudioContextOptions",
-    "AudioDestinationNode",
-    "AudioNode",
-    "AudioParam",
-    "AudioWorklet",
-    "AudioWorkletNode",
-    "AudioWorkletNodeOptions",
-    "GainNode",
-    "GainOptions",
-    "OscillatorNode",
-    "OscillatorType",
-    "BlobPropertyBag",
-    "Blob",
-    "Url",
-    "MessageEvent",
-    "ErrorEvent",
-] }
-getrandom = { version = "0.2", features = ["js"] }  # Random number generation for WASM
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

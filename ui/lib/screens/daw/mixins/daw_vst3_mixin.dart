@@ -82,12 +82,6 @@ mixin DAWVst3Mixin
     statusMessage = result.message;
   }
 
-  /// Open the library sidebar to the Plugins category for VST3 browsing
-  void showVst3PluginBrowserDialog(int trackId) {
-    // Plugins are now browsed via the library sidebar's Plugins category
-    // VST3 plugins can be loaded via double-click or drag-and-drop
-  }
-
   /// Handle VST3 plugin dropped on track
   void onVst3PluginDropped(int trackId, Vst3Plugin plugin) {
     if (vst3PluginManager == null) return;

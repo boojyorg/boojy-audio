@@ -299,107 +299,6 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
     commitToHistory('Transpose $direction $displayAmount $unit');
   }
 
-  /// Apply swing to selected notes.
-  void applySwing() {
-    if (currentClip == null) return;
-
-    final selectedNotes = currentClip!.notes
-        .where((n) => n.isSelected)
-        .toList();
-    if (selectedNotes.isEmpty) return;
-
-    saveToHistory();
-
-    final swingDelay = swingAmount * 0.33;
-
-    setState(() {
-      currentClip = currentClip!.copyWith(
-        notes: currentClip!.notes.map((note) {
-          if (!note.isSelected) return note;
-
-          final eighthNotePosition = (note.startTime / 0.5).round();
-          final isOffBeat = eighthNotePosition.isOdd;
-
-          if (isOffBeat) {
-            final newStart = note.startTime + swingDelay;
-            return note.copyWith(startTime: newStart);
-          }
-          return note;
-        }).toList(),
-      );
-    });
-
-    commitToHistory('Apply swing');
-    notifyClipUpdated();
-  }
-
-  /// Apply stretch to selected notes (time scaling).
-  void applyStretch() {
-    if (currentClip == null) return;
-
-    final selectedNotes = currentClip!.notes
-        .where((n) => n.isSelected)
-        .toList();
-    if (selectedNotes.isEmpty) return;
-
-    saveToHistory();
-
-    final selectionStart = selectedNotes
-        .map((n) => n.startTime)
-        .reduce((a, b) => a < b ? a : b);
-
-    setState(() {
-      currentClip = currentClip!.copyWith(
-        notes: currentClip!.notes.map((note) {
-          if (!note.isSelected) return note;
-
-          final relativeStart = note.startTime - selectionStart;
-          final newStart = selectionStart + (relativeStart * stretchAmount);
-          final newDuration = note.duration * stretchAmount;
-
-          return note.copyWith(startTime: newStart, duration: newDuration);
-        }).toList(),
-      );
-    });
-
-    commitToHistory('Stretch notes');
-    notifyClipUpdated();
-  }
-
-  /// Apply humanize to selected notes (random timing variation).
-  void applyHumanize() {
-    if (currentClip == null) return;
-
-    final selectedNotes = currentClip!.notes
-        .where((n) => n.isSelected)
-        .toList();
-    if (selectedNotes.isEmpty) return;
-
-    saveToHistory();
-
-    final maxVariationBeats = 0.1 * humanizeAmount;
-    final random = Random();
-
-    setState(() {
-      currentClip = currentClip!.copyWith(
-        notes: currentClip!.notes.map((note) {
-          if (!note.isSelected) return note;
-
-          final offset = (random.nextDouble() * 2 - 1) * maxVariationBeats;
-          final newStart = (note.startTime + offset).clamp(
-            0.0,
-            double.infinity,
-          );
-
-          return note.copyWith(startTime: newStart);
-        }).toList(),
-      );
-    });
-
-    commitToHistory('Humanize notes');
-    notifyClipUpdated();
-  }
-
   /// Apply legato - extend each note to touch the next note at same pitch.
   void applyLegato() {
     if (currentClip == null) return;
@@ -447,44 +346,6 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
     });
 
     commitToHistory('Apply legato');
-    notifyClipUpdated();
-  }
-
-  /// Reverse selected notes in time.
-  void reverseNotes() {
-    if (currentClip == null) return;
-
-    final selectedNotes = currentClip!.notes
-        .where((n) => n.isSelected)
-        .toList();
-    if (selectedNotes.isEmpty) return;
-
-    saveToHistory();
-
-    final selectionStart = selectedNotes
-        .map((n) => n.startTime)
-        .reduce((a, b) => a < b ? a : b);
-    final selectionEnd = selectedNotes
-        .map((n) => n.endTime)
-        .reduce((a, b) => a > b ? a : b);
-    final selectionCenter = (selectionStart + selectionEnd) / 2;
-
-    setState(() {
-      currentClip = currentClip!.copyWith(
-        notes: currentClip!.notes.map((note) {
-          if (!note.isSelected) return note;
-
-          final noteCenter = note.startTime + note.duration / 2;
-          final distanceFromCenter = noteCenter - selectionCenter;
-          final newNoteCenter = selectionCenter - distanceFromCenter;
-          final newStart = newNoteCenter - note.duration / 2;
-
-          return note.copyWith(startTime: newStart.clamp(0.0, double.infinity));
-        }).toList(),
-      );
-    });
-
-    commitToHistory('Reverse notes');
     notifyClipUpdated();
   }
 
@@ -622,25 +483,5 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
     }
 
     return division;
-  }
-
-  /// Snap a MIDI note to the current scale.
-  int snapNoteToScale(int midiNote) {
-    if (currentScale.containsNote(midiNote)) return midiNote;
-
-    int below = midiNote;
-    int above = midiNote;
-
-    while (!currentScale.containsNote(below) && below >= 0) {
-      below--;
-    }
-    while (!currentScale.containsNote(above) && above <= 127) {
-      above++;
-    }
-
-    if (below < 0) return above;
-    if (above > 127) return below;
-
-    return (midiNote - below <= above - midiNote) ? below : above;
   }
 }

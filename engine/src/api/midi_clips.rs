@@ -11,14 +11,6 @@ use std::sync::Arc;
 // MIDI CLIP INFO
 // ============================================================================
 
-/// Get number of MIDI clips on timeline
-pub fn get_midi_clip_count() -> Result<usize, String> {
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-
-    Ok(graph.midi_clip_count())
-}
-
 /// Get all MIDI clips info
 /// Returns semicolon-separated list of clip info strings
 /// Each clip: "`clip_id,track_id,start_time,duration,note_count`"

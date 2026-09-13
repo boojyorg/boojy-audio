@@ -29,9 +29,9 @@ The engine boundary is **raw `dart:ffi`**: no codegen, no bridge crate. It has *
    Flutter foundation import there).
 
 **Adding an engine function = 3 steps: `api/` → `ffi/` extern-"C" shim → Dart binding.** Then add the
-method to `AudioEngineInterface` and stub it in `audio_engine_stub.dart` + `audio_engine_web.dart`.
+method to `AudioEngineInterface` and stub it in `audio_engine_stub.dart`.
 
-➡️ **The `add-ffi` skill automates most of this** (it touches the 7–8 files involved). Prefer it
+➡️ **The `add-ffi` skill automates most of this** (it touches the 7 files involved). Prefer it
 over doing the wiring by hand.
 
 ## Don't reintroduce flutter_rust_bridge
