@@ -45,8 +45,8 @@ void main() {
       test('has correct default panel sizes', () {
         expect(layout.mixerPanelWidth, 380.0);
         expect(layout.editorPanelHeight, 250.0);
-        expect(layout.libraryLeftColumnWidth, 130.0);
-        expect(layout.libraryRightColumnWidth, 170.0);
+        expect(layout.libraryLeftColumnWidth, 60.0);
+        expect(layout.libraryRightColumnWidth, 172.0);
       });
 
       test('library is open by default', () {
@@ -88,14 +88,14 @@ void main() {
 
     group('library panel', () {
       test('libraryPanelWidth is left + divider + right', () {
-        // 130 + 8 + 170 = 308
+        // 60 + 8 + 172 = 240
         expect(
           layout.libraryPanelWidth,
           layout.libraryLeftColumnWidth +
               UILayoutState.libraryDividerWidth +
               layout.libraryRightColumnWidth,
         );
-        expect(layout.libraryPanelWidth, 308.0);
+        expect(layout.libraryPanelWidth, 240.0);
       });
 
       test('libraryLeftColumnWidth clamps to min', () {
@@ -337,7 +337,7 @@ void main() {
       });
 
       test('getLibraryDefaultWidth respects min on small windows', () {
-        // Very small window: 100 * 0.15 = 15, below min 208
+        // Very small window: 100 * 0.15 = 15, below min 160
         expect(
           UILayoutState.getLibraryDefaultWidth(100),
           UILayoutState.libraryMinWidth,
@@ -374,7 +374,7 @@ void main() {
         expect(state.mixerPanelWidth, closeTo(448.0, 0.01));
         // editor: 1000 * 0.32 = 320 (above min, below hardMax)
         expect(state.editorPanelHeight, closeTo(320.0, 0.01));
-        // library total: 1600 * 0.15 = 240 → left 130 + divider 8 + right 102
+        // library total: 1600 * 0.15 = 240 → left 60 + divider 8 + right 172
         expect(state.libraryPanelWidth, closeTo(240.0, 0.01));
       });
 
@@ -451,8 +451,8 @@ void main() {
       });
 
       test('canShowLibrary returns false when too narrow', () {
-        // With mixer visible at 380, library at 308, need arrangement >= 200
-        // So window must be >= 888. Use something smaller.
+        // With mixer visible at 380, library at 240, need arrangement >= 200
+        // So window must be >= 820. Use something smaller.
         expect(layout.canShowLibrary(400.0), isFalse);
       });
 

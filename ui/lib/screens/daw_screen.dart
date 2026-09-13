@@ -3151,18 +3151,6 @@ class _DAWScreenState extends State<DAWScreen>
                         onItemDoubleClick: _handleLibraryItemDoubleClick,
                         onVst3DoubleClick: _handleVst3DoubleClick,
                         onOpenInSampler: _handleOpenInSampler,
-                        leftColumnWidth: uiLayout.libraryLeftColumnWidth,
-                        onLeftColumnResize: (delta) {
-                          setState(() {
-                            uiLayout.resizeLeftColumn(delta);
-                            userSettings.libraryLeftColumnWidth =
-                                uiLayout.libraryLeftColumnWidth;
-                          });
-                        },
-                        onLeftColumnDragStart: () =>
-                            setState(() => _isDraggingLibrary = true),
-                        onLeftColumnDragEnd: () =>
-                            setState(() => _isDraggingLibrary = false),
                       ),
                     )
                   : LibraryPanel(
@@ -3174,18 +3162,6 @@ class _DAWScreenState extends State<DAWScreen>
                       onItemDoubleClick: _handleLibraryItemDoubleClick,
                       onVst3DoubleClick: _handleVst3DoubleClick,
                       onOpenInSampler: _handleOpenInSampler,
-                      leftColumnWidth: uiLayout.libraryLeftColumnWidth,
-                      onLeftColumnResize: (delta) {
-                        setState(() {
-                          uiLayout.resizeLeftColumn(delta);
-                          userSettings.libraryLeftColumnWidth =
-                              uiLayout.libraryLeftColumnWidth;
-                        });
-                      },
-                      onLeftColumnDragStart: () =>
-                          setState(() => _isDraggingLibrary = true),
-                      onLeftColumnDragEnd: () =>
-                          setState(() => _isDraggingLibrary = false),
                     ),
             ),
 

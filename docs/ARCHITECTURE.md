@@ -92,6 +92,11 @@ AudioEngine (dart:ffi)
 - **Large editors are mixin-composed too.** `PianoRoll` and `TimelineView` split behaviour into
   state, gesture, selection and operation mixins; `timeline_view.dart` additionally uses `part`
   files, so it is one library. Import the entry file only.
+- **`LibraryPanel` is one tree.** Every frame it flattens the expansion set and the lazily
+  scanned folder cache into a list of visible rows; that one list drives rendering, keyboard
+  navigation and search results, so the widget never keeps a second model in sync. Row widget
+  keys are path-like (parent key + id) because the same file can be listed under Favorites and
+  under its own folder at once.
 - **Painting** is `CustomPainter` (`widgets/painters/`): grid, notes, velocity and CC lanes,
   automation, ruler, nav bar. Golden tests cover the load-bearing ones.
 - **Menus and pickers** share one overlay surface, `showBoojyMenu` in `widgets/shared/`;
