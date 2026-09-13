@@ -1,6 +1,6 @@
 # Boojy Audio
 
-A modern, cross-platform DAW (Digital Audio Workstation) designed for **speed, simplicity, and collaboration**.
+A modern, cross-platform DAW (Digital Audio Workstation) designed for **speed and simplicity**.
 
 ![Boojy Audio Screenshot](docs/screenshots/screenshot_v0.6.0.png)
 

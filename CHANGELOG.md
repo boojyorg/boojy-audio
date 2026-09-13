@@ -29,6 +29,10 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- Docs cleanup, pass 1 of 3: deleted the stale `engine/VST3_TESTING.md` (described VST3 hosting
+  as unfinished), trimmed `engine/vst3_host/README.md` to current build steps, removed a
+  duplicated v0.2.1 changelog block, and dropped "collaboration" from the README tagline.
+
 - **Contribution policy simplified** (`CONTRIBUTING.md`, `README.md`): personal project, no
   external code contributions, feedback and bug reports by email to tyr@boojy.org.
 
@@ -1313,32 +1317,6 @@ All notable changes to Boojy Audio will be documented in this file.
 - **MIDI input deadlock**: Removed `effect_manager.lock()` from has_vst3 check in live MIDI callback. Routes to both synth and VST3 without contention
 - **Editor panel dead code**: Removed unused `_buildFloatToggle`, `_buildSamplerEditorTab`, `_buildFXChainTab`, `_isCurrentPluginVst3`
 - **Effect slider jumping**: Fixed slider values snapping to wrong position on drag start
-
-## v0.2.1 — 2026-04-07
-
-### Improvements
-
-- **Real project screenshots**: Project thumbnails on start screen now show actual DAW window screenshots instead of generated clip rectangles
-- **Record button always red**: Record button shows subtle muted red when no track is armed (was grey), brighter red when armed, solid red when recording
-- **Piano Roll toolbar darkened**: Toolbar background behind Loop, Start, Automation buttons changed to darkest (#13151C) for better contrast
-- **Empty mixer messaging**: Mixer sidebar now shows sliders icon and "Mixer" heading instead of generic "No tracks yet"
-- **Toolbar centering**: Editor panel tools (Draw, Select, Erase, Duplicate, Slice) now truly centered across full toolbar width
-
-### Bug Fixes
-
-- **Track colors now persist**: Track color overrides saved to `ui_layout.json` and restored on project load
-- **Loop region now persists**: Loop start/end/enabled state saved and restored (no longer resets to 1 bar on load)
-- **Regular track mixer overflow**: Fixed 0.617px bottom overflow on regular track mixer strips
-- **Duplicate save paths consolidated**: Cmd+S now uses the correct save path (was missing BPM in recent projects)
-- **Screenshot freeze**: Thumbnail capture uses lower resolution + 3s timeout to prevent UI freeze on complex projects
-- **New Project dialog on fresh load**: No longer shows "unsaved changes" confirmation when clicking New Project from start screen
-- **Master mixer overflow**: Fixed 0.358px bottom overflow on master track strip at certain heights
-- **"New Project Created" toast removed**: Redundant SnackBar removed (status bar already shows the message)
-
-### Removals
-
-- **MIDI Capture button**: Removed from transport bar (backend logic retained for future use)
-- **Virtual Piano button**: Removed from editor toolbar (still accessible via P key and View menu)
 
 ## v0.1.7 — 2026-03-27
 
