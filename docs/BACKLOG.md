@@ -10,6 +10,22 @@ Items marked *(Tyr)* need a design call from Tyr before an agent should start.
 
 ## Now: ship v0.7.0 as a bounded release
 
+**Direction agreed 2026-09-13, after the product review.** v0.7 focuses on three things:
+audio and project reliability; simpler editing and mixing workflows; and the repo health that
+supports both. The review that informed this is `docs/reviews/2026_09_13_product_review.md`
+(decision brief) with its evidence file beside it. **Its individual recommendations are not all
+approved**: each one is a candidate until it is accepted here. What is agreed:
+
+- **Next task: investigate the audio/project reliability findings** (brief §2 and §3, IDs
+  C1–C17). None is reproduced; all are demonstrated from code or suspected. Investigation means
+  reproducing (or refuting) each before any fix is scheduled. The engine build being dogfooded
+  should be confirmed first (`./build.sh` with no argument installs a debug engine).
+- **Editing tools, workspace layout and mixer header decisions stay open** (brief §4 and §6,
+  D2–D5). They are discussed before anything is planned; nothing there is scheduled.
+- The release-gate process below still applies; the review does not add work to the release by
+  itself. Triage of the review (per `RELEASING.md`) happens once the direction has been turned
+  into accepted items.
+
 Docs health closed on 2026-09-13 (PRs #130 to #138). **v0.7.0 is a release of the work already
 completed since v0.6.0 plus the fixes that genuinely block it.** It does not revive the paused
 "Devices & Feel" feature theme (archived at `docs/archive/plans/v0.7-plan.md`); nothing from
