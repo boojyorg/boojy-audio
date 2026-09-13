@@ -8,20 +8,35 @@ to engineering rules and specs. Nothing here is a release commitment.
 Every item below was checked against the source tree on **2026-09-13** unless it says otherwise.
 Items marked *(Tyr)* need a design call from Tyr before an agent should start.
 
-## Now: documentation health
+## Now: ship v0.7.0 as a bounded release
 
-Tyr paused the v0.7 "Devices & Feel" feature theme on 2026-09-12. The three docs passes
-(consolidate planning · one home per fact · rewrite this backlog against code) are complete
-with this PR. **The next priority is Tyr's choice**; the recommended pick is the release below,
-because three months of finished work is sitting unreleased and the update path has never been
-exercised end to end.
+Docs health closed on 2026-09-13 (PRs #130 to #138). **v0.7.0 is a release of the work already
+completed since v0.6.0 plus the fixes that genuinely block it.** It does not revive the paused
+"Devices & Feel" feature theme (archived at `docs/archive/plans/v0.7-plan.md`); nothing from
+that plan is added to the release because it was once scheduled.
 
-## Next: candidates
+**Severity rule.** *Blocks release*: known data loss, or a core workflow (record, arrange, edit,
+mix, save and reopen, export) that does not complete. *Fix before release*: visible and cheap
+enough to do now, but the release would ship without it. *After release*: improvements and
+polish; they wait for a patch. An improvement does not become a blocker because it was noticed
+during the gate.
 
-### Release v0.7.0 (recommended)
+**Process, in order.**
 
-Everything in the changelog's Unreleased section has been done since v0.6.0 on 2026-06-11,
-including the v0.6.1 fixes that were never tagged. Release gate, on top of `RELEASING.md`:
+1. This backlog records the known bugs and which ones block (below).
+2. Fix the known bugs, one PR per coherent fix, zoom separate: reproduce, fix, relevant tests,
+   CI green, Tyr's walkthrough, merge. Completed fixes go under Unreleased in the changelog.
+3. Tyr dogfoods the combined build; new findings land here, classified by the severity rule.
+4. One scoped bug hunt once the known blockers are fixed, covering clip editing and undo, zoom,
+   transport, recording, saving and reopening a populated project, and export. Findings are
+   verified before they are reported as confirmed bugs. Confirmed blockers are fixed in separate
+   PRs. The hunt is timeboxed; a known blocker is never shipped because the timebox expired.
+5. Verify and release: the checks in `RELEASING.md`, the Windows smoke test, and the
+   release-day checks below.
+6. A broader audit afterwards is a separate task to inform future work, not an extension of
+   this release.
+
+**Release-day checks**, on top of `RELEASING.md`:
 
 - Confirm Sparkle actually offers the update: install v0.5.4 or v0.6.0 on a Mac, launch, expect
   the offer. The appcast now carries build number 10 for v0.6.0, so the fix is published but has
@@ -31,6 +46,51 @@ including the v0.6.1 fixes that were never tagged. Release gate, on top of `RELE
   is macOS-only and the Updates section is hidden on Windows. Confirm it stays hidden.
 - macOS "check for updates automatically" is persisted by Sparkle itself, not by app settings.
   Toggle it, relaunch, confirm it sticks.
+
+### Known bugs from dogfooding (2026-09-13)
+
+Classified by the severity rule above. Add to this list as testing continues; the code-check
+items under Next are secondary to it and are not release work unless promoted here.
+
+**Blocks release**
+
+- **Dragging an audio clip over a neighbour on the same track deletes the neighbour.** The
+  intended rule is "new clip wins": a partial overlap should trim the neighbour's start. The
+  drag-end path calls the overlap resolver with the right region and excludes the moved clip, so
+  either the resolver misclassifies the overlap as a complete cover or the trim (set start,
+  offset, duration on the engine) fails and the refresh drops the clip. Every branch logs
+  `[OVERLAP]`; one repro with the console open shows which. Losing audio on an ordinary drag is
+  a minute-two bug for a new user.
+
+**Fix before release** (would not block on their own; Tyr wants both in this release)
+
+- **Transport centre cluster shrinks its glyphs at narrow widths** while the outer groups
+  (wordmark, undo/redo, Add MIDI, Add Audio, help) never shed, so the loop, snap, Bar, pencil
+  and fit buttons end up tiny between full-size neighbours. Rule: glyphs never go below the
+  outer buttons' size. Shed labels, then gaps, then overflow the least-used controls. Cheap
+  version for the gate: clamp icon size at the "tight" step and let the cluster overflow. This
+  is the "top-bar overflow" item below failing at a real window size.
+- **Ruler drag zoom in the arrangement doesn't feel right** (target: Ableton's beat-time
+  ruler). Three concrete gaps in `unified_nav_bar.dart` and `timeline_view.dart`:
+  the timeline's zoom handler receives an anchor beat and ignores it, so the zoom pivots on the
+  left edge of the view and the bar under the pointer slides away; the factor is linear per
+  event with a 2 px dead zone, so the motion is lumpy and asymmetric; vertical and horizontal
+  drag are handled as separate steps rather than one continuous gesture. The piano roll has a
+  second copy of the same maths (`piano_roll/zoom_mixin.dart`, plus a third in
+  `shared/editors/zoomable_editor_mixin.dart`) with a from-start linear factor that saturates
+  at 200 px and a scroll correction one frame late, which wobbles. Fix: one shared
+  implementation, exponential factor (equal drag = equal ratio both ways), anchor beat captured
+  at drag start and held under the pointer with the scroll correction applied in the same
+  frame, both axes live throughout. Check the drag direction against Ableton (down = in there;
+  Boojy is up = in). The wider zoom spec (pinch, modifiers, zoom-to-fit) stays a separate item.
+
+**After release**
+
+- **Automation feels unfinished.** Volume automation works end to end (engine interpolates per
+  frame, lane draws, edits undo), so it stays; pan and the clip lane are already hidden. Polish
+  is a post-release theme. If a concrete misbehaviour turns up, move it up.
+
+## Next: candidates
 
 ### Small, certain fixes (each under a day; found in the code check)
 
@@ -63,8 +123,8 @@ including the v0.6.1 fixes that were never tagged. Release gate, on top of `RELE
 - **Hover/motion language** *(Tyr sign-off)*: candidate hover ~1.02 / press ~0.98 on navigation
   and creation surfaces only; nothing that adds latency on transport, tools, faders or M/S/R/I.
 - **Top-bar overflow.** The bar shrinks through six density steps and drops labels; there is no
-  overflow menu. If that ever fails at a real window size, the open question was trailing
-  chevron vs right-click. Not needed until it fails.
+  overflow menu. It failed at a real window size on 2026-09-13 (see the release gate above);
+  the open question is still trailing chevron vs right-click.
 - **Windows updater** native wiring (see release gate).
 - **Font-size tokens.** 228 hardcoded `fontSize:` values remain across `ui/lib`. Migrate to a
   type scale when a theme pass is open; not worth a standalone PR.
@@ -72,6 +132,8 @@ including the v0.6.1 fixes that were never tagged. Release gate, on top of `RELE
 ## Parked
 
 ### "First Sound" theme (chosen June 2026 as the theme after Devices & Feel)
+
+Not part of v0.7.0; the next feature theme is chosen after the release, by review.
 
 Thin presets on the existing synth (Piano/Strings/Bass/Pad/Lead, re-enable the built preset
 browser), named effect patches, guided first-song onboarding (tour overlay infrastructure exists
