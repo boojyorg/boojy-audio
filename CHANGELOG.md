@@ -29,6 +29,12 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- Docs cleanup, pass 2 of 3 — one home per fact. `AGENTS.md` is now a ~100-line index that
+  points at `.claude/rules/` instead of repeating them; release process, version sync, the
+  Windows smoke test and review cadence moved to `docs/RELEASING.md`; `ARCHITECTURE.md`
+  rewritten to describe the current system without tutorials or stale inventories;
+  `target_audience.md` became `docs/PRODUCT.md` with the scope anchors; `state.md` folded into
+  `flutter-ui.md`; the README dropped its duplicate directory tree.
 - Docs cleanup, pass 1 of 3: deleted the stale `engine/VST3_TESTING.md` (described VST3 hosting
   as unfinished), trimmed `engine/vst3_host/README.md` to current build steps, removed a
   duplicated v0.2.1 changelog block, and dropped "collaboration" from the README tagline.

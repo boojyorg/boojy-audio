@@ -51,7 +51,7 @@ not an active release schedule. v1.0 remains the broader goal; its final gate li
   marking done. The end-of-cycle codebase review is paused with the feature cycle; reviews
   remain human-triggered and must not automatically restart feature work.
 - **Release verification:** v0.6.1 was skipped; its fixes remain part of Unreleased. The next
-  release must verify the v0.6.0 update offer and pass the Windows smoke checklist in AGENTS.md.
+  release must verify the v0.6.0 update offer and pass the Windows smoke checklist in `RELEASING.md`.
 
 ### Reconciled status (source inspection, not a runtime certification)
 
@@ -109,7 +109,7 @@ These are inherited candidates; inspect code and later changes before treating o
 
 ### Technical debt
 
-Moved here from `ARCHITECTURE.md`, which now describes only how the system works today.
+Moved here from `ARCHITECTURE.md`, which describes only how the system works today.
 Items marked **(verified 2026-09-12)** were checked against the current tree; the rest are
 inherited proposals that have never been costed or accepted.
 
@@ -169,10 +169,10 @@ pass 2 extracts contracts. These are dated evidence, not current scheduling auth
 The twenty superseded review reports moved to
 [`docs/archive/reviews/`](archive/reviews/README.md), whose index records what each cycle
 produced and where its decisions landed. `docs/reviews/` now holds only the live June triage,
-per the triage-then-retire rule in `AGENTS.md`. One caveat carried forward: the
+per the triage-then-retire rule in `RELEASING.md`. One caveat carried forward: the
 **2026-06-10 bug hunt's lower-tier ledger was never itemised in a triage** — its six must-fix
 items shipped before v0.6.0, but the remainder are unverified candidates, not known open bugs.
 
-Older plans and audience research (`docs/target_audience.md`) are still pass-3 work. Preserve
+Older plans and the product doc's concrete implications (`docs/PRODUCT.md`) are still pass-3 work. Preserve
 unique decisions and unresolved findings here or in specs before removing them. Git retains
 retired planning docs.

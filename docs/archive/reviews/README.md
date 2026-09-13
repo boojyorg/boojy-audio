@@ -5,7 +5,7 @@ Every accepted decision and still-open item from these reports was carried into
 [`docs/BACKLOG.md`](../../BACKLOG.md) before archiving; read that first.
 
 A review's durable output is the triage that followed it. Once a triage exists, the raw reports
-it consumed belong here — see the retire rule in `AGENTS.md` → **Milestone Reviews**.
+it consumed belong here — see **Milestone reviews** in [`docs/RELEASING.md`](../../RELEASING.md).
 
 ## What each cycle produced
 

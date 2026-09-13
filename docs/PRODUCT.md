@@ -1,6 +1,7 @@
-# Boojy Audio — Who It's For
+# Boojy Audio — Product
 
-**Last updated:** 2026-03-29
+Who Boojy is for, and the principles that decide what goes in. Scope decisions in
+[BACKLOG.md](BACKLOG.md) trace back here.
 
 ---
 
@@ -11,6 +12,20 @@ Boojy Audio sits between GarageBand (too simple) and Ableton/Logic (too complex)
 **GarageBand** feels like a toy — friendly but limiting.
 **Ableton** feels like a cockpit — powerful but intimidating.
 **Boojy** should feel like a comfortable studio — everything's within reach, nothing's confusing, and the room sounds good.
+
+---
+
+## Scope anchors
+
+Standing decisions that shape every feature discussion:
+
+- **Beginner-first.** Silence when healthy, progressive disclosure, a small polished toolset.
+  A missing pro feature is usually correctly out of scope.
+- **Linear arrangement stays.** No pattern-first workflow.
+- **The built-in synth is deliberately small:** one oscillator (sine/saw/square/triangle), a
+  one-pole lowpass, ADSR, eight voices. Not three oscillators, a resonant filter, an LFO or a
+  modulation matrix. Growing it needs an explicit product decision.
+- **Prefer simple, minimal implementations**; add complexity only when explicitly asked.
 
 ---
 

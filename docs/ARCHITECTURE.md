@@ -1,296 +1,55 @@
-# Boojy Audio - Architecture Documentation
+# Boojy Audio — Architecture
 
-## Overview
+How the system works today. What should change about it lives in [BACKLOG.md](BACKLOG.md);
+the hazards to respect when changing it live in `.claude/rules/`.
 
-Boojy Audio is a cross-platform Digital Audio Workstation (DAW) built with Flutter for the UI and Rust for the audio engine. The architecture follows a clean separation between the high-performance audio processing backend and the reactive, cross-platform UI frontend.
+## The split
 
-## Directory Structure
-
-```
-Boojy Audio/
-├── engine/                 # Rust audio engine (FFI)
-│   ├── src/               # Rust source code
-│   │   ├── api/          # Internal API modules (called by ffi/)
-│   │   ├── ffi/          # C-compatible FFI shims (one file per domain)
-│   │   ├── audio_graph/  # Renderer, device mgmt, offline processing
-│   │   ├── export/       # Offline render to WAV/MP3
-│   │   └── bin/          # CLI tool(s)
-│   ├── rust-toolchain.toml # Pinned Rust channel (EH-3b)
-│   ├── vst3sdk/          # VST3 SDK submodule (deliberately dirty patch)
-│   └── lib/              # Prebuilt VST3 host static libs
-│
-├── ui/                    # Flutter UI application
-│   ├── lib/              # Main application source
-│   ├── test/             # Unit tests
-│   └── [platform dirs]   # macOS, Windows configs
-│
-└── docs/                  # Project documentation
-```
-
-## UI Architecture (Flutter)
-
-### Layer Overview
+A Flutter desktop UI (macOS, Windows) drives a Rust audio engine over a raw `dart:ffi`
+boundary. The engine owns everything that makes sound: the audio graph, instruments, effects,
+recording, VST3 hosting and offline export. The UI owns layout, editing gestures, undo/redo and
+project files that describe the UI's own state.
 
 ```
-┌─────────────────────────────────────────────────┐
-│                   Widgets                        │
-│  (TransportBar, TimelineView, PianoRoll, etc.)  │
-└─────────────────────┬───────────────────────────┘
-                      │
-        ┌─────────────┼─────────────┐
-        ▼             ▼             ▼
-   Controllers     Services     UI State
-   (Playback,      (Project,    (Layout,
-    Recording,      Undo/Redo,   Theme)
-    Track)          Library)
-        │             │             │
-        └─────────────┴─────────────┘
-                      │
-                      ▼
-              ┌───────────────┐
-              │ Audio Engine  │
-              │    (FFI)      │
-              └───────┬───────┘
-                      │
-                      ▼
-              ┌───────────────┐
-              │  Rust Engine  │
-              └───────────────┘
+engine/                       Rust → libengine.{dylib,dll}
+  src/api/                    business logic, one module per domain, no raw pointers
+  src/ffi/                    extern "C" shims over api/, one file per domain
+  src/audio_graph/            realtime renderer, offline renderer, device management, project I/O
+  src/export/                 WAV (pure Rust) and MP3 (ffmpeg shell-out) — .claude/rules/audio-export.md
+  src/{synth,sampler,drum_kit,effects,stretch,midi*,recorder}.rs
+  vst3_host/                  C++ wrapper over the VST3 SDK (see its README); vst3sdk/ submodule
+ui/lib/
+  audio_engine*.dart          the Dart side of the FFI boundary
+  models/                     immutable data classes with JSON (ClipData, MidiNoteData, TrackData…)
+  services/                   ProjectManager, ProjectPersistence, UndoRedoManager + commands/, library, auto-save, snapshots, MIDI playback/capture, VST3, updater, settings
+  controllers/                playback, recording, track, MIDI-clip, automation (ChangeNotifiers)
+  screens/daw/                DAWScreen + mixins/ (clip, track, playback, recording, project, library, VST3, UI)
+  widgets/                    transport_bar, timeline, piano_roll, mixer, device_chain, editors, library, start_screen, dialogs, shared/, painters/
+  theme/                      colours, BI icon facade, theme provider
+  state/                      UI layout state
+ui/test/native/               engine golden-path tests over dart:ffi (plain flutter test, needs ./build.sh)
+ui/test/goldens/              CustomPainter screenshot tests (macOS reference)
 ```
 
-### Folder Structure
+## FFI boundary
 
-| Folder | Purpose |
-|--------|---------|
-| `lib/models/` | Immutable data classes (ClipData, MidiNoteData, etc.) |
-| `lib/screens/` | Main screens (DAWScreen) |
-| `lib/controllers/` | User interaction state (PlaybackController, etc.) |
-| `lib/services/` | Business logic (ProjectManager, UndoRedoManager, etc.) |
-| `lib/state/` | UI layout state |
-| `lib/theme/` | Theme system (colors, extensions, provider) |
-| `lib/widgets/` | All UI components |
-| `lib/utils/` | Utility functions |
+Three layers, no codegen: `engine/src/api/` (pure Rust, returns `Result`) → `engine/src/ffi/`
+(`#[no_mangle] extern "C"` shims that stringify results) → Dart bindings that `lookupFunction`
+each symbol. On the Dart side `AudioEngine` is composed from per-domain mixins
+(`_TransportMixin`, `_RecordingMixin`, `_TracksMixin`, `_SendsMixin`, `_PluginsMixin`) over
+`_AudioEngineBase`, and every engine method is declared on `AudioEngineInterface`.
+`audio_engine.dart` selects the implementation by conditional export: native (FFI), web
+(JS interop stub), or stub. The same native/web/stub pattern is used for project management,
+drop targets and file dialogs.
 
-### Widget Organization
+Every FFI call serialises on one global graph mutex; the realtime audio callback is the only
+concurrent thread. Lock order, the non-reentrant track locks, and the beats-vs-seconds contract
+are in `.claude/rules/ffi.md`. Adding a function: the `add-ffi` skill.
 
-```
-lib/widgets/
-├── Compound Widgets (Major Components)
-│   ├── transport_bar.dart      # Playback controls, tempo
-│   ├── timeline_view.dart      # Arrangement editor (entry point; uses part files)
-│   ├── piano_roll.dart         # MIDI editor (entry point)
-│   ├── library_panel.dart      # Asset browser
-│   └── editor_panel.dart       # Bottom panel container
-│
-├── Specialized Submodules
-│   ├── piano_roll/            # Piano roll components
-│   │   ├── operations/       # Note operations (quantize, legato, swing…)
-│   │   ├── gestures/         # Input handling
-│   │   ├── utilities/        # Coordinate math
-│   │   └── *_mixin.dart      # Behavior mixins (velocity lane, CC lane…)
-│   │
-│   ├── timeline/             # Timeline components
-│   │   ├── timeline_gesture_layer.dart  # part of timeline_view — drag/trim/eraser
-│   │   ├── timeline_track_list.dart     # part of timeline_view — track rows
-│   │   ├── operations/       # Clip operations
-│   │   └── utilities/        # Coordinate math
-│   │
-│   ├── device_chain/         # Device chain view (instruments + effects shell)
-│   │   └── effect_data.dart  # Effect parameter model (replaces effect_parameter_panel)
-│   │
-│   ├── audio_editor/         # Audio clip waveform editor
-│   ├── sampler_editor/       # Sampler waveform editor
-│   ├── drum_kit_editor/      # Drum kit pad editor
-│   ├── mixer/                # Mixer strip components
-│   ├── transport_bar/        # Transport bar sub-widgets & models
-│   ├── editor/               # Editor panel sub-widgets
-│   └── start_screen/         # Start/welcome screen
-│
-├── shared/                   # Reusable UI components
-│   ├── arc_knob.dart         # 270° arc knob (effect parameters)
-│   ├── boojy_dropdown.dart   # Unified filled-chip dropdown + showBoojyMenu
-│   ├── boojy_tooltip.dart    # Themed tooltip (title, description, shortcut)
-│   ├── boojy_switch.dart     # Compact pill toggle
-│   ├── circular_toggle_button.dart
-│   ├── split_button.dart     # Multi-action button
-│   └── panel_header.dart     # Collapsible headers
-│
-├── painters/                 # CustomPainter classes
-│   ├── grid_painter.dart
-│   ├── note_painter.dart
-│   ├── cc_lane_painter.dart
-│   └── time_ruler_painter.dart
-│
-├── dialogs/                  # Modal dialogs
-└── transport_bar/            # Transport bar split-button widgets
-```
+## Audio graph and mixer routing
 
-**Timeline note:** `timeline_gesture_layer.dart` and `timeline_track_list.dart` are `part` files of `timeline_view.dart` — they share private methods within one library. Do not import them directly.
-
-## Key Architectural Patterns
-
-### 1. State Management (Provider + ChangeNotifier)
-
-```dart
-// Controllers notify UI of state changes
-class PlaybackController extends ChangeNotifier {
-  bool _isPlaying = false;
-  bool get isPlaying => _isPlaying;
-
-  void play() {
-    _isPlaying = true;
-    notifyListeners();
-  }
-}
-
-// Usage in widgets
-Consumer<PlaybackController>(
-  builder: (context, controller, child) {
-    return IconButton(
-      icon: Icon(controller.isPlaying ? Icons.pause : Icons.play_arrow),
-      onPressed: controller.isPlaying ? controller.pause : controller.play,
-    );
-  },
-)
-```
-
-### 2. Command Pattern (Undo/Redo)
-
-```dart
-abstract class Command {
-  String get description;
-  void execute(AudioEngine engine);
-  void undo(AudioEngine engine);
-}
-
-class AddMidiNoteCommand extends Command {
-  final MidiNoteData note;
-
-  @override
-  void execute(AudioEngine engine) => engine.addNote(note);
-
-  @override
-  void undo(AudioEngine engine) => engine.removeNote(note.id);
-}
-
-// Grouping multiple commands
-class CompositeCommand extends Command {
-  final List<Command> commands;
-  // Executes all, undoes in reverse order
-}
-```
-
-### 3. Immutable Data Models
-
-```dart
-class MidiNoteData {
-  final int id;
-  final int midiNote;
-  final double startBeat;
-  final double duration;
-  final int velocity;
-
-  const MidiNoteData({...});
-
-  MidiNoteData copyWith({int? velocity, double? duration}) {
-    return MidiNoteData(
-      id: id,
-      midiNote: midiNote,
-      startBeat: startBeat,
-      duration: duration ?? this.duration,
-      velocity: velocity ?? this.velocity,
-    );
-  }
-
-  Map<String, dynamic> toJson() => {...};
-  factory MidiNoteData.fromJson(Map<String, dynamic> json) => ...;
-}
-```
-
-### 4. Mixin Pattern (Widget Behavior Composition)
-
-```dart
-// Base state mixin
-mixin PianoRollStateMixin on State<PianoRoll> {
-  ClipData? currentClip;
-  Set<int> selectedNoteIds = {};
-  double pixelsPerBeat = 40.0;
-}
-
-// Behavior mixins
-mixin AuditionMixin on State<PianoRoll>, PianoRollStateMixin {
-  void startAudition(int midiNote, int velocity) {...}
-  void stopAudition() {...}
-}
-
-mixin ZoomMixin on State<PianoRoll>, PianoRollStateMixin {
-  void zoomIn() {...}
-  void zoomOut() {...}
-}
-
-// Composed widget
-class _PianoRollState extends State<PianoRoll>
-    with PianoRollStateMixin,
-         NoteOperationsMixin,
-         AuditionMixin,
-         ZoomMixin {
-  // Uses methods from all mixins
-}
-```
-
-### 5. Custom Painters (High-Performance Rendering)
-
-```dart
-class GridPainter extends CustomPainter {
-  final double pixelsPerBeat;
-  final double scrollOffset;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Efficient grid drawing
-  }
-
-  @override
-  bool shouldRepaint(GridPainter oldDelegate) {
-    return oldDelegate.pixelsPerBeat != pixelsPerBeat ||
-           oldDelegate.scrollOffset != scrollOffset;
-  }
-}
-
-// Usage
-CustomPaint(
-  painter: GridPainter(pixelsPerBeat: 40, scrollOffset: offset),
-  child: child,
-)
-```
-
-## Audio Engine Integration (FFI)
-
-```dart
-// audio_engine.dart - FFI bindings to Rust
-class AudioEngine {
-  late final DynamicLibrary _lib;
-
-  // Playback control
-  void play() => _enginePlay(_lib);
-  void pause() => _enginePause(_lib);
-  void seek(double position) => _engineSeek(_lib, position);
-
-  // Track operations
-  int createTrack(String name) => _engineCreateTrack(_lib, name.toNativeUtf8());
-  void deleteTrack(int trackId) => _engineDeleteTrack(_lib, trackId);
-
-  // MIDI operations
-  void sendTrackMidiNoteOn(int trackId, int note, int velocity) {...}
-  void sendTrackMidiNoteOff(int trackId, int note, int velocity) {...}
-}
-```
-
-## Audio Graph & Mixer Routing
-
-The Rust engine mixes every track through the same signal chain in both the
-realtime callback (`audio_graph/renderer.rs`) and offline export
-(`audio_graph/offline.rs`), so a bounced file matches what you hear:
+The realtime callback (`audio_graph/renderer.rs`) and offline export (`audio_graph/offline.rs`)
+run the same signal chain, so a bounced file matches what you hear:
 
 ```
 per track:  clips → instrument/synth → track FX chain → fader (volume/pan)
@@ -300,100 +59,63 @@ per track:  clips → instrument/synth → track FX chain → fader (volume/pan)
                                                                                 ▼ │
 return bus: per-return accumulator → return FX chain ───────────────────────┐  │ │
                                                                              ▼  ▼ ▼
-                                                                  master FX → output
+                                       master volume → master pan → master FX → limiter → output
 ```
 
-- **Sends are post-fader.** A track's send amount is applied *after* its
-  volume/pan, summed into a per-return accumulator each frame; the return's own
-  FX chain (e.g. a shared Reverb) then processes that sum into the master mix.
-- **Returns are shared by effect type.** The ⚡ FX picker's "shared" path dedups
-  by effect type via `api/sends.rs`, so several tracks feed one reverb return
-  instead of spawning duplicates.
-- **No plugin delay compensation yet.** Return-chain latency is not aligned
-  against the dry signal (tracked in [BACKLOG.md](BACKLOG.md)).
+- **Sends are post-fader** and summed into a per-return accumulator each frame.
+- **Returns are shared by effect type** (`api/sends.rs`): several tracks feed one reverb return
+  rather than spawning duplicates.
+- **The master stage is not applied to stems**, so a single-track stem equals the mix only after
+  factoring it out. Details and the export processing order: `.claude/rules/audio-export.md`.
+- **No plugin delay compensation.** Return-chain latency is not aligned against the dry signal.
 
-### Track locks are non-reentrant (deadlock hazard)
+The built-in synth is deliberately one oscillator, a one-pole lowpass, ADSR and eight voices
+([PRODUCT.md](PRODUCT.md)).
 
-The engine uses `parking_lot::Mutex`, which does **not** support recursive
-locking. `TrackManager::get_track` / `get_master_track` / `remove_track` walk
-the track list and `.lock()` each track to compare ids — so calling any of them
-**while holding a `Track` lock deadlocks the API thread silently** (no panic, no
-log; the UI just freezes). Snapshot what you need (`id`, `fx_chain`,
-`sends.iter().map(...)`) into locals and drop the guard before calling back into
-`TrackManager`. See the snapshot pattern in `api/sends.rs` (`get_track_sends`,
-`find_return_by_effect_type`) and CLAUDE.md.
-
-## Known technical debt
-
-Large files, residual pre-`showBoojyMenu` menu sites, the `ffmpeg` MP3 shell-out, test
-gaps, and a list of unaccepted improvement proposals are tracked in
-[BACKLOG.md](BACKLOG.md) under **Technical debt**. This document describes how the
-system works today, not what should change about it.
-
-## Component Dependencies
+## UI structure
 
 ```
-ThemeProvider
-    └── DAWScreen
-            ├── TransportBar
-            │       └── PlaybackController
-            │
-            ├── TimelineView
-            │       ├── TimelineViewStateMixin
-            │       ├── TimelineGestureLayerMixin (part file)
-            │       ├── TimelineTrackListMixin (part file)
-            │       ├── TimelineSelectionMixin
-            │       └── AudioEngine (clips, playback)
-            │
-            ├── PianoRoll
-            │       ├── PianoRollStateMixin
-            │       ├── NoteOperationsMixin
-            │       ├── AuditionMixin
-            │       └── AudioEngine (MIDI)
-            │
-            ├── LibraryPanel
-            │       └── LibraryService
-            │
-            └── EditorPanel
-                    └── [Context-dependent editors]
+Widgets (TransportBar, TimelineView, PianoRoll, Mixer, DeviceChain, LibraryPanel, EditorPanel)
+    │ read/notify
+Controllers (Playback, Recording, Track, MidiClip, Automation)   Services   UI state / Theme
+    │
+AudioEngine (dart:ffi)
 ```
 
-## Project Persistence
+- **State** is `provider` + `ChangeNotifier`, used lightly; most state flows through services
+  and controllers rather than a deep provider tree. Riverpod is the deliberate future target
+  only if this starts to hurt (`.claude/rules/flutter-ui.md`).
+- **`DAWScreen`** is a `State` composed from mixins in `screens/daw/mixins/` (clip, track,
+  playback, recording, project, library, VST3, UI). Recording: the engine's `stop_recording`
+  returns the new clip id, and `daw_recording_mixin.dart` builds the clip and captured notes.
+- **Large editors are mixin-composed too.** `PianoRoll` and `TimelineView` split behaviour into
+  state, gesture, selection and operation mixins; `timeline_view.dart` additionally uses `part`
+  files, so it is one library — import the entry file only.
+- **Painting** is `CustomPainter` (`widgets/painters/`): grid, notes, velocity and CC lanes,
+  automation, ruler, nav bar. Golden tests cover the load-bearing ones.
+- **Menus and pickers** share one overlay surface, `showBoojyMenu` in `widgets/shared/`;
+  `BoojyDropdown` is the standard trigger chip and `ContextMenuHelper` routes right-clicks to it.
 
-Project data is split between the Rust engine and the Flutter UI. All UI-only fields must go through `ProjectPersistence.collect()` in [`ui/lib/services/project_persistence.dart`](../ui/lib/services/project_persistence.dart) so manual save, auto-save, and crash recovery stay in sync.
+## Undo/redo
+
+The command pattern: `Command` (execute/undo against the engine and UI), `CompositeCommand`
+(runs all, undoes in reverse), `UndoRedoManager` (history). Every state-changing user action is
+a command, including mixer and effect-parameter changes; in debug builds the manager rethrows
+command errors so silently-dead handlers surface.
+
+## Project persistence
+
+A project folder holds two files with different owners. UI-only fields must go through
+`ProjectPersistence.collect()` / `applyUILayout()` in `ui/lib/services/project_persistence.dart`
+so manual save, auto-save and crash recovery stay in sync.
 
 | Data | Owner | File |
-|------|-------|------|
-| Tracks, clips, tempo, effects, audio files | Rust engine | `project.json` |
-| Panel layout, loop region, track colors, view state | Dart UI | `ui_layout.json` |
-| Automation (UI hidden) | Both | engine + `ui_layout.json` |
+| --- | --- | --- |
+| Tracks, clips, tempo, instruments, effects and their state, audio file paths | Rust engine | `project.json` |
+| Panel layout, loop region, track colours, view state, automation UI data | Dart UI | `ui_layout.json` |
 
-**Save flow:** `DAWProjectMixin.getCurrentUILayout()` → `ProjectPersistence.collect()` → `ProjectManager.saveProject()` writes `ui_layout.json` alongside the engine's `project.json`.
-
-**Load flow:** `ProjectManager.loadProject()` reads `ui_layout.json` → `DAWProjectMixin.applyUILayout()` restores panel state, loop region, track colors, automation UI data, and optional view state.
-
-## Services Overview
-
-| Service | Responsibility |
-|---------|---------------|
-| `ProjectManager` | Save/load projects, file I/O |
-| `ProjectPersistence` | Canonical checklist of UI fields in `ui_layout.json` |
-| `UndoRedoManager` | Command history, undo/redo stack |
-| `LibraryService` | Browse presets, samples, instruments |
-| `AutoSaveService` | Periodic project auto-save |
-| `SnapshotManager` | Project version snapshots |
-| `MidiPlaybackManager` | MIDI timing and scheduling |
-| `MidiCaptureBuffer` | Retroactive MIDI recording |
-| `VST3PluginManager` | VST3 plugin discovery and loading |
-| `UserSettings` | User preferences persistence |
-
-## Conclusion
-
-The architecture prioritizes:
-- **Separation of concerns** - Clear boundaries between UI, business logic, and audio
-- **Reusability** - Shared component library for consistent UI
-- **Performance** - CustomPainters and FFI for demanding operations
-- **Maintainability** - Mixin pattern for composable widget behavior
-- **Testability** - Immutable models and command pattern for predictable state
-
-The codebase is actively being refactored to reduce file sizes and improve modularity.
+Save: `DAWProjectMixin.getCurrentUILayout()` → `ProjectPersistence.collect()` →
+`ProjectManager.saveProject()`, which writes `ui_layout.json` beside the engine's `project.json`.
+Load: `ProjectManager.loadProject()` → `applyUILayout()`. `AutoSaveService` and
+`SnapshotManager` reuse the same path. Bundled samples are copied from the asset bundle to app
+support on first use (`bundled_content_service.dart`); the engine loads by filesystem path only.

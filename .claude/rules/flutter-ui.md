@@ -102,6 +102,18 @@ CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
 - **UI persistence:** new fields saved in `ui_layout.json` must go through
   `ProjectPersistence.collect()` / `applyUILayout()` — don't scatter field lists across project
   managers.
+- **UI state is `provider` today, used lightly** (~9 files: `main.dart`, `daw_screen.dart`,
+  `theme_extension.dart`, a few widgets/dialogs); most state flows through services and
+  controllers. **Riverpod** is the deliberate future target *if* state management starts to
+  hurt — a planned migration, not a drop-in swap. Don't start it casually.
+- **One shared menu surface.** All value pickers and context menus go through
+  `showBoojyMenu<T>()` in `widgets/shared/boojy_dropdown.dart`. `BoojyDropdown<T>` is the
+  standard trigger chip; bespoke triggers call `showBoojyMenu` directly; `ContextMenuHelper`
+  (`widgets/shared/context_menu_item.dart`) routes right-click menus to it. Never replace a
+  migrated site with `showMenu` / `PopupMenuButton`. Entry types: `BoojyMenuItem<T>` (action —
+  optional `icon`, `shortcut`, `destructive`), `BoojyMenuDivider<T>`, `BoojyMenuSection<T>`
+  (header). Pass `selectedValue: null` for context menus (suppresses the trailing check) and the
+  current value for value dropdowns. Residual pre-migration sites are listed in BACKLOG.
 - **Never read `context.colors` inside an event handler** (onTap/onPressed, a `showMenu().then`,
   a dialog callback). It's a listening `Provider.of`, which asserts "listen outside build" in
   DEBUG builds only — release looks fine, but in debug the handler dies silently and the
@@ -113,6 +125,10 @@ CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
   (`onTap: _showMenu` tearoffs and `onTap: () => _showMenu()`), the shape that shipped the
   sampler Root Note bug (#23). Note `UndoRedoManager` now rethrows command errors in debug
   (`kDebugMode`), so swallowed handler asserts surface instead of dying silently.
+- **Bundled samples** (`ui/assets/samples/drums/`, licences in its `LICENSES.md`) are copied to
+  app-support on first use by `services/bundled_content_service.dart` — the engine loads by
+  filesystem path, never from the asset bundle. Bump `contentRevision` when bundled content
+  changes and keep `drumSamples` in sync with the pubspec asset dirs.
 - **Use `Log.d()` / `Log.e()` / `Log.i()`** (from `utils/logger.dart`), not `print()`.
 - **File/folder dialogs go through `ui/lib/utils/native_dialogs.dart`**
   (`pickFolder` / `pickSaveFilePath` / `sanitizeFileName`) — never call `osascript` inline.
