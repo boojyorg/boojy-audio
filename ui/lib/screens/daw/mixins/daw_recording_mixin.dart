@@ -323,7 +323,7 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
       // Find the armed audio track to place the clip on
       final tracks = mixerKey.currentState?.tracks ?? [];
       final armedAudioTrack = tracks.cast<TrackData?>().firstWhere(
-        (t) => t!.type == 'audio' && t.armed,
+        (t) => t!.isAudio && t.armed,
         orElse: () => null,
       );
 

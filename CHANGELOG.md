@@ -63,6 +63,13 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Audio recordings show up again.** Recording on an armed audio track left an empty box
+  instead of a clip with a waveform: the engine names track types "Audio" and "MIDI", the
+  recording code looked for "audio" and "midi", so it never found the armed track and dropped
+  the take (the engine still kept it, so the saved project and the screen disagreed). MIDI
+  recording had the same mismatch and fell back to the selected track instead of the armed one.
+  Track types now compare case-insensitively, with a test against the real engine.
+
 - **Ruler drag zoom now holds the bar under the pointer.** Dragging vertically on the arrangement
   ruler used to zoom around bar 1, so whatever you were looking at slid off screen; the piano roll
   corrected its scroll a frame late, which wobbled; and the audio editor re-centred the anchor on

@@ -141,21 +141,35 @@ items under Next are secondary to it and are not release work unless promoted he
     `flutter run`, access is asked on behalf of the terminal app that launched it, so check that
     app under Privacy & Security → Microphone. The app never notices: it should warn when the
     input is all zeros and point at the privacy setting.
-  - **The UI drops the recorded clip.** `hasArmedAudioTracks` (`daw_screen.dart`) answered
-    false while the engine recorded armed track 8, so the controller treated the take as
-    MIDI-only (`audioRecordingStarted=false → audioClipId=-1`). The check reads the mixer
-    widget's own copy of the track list (`mixerKey.currentState?.tracks`), which can be stale;
-    why it was wrong here is not yet known. The engine still adds the clip and auto-save writes
-    it, so the screen and the project disagree. Read armed state from the engine or the track
-    model, not a widget.
+  - **The UI drops the recorded clip.** Cause found and fixed on 2026-09-29 (see the
+    changelog): the engine reports track types as "Audio"/"MIDI" and the recording code compared
+    against lowercase, so no armed track ever matched. Tyr's walkthrough of the fix is pending.
 
   Also found: the Settings **Input** choice is never applied (review U66), and a failed capture
   start is only a console warning (`api/recording.rs`). Each fix starts with a failing test.
+
+  Follow-up on 2026-09-29: with the Scarlett 2i2 as the macOS default input, a relaunch, and the
+  track on the right channel, recording worked. What made it hard, all in the input path:
+  - **The engine picks its one input device at launch** (the macOS default at that moment) and
+    never follows a later change of default.
+  - **The per-track input device is stored but never used.** The mixer's input picker sets
+    `track.input_device_index`; capture always uses the single global device, and only the
+    track's channel is read (`audio_graph/renderer.rs`).
+  - Changing device while capture is running does not re-open the stream (MIDI input does this
+    re-bind; audio does not).
+
+  One input model should replace all of this: one device, chosen in Settings, applied at launch
+  and on change, defaulting to the system input.
+
 - No other known blockers. (The clip-overlap deletion, transport shrink and ruler zoom fixes
   found on 2026-09-13 are under Unreleased in the changelog, with their regression tests.)
 
 **Fix before release**
 
+- **No live waveform while recording audio.** The live preview (`LiveRecordingNotifier`) draws
+  MIDI notes only; an audio take shows an empty box that grows until stop, then the waveform
+  appears. Needs a live peak feed from the engine (new FFI) and a painter for the live clip.
+  Row 2.
 - **Cmd+E is bound twice** (review T7): Edit → "Split at Marker" and View → "Show Editor
   Panel" (`daw_menu_bar.dart`). The marker no longer exists (removed in PR #79); the split uses
   the playhead. Check which binding macOS dispatches, rename the item "Split at Playhead", and

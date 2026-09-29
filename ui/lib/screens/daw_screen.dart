@@ -468,7 +468,7 @@ class _DAWScreenState extends State<DAWScreen>
       recordingController.getFirstArmedMidiTrackId = () {
         final tracks = mixerKey.currentState?.tracks ?? [];
         for (final t in tracks) {
-          if (t.type == 'midi' && t.armed) return t.id;
+          if (t.isMidi && t.armed) return t.id;
         }
         return selectedTrackId ?? 0;
       };
@@ -476,7 +476,7 @@ class _DAWScreenState extends State<DAWScreen>
           generateClipName(trackId);
       recordingController.hasArmedAudioTracks = () {
         final tracks = mixerKey.currentState?.tracks ?? [];
-        return tracks.any((t) => t.type == 'audio' && t.armed);
+        return tracks.any((t) => t.isAudio && t.armed);
       };
 
       // Initialize VST3 editor service (for platform channel communication)

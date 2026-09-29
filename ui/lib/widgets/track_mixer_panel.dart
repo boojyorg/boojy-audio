@@ -550,7 +550,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       // Arming an instrument track is the moment the user is about to play —
       // a good time to catch a keyboard that was hot-plugged while Boojy
       // stayed focused. (Audio-track arming doesn't need a MIDI rescan.)
-      if (track.armed && track.type != 'audio') {
+      if (track.armed && !track.isAudio) {
         widget.config.onTrackArmed?.call();
       }
     });
