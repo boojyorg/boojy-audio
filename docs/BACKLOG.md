@@ -173,6 +173,11 @@ items under Next are secondary to it and are not release work unless promoted he
   MIDI notes only; an audio take shows an empty box that grows until stop, then the waveform
   appears. Needs a live peak feed from the engine (new FFI) and a painter for the live clip.
   Row 2.
+- **Recording with loop on shows a negative playhead.** When the loop wraps during a take, the
+  engine playhead jumps back (2.0s → 0.1s) and the recording display still subtracts the
+  count-in offset, so it reads −0.9s, −1.9s (Tyr's log, 2026-09-29). Decide what recording
+  with loop on should do (stop at the loop end, or ignore the loop) before fixing the display.
+  Row 2.
 - **Cmd+E is bound twice** (review T7): Edit → "Split at Marker" and View → "Show Editor
   Panel" (`daw_menu_bar.dart`). The marker no longer exists (removed in PR #79); the split uses
   the playhead. Check which binding macOS dispatches, rename the item "Split at Playhead", and
