@@ -101,6 +101,9 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Minimum macOS is now 12 (Monterey).** Xcode 27 no longer builds for older versions, so
+  Macs that can't run macOS 12 or later won't get this or future updates.
+
 - **The ruler's [-] [+] zoom buttons are gone.** Every ruler (arrangement, piano roll, audio
   editor, sampler) zooms by dragging vertically or with the scroll wheel, so the pinned buttons
   at the right edge only covered the last bar numbers. Removing them frees that strip.

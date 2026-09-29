@@ -518,7 +518,7 @@ class _DAWScreenState extends State<DAWScreen>
 
       // Check for crash recovery
       _checkForCrashRecovery();
-    } catch (e, _) {
+    } catch (e) {
       Log.e('Audio engine initialization failed: $e');
       if (mounted) {
         setState(() => engineInitFailed = true);

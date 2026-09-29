@@ -310,253 +310,295 @@ mixin TimelineTrackListMixin
                       snappedBeats,
                     );
                   },
-                  builder: (context, candidateLibraryAudioFiles, rejectedLibraryAudioFiles) {
-                    final isLibraryAudioHovering =
-                        candidateLibraryAudioFiles.isNotEmpty;
+                  builder:
+                      (
+                        context,
+                        candidateLibraryAudioFiles,
+                        rejectedLibraryAudioFiles,
+                      ) {
+                        final isLibraryAudioHovering =
+                            candidateLibraryAudioFiles.isNotEmpty;
 
-                    return PlatformDropTarget(
-                      onDragDone: (details) {
-                        // Calculate beat position from Finder drop location
-                        final RenderBox? box =
-                            context.findRenderObject() as RenderBox?;
-                        final localPos =
-                            box?.globalToLocal(details.localPosition) ??
-                            Offset.zero;
-                        final scrollOffset = scrollController.hasClients
-                            ? scrollController.offset
-                            : 0.0;
-                        final xInContent = localPos.dx + scrollOffset;
-                        final rawBeats = xInContent / pixelsPerBeat;
-                        final snappedBeats = GridUtils.snapToGridRound(
-                          rawBeats,
-                          GridUtils.getTimelineGridResolution(pixelsPerBeat),
-                        ).clamp(0.0, double.infinity);
+                        return PlatformDropTarget(
+                          onDragDone: (details) {
+                            // Calculate beat position from Finder drop location
+                            final RenderBox? box =
+                                context.findRenderObject() as RenderBox?;
+                            final localPos =
+                                box?.globalToLocal(details.localPosition) ??
+                                Offset.zero;
+                            final scrollOffset = scrollController.hasClients
+                                ? scrollController.offset
+                                : 0.0;
+                            final xInContent = localPos.dx + scrollOffset;
+                            final rawBeats = xInContent / pixelsPerBeat;
+                            final snappedBeats = GridUtils.snapToGridRound(
+                              rawBeats,
+                              GridUtils.getTimelineGridResolution(
+                                pixelsPerBeat,
+                              ),
+                            ).clamp(0.0, double.infinity);
 
-                        // Handle file drops from Finder
-                        for (final file in details.files) {
-                          final ext = file.path.split('.').last.toLowerCase();
-                          if (['mid', 'midi'].contains(ext)) {
-                            widget.dragDropCallbacks.onMidiFileDroppedOnEmpty
-                                ?.call(file.path, snappedBeats);
-                            return;
-                          }
-                          if ([
-                            'wav',
-                            'mp3',
-                            'flac',
-                            'aif',
-                            'aiff',
-                          ].contains(ext)) {
-                            widget.dragDropCallbacks.onAudioFileDroppedOnEmpty
-                                ?.call(file.path, snappedBeats);
-                            return;
-                          }
-                        }
-                      },
-                      onDragEntered: (details) {
-                        setState(() {
-                          isAudioFileDraggingOverEmpty = true;
-                        });
-                      },
-                      onDragExited: (details) {
-                        setState(() {
-                          isAudioFileDraggingOverEmpty = false;
-                        });
-                      },
-                      child: DragTarget<Vst3Plugin>(
-                        onWillAcceptWithDetails: (details) {
-                          return details
-                              .data
-                              .isInstrument; // Only accept VST3 instruments
-                        },
-                        onAcceptWithDetails: (details) {
-                          widget
-                              .dragDropCallbacks
-                              .onVst3InstrumentDroppedOnEmpty
-                              ?.call(details.data);
-                        },
-                        builder: (context, candidateVst3Plugins, rejectedVst3Plugins) {
-                          final isVst3PluginHovering =
-                              candidateVst3Plugins.isNotEmpty;
-
-                          return DragTarget<Instrument>(
+                            // Handle file drops from Finder
+                            for (final file in details.files) {
+                              final ext = file.path
+                                  .split('.')
+                                  .last
+                                  .toLowerCase();
+                              if (['mid', 'midi'].contains(ext)) {
+                                widget
+                                    .dragDropCallbacks
+                                    .onMidiFileDroppedOnEmpty
+                                    ?.call(file.path, snappedBeats);
+                                return;
+                              }
+                              if ([
+                                'wav',
+                                'mp3',
+                                'flac',
+                                'aif',
+                                'aiff',
+                              ].contains(ext)) {
+                                widget
+                                    .dragDropCallbacks
+                                    .onAudioFileDroppedOnEmpty
+                                    ?.call(file.path, snappedBeats);
+                                return;
+                              }
+                            }
+                          },
+                          onDragEntered: (details) {
+                            setState(() {
+                              isAudioFileDraggingOverEmpty = true;
+                            });
+                          },
+                          onDragExited: (details) {
+                            setState(() {
+                              isAudioFileDraggingOverEmpty = false;
+                            });
+                          },
+                          child: DragTarget<Vst3Plugin>(
                             onWillAcceptWithDetails: (details) {
-                              return true; // Always accept instruments
+                              return details
+                                  .data
+                                  .isInstrument; // Only accept VST3 instruments
                             },
                             onAcceptWithDetails: (details) {
                               widget
                                   .dragDropCallbacks
-                                  .onInstrumentDroppedOnEmpty
+                                  .onVst3InstrumentDroppedOnEmpty
                                   ?.call(details.data);
                             },
-                            builder: (context, candidateInstruments, rejectedInstruments) {
-                              final isInstrumentHovering =
-                                  candidateInstruments.isNotEmpty ||
-                                  isVst3PluginHovering;
-                              final isMidiFileHovering =
-                                  candidateMidiFiles.isNotEmpty;
-                              final isAudioHovering =
-                                  isAudioFileDraggingOverEmpty ||
-                                  isLibraryAudioHovering;
-                              final isFileHovering =
-                                  isAudioHovering || isMidiFileHovering;
-                              final isAnyHovering =
-                                  isInstrumentHovering || isFileHovering;
+                            builder: (context, candidateVst3Plugins, rejectedVst3Plugins) {
+                              final isVst3PluginHovering =
+                                  candidateVst3Plugins.isNotEmpty;
 
-                              // Helper to truncate filename for display
-                              String truncateFilename(
-                                String name, {
-                                int maxLength = 30,
-                              }) {
-                                if (name.length <= maxLength) return name;
-                                return '${name.substring(0, maxLength - 3)}...';
-                              }
+                              return DragTarget<Instrument>(
+                                onWillAcceptWithDetails: (details) {
+                                  return true; // Always accept instruments
+                                },
+                                onAcceptWithDetails: (details) {
+                                  widget
+                                      .dragDropCallbacks
+                                      .onInstrumentDroppedOnEmpty
+                                      ?.call(details.data);
+                                },
+                                builder:
+                                    (
+                                      context,
+                                      candidateInstruments,
+                                      rejectedInstruments,
+                                    ) {
+                                      final isInstrumentHovering =
+                                          candidateInstruments.isNotEmpty ||
+                                          isVst3PluginHovering;
+                                      final isMidiFileHovering =
+                                          candidateMidiFiles.isNotEmpty;
+                                      final isAudioHovering =
+                                          isAudioFileDraggingOverEmpty ||
+                                          isLibraryAudioHovering;
+                                      final isFileHovering =
+                                          isAudioHovering || isMidiFileHovering;
+                                      final isAnyHovering =
+                                          isInstrumentHovering ||
+                                          isFileHovering;
 
-                              // Determine label text
-                              String dropLabel;
-                              if (isMidiFileHovering &&
-                                  candidateMidiFiles.isNotEmpty) {
-                                final fileName = truncateFilename(
-                                  candidateMidiFiles.first!.name,
-                                );
-                                dropLabel =
-                                    'Drop to create new MIDI track with $fileName';
-                              } else if (isLibraryAudioHovering &&
-                                  candidateLibraryAudioFiles.isNotEmpty) {
-                                final fileName = truncateFilename(
-                                  candidateLibraryAudioFiles.first!.name,
-                                );
-                                dropLabel =
-                                    'Drop to create new Audio track with $fileName';
-                              } else if (isAudioFileDraggingOverEmpty) {
-                                dropLabel = 'Drop to create new Audio track';
-                              } else if (isMidiFileDraggingOverEmpty) {
-                                dropLabel = 'Drop to create new MIDI track';
-                              } else if (candidateVst3Plugins.isNotEmpty) {
-                                dropLabel =
-                                    'Drop to create new MIDI track with ${candidateVst3Plugins.first?.name}';
-                              } else if (candidateInstruments.isNotEmpty) {
-                                dropLabel =
-                                    'Drop to create new MIDI track with ${candidateInstruments.first?.name ?? "instrument"}';
-                              } else {
-                                dropLabel = 'Drop to create new track';
-                              }
+                                      // Helper to truncate filename for display
+                                      String truncateFilename(
+                                        String name, {
+                                        int maxLength = 30,
+                                      }) {
+                                        if (name.length <= maxLength) {
+                                          return name;
+                                        }
+                                        return '${name.substring(0, maxLength - 3)}...';
+                                      }
 
-                              // Check if we have a file preview for the empty area
-                              final hasFilePreview =
-                                  previewClip != null &&
-                                  (previewClip!.trackId == -1 ||
-                                      previewClip!.trackId == -2);
+                                      // Determine label text
+                                      String dropLabel;
+                                      if (isMidiFileHovering &&
+                                          candidateMidiFiles.isNotEmpty) {
+                                        final fileName = truncateFilename(
+                                          candidateMidiFiles.first!.name,
+                                        );
+                                        dropLabel =
+                                            'Drop to create new MIDI track with $fileName';
+                                      } else if (isLibraryAudioHovering &&
+                                          candidateLibraryAudioFiles
+                                              .isNotEmpty) {
+                                        final fileName = truncateFilename(
+                                          candidateLibraryAudioFiles
+                                              .first!
+                                              .name,
+                                        );
+                                        dropLabel =
+                                            'Drop to create new Audio track with $fileName';
+                                      } else if (isAudioFileDraggingOverEmpty) {
+                                        dropLabel =
+                                            'Drop to create new Audio track';
+                                      } else if (isMidiFileDraggingOverEmpty) {
+                                        dropLabel =
+                                            'Drop to create new MIDI track';
+                                      } else if (candidateVst3Plugins
+                                          .isNotEmpty) {
+                                        dropLabel =
+                                            'Drop to create new MIDI track with ${candidateVst3Plugins.first?.name}';
+                                      } else if (candidateInstruments
+                                          .isNotEmpty) {
+                                        dropLabel =
+                                            'Drop to create new MIDI track with ${candidateInstruments.first?.name ?? "instrument"}';
+                                      } else {
+                                        dropLabel = 'Drop to create new track';
+                                      }
 
-                              return Stack(
-                                children: [
-                                  if (hasFilePreview) ...[
-                                    // Clip-shaped preview at mouse position
-                                    buildEmptyAreaPreviewClip(previewClip!),
-                                    // Label pill at bottom
-                                    Positioned(
-                                      bottom: 4,
-                                      left: 0,
-                                      right: 0,
-                                      child: Center(
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: context.colors.success
-                                                .withValues(alpha: 0.8),
-                                            borderRadius: BorderRadius.circular(
-                                              6,
+                                      // Check if we have a file preview for the empty area
+                                      final hasFilePreview =
+                                          previewClip != null &&
+                                          (previewClip!.trackId == -1 ||
+                                              previewClip!.trackId == -2);
+
+                                      return Stack(
+                                        children: [
+                                          if (hasFilePreview) ...[
+                                            // Clip-shaped preview at mouse position
+                                            buildEmptyAreaPreviewClip(
+                                              previewClip!,
                                             ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                BI.addCircle,
-                                                color:
-                                                    context.colors.textPrimary,
-                                                size: 16,
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                dropLabel,
-                                                style: TextStyle(
-                                                  color: context
-                                                      .colors
-                                                      .textPrimary,
-                                                  fontSize: 12,
-                                                  fontWeight: BT.weightSemiBold,
+                                            // Label pill at bottom
+                                            Positioned(
+                                              bottom: 4,
+                                              left: 0,
+                                              right: 0,
+                                              child: Center(
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 4,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: context
+                                                        .colors
+                                                        .success
+                                                        .withValues(alpha: 0.8),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          6,
+                                                        ),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Icon(
+                                                        BI.addCircle,
+                                                        color: context
+                                                            .colors
+                                                            .textPrimary,
+                                                        size: 16,
+                                                      ),
+                                                      const SizedBox(width: 6),
+                                                      Text(
+                                                        dropLabel,
+                                                        style: TextStyle(
+                                                          color: context
+                                                              .colors
+                                                              .textPrimary,
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              BT.weightSemiBold,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
                                               ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ] else if (isAnyHovering) ...[
-                                    // Instrument/VST3 drag — full-width track strip
-                                    Positioned(
-                                      left: 0,
-                                      right: 0,
-                                      top: 0,
-                                      height: UIConstants.defaultClipHeight,
-                                      child: DecoratedBox(
-                                        decoration: BoxDecoration(
-                                          color: context.colors.accent
-                                              .withValues(alpha: 0.08),
-                                          border: Border.all(
-                                            color: context.colors.accent
-                                                .withValues(alpha: 0.5),
-                                            width: 1,
-                                          ),
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.only(
-                                            left: 16,
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                BI.addCircle,
-                                                color: context
-                                                    .colors
-                                                    .textSecondary,
-                                                size: 16,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                dropLabel,
-                                                style: TextStyle(
-                                                  color: context
-                                                      .colors
-                                                      .textSecondary,
-                                                  fontSize: 13,
-                                                  fontWeight: BT.weightMedium,
+                                            ),
+                                          ] else if (isAnyHovering) ...[
+                                            // Instrument/VST3 drag — full-width track strip
+                                            Positioned(
+                                              left: 0,
+                                              right: 0,
+                                              top: 0,
+                                              height:
+                                                  UIConstants.defaultClipHeight,
+                                              child: DecoratedBox(
+                                                decoration: BoxDecoration(
+                                                  color: context.colors.accent
+                                                      .withValues(alpha: 0.08),
+                                                  border: Border.all(
+                                                    color: context.colors.accent
+                                                        .withValues(alpha: 0.5),
+                                                    width: 1,
+                                                  ),
+                                                ),
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        left: 16,
+                                                      ),
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Icon(
+                                                        BI.addCircle,
+                                                        color: context
+                                                            .colors
+                                                            .textSecondary,
+                                                        size: 16,
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Text(
+                                                        dropLabel,
+                                                        style: TextStyle(
+                                                          color: context
+                                                              .colors
+                                                              .textSecondary,
+                                                          fontSize: 13,
+                                                          fontWeight:
+                                                              BT.weightMedium,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
                                               ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ] else
-                                    const SizedBox.expand(),
-                                  // Drag-to-create preview (for empty space)
-                                  if (isDraggingNewClip &&
-                                      newClipTrackId == null)
-                                    buildDragToCreatePreview(),
-                                ],
+                                            ),
+                                          ] else
+                                            const SizedBox.expand(),
+                                          // Drag-to-create preview (for empty space)
+                                          if (isDraggingNewClip &&
+                                              newClipTrackId == null)
+                                            buildDragToCreatePreview(),
+                                        ],
+                                      );
+                                    },
                               );
                             },
-                          );
-                        },
-                      ),
-                    );
-                  },
+                          ),
+                        );
+                      },
                 );
               },
             ),
