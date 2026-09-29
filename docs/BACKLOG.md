@@ -147,11 +147,29 @@ items under Next are secondary to it and are not release work unless promoted he
 
   Also found: the Settings **Input** choice is never applied (review U66), and a failed capture
   start is only a console warning (`api/recording.rs`). Each fix starts with a failing test.
+
+  Follow-up on 2026-09-29: with the Scarlett 2i2 as the macOS default input, a relaunch, and the
+  track on the right channel, recording worked. What made it hard, all in the input path:
+  - **The engine picks its one input device at launch** (the macOS default at that moment) and
+    never follows a later change of default.
+  - **The per-track input device is stored but never used.** The mixer's input picker sets
+    `track.input_device_index`; capture always uses the single global device, and only the
+    track's channel is read (`audio_graph/renderer.rs`).
+  - Changing device while capture is running does not re-open the stream (MIDI input does this
+    re-bind; audio does not).
+
+  One input model should replace all of this: one device, chosen in Settings, applied at launch
+  and on change, defaulting to the system input.
+
 - No other known blockers. (The clip-overlap deletion, transport shrink and ruler zoom fixes
   found on 2026-09-13 are under Unreleased in the changelog, with their regression tests.)
 
 **Fix before release**
 
+- **No live waveform while recording audio.** The live preview (`LiveRecordingNotifier`) draws
+  MIDI notes only; an audio take shows an empty box that grows until stop, then the waveform
+  appears. Needs a live peak feed from the engine (new FFI) and a painter for the live clip.
+  Row 2.
 - **Cmd+E is bound twice** (review T7): Edit → "Split at Marker" and View → "Show Editor
   Panel" (`daw_menu_bar.dart`). The marker no longer exists (removed in PR #79); the split uses
   the playhead. Check which binding macOS dispatches, rename the item "Split at Playhead", and
