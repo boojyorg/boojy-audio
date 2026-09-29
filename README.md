@@ -25,7 +25,7 @@ released build.
 
 - **Compose.** Play the built-in synth, sampler and drum kit from a MIDI keyboard or the virtual
   piano, draw notes in the piano roll, and program drum patterns in the step sequencer.
-- **Record.** Capture vocals and instruments with input monitoring, a count-in and punch in/out.
+- **Record.** Capture vocals and instruments with input monitoring and a count-in.
   A phrase you played before pressing record can be captured after the fact.
 - **Arrange and edit.** Move, trim, split, join, loop and time-stretch audio and MIDI clips on
   a linear timeline. Undo is unlimited and edits are non-destructive.
@@ -69,7 +69,7 @@ gates and the rules files live in [AGENTS.md](AGENTS.md).
 
 ## Keyboard shortcuts
 
-The full list is behind the **?** button in the transport bar (or press `?`). The ones you'll
+The full list is in the ▲udio menu at the top left (or press `?`). The ones you'll
 reach for first:
 
 | Shortcut | Action |
@@ -80,7 +80,7 @@ reach for first:
 | M | Toggle metronome |
 | Q | Quantise selected |
 | Cmd+J | Join clips |
-| Cmd+L / Cmd+M / Cmd+E | Toggle library / mixer / editor panel |
+| Cmd+L / Cmd+M | Toggle library / mixer |
 | Cmd+P | Virtual piano |
 | Cmd+Z / Shift+Cmd+Z | Undo / redo |
 

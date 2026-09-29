@@ -12,7 +12,7 @@ project files that describe the UI's own state.
 
 ```
 engine/                       Rust → libengine.{dylib,dll}
-  src/api/                    business logic, one module per domain, no raw pointers
+  src/api/                    business logic, one module per domain, no raw pointers (one commented exception in vst3.rs)
   src/ffi/                    extern "C" shims over api/, one file per domain
   src/audio_graph/            realtime renderer, offline renderer, device management, project I/O
   src/export/                 WAV (pure Rust) and MP3 (ffmpeg shell-out), see .claude/rules/audio-export.md
@@ -41,14 +41,17 @@ each symbol. On the Dart side `AudioEngine` is composed from per-domain mixins
 `audio_engine.dart` selects the implementation by conditional export: native (FFI) or stub.
 The same native/stub pattern is used for project management, drop targets and file dialogs.
 
-Every FFI call serialises on one global graph mutex; the realtime audio callback is the only
-concurrent thread. Lock order, the non-reentrant track locks, and the beats-vs-seconds contract
+FFI calls serialise on one global graph mutex, with two exceptions: plugin scanning (which
+loads third-party `.vst3` code in-process) and sample preview. The realtime audio callback is
+the other concurrent thread. Lock order, the non-reentrant track locks, and the beats-vs-seconds contract
 are in `.claude/rules/ffi.md`. Adding a function: the `add-ffi` skill.
 
 ## Audio graph and mixer routing
 
 The realtime callback (`audio_graph/renderer.rs`) and offline export (`audio_graph/offline.rs`)
-run the same signal chain, so a bounced file matches what you hear:
+are built on the same signal chain, so a bounced file should match what you hear. Two known
+gaps (review of 2026-09-13, C1 and C7): the stopped-transport path processes VST3s differently,
+and an export started during playback shares the live effect instances with the callback.
 
 ```
 per track:  clips → instrument/synth → track FX chain → fader (volume/pan)

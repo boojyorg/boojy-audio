@@ -21,7 +21,7 @@ touching each area. **Each fact has one home; everything else here is a pointer.
 | `docs/PLATFORMS.md` | Why Flutter + Rust, alternatives rejected, which platforms ship when and what each needs. |
 | `docs/RELEASING.md` | Release steps, version sync, Windows smoke test, milestone-review cadence. |
 | `.claude/rules/*.md` | Full-text engineering gotchas, one area per file. See the index below. |
-| `docs/reviews/` | Only the live triage plus untriaged reports. Everything older: `docs/archive/`. |
+| `docs/reviews/` | The current review (2026-09-13 brief + evidence) and any untriaged reports. Everything older: `docs/archive/`. |
 | `CHANGELOG.md` | Completed work, `## Unreleased` on top. |
 
 ## Build & run
@@ -29,8 +29,9 @@ touching each area. **Each fact has one home; everything else here is a pointer.
 - **Toolchains:** Rust **1.98.1** (`engine/rust-toolchain.toml`); Flutter **3.44.0 / Dart 3.12**
   via FVM (`ui/.fvmrc`). Run Flutter/Dart from `ui/` as `fvm flutter …` / `fvm dart …`. CI pins
   the same versions (`FLUTTER_VERSION` in `.github/workflows/*.yml`).
-- **Engine:** `./build.sh` (debug) or `./build.sh release` builds Rust and refreshes the dylib
-  symlink. Uses `sccache` automatically if installed. Dev deps build at `opt-level = 2`.
+- **Engine:** `./build.sh` (debug) or `./build.sh release` builds Rust and points the app at
+  that build. Use `release` to dogfood: the debug engine crackles on its own. Uses `sccache`
+  automatically if installed. Dev deps build at `opt-level = 2`.
 - **App:** `cd ui && fvm flutter run -d macos`. Don't auto-start it from an agent shell.
 - Stuck on "initializing" → missing FFI symbol → `.claude/rules/ffi.md`.
 
@@ -67,7 +68,7 @@ with exceptions in `lib.rs`. Logging: Rust `println!`; Dart `Log.d()/.e()/.i()` 
 | `engine/src/api/`, `engine/src/ffi/`, `ui/lib/audio_engine_*.dart` | `.claude/rules/ffi.md` | Raw `dart:ffi`, three layers (`api/` → `ffi/` shim → Dart binding); use the `add-ffi` skill. No web binding exists (see `docs/PLATFORMS.md`). **Engine is real seconds everywhere, UI thinks in beats.** Every tempo write goes through `_onTempoChanged`, never bare `setTempo`. Locks are non-reentrant: snapshot, drop the guard, then call `TrackManager`. |
 | `ui/lib/**` | `.claude/rules/flutter-ui.md` | `BI.*` icons only. One shared menu surface (`showBoojyMenu`), never `showMenu`/`PopupMenuButton`. Never read `context.colors` in an event handler. `ui_layout.json` fields go through `ProjectPersistence`. Import `timeline_view.dart`, never its part files. |
 | `engine/src/export/` | `.claude/rules/audio-export.md` | Range → LUFS → mixdown → normalise, in that order. Stems = mix minus the master stage. |
-| `build.sh`, `ui/test/native/`, `ui/test/goldens/` | `.claude/rules/build-and-test.md` | Rust must be built release for the symlink to see it. Goldens refresh on macOS only. |
+| `build.sh`, `ui/test/native/`, `ui/test/goldens/` | `.claude/rules/build-and-test.md` | `./build.sh` picks the engine the app runs; no argument = debug. Goldens refresh on macOS only. |
 
 Rules with no better home:
 
@@ -97,4 +98,4 @@ Rules with no better home:
 - `add-ffi` skill wires a new engine function through all 7 files.
 - Review workflows (`ui-ux-review`, `codebase-review`, `feature-gap-review`) live in
   `.claude/workflows/`; when and how to run them is in `docs/RELEASING.md`.
-- `CLAUDE.md` is a symlink to this file.
+- `CLAUDE.md` is a one-line pointer to this file (not a symlink).
