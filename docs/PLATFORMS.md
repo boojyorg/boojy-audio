@@ -1,18 +1,23 @@
 # Boojy Audio Platforms
 
 Why the stack is what it is, which platforms ship when, and what each one needs. Decided
-2026-09-13. Scheduling lives in [BACKLOG.md](BACKLOG.md); how the system works lives in
-[ARCHITECTURE.md](ARCHITECTURE.md). Revisit the stack question once, at v1.0, with real users
-to inform it. Not before.
+2026-09-13; Linux moved to v0.8 and the every-device goal added on 2026-09-29. Scheduling lives
+in [BACKLOG.md](BACKLOG.md); how the system works lives in [ARCHITECTURE.md](ARCHITECTURE.md).
+Revisit the stack question once, at v1.0, with real users to inform it. Not before.
 
 ## Release plan
 
 | Milestone | Platforms |
 | --- | --- |
-| Beta | macOS, Windows |
-| v1.0 candidates | Linux, web, iPad |
+| v0.8 | macOS, Windows, Linux (Linux only if stability is at 8/10 on macOS and Windows first) |
+| Beta | macOS, Windows, Linux |
+| v1.0 candidates | web, iPad (phone after) |
 
-The intent is to ship on all five. Each platform gets its own release checklist in
+The intent is to ship on all of them. **The goal is one app that works well, and looks and
+behaves the same, on every device** (laptop, desktop, tablet, phone), with every task
+reachable by mouse, trackpad, keyboard or touch. The touch-ready rules in
+[EDITING.md](EDITING.md#every-input-method) apply to UI work from now on, well before any touch
+platform is scheduled. Each platform gets its own release checklist in
 [RELEASING.md](RELEASING.md) when it ships, not before. No test rigs or infrastructure are built
 ahead of a platform being scheduled.
 
@@ -100,12 +105,16 @@ every engine change must keep alive, and Safari users get a visibly worse produc
 
 ## What iPad needs
 
-A touch-first pass over every gesture in the timeline, piano roll and mixer; a CoreMIDI channel
-in Swift to replace midir; an AUv3 hosting decision (separate from VST3, and not required for a
-first iPad release); iOS audio-session and file-sandbox handling; App Store review. Treat it as a
-second product built on the same engine, not a port.
+A touch pass over every gesture in the timeline, piano roll and mixer; a CoreMIDI channel in
+Swift to replace midir; an AUv3 hosting decision (separate from VST3, and not required for a
+first iPad release); iOS audio-session and file-sandbox handling; App Store review. The aim is
+the same app with the same look, not a separate touch design: the touch-ready rules keep the
+gesture pass small, and the editing model ([EDITING.md](EDITING.md)) is designed to work by touch
+from the start. With no VST3 on iPad, the built-in instruments, effects and sounds carry the
+whole experience there.
 
 ## What Linux needs
 
-A packaging decision (AppImage or Flatpak), a CI job mirroring the Windows one, and an honest
-note in the README that plugin availability is thin. Technically the cheapest of the three.
+A packaging decision (AppImage or Flatpak), a CI job mirroring the Windows one (added during
+v0.7), and an honest note in the README that plugin availability is thin. Technically the cheapest
+of the three. Scheduled for v0.8 (2026-09-29).
