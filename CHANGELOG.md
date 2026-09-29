@@ -63,6 +63,13 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **The computer-keyboard piano plays wherever you click.** Its keys only worked while the
+  piano itself had focus, so after clicking a track or a button every note key went unhandled
+  and macOS played its error sound. The piano now listens app-wide while it is open (never while
+  you type in a text field or hold Cmd, Ctrl or Alt), and L plays its note instead of toggling
+  the loop. Notes go to the armed MIDI track, or the selected track when none is armed, so you
+  hear the track you are recording onto.
+
 - **Audio recordings show up again.** Recording on an armed audio track left an empty box
   instead of a clip with a waveform: the engine names track types "Audio" and "MIDI", the
   recording code looked for "audio" and "midi", so it never found the armed track and dropped

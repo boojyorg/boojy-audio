@@ -5,6 +5,7 @@ import '../theme/animation_constants.dart';
 import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
+import '../utils/text_focus.dart';
 import 'shared/mini_knob.dart';
 
 /// Compact virtual piano keyboard widget for testing MIDI without physical hardware
@@ -13,7 +14,10 @@ class VirtualPiano extends StatefulWidget {
   final AudioEngine? audioEngine;
   final bool isEnabled;
   final VoidCallback? onClose;
-  final int? selectedTrackId;
+
+  /// The track notes go to, asked at each key press so it follows arming and
+  /// selection without a rebuild (the armed MIDI track, else the selected one).
+  final int? Function() targetTrackId;
   final void Function(int? midiNote)? onNoteHighlight;
 
   const VirtualPiano({
@@ -21,7 +25,7 @@ class VirtualPiano extends StatefulWidget {
     required this.audioEngine,
     required this.isEnabled,
     this.onClose,
-    this.selectedTrackId,
+    required this.targetTrackId,
     this.onNoteHighlight,
   });
 
@@ -70,9 +74,6 @@ class _VirtualPianoState extends State<VirtualPiano>
   // Animation controller for slide-in effect
   late AnimationController _animationController;
   late Animation<double> _slideAnimation;
-
-  // Focus node for keyboard input
-  final FocusNode _focusNode = FocusNode();
 
   // White key keyboard mapping (A-\ keys) -> relative MIDI notes from C
   static final Map<LogicalKeyboardKey, int> _whiteKeyMapping = {
@@ -167,34 +168,16 @@ class _VirtualPianoState extends State<VirtualPiano>
     // Start animation
     _animationController.forward();
 
-    // Request focus when enabled
-    if (widget.isEnabled) {
-      _focusNode.requestFocus();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _focusNode.requestFocus();
-      });
-    }
-  }
-
-  @override
-  void didUpdateWidget(VirtualPiano oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    // Request focus when enabled
-    if (widget.isEnabled && !oldWidget.isEnabled) {
-      _focusNode.requestFocus();
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (mounted) {
-          _focusNode.requestFocus();
-        }
-      });
-    }
+    // Listen app-wide rather than through a focus node: clicking a track or
+    // a button used to move focus away, after which every note key went
+    // unhandled and macOS played its error sound.
+    HardwareKeyboard.instance.addHandler(_handleGlobalKey);
   }
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleGlobalKey);
     _animationController.dispose();
-    _focusNode.dispose();
     super.dispose();
   }
 
@@ -212,6 +195,35 @@ class _VirtualPianoState extends State<VirtualPiano>
         _currentOctave++;
       });
     }
+  }
+
+  /// App-level key handler. Returns true for keys the piano plays so they
+  /// count as handled; Shift (sustain) is observed but never swallowed.
+  bool _handleGlobalKey(KeyEvent event) {
+    if (!widget.isEnabled || widget.audioEngine == null) return false;
+    if (isTextFieldFocused()) return false;
+
+    // Cmd/Ctrl/Alt combos belong to shortcuts (Cmd+S, Cmd+Z, …).
+    final keyboard = HardwareKeyboard.instance;
+    if (keyboard.isMetaPressed ||
+        keyboard.isControlPressed ||
+        keyboard.isAltPressed) {
+      return false;
+    }
+
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.shiftLeft ||
+        key == LogicalKeyboardKey.shiftRight) {
+      _onKeyEvent(event);
+      return false;
+    }
+    if (key == LogicalKeyboardKey.keyZ ||
+        key == LogicalKeyboardKey.keyX ||
+        (_keyboardEnabled && _keyboardMapping.containsKey(key))) {
+      _onKeyEvent(event);
+      return true;
+    }
+    return false;
   }
 
   void _onKeyEvent(KeyEvent event) {
@@ -301,14 +313,11 @@ class _VirtualPianoState extends State<VirtualPiano>
       }
     });
 
-    // Send MIDI note on to selected track's instrument
-    if (widget.selectedTrackId != null) {
+    // Send MIDI note on to the target track's instrument
+    final trackId = widget.targetTrackId();
+    if (trackId != null) {
       try {
-        widget.audioEngine?.sendTrackMidiNoteOn(
-          widget.selectedTrackId!,
-          midiNote,
-          _velocity,
-        );
+        widget.audioEngine?.sendTrackMidiNoteOn(trackId, midiNote, _velocity);
       } catch (e) {
         // FFI call - ignore MIDI send errors silently
       }
@@ -337,14 +346,11 @@ class _VirtualPianoState extends State<VirtualPiano>
   }
 
   void _sendNoteOff(int midiNote) {
-    // Send MIDI note off to selected track's instrument
-    if (widget.selectedTrackId != null) {
+    // Send MIDI note off to the target track's instrument
+    final trackId = widget.targetTrackId();
+    if (trackId != null) {
       try {
-        widget.audioEngine?.sendTrackMidiNoteOff(
-          widget.selectedTrackId!,
-          midiNote,
-          0,
-        );
+        widget.audioEngine?.sendTrackMidiNoteOff(trackId, midiNote, 0);
       } catch (e) {
         // FFI call - ignore MIDI send errors silently
       }
@@ -358,55 +364,26 @@ class _VirtualPianoState extends State<VirtualPiano>
         begin: const Offset(0, 1),
         end: Offset.zero,
       ).animate(_slideAnimation),
-      child: GestureDetector(
-        onTap: () {
-          _focusNode.requestFocus();
-        },
-        child: Focus(
-          focusNode: _focusNode,
-          autofocus: widget.isEnabled,
-          onKeyEvent: (node, event) {
-            final key = event.logicalKey;
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Resize handle at top
+          _buildResizeHandle(),
+          // Main piano content
+          Container(
+            height: _height,
+            color: context.colors.dark,
+            child: Row(
+              children: [
+                // Controls section
+                _buildControls(),
 
-            // Always handle sustain and octave keys
-            if (key == LogicalKeyboardKey.shiftLeft ||
-                key == LogicalKeyboardKey.shiftRight ||
-                key == LogicalKeyboardKey.keyZ ||
-                key == LogicalKeyboardKey.keyX) {
-              _onKeyEvent(event);
-              return KeyEventResult.handled;
-            }
-
-            // Handle piano keys only if keyboard is enabled
-            if (_keyboardEnabled && _keyboardMapping.containsKey(key)) {
-              _onKeyEvent(event);
-              return KeyEventResult.handled;
-            }
-
-            return KeyEventResult.ignored;
-          },
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Resize handle at top
-              _buildResizeHandle(),
-              // Main piano content
-              Container(
-                height: _height,
-                color: context.colors.dark,
-                child: Row(
-                  children: [
-                    // Controls section
-                    _buildControls(),
-
-                    // Piano keyboard
-                    Expanded(child: _buildKeyboard()),
-                  ],
-                ),
-              ),
-            ],
+                // Piano keyboard
+                Expanded(child: _buildKeyboard()),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
