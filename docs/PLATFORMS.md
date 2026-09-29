@@ -23,7 +23,7 @@ the VST3 SDK and Swift or C++ only where a platform demands it (Sparkle, plugin 
 
 The engine is the asset. It is roughly 30k lines of Rust with portable dependencies (cpal,
 midir, symphonia, rubato, hound) and a C ABI, so it moves to any UI toolkit unchanged. The UI is
-roughly 98k lines of Dart with 33 custom painters. Any stack change is a rewrite of the UI and
+roughly 89k lines of Dart with 32 custom painters. Any stack change is a rewrite of the UI and
 nothing else, which is six months or more of solo work for a marginal gain.
 
 What Flutter gives: one UI codebase for every target, a GPU-composited canvas (which is what a

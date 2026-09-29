@@ -19,6 +19,31 @@ the easiest step to forget. On every release:
 
 Documentation cleanup never implies a release or a version bump.
 
+## What the release workflow does
+
+Pushing a `v*` tag runs `.github/workflows/release.yml`:
+
+- **macOS:** builds the app, signs every framework and dylib and then the app with the Developer
+  ID certificate (hardened runtime), builds the DMG, signs and **notarizes** it with `notarytool`,
+  and **staples** the ticket, so Gatekeeper opens it without a warning. Each step skips quietly if
+  its secrets are missing (`MACOS_CERTIFICATE`, `MACOS_CERTIFICATE_PWD`, `KEYCHAIN_PWD`,
+  `DEVELOPER_ID`, `APPLE_ID`, `APPLE_APP_PASSWORD`, `APPLE_TEAM_ID`), so check the run log for
+  "skipped" before publishing. The per-file signing loop ends in `|| true`: a file that fails to
+  sign doesn't fail the job, so `codesign --verify` on the app is the real check.
+- **Auto-update (macOS only):** the DMG gets a Sparkle EdDSA signature (`SPARKLE_PRIVATE_KEY`),
+  and the job writes `appcast.xml` and commits it to `master`. Installed apps read the feed from
+  `raw.githubusercontent.com/boojyorg/boojy-audio/master/appcast.xml` (`SUFeedURL` in
+  `ui/macos/Runner/Info.plist`), so **an update is only offered once that commit lands**.
+  ⚠️ `master` has been protected since 2026-09-13, and the workflow's direct `git push` to it will
+  be rejected: fix this before tagging v0.7.0 (see `docs/BACKLOG.md`).
+- **Windows:** builds the app, bundles the MSVC runtime DLLs and packs an Inno Setup installer.
+  The installer is **not code-signed**, so Windows SmartScreen warns on first run. There is no
+  Windows auto-updater.
+- **Release:** both builds upload to a **draft** GitHub release with stable names
+  (`Boojy-Audio-mac.dmg`, `Boojy-Audio-win.exe`). Publishing the draft is manual; publishing
+  fires `site-rebuild.yml`, which rebuilds boojy.org and then checks that the Audio page shows the
+  new version, failing the run if it doesn't.
+
 ## Windows smoke test (every release, before publishing the draft)
 
 Development happens on macOS, so the installed Windows build is the one artifact nobody has run.

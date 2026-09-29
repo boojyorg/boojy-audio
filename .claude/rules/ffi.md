@@ -11,7 +11,8 @@ paths:
 The engine boundary is **raw `dart:ffi`**: no codegen, no bridge crate. It has **three layers**:
 
 1. **Native API**: `engine/src/api/` (one module per domain). Pure Rust business logic, returns
-   `Result<String, _>` etc. No `extern "C"`, no raw pointers here.
+   `Result<String, _>` etc. No `extern "C"`, no raw pointers here (one deliberate, commented
+   exception in `api/vst3.rs`; don't add more).
 2. **`extern "C"` shims**: `engine/src/ffi/` (one file per domain) that `use crate::api` and wrap
    each API call in a C-ABI function. Pattern:
    ```rust
@@ -48,8 +49,9 @@ removed. Don't reintroduce FRB casually; it's an architecture-level change, not 
   `track_synth_manager` across the whole buffer and only then takes `track_manager` /
   `effect_manager`, so any API path that holds either of those and *then* locks
   `track_synth_manager` can deadlock against a concurrent callback (silent freeze, no panic.
-  This froze `save_project` twice in CI on 2026-06-12). API-vs-API can't deadlock (every FFI
-  call serialises on the global graph mutex); the callback is the only concurrent thread.
+  This froze `save_project` twice in CI on 2026-06-12). API-vs-API can't deadlock (FFI calls
+  serialise on the global graph mutex, except plugin scan and sample preview, which take no
+  manager locks); the callback is the only other concurrent thread.
   Acquire managers in callback order, or snapshot what you need and drop the guard before
   locking `track_synth_manager`. Canonical examples: `export_to_project_data` /
   `restore_from_project_data` in `engine/src/audio_graph/project.rs`.

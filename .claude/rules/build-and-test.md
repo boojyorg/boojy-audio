@@ -14,12 +14,13 @@ paths:
   Upgrade runner and generator together, and invalidate the VST3 library cache when changing
   the C++ toolchain. Floating runner labels can break builds without any source change.
 
-- **Rust changes must be built in release mode.** `ui/macos/Runner/libengine.dylib` is a **symlink**
-  to `engine/target/release/libengine.dylib`, so a plain `cargo build` (debug → `target/debug/`)
-  won't be picked up. Use `./build.sh release` (or `cd engine && cargo build --release`). **Don't run
-  `flutter build`**. The Xcode run script builds the engine on `flutter run`.
-- **Tests pass but the app crashes** → likely a dylib mismatch. Run `./build.sh` to rebuild the
-  engine and refresh the symlinked `libengine.dylib`.
+- **`./build.sh` picks the engine the app runs.** With no argument it builds **debug**; with
+  `release` it builds release. Either way it repoints `ui/macos/Runner/libengine.dylib` (a
+  symlink) at that build and copies it into `ui/macos/` and `ui/macos/Frameworks/`. A plain
+  `cargo build` changes nothing the app loads. **Dogfood and judge audio on `./build.sh release`**:
+  the debug engine (opt-level 0) crackles regardless of any bug. **Don't run `flutter build`**. The Xcode run script builds the engine on `flutter run`.
+- **Tests pass but the app crashes** → likely a dylib mismatch. Run `./build.sh release` to
+  rebuild the engine and refresh the linked and copied `libengine.dylib`.
 - **Native-engine tests live in `ui/test/native/`** (moved out of `ui/integration_test/`). They load
   `libengine` over `dart:ffi` and need no device, so they run as **plain `flutter test`**, with
   no `-d macos`. A `testWidgets` there is fine (`clip_drag_overlap_test.dart` pumps the real

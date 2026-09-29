@@ -7,6 +7,14 @@ name: Rebuild boojy.org
 #
 # Triggers on `published` (not tag push): tag push only builds the *draft* release —
 # the version isn't public until the draft is published.
+#
+# The hook only proves a build *started*. The build can still miss the new release (a
+# GitHub API rate limit makes the site fall back to its hardcoded version), so the second
+# step waits for the new version on the live Audio page and fails the run if it never
+# appears. A failed run here = boojy.org is showing the old version.
+
+# Posts to a deploy hook and never touches the repository.
+permissions: {}
 
 on:
   release:
@@ -15,7 +23,7 @@ on:
 jobs:
   rebuild-site:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - name: POST Cloudflare Pages deploy hook
         env:
@@ -27,3 +35,22 @@ jobs:
           fi
           curl -fsS -X POST "$DEPLOY_HOOK_URL"
           echo "boojy.org rebuild triggered."
+
+      - name: Wait for the new version on boojy.org
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          # The site shows the tag without a trailing .0 (v0.7.0 -> v0.7, v0.6.1 stays),
+          # under the download button.
+          short=$(printf '%s' "$TAG" | sed -E 's/^v?/v/; s/^(v[0-9]+\.[0-9]+)\.0$/\1/')
+          expected="dl-meta\">$short"
+          for attempt in $(seq 1 20); do
+            sleep 30
+            if curl -fsS "https://boojy.org/audio/?check=$(date +%s)" | grep -qF "$expected"; then
+              echo "boojy.org/audio/ shows $short."
+              exit 0
+            fi
+            echo "Attempt $attempt/20: boojy.org/audio/ doesn't show $short yet."
+          done
+          echo "::error::boojy.org/audio/ still doesn't show $short after 10 minutes. Check the Cloudflare Pages build log for a [github-release] warning, then retry the deployment. See boojy-web/docs/WEBSITE-VERSION-UPDATES.md."
+          exit 1

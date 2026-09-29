@@ -39,7 +39,7 @@ second, equal lens: the vanilla experience should work well without extensive co
   current task needs; keep the rest one step away.
 - **Fast capture.** An idea disappears in a minute. Sound should be a few actions from opening
   the app, and a phrase played before pressing record should not be lost.
-- **Forgiveness.** Unlimited undo, non-destructive editing, punch-in. The app should feel safe
+- **Forgiveness.** Unlimited undo, non-destructive editing, capture after the fact. The app should feel safe
   to try things in.
 - **Minimal setup.** Sensible defaults, few required choices, no routing to configure before
   recording. Precision and control stay available where they matter.

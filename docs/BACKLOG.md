@@ -10,6 +10,10 @@ Items marked *(Tyr)* need a design call from Tyr before an agent should start.
 
 ## Now: ship v0.7.0 as a bounded release
 
+**Status 2026-09-29: back in development.** Work slowed after 2026-09-13 and resumes now; Audio
+is not paused. v0.7.0 is the next release, but there is no date: Tyr wants more time with it,
+engine reliability first, before tagging.
+
 **Direction agreed 2026-09-13, after the product review.** v0.7 focuses on three things:
 audio and project reliability; simpler editing and mixing workflows; and the repo health that
 supports both. The review that informed this is `docs/reviews/2026_09_13_product_review.md`
@@ -70,29 +74,22 @@ items under Next are secondary to it and are not release work unless promoted he
 
 **Blocks release**
 
-- None open. The clip-overlap deletion found on 2026-09-13 is fixed (a partial overlap left a
-  neighbour shorter than 0.25 s, which the resolver deleted instead of trimming; see Unreleased
-  in the changelog). Regression coverage: `ui/test/native/clip_drag_overlap_test.dart` drives
-  the real drag over the native engine, including undo and redo.
+- None open. (The clip-overlap deletion, transport shrink and ruler zoom fixes found on
+  2026-09-13 are under Unreleased in the changelog, with their regression tests.)
 
-**Fix before release** (would not block on their own; Tyr wants both in this release)
+**Fix before release**
 
-- **Transport centre cluster shrinks its glyphs at narrow widths.** Fixed 2026-09-13 (see
-  Unreleased in the changelog): the wells no longer scale, the density ladder measures the
-  even-split slots the transport's centre pin creates, and below ~1110 px windows the side rails
-  yield (Add-track labels drop, project name truncates) rather than the centre. Regression
-  coverage: `ui/test/widgets/transport_bar_density_test.dart` sweeps every width from 960 to
-  1600 px. The overflow *menu* (trailing chevron vs right-click) is still the open "top-bar
-  overflow" question below; nothing overflows at the supported window sizes now.
-- **Ruler drag zoom in the arrangement doesn't feel right.** Fixed 2026-09-13 (see Unreleased
-  in the changelog): one shared implementation (`shared/editors/anchored_zoom.dart`), anchor
-  held under the pointer in the same frame, exponential factor, both axes live, drag down =
-  zoom in. Found on the way: the ruler double-counted its scroll offset, so a click past bar 1
-  set the playhead at the wrong bar; also fixed. Regression coverage:
-  `ui/test/widgets/unified_nav_bar_test.dart` (ruler gesture and click),
-  `ui/test/widgets/shared/anchored_zoom_test.dart` (maths and same-frame scroll),
-  `ui/test/native/ruler_zoom_anchor_test.dart` (the real arrangement over the engine). The
-  wider zoom spec (pinch, modifiers, zoom-to-fit) is still the separate item under Next.
+- **Cmd+E is bound twice** (review T7): Edit → "Split at Marker" and View → "Show Editor
+  Panel" (`daw_menu_bar.dart`). The marker no longer exists (removed in PR #79); the split uses
+  the playhead. Check which binding macOS dispatches, rename the item "Split at Playhead", and
+  give one of them a different shortcut. The README lists neither until this is settled.
+- **The appcast commit can't reach `master`.** `release.yml` ends with a direct
+  `git push origin HEAD:master` of `appcast.xml`, and `master` has required a PR and green checks
+  since 2026-09-13, so on the next tag the push is rejected and installed Macs are never offered
+  the update (they read the feed from `master`, `RELEASING.md`). Options: have the job open a PR
+  for the appcast instead, or serve the feed from somewhere unprotected (moving `SUFeedURL` needs
+  one last appcast on `master` pointing old installs at the new place). Found in the docs pass of
+  2026-09-29; not yet fixed.
 
 **After release**
 
@@ -115,8 +112,8 @@ items under Next are secondary to it and are not release work unless promoted he
 - **Tooltip coverage is uneven.** `BoojyTooltip` covers transport buttons and mixer M/S/R;
   piano-roll Quantize/Legato/Snap use the plain Flutter tooltip; track-header Mute/Solo have none.
 - **Residual pre-migration menu sites** (verified 2026-09-13): two `showMenu` calls in
-  `track_mixer_strip.dart` and a `PopupMenuButton` in `file_menu_button.dart`. Migrate when
-  those files are next open.
+  `track_mixer_strip.dart` (`file_menu_button.dart` already uses `showBoojyMenu`, corrected
+  2026-09-29). Migrate when that file is next open.
 - **UI Labs dev switchers are still in the build** (canvas background, editor-button style,
   playhead lab, palette editor, behind Cmd+Shift shortcuts). Pick winners, promote the tokens,
   delete the switchers. *(Tyr picks.)*
@@ -136,7 +133,7 @@ items under Next are secondary to it and are not release work unless promoted he
   overflow menu. Since 2026-09-13 nothing shrinks or clips at supported window sizes (see the
   release gate above), so this is now only about the menu: trailing chevron vs right-click.
 - **Windows updater** native wiring (see release gate).
-- **Font-size tokens.** 228 hardcoded `fontSize:` values remain across `ui/lib`. Migrate to a
+- **Font-size tokens.** 185 hardcoded `fontSize:` literals remain across `ui/lib` (review count, 2026-09-13). Migrate to a
   type scale when a theme pass is open; not worth a standalone PR.
 
 ## Parked
