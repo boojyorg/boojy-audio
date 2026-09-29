@@ -2,8 +2,6 @@ PODS:
   - desktop_drop (0.0.1):
     - FlutterMacOS
   - FlutterMacOS (1.0.0)
-  - screen_retriever_macos (0.0.1):
-    - FlutterMacOS
   - Sparkle (2.8.1)
   - window_manager (0.2.0):
     - FlutterMacOS
@@ -11,7 +9,6 @@ PODS:
 DEPENDENCIES:
   - desktop_drop (from `Flutter/ephemeral/.symlinks/plugins/desktop_drop/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
-  - screen_retriever_macos (from `Flutter/ephemeral/.symlinks/plugins/screen_retriever_macos/macos`)
   - Sparkle (~> 2.0)
   - window_manager (from `Flutter/ephemeral/.symlinks/plugins/window_manager/macos`)
 
@@ -24,18 +21,15 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/desktop_drop/macos
   FlutterMacOS:
     :path: Flutter/ephemeral
-  screen_retriever_macos:
-    :path: Flutter/ephemeral/.symlinks/plugins/screen_retriever_macos/macos
   window_manager:
     :path: Flutter/ephemeral/.symlinks/plugins/window_manager/macos
 
 SPEC CHECKSUMS:
   desktop_drop: e0b672a7d84c0a6cbc378595e82cdb15f2970a43
-  FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
-  screen_retriever_macos: 452e51764a9e1cdb74b3c541238795849f21557f
+  FlutterMacOS: c232990155153907050900a2e175c7773903ba4e
   Sparkle: a346a4341537c625955751ed3ae4b340b68551fa
   window_manager: 1d01fa7ac65a6e6f83b965471b1a7fdd3f06166c
 
-PODFILE CHECKSUM: 9696e938df5d6920a61a1da40b3b61f604c91154
+PODFILE CHECKSUM: 921f0162d886d5d1af083ec924931cb5bf8164cc
 
-COCOAPODS: 1.16.2
+COCOAPODS: 1.17.0

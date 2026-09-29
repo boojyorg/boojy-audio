@@ -5,9 +5,9 @@ paths:
   - ui/pubspec.yaml
 ---
 
-# Flutter 3.44 / Dart 3.12 conventions & UI changes
+# Flutter 3.47 / Dart 3.13 conventions & UI changes
 
-Flutter is pinned to **3.44.0 / Dart 3.12** via FVM (`ui/.fvmrc`).
+Flutter is pinned to **3.47.5 / Dart 3.13** via FVM (`ui/.fvmrc`).
 
 > Heads-up: much of the public 3.44 advice targets **mobile** (iOS SwiftPM, Android Hybrid
 > Composition) and does **not** apply to this macOS/Windows desktop DAW. Verify against this

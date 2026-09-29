@@ -26,7 +26,7 @@ touching each area. **Each fact has one home; everything else here is a pointer.
 
 ## Build & run
 
-- **Toolchains:** Rust **1.98.1** (`engine/rust-toolchain.toml`); Flutter **3.44.0 / Dart 3.12**
+- **Toolchains:** Rust **1.98.1** (`engine/rust-toolchain.toml`); Flutter **3.47.5 / Dart 3.13**
   via FVM (`ui/.fvmrc`). Run Flutter/Dart from `ui/` as `fvm flutter …` / `fvm dart …`. CI pins
   the same versions (`FLUTTER_VERSION` in `.github/workflows/*.yml`).
 - **Engine:** `./build.sh` (debug) or `./build.sh release` builds Rust and points the app at
