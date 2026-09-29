@@ -31,6 +31,11 @@ class TrackData {
     this.inputMonitoring = true,
   });
 
+  // The engine reports types capitalised ("Audio", "MIDI") while the UI creates
+  // them lowercase, so compare case-insensitively.
+  bool get isAudio => type.toLowerCase() == 'audio';
+  bool get isMidi => type.toLowerCase() == 'midi';
+
   /// Parse track info from CSV format:
   /// "track_id,name,type,volume_db,pan,mute,solo,armed,input_device,input_channel,input_monitoring"
   /// Handles 7-field (legacy), 8-field (with armed), 10-field (with input
