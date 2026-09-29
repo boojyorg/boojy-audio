@@ -75,6 +75,10 @@ analyzer:
   exclude:
     - "**/*.g.dart"
     - "**/*.freezed.dart"
+    - build/**
+    - ios/**
+    - windows/**
+    - macos/**
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
