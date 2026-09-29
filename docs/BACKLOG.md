@@ -141,11 +141,13 @@ items under Next are secondary to it and are not release work unless promoted he
     `flutter run`, access is asked on behalf of the terminal app that launched it, so check that
     app under Privacy & Security → Microphone. The app never notices: it should warn when the
     input is all zeros and point at the privacy setting.
-  - **The UI drops the recorded clip.** `hasArmedAudioTracks` (`daw_screen.dart`) reads
-    `mixerKey.currentState?.tracks`, which is empty when the mixer panel isn't mounted, so the
-    controller treats the take as MIDI-only (`audioRecordingStarted=false → audioClipId=-1`).
-    The engine still adds the clip and auto-save writes it, so the screen and the project
-    disagree. Read armed state from the track model or the engine, not a widget.
+  - **The UI drops the recorded clip.** `hasArmedAudioTracks` (`daw_screen.dart`) answered
+    false while the engine recorded armed track 8, so the controller treated the take as
+    MIDI-only (`audioRecordingStarted=false → audioClipId=-1`). The check reads the mixer
+    widget's own copy of the track list (`mixerKey.currentState?.tracks`), which can be stale;
+    why it was wrong here is not yet known. The engine still adds the clip and auto-save writes
+    it, so the screen and the project disagree. Read armed state from the engine or the track
+    model, not a widget.
 
   Also found: the Settings **Input** choice is never applied (review U66), and a failed capture
   start is only a console warning (`api/recording.rs`). Each fix starts with a failing test.
