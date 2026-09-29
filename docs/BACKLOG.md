@@ -131,11 +131,20 @@ items under Next are secondary to it and are not release work unless promoted he
 
 **Blocks release**
 
-- **Recording seems broken** (Tyr, 2026-09-29, first try after the Xcode 27 build). Symptoms
-  still to be written down: audio or MIDI, which input, what happened. One lead to check first:
-  the macOS entitlements use `com.apple.security.audio-input`, while the hardened-runtime key
-  for microphone access is `com.apple.security.device.audio-input`
-  (`ui/macos/Runner/*.entitlements`, unchanged since M0).
+- **Audio recording makes empty clips** (Tyr, 2026-09-29, `flutter run` after the Xcode 27
+  build). An audio track records a clip with no waveform; macOS never asked for microphone
+  permission; MIDI not tried. Found in code so far:
+  - The Settings **Input** choice is never applied (review U66); the engine records from the
+    macOS default input. Settings showed "No Input" with a Scarlett 2i2 as output.
+  - If input capture fails to start, `api/recording.rs` prints a warning to the console and
+    records anyway, so the failure is silent and still leaves a clip.
+  - Under `flutter run`, macOS attributes microphone access to the terminal that launched the
+    app, so a missing prompt can mean the terminal was denied earlier.
+
+  Next: read the `🎙️`/`⚠️` lines in the `flutter run` console, check the terminal under Privacy
+  & Security → Microphone, and check the macOS default input's level. Then a failing test. Two
+  fixes whatever the cause: apply the Settings input, and tell the user when capture fails
+  instead of making an empty clip.
 - No other known blockers. (The clip-overlap deletion, transport shrink and ruler zoom fixes
   found on 2026-09-13 are under Unreleased in the changelog, with their regression tests.)
 
