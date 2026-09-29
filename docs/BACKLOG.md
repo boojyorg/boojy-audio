@@ -21,25 +21,26 @@ evidence, not from reading code. Grades in older reviews (letter grades, "7.5/10
 are not carried over; they were generous and used different bars. Sounds and effects are scored
 on the quality of what exists, not on how many there are.
 
-| # | Area | 8/10 means… | Release |
-| --- | --- | --- | --- |
-| 1 | Stability & performance | An hour of normal use with no crashes or crackles; CPU in line with other DAWs on the same project | v0.7 |
-| 2 | Recording | Audio and MIDI record first time, you hear yourself without noticeable delay, no take is lost | v0.7 |
-| 3 | Arranging & clip editing | Moving, trimming, splitting, duplicating and looping clips is quick; undo always works | v0.7 |
-| 4 | Piano roll & MIDI | You can draw, edit and quantise notes without fighting the tools | v0.8 |
-| 5 | Instruments | The built-in synth, sampler and drums sound good straight away | v0.8 |
-| 6 | Mixing & automation | Levels, pan, sends and automation are clear and dependable | v0.8 |
-| 7 | Effects & plugins | The built-in effects work and sound good; VST3s load without taking the app down (range not scored) | v0.8 |
-| 8 | Sound library | Browsing, previewing and dragging sounds in is quick (size not scored) | v0.8 |
-| 9 | Projects & export | Save, reopen, auto-save, crash recovery and export never lose work | v0.7 |
-| 10 | First run & learnability | A beginner makes a beat in 10 minutes without a tutorial, with no dead buttons | v0.8 |
-| 11 | Look & feel | Consistent and calm, fits a laptop screen, feels finished | v0.8 |
-| 12 | Input & accessibility | Every task works with mouse only, trackpad only, keyboard and mouse, and touch; text is readable | v0.8 |
-| 13 | Platforms | macOS, Windows and Linux feel the same, and install and update cleanly | v0.8 |
-| 14 | Repo, tests & CI | Bugs are caught before Tyr sees them | v0.7 → v0.8 |
-| 15 | Public face | Site, README and release notes are honest and inviting | v0.8 |
+| # | Area | 8/10 means… | Score | Release |
+| --- | --- | --- | --- | --- |
+| 1 | Stability & performance | An hour of normal use with no crashes or crackles; CPU in line with other DAWs on the same project | 4 | v0.7 |
+| 2 | Recording | Audio and MIDI record first time, you hear yourself without noticeable delay, no take is lost | 2 | v0.7 |
+| 3 | Arranging & clip editing | Moving, trimming, splitting, duplicating and looping clips is quick; undo always works | 5 | v0.7 |
+| 4 | Piano roll & MIDI | You can draw, edit and quantise notes without fighting the tools | 5 | v0.8 |
+| 5 | Instruments | The built-in synth, sampler and drums sound good straight away | 3.5 | Later |
+| 6 | Mixing & automation | Levels, pan, sends and automation are clear and dependable | 4.5 | v0.8 (UX) · Later (automation) |
+| 7 | Effects & plugins | The built-in effects work and sound good; VST3s load without taking the app down (range not scored) | 5 | v0.8 (UX) · Later (sound) |
+| 8 | Sound library | Browsing, previewing and dragging sounds in is quick (size not scored) | 3.5 | Later |
+| 9 | Projects & export | Save, reopen, auto-save, crash recovery and export never lose work | 5 | v0.7 |
+| 10 | First run & learnability | A beginner makes a beat in 10 minutes without a tutorial, with no dead buttons | 4 | v0.8 |
+| 11 | Look & feel | Consistent and calm, fits a laptop screen, feels finished | 6 | v0.8 |
+| 12 | Input & accessibility | Every task works with mouse only, trackpad only, keyboard and mouse, and touch; text is readable | 3.5 | v0.8 |
+| 13 | Platforms | macOS, Windows and Linux feel the same, and install and update cleanly | 4 | Later |
+| 14 | Repo, tests & CI | Bugs are caught before Tyr sees them | 4.5 | v0.7 → v0.8 |
+| 15 | Public face | Site, README and release notes are honest and inviting | 4 | v0.8 release |
 
-The first scores are still to be set. When they are, add a score column here and re-score
+**First scores: 2026-09-29.** Tyr and Claude, from the two reviews of that date and Tyr's use
+of the app. Rows 2 and 15 are Tyr's; the rest are the reviews' opening bids, accepted. Re-score
 before each release.
 
 ### Releases
@@ -49,8 +50,15 @@ before each release.
   ([EDITING.md](EDITING.md)), because the five-tool row is row 3's biggest problem: a
   throwaway Mac and iPad prototype comes first, only its "first version" list is in scope, and
   if the prototype says no or the work balloons, it moves to v0.8.
-- **v0.8.0: the rest of the scorecard, plus Linux.** A Linux CI job starts during v0.7. Linux
-  ships in v0.8 if row 1 is at 8 on macOS and Windows first (see [PLATFORMS.md](PLATFORMS.md)).
+- **v0.8.0: the app feels right.** UI/UX and bugs, not new sounds (decided 2026-09-29). Rows 4,
+  10, 11, 12 and 14, plus the UX half of rows 6 and 7: the precise mixer (fader, unity mark,
+  clip warning) and the finished device shell. The 2026-09-29 UI/UX review's v0.8 themes are the
+  starting list. The public face (row 15) is refreshed at release: the GitHub page and
+  boojy.org/audio.
+- **After v0.8: sounds, then Linux.** Once the engine and UX are at or near 8: instruments
+  (row 5), the sound library (row 8), effect sound quality (row 7), automation depth (row 6), so
+  the parked "First Sound" theme. Then Linux (row 13, see [PLATFORMS.md](PLATFORMS.md)).
+  Reason: new sounds are judged through the app around them, so the base comes first.
 - **Later: every device.** Boojy should work well, and look and behave the same, on a laptop,
   a desktop, a tablet and a phone. iPad and phone are not scheduled, but every UI change from now
   on follows the touch-ready rules in [EDITING.md](EDITING.md#every-input-method), so the port
@@ -123,8 +131,13 @@ items under Next are secondary to it and are not release work unless promoted he
 
 **Blocks release**
 
-- None open. (The clip-overlap deletion, transport shrink and ruler zoom fixes found on
-  2026-09-13 are under Unreleased in the changelog, with their regression tests.)
+- **Recording seems broken** (Tyr, 2026-09-29, first try after the Xcode 27 build). Symptoms
+  still to be written down: audio or MIDI, which input, what happened. One lead to check first:
+  the macOS entitlements use `com.apple.security.audio-input`, while the hardened-runtime key
+  for microphone access is `com.apple.security.device.audio-input`
+  (`ui/macos/Runner/*.entitlements`, unchanged since M0).
+- No other known blockers. (The clip-overlap deletion, transport shrink and ruler zoom fixes
+  found on 2026-09-13 are under Unreleased in the changelog, with their regression tests.)
 
 **Fix before release**
 
