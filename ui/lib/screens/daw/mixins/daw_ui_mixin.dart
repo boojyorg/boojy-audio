@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../../widgets/keyboard_shortcuts_overlay.dart';
 import '../../../widgets/app_settings_dialog.dart';
 import '../../daw_screen.dart';
@@ -83,51 +82,6 @@ mixin DAWUIMixin
   // ============================================
   // KEYBOARD SHORTCUT METHODS
   // ============================================
-
-  /// Check if a text input field currently has focus.
-  /// Used to suppress single-key shortcuts when typing in text fields.
-  bool isTextFieldFocused() {
-    final focusedWidget = FocusManager.instance.primaryFocus;
-    if (focusedWidget == null) return false;
-    final context = focusedWidget.context;
-    if (context == null) return false;
-    // Check if any ancestor is an EditableText (text input widget)
-    return context.findAncestorWidgetOfExactType<EditableText>() != null;
-  }
-
-  /// Handle single-key shortcuts that should be suppressed when text field is focused.
-  /// Returns true if the key was handled, false to let it propagate to text fields.
-  ///
-  /// Note: Methods like quantizeSelectedClip() must be implemented in DAWClipMixin
-  /// and made available through the class that uses this mixin.
-  KeyEventResult handleSingleKeyShortcut(
-    KeyEvent event, {
-    required VoidCallback onQuantizeClip,
-  }) {
-    // Only handle KeyDownEvent, not KeyUpEvent or KeyRepeatEvent
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
-
-    // If a text field is focused, don't intercept any single-key shortcuts
-    if (isTextFieldFocused()) return KeyEventResult.ignored;
-
-    // Handle single-key shortcuts
-    switch (event.logicalKey) {
-      case LogicalKeyboardKey.space:
-        togglePlayPause();
-        return KeyEventResult.handled;
-      case LogicalKeyboardKey.keyQ:
-        onQuantizeClip();
-        return KeyEventResult.handled;
-      case LogicalKeyboardKey.keyL:
-        uiLayout.toggleLoopPlayback();
-        return KeyEventResult.handled;
-      case LogicalKeyboardKey.keyM:
-        toggleMetronome();
-        return KeyEventResult.handled;
-      default:
-        return KeyEventResult.ignored;
-    }
-  }
 
   /// Show keyboard shortcuts overlay
   void showKeyboardShortcuts() {

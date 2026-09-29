@@ -63,6 +63,7 @@ import 'daw/daw_menu_bar.dart';
 import 'daw/mixins/daw_mixins.dart';
 import '../utils/csv_field.dart';
 import '../utils/logger.dart';
+import '../utils/text_focus.dart';
 
 /// Main DAW screen with timeline, transport controls, and file import
 class DAWScreen extends StatefulWidget {
@@ -465,13 +466,8 @@ class _DAWScreenState extends State<DAWScreen>
           userSettings.preferredMidiInput;
       recordingController.initialize(audioEngine!);
       recordingController.setLiveRecordingNotifier(liveRecordingNotifier);
-      recordingController.getFirstArmedMidiTrackId = () {
-        final tracks = mixerKey.currentState?.tracks ?? [];
-        for (final t in tracks) {
-          if (t.isMidi && t.armed) return t.id;
-        }
-        return selectedTrackId ?? 0;
-      };
+      recordingController.getFirstArmedMidiTrackId = () =>
+          _midiInputTrackId() ?? 0;
       recordingController.getRecordingClipName = (trackId) =>
           generateClipName(trackId);
       recordingController.hasArmedAudioTracks = () {
@@ -588,15 +584,14 @@ class _DAWScreenState extends State<DAWScreen>
     mixerKey.currentState?.resetMeters();
   }
 
-  /// Check if a text input field currently has focus.
-  /// Used to suppress single-key shortcuts when typing in text fields.
-  bool _isTextFieldFocused() {
-    final focusedWidget = FocusManager.instance.primaryFocus;
-    if (focusedWidget == null) return false;
-    final context = focusedWidget.context;
-    if (context == null) return false;
-    // Check if any ancestor is an EditableText (text input widget)
-    return context.findAncestorWidgetOfExactType<EditableText>() != null;
+  /// The track that MIDI input (recording and the computer-keyboard piano)
+  /// goes to: the first armed MIDI track, else the selected track.
+  int? _midiInputTrackId() {
+    final tracks = mixerKey.currentState?.tracks ?? [];
+    for (final t in tracks) {
+      if (t.isMidi && t.armed) return t.id;
+    }
+    return selectedTrackId;
   }
 
   /// App-level handler for transport/loop single-key shortcuts (Space, L, M).
@@ -613,7 +608,7 @@ class _DAWScreenState extends State<DAWScreen>
     if (event is! KeyDownEvent) return false;
 
     // Let focused text fields keep their keystrokes (typing names, etc.).
-    if (_isTextFieldFocused()) return false;
+    if (isTextFieldFocused()) return false;
 
     // A held command modifier means this belongs to a combo shortcut
     // (e.g. Cmd+Shift+L) — leave it for CallbackShortcuts.
@@ -629,6 +624,9 @@ class _DAWScreenState extends State<DAWScreen>
         _togglePlayPause();
         return true;
       case LogicalKeyboardKey.keyL:
+        // L is also a note on the computer-keyboard piano; the piano wins
+        // while it is open.
+        if (uiLayout.isVirtualPianoEnabled) return false;
         uiLayout.toggleLoopPlayback();
         return true;
       case LogicalKeyboardKey.keyM:
@@ -646,7 +644,7 @@ class _DAWScreenState extends State<DAWScreen>
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
     // If a text field is focused, don't intercept any single-key shortcuts
-    if (_isTextFieldFocused()) return KeyEventResult.ignored;
+    if (isTextFieldFocused()) return KeyEventResult.ignored;
 
     // These are bare single-key shortcuts (L = loop, M = metronome, …). When a
     // command modifier is held the keystroke belongs to a combo shortcut
@@ -3867,7 +3865,7 @@ class _DAWScreenState extends State<DAWScreen>
                               audioEngine: audioEngine,
                               isEnabled: uiLayout.isVirtualPianoEnabled,
                               onClose: _toggleVirtualPiano,
-                              selectedTrackId: selectedTrackId,
+                              targetTrackId: _midiInputTrackId,
                             ),
                         ],
                       ),
