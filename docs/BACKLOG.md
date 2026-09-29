@@ -133,18 +133,22 @@ items under Next are secondary to it and are not release work unless promoted he
 
 - **Audio recording makes empty clips** (Tyr, 2026-09-29, `flutter run` after the Xcode 27
   build). An audio track records a clip with no waveform; macOS never asked for microphone
-  permission; MIDI not tried. Found in code so far:
-  - The Settings **Input** choice is never applied (review U66); the engine records from the
-    macOS default input. Settings showed "No Input" with a Scarlett 2i2 as output.
-  - If input capture fails to start, `api/recording.rs` prints a warning to the console and
-    records anyway, so the failure is silent and still leaves a clip.
-  - Under `flutter run`, macOS attributes microphone access to the terminal that launched the
-    app, so a missing prompt can mean the terminal was denied earlier.
+  permission; MIDI not tried. From Tyr's console log and the autosaved WAVs, two separate
+  faults:
+  - **The input delivers pure digital silence.** Capture started on the MacBook Air mic, but
+    every sample of all four recorded WAVs is exactly 0.0 (a real mic in a quiet room is never
+    exactly zero). This is what macOS feeds a process denied microphone access. Under
+    `flutter run`, access is asked on behalf of the terminal app that launched it, so check that
+    app under Privacy & Security → Microphone. The app never notices: it should warn when the
+    input is all zeros and point at the privacy setting.
+  - **The UI drops the recorded clip.** `hasArmedAudioTracks` (`daw_screen.dart`) reads
+    `mixerKey.currentState?.tracks`, which is empty when the mixer panel isn't mounted, so the
+    controller treats the take as MIDI-only (`audioRecordingStarted=false → audioClipId=-1`).
+    The engine still adds the clip and auto-save writes it, so the screen and the project
+    disagree. Read armed state from the track model or the engine, not a widget.
 
-  Next: read the `🎙️`/`⚠️` lines in the `flutter run` console, check the terminal under Privacy
-  & Security → Microphone, and check the macOS default input's level. Then a failing test. Two
-  fixes whatever the cause: apply the Settings input, and tell the user when capture fails
-  instead of making an empty clip.
+  Also found: the Settings **Input** choice is never applied (review U66), and a failed capture
+  start is only a console warning (`api/recording.rs`). Each fix starts with a failing test.
 - No other known blockers. (The clip-overlap deletion, transport shrink and ruler zoom fixes
   found on 2026-09-13 are under Unreleased in the changelog, with their regression tests.)
 
