@@ -1,15 +1,17 @@
 # Boojy Audio Platforms
 
 Why the stack is what it is, which platforms ship when, and what each one needs. Decided
-2026-09-13; Linux moved to v0.8 and the every-device goal added on 2026-09-29. Scheduling lives
-in [BACKLOG.md](BACKLOG.md); how the system works lives in [ARCHITECTURE.md](ARCHITECTURE.md).
+2026-09-13; the every-device goal added on 2026-09-29, and Linux moved to after v0.8 the same
+day. Scheduling lives in [BACKLOG.md](BACKLOG.md); how the system works lives in
+[ARCHITECTURE.md](ARCHITECTURE.md).
 Revisit the stack question once, at v1.0, with real users to inform it. Not before.
 
 ## Release plan
 
 | Milestone | Platforms |
 | --- | --- |
-| v0.8 | macOS, Windows, Linux (Linux only if stability is at 8/10 on macOS and Windows first) |
+| v0.8 | macOS, Windows |
+| After v0.8 | Linux, once the engine and UX are at or near 8/10 on macOS and Windows |
 | Beta | macOS, Windows, Linux |
 | v1.0 candidates | web, iPad (phone after) |
 
@@ -115,6 +117,6 @@ whole experience there.
 
 ## What Linux needs
 
-A packaging decision (AppImage or Flatpak), a CI job mirroring the Windows one (added during
-v0.7), and an honest note in the README that plugin availability is thin. Technically the cheapest
-of the three. Scheduled for v0.8 (2026-09-29).
+A packaging decision (AppImage or Flatpak), a CI job mirroring the Windows one, and an honest
+note in the README that plugin availability is thin. Technically the cheapest of the three.
+Scheduled after v0.8, once the engine and UX are at or near 8 (2026-09-29).
