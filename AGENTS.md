@@ -19,6 +19,7 @@ touching each area. **Each fact has one home; everything else here is a pointer.
 | `docs/ARCHITECTURE.md` | How the system works today: engine/UI split, FFI contract, routing, persistence. |
 | `docs/PRODUCT.md` | Who Boojy is for and the product principles that decide scope. |
 | `docs/PLATFORMS.md` | Why Flutter + Rust, alternatives rejected, which platforms ship when and what each needs. |
+| `docs/EDITING.md` | **Planned** editing model for v0.7 (Select default, Draw toggle, action bar, every input method). The app still has the five-tool row; reviews should treat its problems as known, not new. |
 | `docs/RELEASING.md` | Release steps, version sync, Windows smoke test, milestone-review cadence. |
 | `.claude/rules/*.md` | Full-text engineering gotchas, one area per file. See the index below. |
 | `docs/reviews/` | The current review (2026-09-13 brief + evidence) and any untriaged reports. Everything older: `docs/archive/`. |

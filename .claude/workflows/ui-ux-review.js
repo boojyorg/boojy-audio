@@ -15,7 +15,7 @@ const AREAS = [
   { key: 'theme-tokens', focus: 'Theme & tokens: lib/theme/* (app_colors, tokens). Colour-temperature consistency, hardcoded Color(0x..) leakage outside the palette, typeface/font setup, the BT.scaled() scaling story.' },
   { key: 'top-bar', focus: 'Top bar (transport_bar.dart): button shape-language consistency, radius/font/hover rhythm, narrow-width responsiveness/overflow.' },
   { key: 'transport-time', focus: 'Transport & time readout: position_display, tempo/sig, bars/time/both cycling, pinned ruler readout.' },
-  { key: 'piano-roll', focus: 'Piano roll: lane contrast (white vs black keys), root-note highlight, note colour/legibility, grid tiers, zoom, select/draw affordances.' },
+  { key: 'piano-roll', focus: 'Piano roll: lane contrast (white vs black keys), root-note highlight, note colour/legibility, grid tiers, zoom, select/draw affordances (judge the planned model in docs/EDITING.md, not the five tools it replaces).' },
   { key: 'timeline', focus: 'Timeline/arrangement: clip rendering, ghost headers, empty-state prompt, grid painter, playhead colour.' },
   { key: 'mixer', focus: 'Mixer + track strips: fader orientation, meters (peak-hold/unity), M/S/R hover, sends, dB readouts, track identity/colour, add-track entry points.' },
   { key: 'effects-devices', focus: 'Effects/device chain: device-shell consistency, slider/knob legibility & hit targets, a universal MIX knob, meters, EQ presentation.' },
@@ -23,6 +23,13 @@ const AREAS = [
 ]
 
 const DAWS = ['GarageBand', 'Ableton Live', 'FL Studio', 'Logic Pro']
+
+// Current plan context (docs/BACKLOG.md "Now", docs/EDITING.md). Keeps reviews from re-reporting
+// planned work and scores them against the agreed 15-row scorecard.
+const PLAN_CONTEXT =
+  'Before judging, read docs/BACKLOG.md ("Now": the 15-row scorecard, where 8/10 = good to great compared with other DAWs, and the v0.7 / v0.8 split; "Decisions: don\'t re-raise") and docs/EDITING.md. ' +
+  'EDITING.md is the PLANNED editing model for v0.7; the app still has the five-tool row (Draw, Select, Erase, Duplicate, Slice). The five tools\' problems are known and being replaced: do not report them as new findings or propose other tool models. Bugs that would survive the change (undo, overlap, snapping) still count. ' +
+  'Boojy aims to work well on every device (mouse only, trackpad, keyboard and mouse, touch), so also judge against the touch-ready rules in EDITING.md: every action reachable by a plain click or tap, nothing important only on hover, adequate hit areas.'
 
 const UI_FINDINGS = {
   type: 'object',
@@ -74,7 +81,7 @@ const groundingHint =
 phase('Read')
 const reads = (await parallel(AREAS.map((a) => () =>
   agent(
-    `Review the Boojy Audio Flutter UI for this area:\n\n${a.focus}\n\nBoojy targets BEGINNERS/hobbyists (GarageBand model), not pros — judge it beginner-first ("calm precise instrument", premium-but-simple, silence-when-healthy). Report concrete UI/UX bugs and inconsistencies, each with a file:line or widget, severity, effort (S/M/L/XL), root cause, and a fix. Add a short qualitative read of what feels off and why.${groundingHint}`,
+    `Review the Boojy Audio Flutter UI for this area:\n\n${a.focus}\n\nBoojy targets BEGINNERS/hobbyists (GarageBand model), not pros — judge it beginner-first ("calm precise instrument", premium-but-simple, silence-when-healthy). Report concrete UI/UX bugs and inconsistencies, each with a file:line or widget, severity, effort (S/M/L/XL), root cause, and a fix. Add a short qualitative read of what feels off and why.\n\n${PLAN_CONTEXT}${groundingHint}`,
     { label: `read:${a.key}`, phase: 'Read', model: 'sonnet', agentType: 'Explore', schema: UI_FINDINGS }
   ).then((r) => ({ ...r, key: a.key }))
 ))).filter(Boolean)
@@ -93,7 +100,7 @@ const teardowns = (await parallel(DAWS.map((d) => () =>
 
 phase('Synthesize')
 const report = await agent(
-  `Write a UI/UX Review & Design Direction for Boojy Audio in the style of docs/archive/reviews/2026_05_30_ui_ux_review.md. Boojy is beginner-first (GarageBand model), premium-but-simple, "a calm precise instrument".\n\nProduce markdown with: (1) a one-paragraph verdict + letter grade; (2) the core diagnosis — the few root causes under most symptoms; (3) a full bug & inconsistency ledger (dedup the findings below; flag quick wins ≤S effort); (4) how Boojy compares to the 4 DAWs (steal/avoid per area); (5) a design direction; (6) a few ASCII before→after mockups for the highest-leverage screens; (7) a proposed next milestone with in/out scope, each design decision paired with the alternative's cost.\n\nUI findings: ${JSON.stringify(findings)}\n\nArea observations: ${JSON.stringify(observations)}\n\nDAW teardowns: ${JSON.stringify(teardowns)}\n\nScreenshots for grounding are staged in the repo at \`${STAGED_SHOTS_DIR}\` — Glob/Read any \`*.png\` there. If that folder had no PNGs, the area readers' visual judgements are ungrounded: say so plainly in the report and recommend verifying on \`fvm flutter run -d macos\`.`,
+  `Write a UI/UX Review & Design Direction for Boojy Audio in the style of docs/archive/reviews/2026_05_30_ui_ux_review.md. Boojy is beginner-first (GarageBand model), premium-but-simple, "a calm precise instrument".\n\nProduce markdown with: (1) a one-paragraph verdict + scores out of 10 (half points) for the docs/BACKLOG.md scorecard rows this review can speak to (at least 3 Arranging & clip editing, 4 Piano roll & MIDI, 6 Mixing & automation, 10 First run & learnability, 11 Look & feel, 12 Input & accessibility), where 8 = good to great compared with other DAWs, not good for a solo project; do not carry over grades from older reviews; (2) the core diagnosis — the few root causes under most symptoms; (3) a full bug & inconsistency ledger (dedup the findings below; flag quick wins ≤S effort); (4) how Boojy compares to the 4 DAWs (steal/avoid per area); (5) a design direction; (6) a few ASCII before→after mockups for the highest-leverage screens; (7) the proposed work mapped to scorecard rows and to the v0.7 / v0.8 / later split in docs/BACKLOG.md, each design decision paired with the alternative's cost.\n\n${PLAN_CONTEXT}\n\nUI findings: ${JSON.stringify(findings)}\n\nArea observations: ${JSON.stringify(observations)}\n\nDAW teardowns: ${JSON.stringify(teardowns)}\n\nScreenshots for grounding are staged in the repo at \`${STAGED_SHOTS_DIR}\` — Glob/Read any \`*.png\` there. If that folder had no PNGs, the area readers' visual judgements are ungrounded: say so plainly in the report and recommend verifying on \`fvm flutter run -d macos\`.`,
   { label: 'synthesize', phase: 'Synthesize', model: 'opus' }
 )
 

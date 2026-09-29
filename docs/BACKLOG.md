@@ -8,32 +8,87 @@ to engineering rules and specs. Nothing here is a release commitment.
 Every item below was checked against the source tree on **2026-09-13** unless it says otherwise.
 Items marked *(Tyr)* need a design call from Tyr before an agent should start.
 
-## Now: ship v0.7.0 as a bounded release
+## Now: every area to 8/10, core first (v0.7.0)
 
 **Status 2026-09-29: back in development.** Work slowed after 2026-09-13 and resumes now; Audio
-is not paused. v0.7.0 is the next release, but there is no date: Tyr wants more time with it,
-engine reliability first, before tagging.
+is not paused. v0.7.0 is the next release, with no date: it ships when its rows reach 8.
 
-**Direction agreed 2026-09-13, after the product review.** v0.7 focuses on three things:
-audio and project reliability; simpler editing and mixing workflows; and the repo health that
-supports both. The review that informed this is `docs/reviews/2026_09_13_product_review.md`
-(decision brief) with its evidence file beside it. **Its individual recommendations are not all
-approved**: each one is a candidate until it is accepted here. What is agreed:
+### The goal and the scorecard (agreed 2026-09-29)
 
-- **Next task: investigate the audio/project reliability findings** (brief §2 and §3, IDs
-  C1–C17). None is reproduced; all are demonstrated from code or suspected. Investigation means
-  reproducing (or refuting) each before any fix is scheduled. The engine build being dogfooded
-  should be confirmed first (`./build.sh` with no argument installs a debug engine).
-- **Editing tools, workspace layout and mixer header decisions stay open** (brief §4 and §6,
-  D2–D5). They are discussed before anything is planned; nothing there is scheduled.
-- The release-gate process below still applies; the review does not add work to the release by
-  itself. Triage of the review (per `RELEASING.md`) happens once the direction has been turned
-  into accepted items.
+Every area reaches a solid **8/10: good to great compared with other DAWs**, not "good for a solo
+project". Tyr and Claude score together in half points, from using the app and from test
+evidence, not from reading code. Grades in older reviews (letter grades, "7.5/10 for an alpha")
+are not carried over; they were generous and used different bars. Sounds and effects are scored
+on the quality of what exists, not on how many there are.
 
-Docs health closed on 2026-09-13 (PRs #130 to #138). **v0.7.0 is a release of the work already
-completed since v0.6.0 plus the fixes that genuinely block it.** It does not revive the paused
-"Devices & Feel" feature theme (archived at `docs/archive/plans/v0.7-plan.md`); nothing from
-that plan is added to the release because it was once scheduled.
+| # | Area | 8/10 means… | Release |
+| --- | --- | --- | --- |
+| 1 | Stability & performance | An hour of normal use with no crashes or crackles; CPU in line with other DAWs on the same project | v0.7 |
+| 2 | Recording | Audio and MIDI record first time, you hear yourself without noticeable delay, no take is lost | v0.7 |
+| 3 | Arranging & clip editing | Moving, trimming, splitting, duplicating and looping clips is quick; undo always works | v0.7 |
+| 4 | Piano roll & MIDI | You can draw, edit and quantise notes without fighting the tools | v0.8 |
+| 5 | Instruments | The built-in synth, sampler and drums sound good straight away | v0.8 |
+| 6 | Mixing & automation | Levels, pan, sends and automation are clear and dependable | v0.8 |
+| 7 | Effects & plugins | The built-in effects work and sound good; VST3s load without taking the app down (range not scored) | v0.8 |
+| 8 | Sound library | Browsing, previewing and dragging sounds in is quick (size not scored) | v0.8 |
+| 9 | Projects & export | Save, reopen, auto-save, crash recovery and export never lose work | v0.7 |
+| 10 | First run & learnability | A beginner makes a beat in 10 minutes without a tutorial, with no dead buttons | v0.8 |
+| 11 | Look & feel | Consistent and calm, fits a laptop screen, feels finished | v0.8 |
+| 12 | Input & accessibility | Every task works with mouse only, trackpad only, keyboard and mouse, and touch; text is readable | v0.8 |
+| 13 | Platforms | macOS, Windows and Linux feel the same, and install and update cleanly | v0.8 |
+| 14 | Repo, tests & CI | Bugs are caught before Tyr sees them | v0.7 → v0.8 |
+| 15 | Public face | Site, README and release notes are honest and inviting | v0.8 |
+
+The first scores are still to be set. When they are, add a score column here and re-score
+before each release.
+
+### Releases
+
+- **v0.7.0: the core works every time.** Rows 1, 2, 3 and 9 reach 8, with no known blocker.
+  Row 14 gets the test net that makes that measurable. It includes the **editing model**
+  ([EDITING.md](EDITING.md)), because the five-tool row is row 3's biggest problem: a
+  throwaway Mac and iPad prototype comes first, only its "first version" list is in scope, and
+  if the prototype says no or the work balloons, it moves to v0.8.
+- **v0.8.0: the rest of the scorecard, plus Linux.** A Linux CI job starts during v0.7. Linux
+  ships in v0.8 if row 1 is at 8 on macOS and Windows first (see [PLATFORMS.md](PLATFORMS.md)).
+- **Later: every device.** Boojy should work well, and look and behave the same, on a laptop,
+  a desktop, a tablet and a phone. iPad and phone are not scheduled, but every UI change from now
+  on follows the touch-ready rules in [EDITING.md](EDITING.md#every-input-method), so the port
+  isn't a rewrite.
+
+### Bugs: find them before Tyr does
+
+Bugs are the biggest problem today; Tyr hits them several times a minute while using the app.
+Most live where gestures, the UI and the engine meet, and the current tests (about 1,270 Dart,
+190 Rust) mostly check logic in isolation: three test files drive the real screen over the real
+engine, and nothing runs the live audio callback. The plan:
+
+1. **Workflow tests** for each core task, headless over the real engine (the harness in
+   `ui/test/native/clip_drag_overlap_test.dart` is the template): record, drag, trim, split, undo
+   many times, save, reopen, compare. They describe outcomes ("the clip ends up trimmed"), not
+   the exact clicks, so the editing-model change touches one helper, not every test.
+2. **Random stress tests**: thousands of random edits, undos and save/reload cycles, checking
+   rules that must always hold (undo restores the exact state, a reopened project matches the
+   saved one, nothing crashes).
+3. **Audio-safety checks**: tests fail if the audio thread allocates memory or waits on a lock
+   (the crackle causes in the 2026-09-13 review), plus offline renders checked for silence,
+   clicks and invalid samples.
+4. **A failing test before every fix.** A bug found only by reading code is a candidate until
+   it is reproduced.
+5. **Builds reach Tyr after the suites pass**, so he is the second tester, not the first.
+6. **A local log and an audio-dropout counter**, so "it crackled" comes with data.
+
+First, confirm which engine build is being dogfooded: `./build.sh` with no argument installs a
+debug engine, which can glitch under load in ways a release build would not.
+
+The 2026-09-13 review's reliability findings (brief §2 and §3, C1–C17) are the starting list for
+row 1: none is reproduced yet. Its workspace layout and mixer header options (brief §4 and §6)
+are still open and are decided before anything is planned; its editing-tool question is now
+answered by [EDITING.md](EDITING.md). The review's individual recommendations are candidates until
+accepted here. The paused "Devices & Feel" theme (`docs/archive/plans/v0.7-plan.md`) stays
+archived.
+
+### Severity and process
 
 **Severity rule.** *Blocks release*: known data loss, or a core workflow (record, arrange, edit,
 mix, save and reopen, export) that does not complete. *Fix before release*: visible and cheap
@@ -41,20 +96,14 @@ enough to do now, but the release would ship without it. *After release*: improv
 polish; they wait for a patch. An improvement does not become a blocker because it was noticed
 during the gate.
 
-**Process, in order.**
+**Process.**
 
-1. This backlog records the known bugs and which ones block (below).
-2. Fix the known bugs, one PR per coherent fix, zoom separate: reproduce, fix, relevant tests,
+1. Known bugs are recorded below, classified by the severity rule.
+2. The test net above is built early; each fix is one PR: reproduce with a failing test, fix,
    CI green, Tyr's walkthrough, merge. Completed fixes go under Unreleased in the changelog.
-3. Tyr dogfoods the combined build; new findings land here, classified by the severity rule.
-4. One scoped bug hunt once the known blockers are fixed, covering clip editing and undo, zoom,
-   transport, recording, saving and reopening a populated project, and export. Findings are
-   verified before they are reported as confirmed bugs. Confirmed blockers are fixed in separate
-   PRs. The hunt is timeboxed; a known blocker is never shipped because the timebox expired.
-5. Verify and release: the checks in `RELEASING.md`, the Windows smoke test, and the
-   release-day checks below.
-6. A broader audit afterwards is a separate task to inform future work, not an extension of
-   this release.
+3. Tyr dogfoods builds that have already passed the suites; new findings land below.
+4. Re-score rows 1, 2, 3 and 9. Release when all four are at 8 and nothing blocks: the checks in
+   `RELEASING.md`, the Windows smoke test and the release-day checks below.
 
 **Release-day checks**, on top of `RELEASING.md`:
 
