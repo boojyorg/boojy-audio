@@ -439,16 +439,32 @@ mixin _RecordingMixin on _AudioEngineBase {
     }
   }
 
-  /// Set audio input device by index
+  /// Choose the audio input: '' follows the system default,
+  /// [kAudioInputOff] turns input off, anything else is a device name.
   /// Returns success message or error
-  String setAudioInputDevice(int deviceIndex) {
+  String setAudioInputChoice(String deviceName) {
     try {
-      final resultPtr = _setAudioInputDevice(deviceIndex);
+      final deviceNamePtr = deviceName.toNativeUtf8();
+      final resultPtr = _setAudioInputChoice(deviceNamePtr);
+      calloc.free(deviceNamePtr);
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
       return 'Error: $e';
+    }
+  }
+
+  /// The input as it resolves right now (device, fallback, channel count),
+  /// without opening it.
+  AudioInputStatus getAudioInputStatus() {
+    try {
+      final resultPtr = _getAudioInputStatus();
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return AudioInputStatus.parse(result);
+    } catch (e) {
+      return AudioInputStatus.unknown;
     }
   }
 

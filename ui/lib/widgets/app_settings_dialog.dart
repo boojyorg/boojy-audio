@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import '../audio_engine.dart';
+import '../models/audio_input_status.dart';
 import '../services/auto_save_service.dart';
 import '../services/updater_service.dart';
 import '../theme/animation_constants.dart';
@@ -816,29 +817,39 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
   }
 
   Widget _buildInputDeviceSelector() {
-    // Build list: "No Input" + all input devices (deduplicated)
-    final deviceNames = _deduplicateDeviceNames(_inputDevices, '__no_input__');
-
-    // Current value: null means "No Input"
-    final currentValue = _selectedInputDevice ?? '__no_input__';
-    final value = deviceNames.contains(currentValue)
-        ? currentValue
-        : '__no_input__';
+    // Values: '' follows the system default, kAudioInputOff turns input off,
+    // anything else pins a device by name.
+    final names = <String>[];
+    String? systemDefaultName;
+    for (final d in _inputDevices) {
+      final name = d['name'] as String;
+      if (!names.contains(name)) names.add(name);
+      if (d['isDefault'] == true) systemDefaultName ??= name;
+    }
+    final value = _selectedInputDevice ?? '';
+    // A pinned device that's unplugged stays listed so the choice is visible.
+    final pinnedMissing =
+        value.isNotEmpty && value != kAudioInputOff && !names.contains(value);
 
     String displayName(String name) {
-      if (name == '__no_input__') return 'No Input';
-      final isDefault = _inputDevices.any(
-        (d) => d['name'] == name && d['isDefault'] == true,
-      );
-      return isDefault ? '$name (Default)' : name;
+      if (name.isEmpty) {
+        return systemDefaultName == null
+            ? 'System default'
+            : 'System default ($systemDefaultName)';
+      }
+      if (name == kAudioInputOff) return 'Off';
+      if (!names.contains(name)) return '$name (not connected)';
+      return name;
     }
+
+    final values = ['', ...names, if (pinnedMissing) value, kAudioInputOff];
 
     return _settingRow(
       label: 'Input',
       subtitle: 'Where Boojy records from — your mic or interface',
       control: BoojyDropdown<String>(
         value: value,
-        items: deviceNames
+        items: values
             .map(
               (name) =>
                   BoojyMenuItem<String>(value: name, label: displayName(name)),
@@ -846,18 +857,11 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
             .toList(),
         onChanged: (value) {
           setState(() {
-            _selectedInputDevice = value == '__no_input__' ? null : value;
+            _selectedInputDevice = value.isEmpty ? null : value;
           });
-          widget.settings.preferredInputDevice = value == '__no_input__'
-              ? null
-              : value;
+          widget.settings.preferredInputDevice = value.isEmpty ? null : value;
           // Apply to engine immediately
-          if (widget.audioEngine != null && value != '__no_input__') {
-            final index = _inputDevices.indexWhere((d) => d['name'] == value);
-            if (index >= 0) {
-              widget.audioEngine!.setAudioInputDevice(index);
-            }
-          }
+          widget.audioEngine?.setAudioInputChoice(value);
         },
       ),
     );

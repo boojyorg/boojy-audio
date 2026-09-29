@@ -3,6 +3,7 @@
 //! Functions for audio recording, input device management, and recording state.
 
 use super::helpers::{get_audio_clips, get_audio_graph};
+use crate::audio_input::InputChoice;
 use std::sync::Arc;
 
 // ============================================================================
@@ -14,8 +15,11 @@ pub fn get_audio_input_devices() -> Result<Vec<(String, String, bool)>, String> 
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
 
-    let input_manager = graph.input_manager.lock();
-    let devices = input_manager.get_devices();
+    // Re-enumerate so a device plugged in since launch shows up in Settings.
+    let mut input_manager = graph.input_manager.lock();
+    let devices = input_manager
+        .enumerate_devices()
+        .unwrap_or_else(|_| input_manager.get_devices());
 
     // Convert to tuple format: (id, name, is_default)
     let device_list: Vec<(String, String, bool)> = devices
@@ -26,21 +30,59 @@ pub fn get_audio_input_devices() -> Result<Vec<(String, String, bool)>, String> 
     Ok(device_list)
 }
 
-/// Select an audio input device by index
-pub fn set_audio_input_device(device_index: i32) -> Result<String, String> {
-    if device_index < 0 {
-        return Err("Invalid device index".to_string());
-    }
+/// Settings value meaning "never open an input".
+pub const INPUT_OFF: &str = "__off__";
+
+/// Choose the audio input: `""` follows the system default, [`INPUT_OFF`]
+/// turns input off, anything else is a device name. A running capture
+/// reopens on the new device straight away.
+pub fn set_audio_input_choice(name: &str) -> Result<String, String> {
+    let choice = match name {
+        "" => InputChoice::SystemDefault,
+        INPUT_OFF => InputChoice::Off,
+        other => InputChoice::Named(other.to_string()),
+    };
 
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
-
+    // The audio callback only ever try_locks the input manager, so holding it
+    // while the input stream restarts can't deadlock against it.
     let mut input_manager = graph.input_manager.lock();
-    input_manager
-        .select_device(device_index as usize)
-        .map_err(|e| e.to_string())?;
+    input_manager.set_choice(choice);
 
-    Ok(format!("Selected input device {device_index}"))
+    if input_manager.is_capturing() {
+        input_manager.stop_capture().map_err(|e| e.to_string())?;
+        if *input_manager.choice() != InputChoice::Off {
+            input_manager
+                .start_capture(10.0)
+                .map_err(|e| format!("Failed to reopen input: {e}"))?;
+        }
+    }
+    Ok(format!("Input set to {:?}", input_manager.choice()))
+}
+
+/// The input as it resolves right now, without opening it:
+/// `"off|fell_back|channels|device name"` with 1/0 flags. The name is last
+/// because device names may contain `|`; it is empty when off or absent.
+pub fn get_audio_input_status() -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let mut input_manager = graph.input_manager.lock();
+
+    let off = *input_manager.choice() == InputChoice::Off;
+    let channels = if off {
+        0
+    } else {
+        input_manager.probe().map_err(|e| e.to_string())?
+    };
+    let (name, fell_back) = input_manager
+        .active()
+        .map_or((String::new(), false), |a| (a.name.clone(), a.fell_back));
+    Ok(format!(
+        "{}|{}|{channels}|{name}",
+        u8::from(off),
+        u8::from(fell_back)
+    ))
 }
 
 /// Get list of available audio output devices
@@ -228,13 +270,10 @@ pub fn start_recording() -> Result<String, String> {
             ));
         };
 
-        // Auto-enumerate and select default device if none selected
-        if input_manager.get_selected_device_index().is_none() {
-            eprintln!("🎙️  [API] No input device selected, auto-selecting default...");
-            let _ = input_manager.enumerate_devices(); // This auto-selects default
-        }
-
-        if input_manager.get_selected_device_index().is_some() && !input_manager.is_capturing() {
+        if *input_manager.choice() == InputChoice::Off {
+            eprintln!("🎙️  [API] Input is off (MIDI recording will still work)");
+            false
+        } else if !input_manager.is_capturing() {
             match input_manager.start_capture(10.0) {
                 Ok(()) => {
                     eprintln!("🎙️  [API] Audio input capture started");
@@ -245,11 +284,8 @@ pub fn start_recording() -> Result<String, String> {
                     false
                 }
             }
-        } else if input_manager.is_capturing() {
-            true
         } else {
-            eprintln!("⚠️  [API] No audio input device available (MIDI recording will still work)");
-            false
+            true
         }
     };
 
@@ -273,13 +309,19 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
         .stop_recording(graph.current_stream_sample_rate())?;
 
     // Stop audio input to prevent buffer overflow
-    {
+    let audio_was_captured = {
         let mut input_manager = graph.input_manager.lock();
-        if input_manager.is_capturing() {
+        let capturing = input_manager.is_capturing();
+        if capturing {
             eprintln!("🛑 [API] Stopping audio input after recording...");
             input_manager.stop_capture().map_err(|e| e.to_string())?;
         }
-    }
+        capturing
+    };
+
+    // No input was open (off, or it failed to start): the take holds no audio,
+    // so don't leave an empty clip on the armed tracks.
+    let clip_option = clip_option.filter(|_| audio_was_captured);
 
     if let Some(clip) = clip_option {
         // Find armed audio tracks — only place audio clips on explicitly armed tracks.

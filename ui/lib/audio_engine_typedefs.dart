@@ -761,8 +761,12 @@ typedef _GetAudioInputDevicesFfi = ffi.Pointer<Utf8> Function();
 typedef _GetAudioOutputDevicesFfiNative = ffi.Pointer<Utf8> Function();
 typedef _GetAudioOutputDevicesFfi = ffi.Pointer<Utf8> Function();
 
-typedef _SetAudioInputDeviceFfiNative = ffi.Pointer<Utf8> Function(ffi.Int32);
-typedef _SetAudioInputDeviceFfi = ffi.Pointer<Utf8> Function(int);
+typedef _SetAudioInputChoiceFfiNative =
+    ffi.Pointer<Utf8> Function(ffi.Pointer<Utf8>);
+typedef _SetAudioInputChoiceFfi = ffi.Pointer<Utf8> Function(ffi.Pointer<Utf8>);
+
+typedef _GetAudioInputStatusFfiNative = ffi.Pointer<Utf8> Function();
+typedef _GetAudioInputStatusFfi = ffi.Pointer<Utf8> Function();
 
 typedef _SetAudioOutputDeviceFfiNative =
     ffi.Pointer<Utf8> Function(ffi.Pointer<Utf8>);

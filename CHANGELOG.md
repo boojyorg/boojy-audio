@@ -63,6 +63,15 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **One audio input, chosen in Settings.** Settings → Audio → Input now offers System default
+  (follows macOS, so plugging in an interface just works), each connected device, or Off, and
+  the choice applies at launch and the moment you change it. Before, the engine grabbed the macOS
+  default once at launch and ignored the Settings choice after a restart. A chosen device that
+  isn't plugged in falls back to the system default, and recording says so. Each audio track
+  now picks only a channel ("Input 1", "Input 2") of that input; its device choice never did
+  anything. With input off, or when the input can't open, recording no longer leaves an empty
+  audio clip.
+
 - **The computer-keyboard piano plays wherever you click.** Its keys only worked while the
   piano itself had focus, so after clicking a track or a button every note key went unhandled
   and macOS played its error sound. The piano now listens app-wide while it is open (never while

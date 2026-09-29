@@ -2,6 +2,7 @@
 // This file should never be imported directly at runtime
 // ignore_for_file: avoid_positional_boolean_parameters
 
+import 'models/audio_input_status.dart';
 import 'models/drum_kit_info.dart';
 import 'models/sampler_info.dart';
 import 'services/commands/audio_engine_interface.dart';
@@ -437,7 +438,9 @@ class AudioEngine implements AudioEngineInterface {
       throw UnsupportedError('stub');
   List<Map<String, dynamic>> getAudioOutputDevices() =>
       throw UnsupportedError('stub');
-  String setAudioInputDevice(int deviceIndex) => throw UnsupportedError('stub');
+  String setAudioInputChoice(String deviceName) =>
+      throw UnsupportedError('stub');
+  AudioInputStatus getAudioInputStatus() => throw UnsupportedError('stub');
   String setAudioOutputDevice(String deviceName) =>
       throw UnsupportedError('stub');
   String getSelectedAudioOutputDevice() => throw UnsupportedError('stub');

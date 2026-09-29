@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../controllers/controllers.dart';
+import '../../../models/audio_input_status.dart';
 import '../../../models/clip_data.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../models/track_data.dart';
@@ -72,6 +73,7 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     recordingController.onRecordStartPositionChanged =
         playbackController.setRecordStartPosition;
 
+    _warnIfAudioInputUnexpected();
     recordingController.startRecording(isAlreadyPlaying: isAlreadyPlaying);
 
     // Don't start playhead polling during count-in — the playhead should stay
@@ -79,6 +81,21 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     // transition and start polling then (with a display offset so the engine's
     // elapsed count-in time doesn't shift the visual playhead).
     recordingController.addListener(_onRecordingStateChanged);
+  }
+
+  /// Say so before recording onto an armed audio track when the input is
+  /// off, missing, or not the device picked in Settings.
+  void _warnIfAudioInputUnexpected() {
+    if (recordingController.hasArmedAudioTracks?.call() != true) return;
+    final notice = audioEngine?.getAudioInputStatus().notice(
+      preferred: userSettings.preferredInputDevice == kAudioInputOff
+          ? null
+          : userSettings.preferredInputDevice,
+    );
+    if (notice == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(notice), duration: const Duration(seconds: 4)),
+    );
   }
 
   /// Seconds the count-in plays "in place" because it couldn't seek back a full
