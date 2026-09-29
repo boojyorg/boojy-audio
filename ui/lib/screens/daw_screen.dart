@@ -429,6 +429,15 @@ class _DAWScreenState extends State<DAWScreen>
         }
       }
 
+      // Initialize input from user settings ('' follows the system default)
+      try {
+        audioEngine!.setAudioInputChoice(
+          userSettings.preferredInputDevice ?? '',
+        );
+      } catch (e) {
+        Log.e('Input device setting failed: $e');
+      }
+
       if (mounted) {
         setState(() {
           isAudioGraphInitialized = true;

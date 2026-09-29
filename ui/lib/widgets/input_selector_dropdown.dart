@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../audio_engine.dart';
+import '../models/audio_input_status.dart';
 import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
@@ -10,11 +11,10 @@ import '../theme/tokens.dart';
 Future<void> showInputSelectorDropdown({
   required BuildContext context,
   required Offset position,
-  required List<Map<String, dynamic>> inputDevices,
-  required int currentDeviceIndex,
+  required AudioInputStatus status,
   required int currentChannel,
   required AudioEngine? audioEngine,
-  required Function(int deviceIndex, int channel) onSelected,
+  required void Function(int channel) onSelected,
 }) async {
   final overlay = Overlay.of(context);
   late OverlayEntry entry;
@@ -22,13 +22,12 @@ Future<void> showInputSelectorDropdown({
   entry = OverlayEntry(
     builder: (context) => _InputSelectorOverlay(
       position: position,
-      inputDevices: inputDevices,
-      currentDeviceIndex: currentDeviceIndex,
+      status: status,
       currentChannel: currentChannel,
       audioEngine: audioEngine,
-      onSelected: (deviceIndex, channel) {
+      onSelected: (channel) {
         entry.remove();
-        onSelected(deviceIndex, channel);
+        onSelected(channel);
       },
       onDismiss: () {
         entry.remove();
@@ -41,17 +40,15 @@ Future<void> showInputSelectorDropdown({
 
 class _InputSelectorOverlay extends StatefulWidget {
   final Offset position;
-  final List<Map<String, dynamic>> inputDevices;
-  final int currentDeviceIndex;
+  final AudioInputStatus status;
   final int currentChannel;
   final AudioEngine? audioEngine;
-  final Function(int deviceIndex, int channel) onSelected;
+  final void Function(int channel) onSelected;
   final VoidCallback onDismiss;
 
   const _InputSelectorOverlay({
     required this.position,
-    required this.inputDevices,
-    required this.currentDeviceIndex,
+    required this.status,
     required this.currentChannel,
     required this.audioEngine,
     required this.onSelected,
@@ -66,6 +63,9 @@ class _InputSelectorOverlayState extends State<_InputSelectorOverlay> {
   Timer? _levelTimer;
   // channel index -> peak level (0.0 to 1.0)
   Map<int, double> _channelLevels = {};
+
+  // The engine meters and records the first two channels (L/R) only.
+  int get _channelCount => widget.status.channelCount.clamp(0, 2);
 
   @override
   void initState() {
@@ -87,8 +87,7 @@ class _InputSelectorOverlayState extends State<_InputSelectorOverlay> {
     if (widget.audioEngine == null || !mounted) return;
 
     final newLevels = <int, double>{};
-    // Poll levels for channels 0 and 1 (stereo)
-    for (int ch = 0; ch < 2; ch++) {
+    for (int ch = 0; ch < _channelCount; ch++) {
       try {
         final raw = widget.audioEngine!.getInputChannelLevel(ch);
         newLevels[ch] = raw.clamp(0.0, 1.0);
@@ -147,118 +146,53 @@ class _InputSelectorOverlayState extends State<_InputSelectorOverlay> {
 
   List<Widget> _buildMenuItems(BuildContext context) {
     final colors = context.colors;
+    final status = widget.status;
     final items = <Widget>[];
 
-    // "No Input" option
-    final noInputSelected = widget.currentDeviceIndex < 0;
+    Widget note(String text) => Container(
+      padding: const EdgeInsets.all(12),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: colors.textMuted,
+          fontSize: 12,
+          fontStyle: FontStyle.italic,
+        ),
+      ),
+    );
+
+    if (status.isOff) {
+      return [note('Audio input is off. Turn it on in Settings → Audio.')];
+    }
+    if (status.deviceName.isEmpty) return [note('No audio input connected.')];
+
+    // Device header: the one input Boojy records from (chosen in Settings)
     items.add(
-      _buildMenuItem(
-        icon: BI.pluginOff,
-        label: 'No Input',
-        isSelected: noInputSelected,
-        onTap: () => widget.onSelected(-1, 0),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Text(
+          status.deviceName,
+          style: TextStyle(
+            color: colors.textSecondary,
+            fontSize: BT.fontLabel,
+            fontWeight: BT.weightSemiBold,
+            letterSpacing: 0.3,
+          ),
+        ),
       ),
     );
 
-    items.add(Divider(height: 1, color: colors.hover));
-
-    // Devices and channels
-    for (
-      int deviceIdx = 0;
-      deviceIdx < widget.inputDevices.length;
-      deviceIdx++
-    ) {
-      final device = widget.inputDevices[deviceIdx];
-      final deviceName = device['name'] as String? ?? 'Input Device $deviceIdx';
-      final isDefault = device['isDefault'] as bool? ?? false;
-
-      // Device header
+    for (int ch = 0; ch < _channelCount; ch++) {
       items.add(
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Text(
-            '${isDefault ? "★ " : ""}$deviceName',
-            style: TextStyle(
-              color: colors.textSecondary,
-              fontSize: BT.fontLabel,
-              fontWeight: BT.weightSemiBold,
-              letterSpacing: 0.3,
-            ),
-          ),
-        ),
-      );
-
-      // Channel options with live meters
-      const channelCount = 2;
-      for (int ch = 0; ch < channelCount; ch++) {
-        final isSelected =
-            widget.currentDeviceIndex == deviceIdx &&
-            widget.currentChannel == ch;
-        final level = _channelLevels[ch] ?? 0.0;
-
-        items.add(
-          _buildChannelItem(
-            channel: ch,
-            isSelected: isSelected,
-            level: level,
-            onTap: () => widget.onSelected(deviceIdx, ch),
-          ),
-        );
-      }
-    }
-
-    // No devices message
-    if (widget.inputDevices.isEmpty) {
-      items.add(
-        Container(
-          padding: const EdgeInsets.all(12),
-          child: Text(
-            'No audio input devices found',
-            style: TextStyle(
-              color: colors.textMuted,
-              fontSize: 12,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
+        _buildChannelItem(
+          channel: ch,
+          isSelected: widget.currentChannel == ch,
+          level: _channelLevels[ch] ?? 0.0,
+          onTap: () => widget.onSelected(ch),
         ),
       );
     }
-
     return items;
-  }
-
-  Widget _buildMenuItem({
-    required IconData icon,
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    final colors = context.colors;
-
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 14,
-              color: isSelected ? colors.accent : colors.textSecondary,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? colors.accent : colors.textPrimary,
-                fontSize: 12,
-                fontWeight: isSelected ? BT.weightSemiBold : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Widget _buildChannelItem({
@@ -268,7 +202,8 @@ class _InputSelectorOverlayState extends State<_InputSelectorOverlay> {
     required VoidCallback onTap,
   }) {
     final colors = context.colors;
-    final channelLabel = 'Input ${channel + 1} (${channel == 0 ? "L" : "R"})';
+    // Numbered like the sockets on an interface.
+    final channelLabel = 'Input ${channel + 1}';
 
     return InkWell(
       onTap: onTap,

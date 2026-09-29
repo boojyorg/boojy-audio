@@ -49,11 +49,35 @@ pub extern "C" fn get_audio_output_devices_ffi() -> *mut c_char {
     )
 }
 
-/// Set audio input device by index
+/// Choose the audio input by name. Null or empty follows the system default;
+/// `"__off__"` turns input off.
 #[no_mangle]
-pub extern "C" fn set_audio_input_device_ffi(device_index: i32) -> *mut c_char {
+pub extern "C" fn set_audio_input_choice_ffi(device_name: *const c_char) -> *mut c_char {
+    ffi_catch(
+        std::ptr::null_mut(),
+        AssertUnwindSafe(|| {
+            let name = if device_name.is_null() {
+                ""
+            } else {
+                let Some(s) = (unsafe { cstr_arg(device_name) }) else {
+                    return safe_cstring("Error: Invalid UTF-8".to_string()).into_raw();
+                };
+                s
+            };
+
+            match api::set_audio_input_choice(name) {
+                Ok(msg) => safe_cstring(msg).into_raw(),
+                Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+            }
+        }),
+    )
+}
+
+/// The input as it resolves right now: `"off|fell_back|channels|device name"`
+#[no_mangle]
+pub extern "C" fn get_audio_input_status_ffi() -> *mut c_char {
     ffi_catch(std::ptr::null_mut(), || {
-        match api::set_audio_input_device(device_index) {
+        match api::get_audio_input_status() {
             Ok(msg) => safe_cstring(msg).into_raw(),
             Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
         }

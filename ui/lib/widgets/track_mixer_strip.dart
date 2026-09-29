@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../audio_engine.dart';
 import '../constants/ui_constants.dart';
+import '../models/audio_input_status.dart';
 import '../models/instrument_data.dart';
 import '../models/track_automation_data.dart';
 import '../models/library_item.dart';
@@ -118,7 +119,6 @@ class TrackMixerStrip extends StatefulWidget {
   // Input routing
   final int inputDeviceIndex; // -1 = no input, 0+ = device index
   final int inputChannel; // 0-based channel within device
-  final List<Map<String, dynamic>> inputDevices; // Available input devices
   final Function(int deviceIndex, int channel)? onInputChanged;
   final bool isRecording; // Lock input selector during recording
   final double?
@@ -194,7 +194,6 @@ class TrackMixerStrip extends StatefulWidget {
     this.onColorChanged,
     this.inputDeviceIndex = -1,
     this.inputChannel = 0,
-    this.inputDevices = const [],
     this.onInputChanged,
     this.isRecording = false,
     this.inputLevel,
@@ -1022,24 +1021,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   /// Get short label for current input assignment
   String _getInputLabel() {
     if (widget.inputDeviceIndex < 0) return 'No In';
-
-    // If we have device info, use device name + channel
-    if (widget.inputDevices.isNotEmpty &&
-        widget.inputDeviceIndex < widget.inputDevices.length) {
-      final device = widget.inputDevices[widget.inputDeviceIndex];
-      final deviceName = device['name'] as String? ?? 'Input';
-      // Shorten common names
-      String shortName = deviceName
-          .replaceAll('Built-in Microphone', 'Mic')
-          .replaceAll('Built-in', 'Built')
-          .replaceAll('Microphone', 'Mic');
-      // Truncate long names
-      if (shortName.length > 8) {
-        shortName = '${shortName.substring(0, 7)}…';
-      }
-      return 'In ${widget.inputChannel + 1}';
-    }
-
     return 'In ${widget.inputChannel + 1}';
   }
 
@@ -1112,13 +1093,13 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     showInputSelectorDropdown(
       context: context,
       position: Offset(position.dx, position.dy + button.size.height),
-      inputDevices: widget.inputDevices,
-      currentDeviceIndex: widget.inputDeviceIndex,
+      // Asked fresh on open so a device plugged in since launch shows up.
+      status:
+          widget.audioEngine?.getAudioInputStatus() ?? AudioInputStatus.unknown,
       currentChannel: widget.inputChannel,
       audioEngine: widget.audioEngine,
-      onSelected: (deviceIndex, channel) {
-        widget.onInputChanged?.call(deviceIndex, channel);
-      },
+      // One input device for the whole app (Settings); tracks pick a channel.
+      onSelected: (channel) => widget.onInputChanged?.call(0, channel),
     );
   }
 

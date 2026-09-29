@@ -159,7 +159,10 @@ items under Next are secondary to it and are not release work unless promoted he
     re-bind; audio does not).
 
   One input model should replace all of this: one device, chosen in Settings, applied at launch
-  and on change, defaulting to the system input.
+  and on change, defaulting to the system input. **Built 2026-09-29** (see the changelog);
+  Tyr's walkthrough pending. Still open, as the next PR: open the input when an audio track is
+  armed (so the meter moves and you hear yourself before recording), plus a "Boojy can't hear
+  your input" warning on a failed or all-zero input.
 
 - No other known blockers. (The clip-overlap deletion, transport shrink and ruler zoom fixes
   found on 2026-09-13 are under Unreleased in the changelog, with their regression tests.)
@@ -169,6 +172,11 @@ items under Next are secondary to it and are not release work unless promoted he
 - **No live waveform while recording audio.** The live preview (`LiveRecordingNotifier`) draws
   MIDI notes only; an audio take shows an empty box that grows until stop, then the waveform
   appears. Needs a live peak feed from the engine (new FFI) and a painter for the live clip.
+  Row 2.
+- **Recording with loop on shows a negative playhead.** When the loop wraps during a take, the
+  engine playhead jumps back (2.0s → 0.1s) and the recording display still subtracts the
+  count-in offset, so it reads −0.9s, −1.9s (Tyr's log, 2026-09-29). Decide what recording
+  with loop on should do (stop at the loop end, or ignore the loop) before fixing the display.
   Row 2.
 - **Cmd+E is bound twice** (review T7): Edit → "Split at Marker" and View → "Show Editor
   Panel" (`daw_menu_bar.dart`). The marker no longer exists (removed in PR #79); the split uses
@@ -227,6 +235,10 @@ into the reports.
   remove the code.
 - **Start-screen thumbnails are read synchronously in `build()`** (`project_card.dart`). Move to
   a future/cached load.
+- **The status line is never shown.** `playbackController.setStatusMessage` is still called
+  from about 15 places ("No recording captured", "Added EQ to track", …), but nothing on screen
+  renders `statusMessage` since the toolbar was simplified. Decide per message: show it (a
+  toast for problems only) or delete the call. Found 2026-09-29.
 - **Tooltip coverage is uneven.** `BoojyTooltip` covers transport buttons and mixer M/S/R;
   piano-roll Quantize/Legato/Snap use the plain Flutter tooltip; track-header Mute/Solo have none.
 - **Residual pre-migration menu sites** (verified 2026-09-13): two `showMenu` calls in

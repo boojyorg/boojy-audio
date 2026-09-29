@@ -95,9 +95,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   bool _isAudioFileDragging = false;
   bool _forceDecayToZero = false; // When true, decay all meters to zero
 
-  // Audio input devices cache (refreshed with tracks)
-  List<Map<String, dynamic>> _inputDevices = [];
-
   // Input level for armed tracks (track_id -> input level 0.0-1.0)
   final ValueNotifier<Map<int, double>> _inputLevelsNotifier = ValueNotifier(
     {},
@@ -454,11 +451,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     if (widget.audioEngine == null) return;
 
     try {
-      // Refresh input devices list alongside tracks
-      final devices = await Future.microtask(() {
-        return widget.audioEngine!.getAudioInputDevices();
-      });
-
       final trackIds = await Future.microtask(() {
         return widget.audioEngine!.getAllTrackIds();
       });
@@ -477,7 +469,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       }
 
       if (mounted) {
-        _inputDevices = devices;
         // Separate master track (not reorderable)
         final masterTrack = tracksMap.values
             .where((t) => t.type == 'Master')
@@ -1616,7 +1607,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
               // Input routing
               inputDeviceIndex: track.inputDeviceIndex,
               inputChannel: track.inputChannel,
-              inputDevices: _inputDevices,
               isRecording: widget.config.isRecording,
               inputLevel: inputLevels[track.id],
               onInputChanged: (deviceIndex, channel) {
