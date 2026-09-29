@@ -140,6 +140,33 @@ items under Next are secondary to it and are not release work unless promoted he
   one last appcast on `master` pointing old installs at the new place). Found in the docs pass of
   2026-09-29; not yet fixed.
 
+**Candidates from the 2026-09-29 reviews** ([UI/UX](reviews/2026_09_29_ui_ux_review.md),
+[feature gaps](reviews/2026_09_29_feature_gap_review.md)). Found by reading code and screenshots,
+not by use: each needs a failing test before it counts as a bug here (process step 2). IDs point
+into the reports.
+
+- *Blocks release if reproduced:* **VST3 effects may drop out of the device chain** (U4). The
+  engine reports `name:` and `path:` as text; the Dart parser reads every value as a number, so
+  the effect is skipped. Windows `C:` paths break the split too.
+- *Fix before release, if reproduced:*
+  - **New Project keeps the previous tempo and time signature** (U2). The staged screenshots
+    show "Untitled" at 254 BPM.
+  - **The toolbar Snap doesn't reach the arrangement** (U1). The arrangement always snaps to the
+    zoom grid. Hide the button now; wire it before release.
+  - **The volume fader jumps when grabbed** (U3), on the mixer strip and the device strip.
+  - **Save As renames before the folder is picked** (U5): cancel leaves the project renamed.
+  - **No unsaved-changes signal** (U6). Close always warns, even straight after a save, and
+    every save shows a toast. A quiet dot beside the name instead.
+  - **The drag-to-create preview drifts when scrolled** (U10); the clip lands in the right place.
+  - **Tempo edits flood undo** (U30): one step per scroll notch or tap. **An empty tempo field
+    becomes 120** (U29).
+  - **"No Input" and "No Output" are never applied** (U66).
+  - **Playhead and selected strip vanish in the Light theme** (U7): hard-coded white.
+  - **The empty "Sounds" library root** (B3): hide it until it has content.
+  - **No Tour or Help on Windows; "Boojy Audio Help" does nothing on macOS** (B6).
+  - **MP3 export is promised but needs ffmpeg** (B5): README caveat, and a Windows install line
+    in place of `brew` (see the ffmpeg item under Next).
+
 **After release**
 
 - **Automation feels unfinished.** Volume automation works end to end (engine interpolates per
