@@ -35,7 +35,6 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
   late TextEditingController _nameController;
   late int _timeSignatureNumerator;
   late int _timeSignatureDenominator;
-  late int _sampleRate;
 
   @override
   void initState() {
@@ -43,7 +42,6 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
     _nameController = TextEditingController(text: widget.metadata.name);
     _timeSignatureNumerator = widget.metadata.timeSignatureNumerator;
     _timeSignatureDenominator = widget.metadata.timeSignatureDenominator;
-    _sampleRate = widget.metadata.sampleRate;
   }
 
   @override
@@ -58,7 +56,6 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
       name: name.isEmpty ? 'Untitled' : name,
       timeSignatureNumerator: _timeSignatureNumerator,
       timeSignatureDenominator: _timeSignatureDenominator,
-      sampleRate: _sampleRate,
       lastModified: DateTime.now(),
     );
     widget.onSave?.call(updated);
@@ -136,10 +133,8 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
             ),
             const SizedBox(height: 16),
 
-            // Time Signature (half width; the right half is reserved so the
-            // layout matches the old two-column row). The sample-rate picker was
-            // removed: the engine always runs at 48 kHz, so the control was
-            // cosmetic. Metadata still round-trips the stored value.
+            // Time Signature (half width; the right half is left empty so the
+            // layout matches the old two-column row).
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

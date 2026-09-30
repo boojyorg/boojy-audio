@@ -616,7 +616,6 @@ class MidiPlaybackManager extends ChangeNotifier {
           canRepeat: meta.canRepeat,
           contentStartOffset: meta.contentStartOffset,
           patternId: meta.patternId,
-          automation: meta.automation,
           // Preserve the saved loop length only when it was explicitly set
           // (non-zero); otherwise keep the engine-derived duration above.
           loopLength: meta.loopLength > 0 ? meta.loopLength : null,

@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:boojy_audio/models/audio_clip_edit_data.dart';
-import 'package:boojy_audio/models/clip_automation_data.dart';
 import 'package:boojy_audio/models/clip_data.dart';
 import 'package:boojy_audio/models/instrument_data.dart';
-import 'package:boojy_audio/models/midi_cc_data.dart';
 import 'package:boojy_audio/models/midi_event.dart';
 import 'package:boojy_audio/models/project_metadata.dart';
 import 'package:boojy_audio/models/project_view_state.dart';
@@ -58,126 +56,6 @@ void main() {
   });
 
   // =========================================================================
-  // ClipAutomationPoint
-  // =========================================================================
-  group('ClipAutomationPoint roundtrip', () {
-    test('with explicit id', () {
-      final original = ClipAutomationPoint(
-        id: 'test-point-id',
-        time: 4.5,
-        value: 0.75,
-      );
-      final json = original.toJson();
-      final restored = ClipAutomationPoint.fromJson(json);
-      expect(restored.id, equals(original.id));
-      expect(restored.time, equals(original.time));
-      expect(restored.value, equals(original.value));
-    });
-  });
-
-  // =========================================================================
-  // ClipAutomationLane
-  // =========================================================================
-  group('ClipAutomationLane roundtrip', () {
-    test('with points', () {
-      final original = ClipAutomationLane(
-        id: 'lane-id-1',
-        parameter: AutomationParameter.volume,
-        points: [
-          ClipAutomationPoint(id: 'p1', time: 0.0, value: 0.5),
-          ClipAutomationPoint(id: 'p2', time: 2.0, value: 0.8),
-          ClipAutomationPoint(id: 'p3', time: 4.0, value: 0.3),
-        ],
-      );
-      final json = original.toJson();
-      final restored = ClipAutomationLane.fromJson(json);
-      expect(restored.id, equals(original.id));
-      expect(restored.parameter, equals(original.parameter));
-      expect(restored.points.length, equals(original.points.length));
-      for (int i = 0; i < original.points.length; i++) {
-        expect(restored.points[i].id, equals(original.points[i].id));
-        expect(restored.points[i].time, equals(original.points[i].time));
-        expect(restored.points[i].value, equals(original.points[i].value));
-      }
-    });
-
-    test('with pan parameter', () {
-      final original = ClipAutomationLane(
-        id: 'lane-pan',
-        parameter: AutomationParameter.pan,
-        points: [ClipAutomationPoint(id: 'pp1', time: 1.0, value: -0.5)],
-      );
-      final json = original.toJson();
-      final restored = ClipAutomationLane.fromJson(json);
-      expect(restored.parameter, equals(AutomationParameter.pan));
-      expect(restored.points.first.value, equals(-0.5));
-    });
-
-    test('empty lane', () {
-      final original = ClipAutomationLane(
-        id: 'empty-lane',
-        parameter: AutomationParameter.volume,
-        points: const [],
-      );
-      final json = original.toJson();
-      final restored = ClipAutomationLane.fromJson(json);
-      expect(restored.points, isEmpty);
-      expect(restored.parameter, equals(AutomationParameter.volume));
-    });
-  });
-
-  // =========================================================================
-  // ClipAutomation (nested structure)
-  // =========================================================================
-  group('ClipAutomation roundtrip', () {
-    test('with multiple lanes', () {
-      final original = ClipAutomation(
-        lanes: {
-          AutomationParameter.volume: ClipAutomationLane(
-            id: 'vol-lane',
-            parameter: AutomationParameter.volume,
-            points: [
-              ClipAutomationPoint(id: 'v1', time: 0.0, value: 0.8),
-              ClipAutomationPoint(id: 'v2', time: 3.0, value: 0.2),
-            ],
-          ),
-          AutomationParameter.pan: ClipAutomationLane(
-            id: 'pan-lane',
-            parameter: AutomationParameter.pan,
-            points: [ClipAutomationPoint(id: 'pa1', time: 1.0, value: -0.3)],
-          ),
-        },
-      );
-      final json = original.toJson();
-      final restored = ClipAutomation.fromJson(json);
-      expect(restored.hasAutomation, isTrue);
-      expect(restored.lanes.length, equals(2));
-
-      final volLane = restored.lanes[AutomationParameter.volume]!;
-      expect(volLane.id, equals('vol-lane'));
-      expect(volLane.points.length, equals(2));
-      expect(volLane.points[0].id, equals('v1'));
-      expect(volLane.points[0].time, equals(0.0));
-      expect(volLane.points[0].value, equals(0.8));
-
-      final panLane = restored.lanes[AutomationParameter.pan]!;
-      expect(panLane.id, equals('pan-lane'));
-      expect(panLane.points.length, equals(1));
-    });
-
-    test('empty automation', () {
-      final original = ClipAutomation.empty();
-      // Empty automation has no lanes, so hasAutomation is false
-      // and toJson won't be called from ClipData (it checks hasAutomation)
-      // But we test the direct path:
-      final json = original.toJson();
-      final restored = ClipAutomation.fromJson(json);
-      expect(restored.hasAutomation, isFalse);
-      expect(restored.lanes, isEmpty);
-    });
-  });
-
-  // =========================================================================
   // ClipData (no == override, compare field-by-field)
   // =========================================================================
   group('ClipData roundtrip', () {
@@ -188,15 +66,6 @@ void main() {
         transposeSemitones: 3,
         reversed: true,
         gainDb: -2.0,
-      );
-      final automation = ClipAutomation(
-        lanes: {
-          AutomationParameter.volume: ClipAutomationLane(
-            id: 'cl-vol',
-            parameter: AutomationParameter.volume,
-            points: [ClipAutomationPoint(id: 'cvp1', time: 0.0, value: 0.9)],
-          ),
-        },
       );
       final original = ClipData(
         clipId: 42,
@@ -210,7 +79,6 @@ void main() {
         editData: editData,
         loopLength: 8.0,
         canRepeat: false,
-        automation: automation,
       );
 
       final json = original.toJson();
@@ -227,11 +95,33 @@ void main() {
       expect(restored.editData, equals(editData));
       expect(restored.loopLength, equals(8.0));
       expect(restored.canRepeat, isFalse);
-      expect(restored.automation.hasAutomation, isTrue);
-      expect(
-        restored.automation.lanes[AutomationParameter.volume]!.points.length,
-        equals(1),
-      );
+    });
+
+    test('ignores an old clip-automation key', () {
+      final json = ClipData(
+        clipId: 1,
+        trackId: 0,
+        filePath: 'test.wav',
+        startTime: 0.0,
+        duration: 4.0,
+      ).toJson();
+      json['automation'] = {
+        'lanes': {
+          'volume': {
+            'id': 'old',
+            'parameter': 'volume',
+            'points': [
+              {'id': 'p', 'time': 0.0, 'value': 0.5},
+            ],
+          },
+        },
+      };
+
+      final restored = ClipData.fromJson(json);
+
+      expect(restored.clipId, equals(1));
+      expect(restored.duration, equals(4.0));
+      expect(restored.toJson().containsKey('automation'), isFalse);
     });
 
     test('with minimal/null optional fields', () {
@@ -257,7 +147,6 @@ void main() {
       expect(restored.editData, isNull);
       expect(restored.loopLength, equals(4.0)); // defaults to duration
       expect(restored.canRepeat, isTrue);
-      expect(restored.automation.hasAutomation, isFalse);
     });
   });
 
@@ -270,13 +159,9 @@ void main() {
       final modified = DateTime(2025, 6, 16, 14, 0, 0);
       final original = ProjectMetadata(
         name: 'My Beat',
-        style: 'Travis Scott Type Beat',
         bpm: 145.0,
         timeSignatureNumerator: 3,
         timeSignatureDenominator: 4,
-        key: 'F#',
-        scale: 'Minor',
-        sampleRate: 44100,
         createdDate: created,
         lastModified: modified,
       );
@@ -292,7 +177,6 @@ void main() {
       final json = original.toJson();
       final restored = ProjectMetadata.fromJson(json);
       expect(restored, equals(original));
-      expect(restored.style, isNull);
       expect(restored.createdDate, isNull);
       expect(restored.lastModified, isNull);
     });
@@ -563,164 +447,58 @@ void main() {
   });
 
   // =========================================================================
-  // MidiCCPoint & MidiCCLane roundtrip
-  // =========================================================================
-  group('MidiCCLane roundtrip', () {
-    test('with points', () {
-      final original = MidiCCLane(
-        id: 'cc-lane-1',
-        ccType: MidiCCType.modWheel,
-        points: [
-          MidiCCPoint(id: 'mcp1', time: 0.0, value: 64),
-          MidiCCPoint(id: 'mcp2', time: 2.0, value: 127),
-          MidiCCPoint(id: 'mcp3', time: 4.0, value: 0),
-        ],
-        isExpanded: false,
-      );
-
-      final json = original.toJson();
-      final restored = MidiCCLane.fromJson(json);
-      expect(restored.id, equals(original.id));
-      expect(restored.ccType, equals(original.ccType));
-      expect(restored.isExpanded, equals(original.isExpanded));
-      expect(restored.points.length, equals(original.points.length));
-      for (int i = 0; i < original.points.length; i++) {
-        expect(restored.points[i].id, equals(original.points[i].id));
-        expect(restored.points[i].time, equals(original.points[i].time));
-        expect(restored.points[i].value, equals(original.points[i].value));
-      }
-    });
-
-    test('all CC types roundtrip', () {
-      for (final ccType in MidiCCType.values) {
-        if (ccType == MidiCCType.pitchBend) {
-          // pitchBend has ccNumber -1 which is a special case
-          continue;
-        }
-        final lane = MidiCCLane(
-          ccType: ccType,
-          points: [MidiCCPoint(id: 'pt', time: 1.0, value: 64)],
-        );
-        final json = lane.toJson();
-        final restored = MidiCCLane.fromJson(json);
-        expect(
-          restored.ccType,
-          equals(ccType),
-          reason: 'CC type ${ccType.displayName} did not roundtrip',
-        );
-      }
-    });
-
-    test('empty lane', () {
-      final original = MidiCCLane(
-        id: 'cc-empty',
-        ccType: MidiCCType.volume,
-        points: [],
-      );
-
-      final json = original.toJson();
-      final restored = MidiCCLane.fromJson(json);
-      expect(restored.points, isEmpty);
-      expect(restored.ccType, equals(MidiCCType.volume));
-    });
-  });
-
-  // =========================================================================
-  // Deep nesting: ClipData with full automation tree
+  // Deep nesting: ClipData with full edit data
   // =========================================================================
   group('Deep nesting roundtrip', () {
-    test(
-      'ClipData -> ClipAutomation -> ClipAutomationLane -> ClipAutomationPoint',
-      () {
-        final original = ClipData(
-          clipId: 99,
-          trackId: 7,
-          filePath: '/deep/nested/test.wav',
-          startTime: 10.0,
-          duration: 20.0,
-          offset: 2.0,
-          waveformPeaks: [0.1, 0.9],
-          color: const Color(0xFF00AAFF),
-          editData: const AudioClipEditData(
-            bpm: 128.0,
-            reversed: true,
-            transposeSemitones: -12,
-            warpMode: WarpMode.repitch,
-            syncEnabled: true,
-            normalizeTargetDb: -3.0,
-            loopStartBeats: 2.0,
-            loopEndBeats: 14.0,
-          ),
-          loopLength: 16.0,
-          canRepeat: true,
-          automation: ClipAutomation(
-            lanes: {
-              AutomationParameter.volume: ClipAutomationLane(
-                id: 'deep-vol',
-                parameter: AutomationParameter.volume,
-                points: [
-                  ClipAutomationPoint(id: 'dv1', time: 0.0, value: 1.0),
-                  ClipAutomationPoint(id: 'dv2', time: 5.0, value: 0.0),
-                  ClipAutomationPoint(id: 'dv3', time: 10.0, value: 0.7),
-                ],
-              ),
-              AutomationParameter.pan: ClipAutomationLane(
-                id: 'deep-pan',
-                parameter: AutomationParameter.pan,
-                points: [
-                  ClipAutomationPoint(id: 'dp1', time: 2.0, value: -1.0),
-                  ClipAutomationPoint(id: 'dp2', time: 8.0, value: 1.0),
-                ],
-              ),
-            },
-          ),
-        );
+    test('ClipData -> AudioClipEditData', () {
+      final original = ClipData(
+        clipId: 99,
+        trackId: 7,
+        filePath: '/deep/nested/test.wav',
+        startTime: 10.0,
+        duration: 20.0,
+        offset: 2.0,
+        waveformPeaks: [0.1, 0.9],
+        color: const Color(0xFF00AAFF),
+        editData: const AudioClipEditData(
+          bpm: 128.0,
+          reversed: true,
+          transposeSemitones: -12,
+          warpMode: WarpMode.repitch,
+          syncEnabled: true,
+          normalizeTargetDb: -3.0,
+          loopStartBeats: 2.0,
+          loopEndBeats: 14.0,
+        ),
+        loopLength: 16.0,
+        canRepeat: true,
+      );
 
-        final json = original.toJson();
-        final restored = ClipData.fromJson(json);
+      final json = original.toJson();
+      final restored = ClipData.fromJson(json);
 
-        // Top level
-        expect(restored.clipId, equals(99));
-        expect(restored.trackId, equals(7));
-        expect(restored.filePath, equals('/deep/nested/test.wav'));
-        expect(restored.startTime, equals(10.0));
-        expect(restored.duration, equals(20.0));
-        expect(restored.offset, equals(2.0));
-        expect(restored.waveformPeaks, equals([0.1, 0.9]));
-        expect(restored.color, equals(const Color(0xFF00AAFF)));
-        expect(restored.loopLength, equals(16.0));
-        expect(restored.canRepeat, isTrue);
+      // Top level
+      expect(restored.clipId, equals(99));
+      expect(restored.trackId, equals(7));
+      expect(restored.filePath, equals('/deep/nested/test.wav'));
+      expect(restored.startTime, equals(10.0));
+      expect(restored.duration, equals(20.0));
+      expect(restored.offset, equals(2.0));
+      expect(restored.waveformPeaks, equals([0.1, 0.9]));
+      expect(restored.color, equals(const Color(0xFF00AAFF)));
+      expect(restored.loopLength, equals(16.0));
+      expect(restored.canRepeat, isTrue);
 
-        // EditData
-        expect(restored.editData, isNotNull);
-        expect(restored.editData!.bpm, equals(128.0));
-        expect(restored.editData!.reversed, isTrue);
-        expect(restored.editData!.transposeSemitones, equals(-12));
-        expect(restored.editData!.warpMode, equals(WarpMode.repitch));
-        expect(restored.editData!.syncEnabled, isTrue);
-        expect(restored.editData!.normalizeTargetDb, equals(-3.0));
-        expect(restored.editData!.loopStartBeats, equals(2.0));
-        expect(restored.editData!.loopEndBeats, equals(14.0));
-
-        // Automation -> Lanes -> Points
-        expect(restored.automation.hasAutomation, isTrue);
-        expect(restored.automation.lanes.length, equals(2));
-
-        final volLane = restored.automation.lanes[AutomationParameter.volume]!;
-        expect(volLane.id, equals('deep-vol'));
-        expect(volLane.points.length, equals(3));
-        expect(volLane.points[0].id, equals('dv1'));
-        expect(volLane.points[0].time, equals(0.0));
-        expect(volLane.points[0].value, equals(1.0));
-        expect(volLane.points[2].id, equals('dv3'));
-        expect(volLane.points[2].value, equals(0.7));
-
-        final panLane = restored.automation.lanes[AutomationParameter.pan]!;
-        expect(panLane.id, equals('deep-pan'));
-        expect(panLane.points.length, equals(2));
-        expect(panLane.points[0].value, equals(-1.0));
-        expect(panLane.points[1].value, equals(1.0));
-      },
-    );
+      // EditData
+      expect(restored.editData, isNotNull);
+      expect(restored.editData!.bpm, equals(128.0));
+      expect(restored.editData!.reversed, isTrue);
+      expect(restored.editData!.transposeSemitones, equals(-12));
+      expect(restored.editData!.warpMode, equals(WarpMode.repitch));
+      expect(restored.editData!.syncEnabled, isTrue);
+      expect(restored.editData!.normalizeTargetDb, equals(-3.0));
+      expect(restored.editData!.loopStartBeats, equals(2.0));
+      expect(restored.editData!.loopEndBeats, equals(14.0));
+    });
   });
 }

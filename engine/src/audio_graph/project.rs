@@ -766,8 +766,6 @@ impl AudioGraph {
                             clip: clip_arc.clone(),
                             start_time: clip_data.start_time,
                             track_id: Some(track_id),
-                            volume_automation: Vec::new(),
-                            pan_automation: Vec::new(),
                         });
                     }
 
@@ -780,8 +778,6 @@ impl AudioGraph {
                             clip: clip_arc,
                             start_time: clip_data.start_time,
                             track_id: Some(track_id),
-                            volume_automation: Vec::new(),
-                            pan_automation: Vec::new(),
                         });
                     }
 

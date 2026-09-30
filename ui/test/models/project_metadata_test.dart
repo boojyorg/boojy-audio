@@ -11,9 +11,6 @@ void main() {
         expect(metadata.bpm, 120.0);
         expect(metadata.timeSignatureNumerator, 4);
         expect(metadata.timeSignatureDenominator, 4);
-        expect(metadata.key, 'C');
-        expect(metadata.scale, 'Major');
-        expect(metadata.sampleRate, 48000);
       });
 
       test('creates metadata with all parameters', () {
@@ -22,18 +19,12 @@ void main() {
           bpm: 140.0,
           timeSignatureNumerator: 3,
           timeSignatureDenominator: 4,
-          key: 'G',
-          scale: 'Minor',
-          sampleRate: 44100,
         );
 
         expect(metadata.name, 'Custom Project');
         expect(metadata.bpm, 140.0);
         expect(metadata.timeSignatureNumerator, 3);
         expect(metadata.timeSignatureDenominator, 4);
-        expect(metadata.key, 'G');
-        expect(metadata.scale, 'Minor');
-        expect(metadata.sampleRate, 44100);
       });
     });
 
@@ -51,20 +42,6 @@ void main() {
       });
     });
 
-    group('keyAndScale', () {
-      test('returns formatted key and scale string', () {
-        const metadata = ProjectMetadata(name: 'Test');
-        expect(metadata.keyAndScale, 'C Major');
-
-        const metadata2 = ProjectMetadata(
-          name: 'Test',
-          key: 'F#',
-          scale: 'Minor',
-        );
-        expect(metadata2.keyAndScale, 'F# Minor');
-      });
-    });
-
     group('fromJson', () {
       test('creates metadata from complete JSON', () {
         final json = {
@@ -72,9 +49,6 @@ void main() {
           'bpm': 160.0,
           'timeSignatureNumerator': 5,
           'timeSignatureDenominator': 4,
-          'key': 'Bb',
-          'scale': 'Minor',
-          'sampleRate': 44100,
         };
 
         final metadata = ProjectMetadata.fromJson(json);
@@ -83,9 +57,6 @@ void main() {
         expect(metadata.bpm, 160.0);
         expect(metadata.timeSignatureNumerator, 5);
         expect(metadata.timeSignatureDenominator, 4);
-        expect(metadata.key, 'Bb');
-        expect(metadata.scale, 'Minor');
-        expect(metadata.sampleRate, 44100);
       });
 
       test('uses defaults for missing fields', () {
@@ -97,9 +68,23 @@ void main() {
         expect(metadata.bpm, 120.0);
         expect(metadata.timeSignatureNumerator, 4);
         expect(metadata.timeSignatureDenominator, 4);
-        expect(metadata.key, 'C');
-        expect(metadata.scale, 'Major');
-        expect(metadata.sampleRate, 48000);
+      });
+
+      test('ignores keys from older project files', () {
+        final json = {
+          'name': 'Old Project',
+          'bpm': 100.0,
+          'style': 'Type Beat',
+          'key': 'Bb',
+          'scale': 'Minor',
+          'sampleRate': 44100,
+        };
+
+        final metadata = ProjectMetadata.fromJson(json);
+
+        expect(metadata.name, 'Old Project');
+        expect(metadata.bpm, 100.0);
+        expect(metadata.toJson().containsKey('key'), isFalse);
       });
 
       test('handles numeric types correctly', () {
@@ -108,7 +93,6 @@ void main() {
           'bpm': 120, // int instead of double
           'timeSignatureNumerator': 4,
           'timeSignatureDenominator': 4,
-          'sampleRate': 48000,
         };
 
         final metadata = ProjectMetadata.fromJson(json);
@@ -124,9 +108,6 @@ void main() {
           bpm: 128.0,
           timeSignatureNumerator: 3,
           timeSignatureDenominator: 4,
-          key: 'E',
-          scale: 'Minor',
-          sampleRate: 44100,
         );
 
         final json = metadata.toJson();
@@ -135,9 +116,6 @@ void main() {
         expect(json['bpm'], 128.0);
         expect(json['timeSignatureNumerator'], 3);
         expect(json['timeSignatureDenominator'], 4);
-        expect(json['key'], 'E');
-        expect(json['scale'], 'Minor');
-        expect(json['sampleRate'], 44100);
       });
 
       test('roundtrips through JSON', () {
@@ -146,9 +124,6 @@ void main() {
           bpm: 145.5,
           timeSignatureNumerator: 7,
           timeSignatureDenominator: 8,
-          key: 'D#',
-          scale: 'Minor',
-          sampleRate: 48000,
         );
 
         final json = original.toJson();
@@ -169,29 +144,18 @@ void main() {
 
       test('copies with specific changes', () {
         const original = ProjectMetadata(name: 'Original');
-        final copy = original.copyWith(name: 'Updated', bpm: 90.0, key: 'Am');
+        final copy = original.copyWith(name: 'Updated', bpm: 90.0);
 
         expect(copy.name, 'Updated');
         expect(copy.bpm, 90.0);
-        expect(copy.key, 'Am');
         expect(copy.timeSignatureNumerator, 4); // Unchanged
       });
     });
 
     group('equality', () {
       test('equal metadata are equal', () {
-        const m1 = ProjectMetadata(
-          name: 'Test',
-          bpm: 120.0,
-          key: 'C',
-          scale: 'Major',
-        );
-        const m2 = ProjectMetadata(
-          name: 'Test',
-          bpm: 120.0,
-          key: 'C',
-          scale: 'Major',
-        );
+        const m1 = ProjectMetadata(name: 'Test', bpm: 120.0);
+        const m2 = ProjectMetadata(name: 'Test', bpm: 120.0);
 
         expect(m1 == m2, true);
         expect(m1.hashCode, m2.hashCode);
@@ -221,7 +185,6 @@ void main() {
         expect(str, contains('Test Project'));
         expect(str, contains('120.0'));
         expect(str, contains('4/4'));
-        expect(str, contains('C Major'));
       });
     });
   });

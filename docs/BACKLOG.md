@@ -107,7 +107,6 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
 
 - **Scale highlight** (hidden while fixed to C major): bring it back with root and type pickers
   in the piano-roll controls bar.
-- **CC lane is unreachable** (`ccLaneExpanded` is never true). Expose one toggle or delete it.
 - **Start-screen thumbnails are read synchronously in `build()`** (`project_card.dart`).
 - **Tooltip coverage is uneven**: piano-roll Quantize/Legato/Snap use the plain tooltip;
   track-header Mute/Solo have none.
