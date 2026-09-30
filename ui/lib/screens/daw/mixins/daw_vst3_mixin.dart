@@ -14,6 +14,7 @@ import 'daw_recording_mixin.dart';
 import 'daw_ui_mixin.dart';
 import 'daw_track_mixin.dart';
 import 'daw_clip_mixin.dart';
+import '../../../widgets/shared/boojy_notice.dart';
 
 /// Mixin containing VST3 plugin-related methods for DAWScreen.
 /// Handles plugin scanning, adding, removing, and parameter editing.
@@ -33,17 +34,7 @@ mixin DAWVst3Mixin
   Future<void> scanVst3Plugins({bool forceRescan = false}) async {
     if (vst3PluginManager == null) return;
 
-    statusMessage = forceRescan
-        ? 'Rescanning VST3 plugins...'
-        : 'Scanning VST3 plugins...';
-
-    final result = await vst3PluginManager!.scanPlugins(
-      forceRescan: forceRescan,
-    );
-
-    if (mounted) {
-      statusMessage = result;
-    }
+    await vst3PluginManager!.scanPlugins(forceRescan: forceRescan);
   }
 
   // ============================================
@@ -55,22 +46,12 @@ mixin DAWVst3Mixin
     if (vst3PluginManager == null) return;
 
     final result = vst3PluginManager!.addToTrack(trackId, plugin);
-
-    statusMessage = result.message;
-
-    // Show snackbar based on result
-    final colors = context.colors;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          result.success
-              ? 'Added: ${result.message}'
-              : 'Error: ${result.message}',
-        ),
-        duration: Duration(seconds: result.success ? 2 : 3),
-        backgroundColor: result.success ? colors.success : colors.error,
-      ),
-    );
+    if (!result.success) {
+      Notices.problem(
+        "Couldn't load ${plugin['name'] ?? 'the plugin'}",
+        error: result.message,
+      );
+    }
   }
 
   /// Remove VST3 plugin from track
@@ -78,8 +59,9 @@ mixin DAWVst3Mixin
     if (vst3PluginManager == null) return;
 
     final result = vst3PluginManager!.removeFromTrack(effectId);
-
-    statusMessage = result.message;
+    if (!result.success) {
+      Notices.problem("Couldn't remove the plugin", error: result.message);
+    }
   }
 
   /// Handle VST3 plugin dropped on track
@@ -223,16 +205,10 @@ mixin DAWVst3Mixin
                             ),
                           ),
                           ElevatedButton.icon(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Native editor support coming soon! For now, use the parameter sliders.',
-                                  ),
-                                  duration: Duration(seconds: 3),
-                                ),
-                              );
-                            },
+                            onPressed: () => Notices.info(
+                              "The plugin's own window isn't supported here "
+                              'yet. Use the sliders below.',
+                            ),
                             icon: Icon(BI.openInNew, size: 16),
                             label: const Text('Open GUI'),
                             style: ElevatedButton.styleFrom(

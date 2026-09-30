@@ -16,6 +16,7 @@ import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../utils/native_dialogs.dart';
 import 'shared/boojy_dropdown.dart';
+import 'shared/boojy_notice.dart';
 
 /// Library panel — one full-width expandable tree.
 ///
@@ -187,16 +188,10 @@ class _LibraryPanelState extends State<LibraryPanel> {
   /// user instead of presenting a mysteriously empty Favorites view.
   void _maybeShowLegacyFavoritesNotice() {
     if (!widget.libraryService.takeLegacyFavoritesNotice()) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Your favourites were reset — the library index was upgraded',
-          ),
-        ),
-      );
-    });
+    Notices.problem(
+      'Your favourites were reset when the library was upgraded.',
+      id: 'legacy-favourites',
+    );
   }
 
   // ==========================================================================

@@ -13,6 +13,7 @@ import '../platform_drop_target.dart';
 import '../shared/editors/scrollable_nav_bar.dart';
 import 'sampler_controls_bar.dart';
 import 'sampler_waveform_painter.dart';
+import '../shared/boojy_notice.dart';
 
 /// Sampler Editor widget — beginner-first flow (GarageBand Quick Sampler):
 /// drop/Browse a file → see the waveform → hold the ▶ button to audition at
@@ -367,10 +368,7 @@ class _SamplerEditorState extends State<SamplerEditor> {
   }
 
   void _showLoadError() {
-    if (!mounted) return;
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      const SnackBar(content: Text('Could not load that audio file')),
-    );
+    Notices.problem("Couldn't load that audio file");
   }
 
   String? _firstAcceptedPath(Iterable<String> paths) {

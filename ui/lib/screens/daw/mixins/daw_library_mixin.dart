@@ -15,6 +15,7 @@ import 'daw_ui_mixin.dart';
 import 'daw_track_mixin.dart';
 import 'daw_clip_mixin.dart';
 import 'daw_vst3_mixin.dart';
+import '../../../widgets/shared/boojy_notice.dart';
 
 /// Mixin containing library-related methods for DAWScreen.
 /// Handles library item interactions, audio file drops, and sampler operations.
@@ -53,21 +54,21 @@ mixin DAWLibraryMixin
     // MIDI tracks — the instrument is engine-side, see isSamplerTrack)
     final trackId = audioEngine!.createTrack('midi', trackName);
     if (trackId < 0) {
-      showSnackBar('Failed to create sampler track');
+      Notices.problem("Couldn't create the sampler track");
       return;
     }
 
     // Create sampler instrument for the track
     final samplerId = audioEngine!.createSamplerForTrack(trackId);
     if (samplerId < 0) {
-      showSnackBar('Failed to create sampler instrument');
+      Notices.problem("Couldn't create the sampler");
       return;
     }
 
     // Load the sample (root note C4 = 60)
     final success = audioEngine!.loadSampleForTrack(trackId, filePath, 60);
     if (!success) {
-      showSnackBar('Failed to load sample');
+      Notices.problem("Couldn't load that sample");
       return;
     }
 
@@ -80,8 +81,6 @@ mixin DAWLibraryMixin
     // so the fresh 1-bar clip shows selected, matching the synth drop path)
     refreshTrackWidgets();
     onTrackSelected(trackId, autoSelectClip: true);
-
-    showSnackBar('Created sampler with "${truncateName(sampleName, 30)}"');
   }
 
   /// Convert an Audio track to a Sampler track
@@ -93,7 +92,7 @@ mixin DAWLibraryMixin
     // Get audio clips on this track
     final audioClips = timelineKey.currentState?.getAudioClipsOnTrack(trackId);
     if (audioClips == null || audioClips.isEmpty) {
-      showSnackBar('No audio clips on track to convert');
+      Notices.info('This track has no audio clips to convert');
       return;
     }
 
@@ -101,7 +100,7 @@ mixin DAWLibraryMixin
     final firstClip = audioClips.first;
     final samplePath = firstClip.filePath;
     if (samplePath.isEmpty) {
-      showSnackBar('Audio clip has no file path');
+      Notices.problem("Couldn't find the audio file for this clip");
       return;
     }
 
@@ -114,14 +113,14 @@ mixin DAWLibraryMixin
     // Create MIDI track with sampler instrument
     final samplerTrackId = audioEngine!.createTrack('midi', samplerTrackName);
     if (samplerTrackId < 0) {
-      showSnackBar('Failed to create sampler track');
+      Notices.problem("Couldn't create the sampler track");
       return;
     }
 
     // Create sampler instrument for the track
     final samplerId = audioEngine!.createSamplerForTrack(samplerTrackId);
     if (samplerId < 0) {
-      showSnackBar('Failed to create sampler instrument');
+      Notices.problem("Couldn't create the sampler");
       return;
     }
 
@@ -132,7 +131,7 @@ mixin DAWLibraryMixin
       60,
     );
     if (!success) {
-      showSnackBar('Failed to load sample');
+      Notices.problem("Couldn't load that sample");
       return;
     }
 
@@ -180,8 +179,6 @@ mixin DAWLibraryMixin
 
     // Optionally delete the original audio track (ask user?)
     // For now, keep both tracks so user can compare
-
-    showSnackBar('Converted to Sampler track');
   }
 
   // ============================================
@@ -536,7 +533,4 @@ mixin DAWLibraryMixin
     if (name.length <= maxLength) return name;
     return '${name.substring(0, maxLength - 3)}...';
   }
-
-  // showSnackBar lives in DAWTrackMixin (shared by the track-creation paths
-  // there); this mixin is `on DAWTrackMixin`, so it resolves from here too.
 }

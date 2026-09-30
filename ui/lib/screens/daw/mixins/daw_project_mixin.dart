@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -21,6 +20,7 @@ import 'daw_track_mixin.dart';
 import 'daw_clip_mixin.dart';
 import 'daw_vst3_mixin.dart';
 import 'daw_library_mixin.dart';
+import '../../../widgets/shared/boojy_notice.dart';
 
 /// Mixin containing project-related methods for DAWScreen.
 /// Handles new, open, save, export, and version management.
@@ -114,7 +114,6 @@ mixin DAWProjectMixin
     setState(() {
       loadedClipId = null;
       waveformPeaks = [];
-      statusMessage = 'New project created';
     });
   }
 
@@ -136,10 +135,7 @@ mixin DAWProjectMixin
       if (path == null) return;
 
       if (!path.endsWith('.audio')) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a .audio folder')),
-        );
+        Notices.info('Choose a project folder (its name ends in .audio)');
         return;
       }
 
@@ -147,10 +143,7 @@ mixin DAWProjectMixin
       await _loadAndApplyProject(path);
     } catch (e) {
       setState(() => isLoading = false);
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to open project: $e')));
+      Notices.problem("Couldn't open the project", error: e);
     }
   }
 
@@ -160,10 +153,9 @@ mixin DAWProjectMixin
     final dir = Directory(path);
     if (!await dir.exists()) {
       userSettings.removeRecentProject(path);
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Project no longer exists')));
+      Notices.problem(
+        "Couldn't find that project. It may have been moved or deleted.",
+      );
       return;
     }
 
@@ -172,10 +164,7 @@ mixin DAWProjectMixin
       await _loadAndApplyProject(path);
     } catch (e) {
       setState(() => isLoading = false);
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to open project: $e')));
+      Notices.problem("Couldn't open the project", error: e);
     }
   }
 
@@ -188,10 +177,10 @@ mixin DAWProjectMixin
     // clips against a half-loaded engine, and surface the reason.
     if (!loadResult.result.success) {
       setState(() => isLoading = false);
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(loadResult.result.message)));
+      Notices.problem(
+        "Couldn't open the project",
+        error: loadResult.result.message,
+      );
       return;
     }
 
@@ -249,15 +238,9 @@ mixin DAWProjectMixin
         // settings dialog seeds its BPM field from here.
         bpm: tempo,
       );
-      statusMessage = 'Project loaded: ${projectManager!.currentName}';
       isLoading = false;
       masterTimelineVisible = audioEngine?.getMasterTimelineVisible() ?? false;
     });
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(loadResult.result.message)));
   }
 
   // ============================================
@@ -332,11 +315,7 @@ mixin DAWProjectMixin
         saveProjectToPath(projectPath);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to save project: $e')));
-      }
+      Notices.problem("Couldn't save the project", error: e);
     }
   }
 
@@ -362,15 +341,10 @@ mixin DAWProjectMixin
       });
     }
 
-    setState(() {
-      statusMessage = result.success ? 'Project saved' : result.message;
-      isLoading = false;
-    });
+    setState(() => isLoading = false);
 
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(result.message)));
+    if (!result.success) {
+      Notices.problem("Couldn't save the project", error: result.message);
     }
   }
 
@@ -402,13 +376,7 @@ mixin DAWProjectMixin
   /// Save a new version of the project
   Future<void> saveNewVersion() async {
     if (projectManager?.currentPath == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Save project first before creating a new version'),
-          ),
-        );
-      }
+      Notices.info('Save the project before making a new version');
       return;
     }
 
@@ -442,31 +410,16 @@ mixin DAWProjectMixin
 
       setState(() {
         projectMetadata = projectMetadata.copyWith(name: newName);
-        statusMessage = 'Saved as version $nextVersion';
       });
-
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Saved as $newName')));
-      }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save new version: $e')),
-        );
-      }
+      Notices.problem("Couldn't save a new version", error: e);
     }
   }
 
   /// Rename current project
   Future<void> renameProject() async {
     if (projectManager?.currentPath == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No project open to rename')),
-        );
-      }
+      Notices.info('Save the project before renaming it');
       return;
     }
 
@@ -522,20 +475,9 @@ mixin DAWProjectMixin
 
       setState(() {
         projectMetadata = projectMetadata.copyWith(name: newName);
-        statusMessage = 'Project renamed to $newName';
       });
-
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Renamed to $newName')));
-      }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to rename project: $e')));
-      }
+      Notices.problem("Couldn't rename the project", error: e);
     }
   }
 
@@ -557,126 +499,6 @@ mixin DAWProjectMixin
       audioEngine: audioEngine!,
       defaultName: projectManager?.currentName ?? 'Untitled',
     );
-  }
-
-  /// Quick export MP3
-  Future<void> quickExportMp3() async {
-    if (audioEngine == null) return;
-
-    try {
-      final baseName = projectManager?.currentName ?? 'Untitled';
-
-      final result = await Process.run('osascript', [
-        '-e',
-        'POSIX path of (choose file name with prompt "Export MP3" default name "$baseName.mp3")',
-      ]);
-
-      if (result.exitCode != 0) return;
-
-      String? filePath = result.stdout.toString().trim();
-      if (filePath.isEmpty) return;
-
-      if (!filePath.endsWith('.mp3')) {
-        filePath = '${filePath.replaceAll(RegExp(r'\.[^.]+$'), '')}.mp3';
-      }
-
-      final bitrate = userSettings.exportMp3Bitrate;
-      final sampleRate = userSettings.exportSampleRate;
-      final normalize = userSettings.exportNormalize;
-
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Exporting MP3...')));
-      }
-
-      final resultJson = audioEngine!.exportMp3WithOptions(
-        outputPath: filePath,
-        bitrate: bitrate,
-        sampleRate: sampleRate,
-        normalize: normalize,
-      );
-
-      if (mounted) {
-        final parsed = jsonDecode(resultJson) as Map<String, dynamic>;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              parsed['success'] == true
-                  ? 'MP3 export complete'
-                  : 'Export failed: ${parsed['error']}',
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
-      }
-    }
-  }
-
-  /// Quick export WAV
-  Future<void> quickExportWav() async {
-    if (audioEngine == null) return;
-
-    try {
-      final baseName = projectManager?.currentName ?? 'Untitled';
-
-      final result = await Process.run('osascript', [
-        '-e',
-        'POSIX path of (choose file name with prompt "Export WAV" default name "$baseName.wav")',
-      ]);
-
-      if (result.exitCode != 0) return;
-
-      String? filePath = result.stdout.toString().trim();
-      if (filePath.isEmpty) return;
-
-      if (!filePath.endsWith('.wav')) {
-        filePath = '${filePath.replaceAll(RegExp(r'\.[^.]+$'), '')}.wav';
-      }
-
-      final bitDepth = userSettings.exportWavBitDepth;
-      final sampleRate = userSettings.exportSampleRate;
-      final normalize = userSettings.exportNormalize;
-      final dither = userSettings.exportDither;
-
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Exporting WAV...')));
-      }
-
-      final resultJson = audioEngine!.exportWavWithOptions(
-        outputPath: filePath,
-        bitDepth: bitDepth,
-        sampleRate: sampleRate,
-        normalize: normalize,
-        dither: dither,
-      );
-
-      if (mounted) {
-        final parsed = jsonDecode(resultJson) as Map<String, dynamic>;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              parsed['success'] == true
-                  ? 'WAV export complete'
-                  : 'Export failed: ${parsed['error']}',
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
-      }
-    }
   }
 
   // Project settings + versioning live in daw_screen.dart
@@ -719,7 +541,6 @@ mixin DAWProjectMixin
             savedMetadata: result?.uiLayout?.midiClips,
           );
 
-          statusMessage = 'Recovered from backup';
           refreshTrackWidgets();
 
           if (result?.uiLayout != null) {

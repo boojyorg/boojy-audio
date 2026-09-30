@@ -12,6 +12,7 @@ import '../../daw_screen_io.dart';
 import 'daw_screen_state.dart';
 import 'daw_recording_mixin.dart';
 import 'daw_ui_mixin.dart';
+import '../../../widgets/shared/boojy_notice.dart';
 
 /// Mixin containing track-related methods for DAWScreen.
 /// Handles track selection, creation, deletion, duplication, and instrument assignment.
@@ -336,13 +337,13 @@ mixin DAWTrackMixin
 
     final trackId = audioEngine!.createTrack('midi', 'Drum Kit');
     if (trackId < 0) {
-      showSnackBar('Failed to create drum kit track');
+      Notices.problem("Couldn't create the drum kit track");
       return;
     }
 
     final kitId = audioEngine!.createDrumKitForTrack(trackId);
     if (kitId < 0) {
-      showSnackBar('Failed to create drum kit');
+      Notices.problem("Couldn't create the drum kit");
       return;
     }
 
@@ -370,23 +371,16 @@ mixin DAWTrackMixin
     // autoSelectClip so the new 1-bar clip shows selected, matching the synth
     // drop path (also opens the editor panel on the new kit).
     onTrackSelected(trackId, autoSelectClip: true);
-    showSnackBar(
-      loadedAll
-          ? 'Created drum kit'
-          : 'Created drum kit (starter sounds unavailable)',
-    );
+    if (!loadedAll) {
+      Notices.problem(
+        "Couldn't load the starter drum sounds. The kit's pads are empty.",
+      );
+    }
   }
 
   // ============================================
   // HELPER METHODS
   // ============================================
-
-  /// Show snackbar message
-  void showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
-    );
-  }
 
   /// Check if a track is a MIDI track
   bool isMidiTrack(int trackId) {

@@ -11,6 +11,8 @@ import '../../../utils/clip_overlap_handler.dart';
 import '../../../utils/csv_field.dart';
 import '../../daw_screen.dart';
 import 'daw_screen_state.dart';
+import '../../../utils/logger.dart';
+import '../../../widgets/shared/boojy_notice.dart';
 
 /// Mixin containing recording-related methods for DAWScreen.
 /// Handles record, metronome, count-in, tempo, virtual piano, and MIDI devices.
@@ -93,9 +95,7 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
           : userSettings.preferredInputDevice,
     );
     if (notice == null) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(notice), duration: const Duration(seconds: 4)),
-    );
+    Notices.problem(notice, id: 'audio-input');
   }
 
   /// Seconds the count-in plays "in place" because it couldn't seek back a full
@@ -318,7 +318,6 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     liveRecordingNotifier.removeListener(_onLiveRecordingUpdate);
     midiPlaybackManager?.setLiveRecordingClip(null);
 
-    final List<String> recordedItems = [];
     final timelineState = timelineKey.currentState;
 
     // Track IDs affected by this recording (for undo command)
@@ -379,8 +378,6 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
           timelineState.addClip(clipData);
         }
       }
-
-      recordedItems.add('Audio ${result.duration?.toStringAsFixed(2) ?? ""}s');
     }
 
     // Handle MIDI clip
@@ -393,7 +390,6 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
             final trackId = int.parse(parts[1]);
             final startTimeSeconds = double.parse(parts[2]);
             final durationSeconds = double.parse(parts[3]);
-            final noteCount = int.parse(parts[4]);
 
             // Convert from seconds to beats for MIDI clip storage
             final beatsPerSecond = tempo / 60.0;
@@ -441,13 +437,10 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
             // it and reads as empty until the user clicks the clip. Same rule
             // as the clip-creation paths (autoSelectClip, v0.6 batch 3).
             midiPlaybackManager?.selectClip(clipData.clipId, clipData);
-            recordedItems.add('MIDI ($noteCount notes)');
           }
         } catch (e) {
-          recordedItems.add('MIDI clip');
+          Log.e('Recorded MIDI clip info unreadable: $e');
         }
-      } else {
-        recordedItems.add('MIDI clip');
       }
     }
 
@@ -485,13 +478,9 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
       undoRedoManager.execute(command);
     }
 
-    // Update status message
-    if (recordedItems.isNotEmpty) {
-      playbackController.setStatusMessage(
-        'Recorded: ${recordedItems.join(', ')}',
-      );
-    } else if (result.audioClipId == null && result.midiClipId == null) {
-      playbackController.setStatusMessage('No recording captured');
+    // An info, not a problem: stopping during the count-in lands here too.
+    if (result.audioClipId == null && result.midiClipId == null) {
+      Notices.info('Nothing was recorded. Check a track is armed.');
     }
   }
 
@@ -502,23 +491,12 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
   /// Toggle metronome on/off
   void toggleMetronome() {
     recordingController.toggleMetronome();
-    final newState = recordingController.isMetronomeEnabled;
-    playbackController.setStatusMessage(
-      newState ? 'Metronome enabled' : 'Metronome disabled',
-    );
   }
 
   /// Set count-in bars (0, 1, or 2)
   void setCountInBars(int bars) {
     userSettings.countInBars = bars;
     audioEngine?.setCountInBars(bars);
-
-    final message = bars == 0
-        ? 'Count-in disabled'
-        : bars == 1
-        ? 'Count-in: 1 bar'
-        : 'Count-in: 2 bars';
-    playbackController.setStatusMessage(message);
   }
 
   // Tempo and time-signature changes live in daw_screen.dart
@@ -537,13 +515,8 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
       uiLayout.setVirtualPianoEnabled(
         enabled: recordingController.isVirtualPianoEnabled,
       );
-      playbackController.setStatusMessage(
-        recordingController.isVirtualPianoEnabled
-            ? 'Virtual piano enabled - Press keys to play!'
-            : 'Virtual piano disabled',
-      );
     } else {
-      playbackController.setStatusMessage('Virtual piano error');
+      Notices.problem("Couldn't start the virtual piano");
     }
   }
 
@@ -559,46 +532,19 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
   /// Handle MIDI device selection
   void onMidiDeviceSelected(int deviceIndex) {
     recordingController.selectMidiDevice(deviceIndex);
-
-    // Show feedback
-    if (midiDevices.isNotEmpty &&
-        deviceIndex >= 0 &&
-        deviceIndex < midiDevices.length) {
-      final deviceName =
-          midiDevices[deviceIndex]['name'] as String? ?? 'Unknown';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Selected: $deviceName'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
   }
 
   /// Refresh MIDI devices list
   void refreshMidiDevices() {
     recordingController.refreshMidiDevices();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('MIDI devices refreshed'),
-        duration: Duration(seconds: 2),
-      ),
-    );
   }
 
   /// Rescan for a hot-plugged MIDI keyboard (called on app focus / track arm).
   /// Silent unless a newly-connected device was picked up, in which case it
-  /// confirms with a brief toast.
+  /// says so with a brief info notice.
   void rescanMidiForHotPlug() {
     final connectedName = recordingController.rescanMidiDevices();
-    if (connectedName != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('🎹 $connectedName connected'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
+    if (connectedName != null) Notices.info('$connectedName connected');
   }
 
   // ============================================

@@ -6,6 +6,16 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- **Boojy notices replace the plain message bar.** Messages now appear as a small rounded pill
+  at the bottom-centre of the arrangement, clear of the transport, ruler and panels. There are
+  two kinds. A grey hint ("Select a clip to quantize") fades after three seconds, and hovering
+  it holds it. A problem ("Couldn't save the project") is marked by a small amber ⚠, stays
+  until you close it, and some carry a button such as *Open Settings*. Success messages are gone: saving, renaming,
+  adding an effect or picking a device just works, quietly. Problems now use plain words, and
+  the technical detail goes to the log. Shortcuts that used to do nothing silently (quantize,
+  duplicate, join or bounce with no clip selected) now say what they need, and a recording that
+  captured nothing now says so.
+
 - **The library is one tree.** The two-column browser (categories on the left, contents on the
   right) is replaced by a single full-width tree. Favorites, Sounds, Samples, Instruments, Effects,
   Plugins and each added folder are root rows: click one to open it in place, click again to

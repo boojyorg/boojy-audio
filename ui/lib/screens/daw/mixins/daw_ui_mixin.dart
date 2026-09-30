@@ -70,13 +70,7 @@ mixin DAWUIMixin
       userSettings.libraryCollapsed = false;
       userSettings.mixerVisible = true;
       userSettings.editorVisible = true;
-
-      statusMessage = 'Panel layout reset';
     });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Panel layout reset to defaults')),
-    );
   }
 
   // ============================================

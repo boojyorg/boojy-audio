@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/daw_screen.dart';
+import 'widgets/shared/boojy_notice.dart';
 import 'services/user_settings.dart';
 import 'services/vst3_editor_service.dart';
 import 'services/window_title_service.dart';
@@ -98,7 +99,7 @@ class BoojyAudioApp extends StatelessWidget {
               data: mq.copyWith(
                 textScaler: TextScaler.linear(UserSettings().uiScale),
               ),
-              child: child!,
+              child: NoticeHost(child: child!),
             );
           },
         );

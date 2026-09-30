@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../audio_engine.dart';
 import '../utils/logger.dart';
+import '../widgets/shared/boojy_notice.dart';
 
 /// Manages playback state and transport controls.
 /// Handles play/pause/stop operations and playhead position updates.
@@ -16,7 +17,6 @@ class PlaybackController extends ChangeNotifier {
   // Playback state
   double _playheadPosition = 0.0;
   bool _isPlaying = false;
-  String _statusMessage = '';
 
   // Position tracking for Stop button behavior
   double _playStartPosition = 0.0; // Position when Play pressed
@@ -104,7 +104,6 @@ class PlaybackController extends ChangeNotifier {
   // Getters
   double get playheadPosition => _playheadPosition;
   bool get isPlaying => _isPlaying;
-  String get statusMessage => _statusMessage;
   double? get clipDuration => _clipDuration;
   double get playStartPosition => _playStartPosition;
   double get recordStartPosition => _recordStartPosition;
@@ -133,12 +132,10 @@ class PlaybackController extends ChangeNotifier {
       _isLoopCycling = false; // Disable loop cycling for normal play
       _audioEngine!.transportPlay();
       _isPlaying = true;
-      _statusMessage = loadedClipId != null ? 'Playing...' : 'Playing (empty)';
       notifyListeners();
       _startPlayheadTimer();
     } catch (e) {
-      _statusMessage = 'Play error: $e';
-      notifyListeners();
+      Notices.problem("Couldn't start playback", error: e);
     }
   }
 
@@ -173,12 +170,10 @@ class PlaybackController extends ChangeNotifier {
 
       _audioEngine!.transportPlay();
       _isPlaying = true;
-      _statusMessage = 'Playing loop...';
       notifyListeners();
       _startPlayheadTimer();
     } catch (e) {
-      _statusMessage = 'Play loop error: $e';
-      notifyListeners();
+      Notices.problem("Couldn't start playback", error: e);
     }
   }
 
@@ -189,12 +184,10 @@ class PlaybackController extends ChangeNotifier {
     try {
       _audioEngine!.transportPause();
       _isPlaying = false;
-      _statusMessage = 'Paused';
       notifyListeners();
       _stopPlayheadTimer();
     } catch (e) {
-      _statusMessage = 'Pause error: $e';
-      notifyListeners();
+      Notices.problem("Couldn't pause playback", error: e);
     }
   }
 
@@ -225,7 +218,6 @@ class PlaybackController extends ChangeNotifier {
         _playheadPosition = _recordStartPosition;
         _audioEngine!.transportSeek(_recordStartPosition);
         playheadNotifier.value = _recordStartPosition;
-        _statusMessage = 'Stopped (recording start)';
         Log.d(
           '▶️ [PLAYBACK] Returning to recordStartPosition: ${_recordStartPosition.toStringAsFixed(3)}s',
         );
@@ -233,7 +225,6 @@ class PlaybackController extends ChangeNotifier {
         _playheadPosition = _playStartPosition;
         _audioEngine!.transportSeek(_playStartPosition);
         playheadNotifier.value = _playStartPosition;
-        _statusMessage = 'Stopped (playback start)';
         Log.d(
           '▶️ [PLAYBACK] Returning to playStartPosition: ${_playStartPosition.toStringAsFixed(3)}s',
         );
@@ -242,14 +233,12 @@ class PlaybackController extends ChangeNotifier {
         _playheadPosition = 0.0;
         _audioEngine!.transportSeek(0.0);
         playheadNotifier.value = 0.0;
-        _statusMessage = 'Stopped (bar 1)';
         Log.d('▶️ [PLAYBACK] Returning to bar 1 (idle state)');
       }
 
       notifyListeners();
     } catch (e) {
-      _statusMessage = 'Stop error: $e';
-      notifyListeners();
+      Notices.problem("Couldn't stop playback", error: e);
     }
   }
 
@@ -265,12 +254,6 @@ class PlaybackController extends ChangeNotifier {
   /// Update playhead position (called externally if needed)
   void setPlayheadPosition(double position) {
     _playheadPosition = position;
-    notifyListeners();
-  }
-
-  /// Update status message
-  void setStatusMessage(String message) {
-    _statusMessage = message;
     notifyListeners();
   }
 
@@ -355,7 +338,6 @@ class PlaybackController extends ChangeNotifier {
           if (streamError.isNotEmpty) {
             Log.e('🔌 [PLAYBACK] Audio stream error: $streamError');
             stop();
-            setStatusMessage('Audio device lost — playback stopped');
             onStreamError?.call(streamError);
           }
         }
