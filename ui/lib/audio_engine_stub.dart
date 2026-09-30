@@ -80,6 +80,9 @@ class AudioEngine implements AudioEngineInterface {
   double getClipDuration(int clipId) => throw UnsupportedError('stub');
 
   @override
+  String getAllAudioClipsInfo() => throw UnsupportedError('stub');
+
+  @override
   List<double> getWaveformPeaks(int clipId, int resolution) =>
       throw UnsupportedError('stub');
 

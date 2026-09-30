@@ -221,10 +221,9 @@ void main() {
       final reload = await projectManager.loadProject(projectDir.path);
       expect(reload.result.success, isTrue, reason: reload.result.message);
 
-      // Track IDs are remapped on reload — restore assigns fresh IDs and
-      // remaps send targets via id_map (same contract as the other reload
-      // tests, which re-query rather than reuse pre-save IDs). Verify send
-      // persistence from the return side instead of the stale source trackId.
+      // Track ids are kept across reload (see stable_ids_reload_test.dart),
+      // so send targets need no remapping. Verify send persistence from the
+      // return side, which also covers the de-duplicated return bus.
       final returnsAfter = ReturnTrackData.parseAllReturnsCsv(
         engine.getAllReturns(),
       );
@@ -265,8 +264,9 @@ void main() {
         final reload = await projectManager.loadProject(projectDir.path);
         expect(reload.result.success, isTrue, reason: reload.result.message);
 
-        // IDs are remapped on reload; verify from the return side that all three
-        // sends survived and still target the single (de-duplicated) return.
+        // Ids are kept across reload; verify from the return side that all
+        // three sends survived and still target the single (de-duplicated)
+        // return.
         final returnsAfter = ReturnTrackData.parseAllReturnsCsv(
           engine.getAllReturns(),
         );

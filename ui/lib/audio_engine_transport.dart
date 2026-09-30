@@ -372,6 +372,26 @@ mixin _TransportMixin on _AudioEngineBase {
     }
   }
 
+  /// Every audio clip on every track, as the engine holds them.
+  ///
+  /// Semicolon-separated rows; each row is
+  /// "clip_id,track_id,start_time,offset,duration,file_duration,gain_db,
+  /// warp_enabled,stretch_factor,warp_mode,transpose_semitones,
+  /// transpose_cents,reversed,file_path". `duration` is -1 when the clip plays
+  /// to the end of its file; booleans are 0/1; `file_path` is last and
+  /// percent-encoded (decode with `decodeCsvField`). Parse with
+  /// `parseAudioClipsInfo` (lib/utils/audio_clips_info.dart).
+  String getAllAudioClipsInfo() {
+    try {
+      final resultPtr = _getAllAudioClipsInfo();
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      return 'Error: $e';
+    }
+  }
+
   /// Set clip start time (position) on timeline
   /// Used for dragging clips to reposition them
   String setClipStartTime(int trackId, int clipId, double startTime) {

@@ -100,23 +100,17 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
     // Stop playback if running
     let _ = graph.stop();
 
-    // Clear existing clips and tracks (except master)
-    // Cleanup: AudioGraph needs explicit clear for new project
-
-    // Load audio files from project folder
-    let clips_mutex = get_audio_clips()?;
-    let mut clips_map = clips_mutex.lock();
-
-    // Clear existing clips
-    clips_map.clear();
-
+    // Load every audio file from the project folder first. A missing or
+    // unreadable file fails the load here, before anything in the running
+    // engine has been touched.
+    let mut loaded_files: std::collections::HashMap<u64, Arc<crate::audio_file::AudioClip>> =
+        std::collections::HashMap::new();
     for audio_file_data in &project_data.audio_files {
         let audio_file_path =
             project::resolve_audio_file_path(project_path, &audio_file_data.relative_path);
 
         eprintln!("📁 [API] Loading audio file: {}", audio_file_path.display());
 
-        // Load the audio file
         let clip = load_audio_file(&audio_file_path).map_err(|e| {
             format!(
                 "Failed to load audio file {}: {e}",
@@ -124,32 +118,35 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
             )
         })?;
 
-        let clip_arc = Arc::new(clip);
-        clips_map.insert(audio_file_data.id, clip_arc);
+        loaded_files.insert(audio_file_data.id, Arc::new(clip));
     }
 
-    // Restore audio graph state from project data. The returned id_map
-    // translates save-time track IDs (in the JSON) to the fresh IDs assigned
-    // by `create_track` on this load — audio clips below need it to attach
-    // to the correct track instead of a phantom saved id.
+    let clips_mutex = get_audio_clips()?;
+    let mut clips_map = clips_mutex.lock();
+
+    // Restore audio graph state from project data. This tears down the
+    // previous project first, then recreates tracks and MIDI clips under
+    // their saved ids. The returned id_map translates saved track ids to
+    // restored ones (identity unless a damaged file forced a fresh id).
     let id_map = graph
         .restore_from_project_data(project_data.clone())
         .map_err(|e| e.to_string())?;
 
-    // Restore audio clips to tracks
-    // Audio clips are stored separately from tracks and need to be re-attached
+    // Clip ids that can be kept as saved (unique across the project). Audio
+    // and MIDI clips share one id space; MIDI clips already took theirs.
+    let keepable_clip_ids = project::unique_saved_clip_ids(&project_data);
+
+    // Restore audio clips to tracks under their SAVED clip ids, so the UI's
+    // per-clip data (colour, loop settings, edit state) still lines up.
+    // `clips_map` is keyed by clip id: save looks each clip's audio up by
+    // the timeline clip id, so it is rebuilt from scratch here.
     let mut audio_clip_count = 0;
-    // `add_clip_to_track_with_params` assigns FRESH clip ids (and MIDI clips
-    // already consumed ids during restore), while `clips_map` is still keyed
-    // by the ids saved in project.json. Save uses the timeline clip id as the
-    // audio-file id, so the map must be re-keyed to the fresh ids — otherwise
-    // the next save silently skips (or miscopies) every audio file.
-    let mut remapped_clips = std::collections::HashMap::new();
+    let mut restored_clips = std::collections::HashMap::new();
     // Clips that fail to restore must surface as a load error, not vanish
     // from the track with a green "loaded" message.
     let mut dropped_clips: Vec<String> = Vec::new();
     for track_data in &project_data.tracks {
-        let Some(new_track_id) = id_map.get(&track_data.id).copied() else {
+        let Some(track_id) = id_map.get(&track_data.id).copied() else {
             eprintln!(
                 "⚠️  [API] Audio clip restore: saved track {} not in id_map, skipping its clips",
                 track_data.id
@@ -162,26 +159,31 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
                 if clip_data.midi_notes.is_some() {
                     continue; // Skip MIDI clips (already restored by restore_from_project_data)
                 }
-                let Some(clip_arc) = clips_map.get(&audio_file_id) else {
+                let Some(clip_arc) = loaded_files.get(&audio_file_id) else {
                     dropped_clips.push(format!(
                         "track '{}': audio file id {audio_file_id} missing from project",
                         track_data.name
                     ));
                     continue;
                 };
-                let clip_id = graph.add_clip_to_track_with_params(
-                    new_track_id,
+                let clip_id = if keepable_clip_ids.contains(&clip_data.id) {
+                    clip_data.id
+                } else {
+                    graph.allocate_clip_id()
+                };
+                if graph.add_clip_to_track_with_id(
+                    track_id,
+                    clip_id,
                     clip_arc.clone(),
                     clip_data.start_time,
                     clip_data.offset,
                     clip_data.duration,
-                );
-                if let Some(new_clip_id) = clip_id {
-                    remapped_clips.insert(new_clip_id, clip_arc.clone());
+                ) {
+                    restored_clips.insert(clip_id, clip_arc.clone());
                     audio_clip_count += 1;
                     eprintln!(
-                        "   📎 Restored audio clip {} to track {} (saved id {}) at {:.2}s",
-                        audio_file_id, new_track_id, track_data.id, clip_data.start_time
+                        "   📎 Restored audio clip {clip_id} to track {track_id} at {:.2}s",
+                        clip_data.start_time
                     );
                 } else {
                     dropped_clips.push(format!(
@@ -192,7 +194,7 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
             }
         }
     }
-    *clips_map = remapped_clips;
+    *clips_map = restored_clips;
     eprintln!("📎 [API] Restored {audio_clip_count} audio clips");
 
     if !dropped_clips.is_empty() {

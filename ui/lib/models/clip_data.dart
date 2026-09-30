@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/audio_file_names.dart';
 import 'audio_clip_edit_data.dart';
 import 'midi_note_data.dart';
 
@@ -54,7 +55,8 @@ class ClipData {
       'startTime': startTime,
       'duration': duration,
       'offset': offset,
-      'waveformPeaks': waveformPeaks,
+      // Waveform peaks are NOT saved: they are recomputed from the audio
+      // file on load (they made the layout file ~2 MB).
       'loopLength': loopLength,
       'canRepeat': canRepeat,
       if (color != null) 'color': color!.toARGB32(),
@@ -62,7 +64,10 @@ class ClipData {
     };
   }
 
-  /// Create ClipData from JSON
+  /// Create ClipData from JSON.
+  ///
+  /// Files saved by older builds carry `waveformPeaks`; they are still read
+  /// (and reused instead of recomputing) but never written back.
   factory ClipData.fromJson(Map<String, dynamic> json) {
     final duration = (json['duration'] as num).toDouble();
     return ClipData(
@@ -88,9 +93,9 @@ class ClipData {
     );
   }
 
-  String get fileName {
-    return filePath.split('/').last;
-  }
+  /// The name to show for this clip (no `NNN-` bookkeeping prefix when the
+  /// file sits in a project's audio folder).
+  String get fileName => cleanAudioFileName(filePath);
 
   double get endTime => startTime + duration;
 

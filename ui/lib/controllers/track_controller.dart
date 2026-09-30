@@ -134,15 +134,17 @@ class TrackController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Clear every per-track colour override at once.
+  /// Clear every per-track colour override and instrument assignment at once.
   ///
-  /// Called when a project is loaded or a new project is created: the engine
-  /// reuses track ids across projects, so leftover overrides from the previous
-  /// project would silently attach themselves to the next project's tracks
-  /// (project B inheriting project A's colours).
+  /// Called when a project is loaded or closed, or a new project is created.
+  /// A reopened project keeps its saved track ids, and every new project starts
+  /// numbering at 1, so leftovers from the previous project would silently
+  /// attach themselves to the next project's tracks (project B inheriting
+  /// project A's colours and instruments).
   void clearAllTrackOverrides() {
-    if (_trackColorOverrides.isEmpty) return;
+    if (_trackColorOverrides.isEmpty && _trackInstruments.isEmpty) return;
     _trackColorOverrides.clear();
+    _trackInstruments.clear();
     notifyListeners();
   }
 

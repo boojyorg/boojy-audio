@@ -396,8 +396,30 @@ impl AudioGraph {
         }
     }
 
+    /// Make sure the next freshly allocated clip id is greater than `id`.
+    pub fn ensure_next_clip_id_above(&self, id: ClipId) {
+        let mut next_id = self.next_clip_id.lock();
+        if *next_id <= id {
+            *next_id = id + 1;
+        }
+    }
+
+    /// Hand out the next free clip id.
+    pub fn allocate_clip_id(&self) -> ClipId {
+        let mut next_id = self.next_clip_id.lock();
+        let id = *next_id;
+        *next_id += 1;
+        id
+    }
+
+    /// Restart clip numbering from 0 (New Project / before restoring a saved
+    /// project, which then bumps the counter past its saved ids).
+    pub fn reset_clip_ids(&self) {
+        *self.next_clip_id.lock() = 0;
+    }
+
     /// Re-add an audio clip to a track with a specific clip ID.
-    /// Used for undo/redo to preserve clip ID consistency.
+    /// Used for undo/redo and project restore to preserve clip ID consistency.
     pub fn add_clip_to_track_with_id(
         &self,
         track_id: TrackId,
@@ -407,6 +429,10 @@ impl AudioGraph {
         offset: f64,
         duration: Option<f64>,
     ) -> bool {
+        // Keep the counter above every id in use so a later fresh clip can
+        // never collide with this one (project restore keeps saved ids).
+        self.ensure_next_clip_id_above(clip_id);
+
         let track_manager = self.track_manager.lock();
         if let Some(track_arc) = track_manager.get_track(track_id) {
             let mut track = track_arc.lock();

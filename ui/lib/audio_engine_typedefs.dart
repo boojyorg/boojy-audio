@@ -108,6 +108,9 @@ typedef _GetLatencyTestErrorFfi = ffi.Pointer<Utf8> Function();
 typedef _GetClipDurationFfiNative = ffi.Double Function(ffi.Uint64);
 typedef _GetClipDurationFfi = double Function(int);
 
+typedef _GetAllAudioClipsInfoFfiNative = ffi.Pointer<Utf8> Function();
+typedef _GetAllAudioClipsInfoFfi = ffi.Pointer<Utf8> Function();
+
 typedef _SetClipStartTimeFfiNative =
     ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64, ffi.Double);
 typedef _SetClipStartTimeFfi = ffi.Pointer<Utf8> Function(int, int, double);

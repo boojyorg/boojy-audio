@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/native_dialogs.dart';
 import '../../../models/clip_data.dart';
+import '../../../utils/audio_clips_info.dart';
 import '../../../models/project_view_state.dart';
 import '../../../services/project_manager.dart';
 import '../../../services/project_persistence.dart';
@@ -89,9 +90,10 @@ mixin DAWProjectMixin
     midiPlaybackManager?.clear();
     undoRedoManager.clear();
 
-    // Track ids restart from the same base, so the old project's per-track
-    // colour/icon overrides would attach to the new project's tracks.
-    trackController.clearAllTrackOverrides();
+    // Track ids restart at 1 in every new project, so anything the UI keeps per
+    // track id (colours, instruments, VST3 chips, automation) from the old
+    // project would attach to the new project's tracks.
+    resetPerTrackUiState();
 
     // Reset loop auto-follow for new project
     uiLayout.resetLoopAutoFollow();
@@ -101,9 +103,6 @@ mixin DAWProjectMixin
     // the saved file when an existing project is opened.
     final windowSize = MediaQuery.of(context).size;
     uiLayout.resetSizesToDefaults(windowSize.width, windowSize.height);
-
-    // Clear automation data
-    automationController.clear();
 
     // Clear window title (back to just "Boojy Audio")
     WindowTitleService.clearProjectName();
@@ -184,42 +183,8 @@ mixin DAWProjectMixin
       return;
     }
 
-    // Clear MIDI clip ID mappings since Rust side has reset
-    midiPlaybackManager?.clearClipIdMappings();
-    undoRedoManager.clear();
-
-    // Drop the previous project's per-track colour/icon overrides BEFORE
-    // applying the loaded layout — track ids are reused across projects, so
-    // without this the new project's tracks inherit the old project's
-    // customisations whenever the loaded layout has none of its own.
-    trackController.clearAllTrackOverrides();
-
-    // Sync the engine's tempo into the UI before restoring clips. MIDI clip
-    // start/end are stored in beats and converted using `tempo`; restoring at
-    // the stale default (120) would shift every note off the grid for any
-    // project saved at a different BPM (e.g. 140).
-    recordingController.setTempo(audioEngine!.getTempo());
-
-    // The project file also carries a count-in value which the engine has just
-    // restored; the user's preference is the single source of truth, so push
-    // it back (otherwise a project saved with 2 or 4 bars counts in longer
-    // than the toolbar says).
-    audioEngine!.setCountInBars(userSettings.countInBars);
-
-    // Restore MIDI clips from engine for UI display, merging the saved UI
-    // metadata (name/colour/offset/loop/mute) from ui_layout.json.
-    midiPlaybackManager?.restoreClipsFromEngine(
-      tempo,
-      savedMetadata: loadResult.uiLayout?.midiClips,
-    );
-
-    // Apply UI layout if available
-    if (loadResult.uiLayout != null) {
-      applyUILayout(loadResult.uiLayout!);
-    }
-
-    // Refresh track widgets to show loaded tracks
-    refreshTrackWidgets();
+    // Rebuild every piece of UI state from the freshly loaded engine project.
+    applyLoadedProject(loadResult.uiLayout);
 
     // Add/update recent projects with metadata
     userSettings.addRecentProject(
@@ -485,19 +450,7 @@ mixin DAWProjectMixin
       if (shouldRecover == true && mounted) {
         final result = await projectManager?.loadProject(backupPath);
         if (result?.result.success == true) {
-          midiPlaybackManager?.clearClipIdMappings();
-          // User preference wins over the count-in stored in the backup.
-          audioEngine?.setCountInBars(userSettings.countInBars);
-          midiPlaybackManager?.restoreClipsFromEngine(
-            tempo,
-            savedMetadata: result?.uiLayout?.midiClips,
-          );
-
-          refreshTrackWidgets();
-
-          if (result?.uiLayout != null) {
-            applyUILayout(result!.uiLayout!);
-          }
+          applyLoadedProject(result?.uiLayout);
         }
       }
 
@@ -510,6 +463,108 @@ mixin DAWProjectMixin
   // ============================================
   // UI LAYOUT HELPERS
   // ============================================
+
+  /// Drop everything the UI keeps per track id.
+  ///
+  /// A project keeps its track ids across save and reopen, and every new
+  /// project starts numbering at 1 again, so per-track data left over from the
+  /// previous project (colour overrides, instruments, VST3 chips, automation)
+  /// would silently attach itself to the next project's tracks.
+  void resetPerTrackUiState() {
+    trackController.clearAllTrackOverrides(); // colours + instruments
+    vst3PluginManager?.clear();
+    automationController.clear();
+  }
+
+  /// Turn a freshly loaded engine project into UI state. Shared by Open,
+  /// Open Recent and crash recovery so they can't drift apart.
+  ///
+  /// [uiLayout] is the project's `ui_layout.json`, if it has one. The engine
+  /// owns *what exists* (tracks, MIDI and audio clips); the layout only adds
+  /// UI extras (colours, clip names, loop settings, zoom, ...) filed under the
+  /// same ids.
+  void applyLoadedProject(UILayoutData? uiLayout) {
+    // Clip id mappings belong to the previous project.
+    midiPlaybackManager?.clearClipIdMappings();
+    undoRedoManager.clear();
+
+    // Drop the previous project's per-track UI data BEFORE applying the loaded
+    // layout; the new project reuses the same small track ids.
+    resetPerTrackUiState();
+    trackController.selectTrack(null);
+
+    // Sync the engine's tempo into the UI before restoring clips. MIDI clip
+    // start/end are stored in beats and converted using `tempo`; restoring at
+    // the stale default (120) would shift every note off the grid for any
+    // project saved at a different BPM (e.g. 140).
+    recordingController.setTempo(audioEngine!.getTempo());
+
+    // The project file also carries a count-in value which the engine has just
+    // restored; the user's preference is the single source of truth, so push
+    // it back (otherwise a project saved with 2 or 4 bars counts in longer
+    // than the toolbar says).
+    audioEngine!.setCountInBars(userSettings.countInBars);
+
+    // Restore MIDI clips from engine for UI display, merging the saved UI
+    // metadata (name/colour/offset/loop/mute) from ui_layout.json.
+    midiPlaybackManager?.restoreClipsFromEngine(
+      tempo,
+      savedMetadata: uiLayout?.midiClips,
+    );
+
+    // Rebuild audio clips from the engine too. Always, even when the layout has
+    // none: a project without audio must not keep the previous one's clips.
+    restoreAudioClipsFromEngine(uiLayout?.audioClips ?? const []);
+
+    if (uiLayout != null) {
+      applyUILayout(uiLayout);
+    }
+
+    // Refresh track widgets to show loaded tracks
+    refreshTrackWidgets();
+  }
+
+  /// Rebuild the arrangement's audio clips from the engine's copy of the song,
+  /// merging the UI extras saved in `ui_layout.json` ([savedClips]) by clip id.
+  ///
+  /// This is what makes audio you can hear always visible: clips come from the
+  /// engine, not from the layout file, so a layout that is out of step with the
+  /// engine (older projects damaged by id drift) can no longer hide them.
+  void restoreAudioClipsFromEngine(List<ClipData> savedClips) {
+    final engine = audioEngine;
+    if (engine == null) return;
+
+    final rebuilt = rebuildAudioClips(
+      engineClips: parseAudioClipsInfo(engine.getAllAudioClipsInfo()),
+      savedClips: savedClips,
+      // A quick low-res waveform for the first paint; sharpened below.
+      peaksFor: (clipId, fileDuration) => engine.getWaveformPeaks(clipId, 1000),
+    );
+
+    // The engine stores clip position but not edit parameters (gain, warp,
+    // transpose, reverse): re-push the saved ones now that ids line up.
+    _syncAudioClipEditDataToEngine(rebuilt);
+
+    // Old layout files carried full-resolution peaks; everything else needs the
+    // sharper waveform computed once the clip is on screen.
+    final hadSavedPeaks = {
+      for (final c in savedClips)
+        if (c.waveformPeaks.isNotEmpty) c.clipId,
+    };
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final timelineState = timelineKey.currentState;
+      if (timelineState == null) return;
+      timelineState.restoreAudioClips(rebuilt);
+      for (final clip in rebuilt) {
+        if (!hadSavedPeaks.contains(clip.clipId)) {
+          timelineState.scheduleWaveformUpgrade(clip.clipId);
+        }
+      }
+    });
+    // Nothing else may schedule a frame (a project with no layout file).
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
 
   /// Apply UI layout from loaded project
   void applyUILayout(UILayoutData layout) {
@@ -535,16 +590,6 @@ mixin DAWProjectMixin
 
     if (layout.viewState != null) {
       restoreViewState(layout.viewState!);
-    }
-
-    if (layout.audioClips != null && layout.audioClips!.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final timelineState = timelineKey.currentState;
-        if (timelineState != null) {
-          timelineState.restoreAudioClips(layout.audioClips!);
-        }
-        _syncAudioClipEditDataToEngine(layout.audioClips!);
-      });
     }
 
     automationController.loadFromJson(layout.automationData);
@@ -575,10 +620,10 @@ mixin DAWProjectMixin
   /// position; edit params live in ui_layout.json, so without this re-push
   /// saved processing is silently absent from playback until the user opens
   /// the audio editor for that clip.
-  void _syncAudioClipEditDataToEngine(List<ClipData> savedClips) {
+  void _syncAudioClipEditDataToEngine(List<ClipData> clips) {
     final engine = audioEngine;
     if (engine == null) return;
-    for (final clip in savedClips) {
+    for (final clip in clips) {
       final edit = clip.editData;
       if (edit == null) continue;
       engine.setAudioClipGain(clip.trackId, clip.clipId, edit.gainDb);
