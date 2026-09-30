@@ -8,44 +8,22 @@ paths:
 
 # Build & test gotchas
 
-- Rust is pinned to **1.98.1** in `engine/rust-toolchain.toml`; keep explicit Rust setup
-  versions in both GitHub workflows aligned. Upgrade deliberately and run strict Clippy.
-- Windows CI/release use `windows-2022` to match the `Visual Studio 17 2022` CMake generator.
-  Upgrade runner and generator together, and invalidate the VST3 library cache when changing
-  the C++ toolchain. Floating runner labels can break builds without any source change.
-
-- **`./build.sh` picks the engine the app runs.** With no argument it builds **debug**; with
-  `release` it builds release. Either way it repoints `ui/macos/Runner/libengine.dylib` (a
-  symlink) at that build and copies it into `ui/macos/` and `ui/macos/Frameworks/`. A plain
-  `cargo build` changes nothing the app loads. **Dogfood and judge audio on `./build.sh release`**:
-  the debug engine (opt-level 0) crackles regardless of any bug. **Don't run `flutter build`**. The Xcode run script builds the engine on `flutter run`.
-- **Tests pass but the app crashes** → likely a dylib mismatch. Run `./build.sh release` to
-  rebuild the engine and refresh the linked and copied `libengine.dylib`.
-- **Native-engine tests live in `ui/test/native/`** (moved out of `ui/integration_test/`). They load
-  `libengine` over `dart:ffi` and need no device, so they run as **plain `flutter test`**, with
-  no `-d macos`. A `testWidgets` there is fine (`clip_drag_overlap_test.dart` pumps the real
-  timeline over the engine to drive a drag end to end); what they never do is launch the app.
-  Run `./build.sh` first so the dylib exists. As of the v0.5 C92 fix the suite never silently
-  early-returns when the engine is absent: under `BOOJY_CI` (CI passes
-  `--dart-define=BOOJY_CI=true`) it registers a **failing** test so a forgotten `./build.sh` can't
-  produce a vacuous "N passed"; locally without the flag it reports **skipped**. The per-test
-  `isNativeEngineAvailable` guards were removed. One top-of-`main()` guard handles it; don't re-add.
-- **The macOS integration-test foreground hang is DESIGNED OUT** (not just retried). The flake came
-  from `flutter test -d macos` launching the app via `open`, which couldn't foreground it on the
-  headless runner and lost the handle to kill it → the process hung to the timeout. Moving these to
-  plain `flutter test` removes the device/app entirely, so there's no app to foreground and no hang.
-  The old mitigations (the `exit(0)`-on-teardown hack, the reporter-grep success check, and the
-  `nick-fields/retry` 3x wrapper) are all **gone**. A red `Run unit tests` is now a REAL failure.
-- The "app stuck on initializing = missing FFI symbol" gotcha lives in
-  [`ffi.md`](ffi.md) since it's an FFI-boundary issue.
-
-## Golden (screenshot) tests in `ui/test/goldens/`
-
-- These render `CustomPainter`s (piano-roll lanes, timeline grid) straight to PNG under plain
-  `fvm flutter test`, with **no device, no engine**. They run inside the normal `flutter test` gate
-  and exist as a visual safety net for the legibility work.
-- **After an intentional visual change**, refresh the baselines:
-  `cd ui && fvm flutter test --update-goldens test/goldens/`, then eyeball the PNGs before
-  committing. A pixel diff writes images to `test/goldens/failures/` (gitignored).
-- **macOS is the reference platform.** The tests `skip` off macOS (Windows CI also runs
-  `flutter test`, and per-platform rasterization wouldn't byte-match). Generate/refresh on macOS.
+- **Toolchains:** Rust is pinned in `engine/rust-toolchain.toml`, Flutter in `ui/.fvmrc`. Keep the
+  versions in `.github/workflows/*.yml` in sync, and upgrade deliberately (strict Clippy after a
+  Rust bump). Windows CI uses `windows-2022` to match the `Visual Studio 17 2022` CMake generator:
+  upgrade them together and invalidate the VST3 library cache when the C++ toolchain changes.
+- **`./build.sh` picks the engine the app runs:** no argument = debug, `release` = release. It
+  repoints `ui/macos/Runner/libengine.dylib` and copies the dylib into the app; a plain
+  `cargo build` changes nothing the app loads. **Dogfood and judge audio on `./build.sh release`**
+  (the debug engine crackles on its own). Don't run `flutter build`; `flutter run` builds the
+  engine via the Xcode run script.
+- **Tests pass but the app crashes** → a stale dylib. Run `./build.sh release`.
+- **`ui/test/native/`** loads `libengine` over `dart:ffi` as plain `flutter test` (no device, never
+  launches the app). Run `./build.sh` first. Under `--dart-define=BOOJY_CI=true` a missing engine
+  is a failing test, locally a skip; one guard at the top of `main()` handles it, don't add
+  per-test guards.
+- **Goldens (`ui/test/goldens/`)** render painters to PNG under plain `flutter test`. After an
+  intentional visual change: `fvm flutter test --update-goldens test/goldens/`, then look at the
+  PNGs. They skip off macOS; refresh only on macOS.
+- **Previewing new UI without launching the app:** `test/helpers/render_preview.dart` renders a
+  widget to PNG with real fonts and icons (use from a throwaway, uncommitted test).
