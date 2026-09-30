@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../audio_engine.dart';
 import '../utils/logger.dart';
 import '../models/vst3_plugin_data.dart';
+import '../widgets/shared/boojy_notice.dart';
 
 /// Manages VST3 plugin scanning, caching, and track effects.
 ///
@@ -189,6 +190,7 @@ class Vst3PluginManager extends ChangeNotifier {
     } catch (e) {
       _isScanning = false;
       notifyListeners();
+      Notices.problem("Couldn't scan for VST3 plugins", error: e);
       return 'VST3 scan failed: $e';
     }
   }

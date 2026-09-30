@@ -67,7 +67,7 @@ with exceptions in `lib.rs`. Logging: Rust `println!`; Dart `Log.d()/.e()/.i()` 
 | Area | Read | The one-line version |
 | --- | --- | --- |
 | `engine/src/api/`, `engine/src/ffi/`, `ui/lib/audio_engine_*.dart` | `.claude/rules/ffi.md` | Raw `dart:ffi`, three layers (`api/` → `ffi/` shim → Dart binding); use the `add-ffi` skill. No web binding exists (see `docs/PLATFORMS.md`). **Engine is real seconds everywhere, UI thinks in beats.** Every tempo write goes through `_onTempoChanged`, never bare `setTempo`. Locks are non-reentrant: snapshot, drop the guard, then call `TrackManager`. |
-| `ui/lib/**` | `.claude/rules/flutter-ui.md` | `BI.*` icons only. One shared menu surface (`showBoojyMenu`), never `showMenu`/`PopupMenuButton`. Never read `context.colors` in an event handler. `ui_layout.json` fields go through `ProjectPersistence`. Import `timeline_view.dart`, never its part files. |
+| `ui/lib/**` | `.claude/rules/flutter-ui.md` | `BI.*` icons only. One shared menu surface (`showBoojyMenu`), never `showMenu`/`PopupMenuButton`. Messages go through `Notices.info`/`Notices.problem`, never `SnackBar`; no success notices. Never read `context.colors` in an event handler. `ui_layout.json` fields go through `ProjectPersistence`. Import `timeline_view.dart`, never its part files. |
 | `engine/src/export/` | `.claude/rules/audio-export.md` | Range → LUFS → mixdown → normalise, in that order. Stems = mix minus the master stage. |
 | `build.sh`, `ui/test/native/`, `ui/test/goldens/` | `.claude/rules/build-and-test.md` | `./build.sh` picks the engine the app runs; no argument = debug. Goldens refresh on macOS only. |
 

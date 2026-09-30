@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/theme_provider.dart';
 import '../../theme/tokens.dart';
+import '../shared/boojy_notice.dart';
 
 /// All editable color tokens with their override keys and display names.
 const _bgTokens = [
@@ -157,14 +158,7 @@ class _PaletteEditorState extends State<PaletteEditor> {
       buf.writeln("  '$token': Color(0x$hex), // $label");
     }
     Clipboard.setData(ClipboardData(text: buf.toString()));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Palette copied to clipboard'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
+    Notices.info('Palette copied to clipboard');
   }
 
   @override

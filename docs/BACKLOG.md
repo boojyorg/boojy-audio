@@ -206,7 +206,8 @@ into the reports.
   - **The volume fader jumps when grabbed** (U3), on the mixer strip and the device strip.
   - **Save As renames before the folder is picked** (U5): cancel leaves the project renamed.
   - **No unsaved-changes signal** (U6). Close always warns, even straight after a save, and
-    every save shows a toast. A quiet dot beside the name instead.
+    no signal that it saved (the save toast was removed with the notice rework). A quiet dot
+    beside the name instead.
   - **The drag-to-create preview drifts when scrolled** (U10); the clip lands in the right place.
   - **Tempo edits flood undo** (U30): one step per scroll notch or tap. **An empty tempo field
     becomes 120** (U29).
@@ -235,10 +236,6 @@ into the reports.
   remove the code.
 - **Start-screen thumbnails are read synchronously in `build()`** (`project_card.dart`). Move to
   a future/cached load.
-- **The status line is never shown.** `playbackController.setStatusMessage` is still called
-  from about 15 places ("No recording captured", "Added EQ to track", …), but nothing on screen
-  renders `statusMessage` since the toolbar was simplified. Decide per message: show it (a
-  toast for problems only) or delete the call. Found 2026-09-29.
 - **Tooltip coverage is uneven.** `BoojyTooltip` covers transport buttons and mixer M/S/R;
   piano-roll Quantize/Legato/Snap use the plain Flutter tooltip; track-header Mute/Solo have none.
 - **Residual pre-migration menu sites** (verified 2026-09-13): two `showMenu` calls in

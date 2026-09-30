@@ -25,10 +25,6 @@ void main() {
       expect(controller.playheadPosition, 0.0);
     });
 
-    test('statusMessage is empty', () {
-      expect(controller.statusMessage, isEmpty);
-    });
-
     test('clipDuration is null', () {
       expect(controller.clipDuration, isNull);
     });
@@ -79,29 +75,6 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // setStatusMessage
-  // ---------------------------------------------------------------------------
-  group('setStatusMessage', () {
-    test('updates statusMessage', () {
-      controller.setStatusMessage('Ready');
-      expect(controller.statusMessage, 'Ready');
-    });
-
-    test('notifies listeners', () {
-      var notified = false;
-      controller.addListener(() => notified = true);
-      controller.setStatusMessage('Recording...');
-      expect(notified, isTrue);
-    });
-
-    test('can be set to empty string', () {
-      controller.setStatusMessage('Something');
-      controller.setStatusMessage('');
-      expect(controller.statusMessage, isEmpty);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
   // setClipDuration
   // ---------------------------------------------------------------------------
   group('setClipDuration', () {
@@ -138,11 +111,6 @@ void main() {
     test('does not change isPlaying', () {
       controller.play();
       expect(controller.isPlaying, isFalse);
-    });
-
-    test('does not change statusMessage', () {
-      controller.play();
-      expect(controller.statusMessage, isEmpty);
     });
   });
 
@@ -226,16 +194,6 @@ void main() {
       controller.setPlayheadPosition(3.0);
 
       expect(count, 3);
-    });
-
-    test('setStatusMessage triggers notifyListeners', () {
-      var count = 0;
-      controller.addListener(() => count++);
-
-      controller.setStatusMessage('A');
-      controller.setStatusMessage('B');
-
-      expect(count, 2);
     });
 
     test('removed listener is not notified', () {

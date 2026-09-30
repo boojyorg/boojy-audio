@@ -121,7 +121,6 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
   set playheadPosition(double value) =>
       playbackController.setPlayheadPosition(value);
   bool get isPlaying => playbackController.isPlaying;
-  set statusMessage(String value) => playbackController.setStatusMessage(value);
 
   // ============================================
   // RECORDING CONVENIENCE GETTERS

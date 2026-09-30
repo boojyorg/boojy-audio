@@ -14,6 +14,7 @@ import 'daw_screen_state.dart';
 import 'daw_recording_mixin.dart';
 import 'daw_ui_mixin.dart';
 import 'daw_track_mixin.dart';
+import '../../../widgets/shared/boojy_notice.dart';
 
 /// Mixin containing clip-related methods for DAWScreen.
 /// Handles MIDI and audio clip selection, creation, duplication, split, quantize, delete.
@@ -202,10 +203,7 @@ mixin DAWClipMixin
     );
 
     undoRedoManager.execute(command);
-    if (mounted) {
-      statusMessage = 'Split MIDI clip';
-      setState(() {});
-    }
+    if (mounted) setState(() {});
   }
 
   /// Split selected clip at playhead position
@@ -230,16 +228,10 @@ mixin DAWClipMixin
           splitPosition,
         ) ??
         false;
-    if (audioSplit && mounted) {
-      statusMessage = 'Split audio clip at playhead';
-      return;
-    }
+    if (audioSplit) return;
 
     // Neither worked
-    if (mounted) {
-      statusMessage =
-          'Cannot split: select a clip and place playhead within it';
-    }
+    Notices.info('Select a clip and put the playhead inside it to split');
   }
 
   // ============================================
@@ -256,25 +248,17 @@ mixin DAWClipMixin
     // Try MIDI clip first
     if (midiPlaybackManager?.selectedClipId != null) {
       final success = midiClipController.quantizeSelectedClip(gridSizeBeats);
-      if (success && mounted) {
-        statusMessage = 'Quantized MIDI clip to grid';
-        return;
-      }
+      if (success) return;
     }
 
     // Try audio clip
     final audioQuantized =
         timelineKey.currentState?.quantizeSelectedAudioClip(gridSizeSeconds) ??
         false;
-    if (audioQuantized && mounted) {
-      statusMessage = 'Quantized audio clip to grid';
-      return;
-    }
+    if (audioQuantized) return;
 
     // Neither worked
-    if (mounted) {
-      statusMessage = 'Cannot quantize: select a clip first';
-    }
+    Notices.info('Select a clip to quantize');
   }
 
   // ============================================
@@ -284,9 +268,6 @@ mixin DAWClipMixin
   /// Select all clips in the timeline view
   void selectAllClips() {
     timelineKey.currentState?.selectAllClips();
-    if (mounted) {
-      statusMessage = 'Selected all clips';
-    }
   }
 
   // ============================================
@@ -300,7 +281,7 @@ mixin DAWClipMixin
     final selectedClip = midiPlaybackManager?.currentEditingClip;
 
     if (selectedClipId == null || selectedClip == null) {
-      statusMessage = 'Select a MIDI clip to bounce to audio';
+      Notices.info('Select a MIDI clip to bounce it to audio');
       return;
     }
 
@@ -353,7 +334,7 @@ mixin DAWClipMixin
     // Join works on one clip type at a time; refuse a mixed selection honestly
     // rather than silently ignoring part of it.
     if (selectedMidiClips.isNotEmpty && selectedAudioCount > 0) {
-      statusMessage = 'Join works on one clip type at a time';
+      Notices.info('Select only MIDI clips or only audio clips to join');
       return;
     }
     // Audio-only selection → render-and-bounce path.
@@ -363,14 +344,14 @@ mixin DAWClipMixin
     }
 
     if (selectedMidiClips.length < 2) {
-      statusMessage = 'Select 2 or more MIDI clips to join';
+      Notices.info('Select 2 or more MIDI clips to join');
       return;
     }
 
     // Ensure all clips are on the same track
     final trackIds = selectedMidiClips.map((c) => c.trackId).toSet();
     if (trackIds.length > 1) {
-      statusMessage = 'Cannot join clips from different tracks';
+      Notices.info('Clips must be on the same track to join');
       return;
     }
 
@@ -456,8 +437,6 @@ mixin DAWClipMixin
     );
 
     timelineState.clearClipSelection();
-
-    statusMessage = 'Joined ${sortedClips.length} clips into one';
   }
 
   /// Join multiple selected audio clips on one track into a single clip.
@@ -476,13 +455,13 @@ mixin DAWClipMixin
         .toList();
 
     if (selected.length < 2) {
-      statusMessage = 'Select 2 or more audio clips to join';
+      Notices.info('Select 2 or more audio clips to join');
       return;
     }
 
     final trackIds = selected.map((c) => c.trackId).toSet();
     if (trackIds.length > 1) {
-      statusMessage = 'Cannot join clips from different tracks';
+      Notices.info('Clips must be on the same track to join');
       return;
     }
     final trackId = trackIds.first;
@@ -514,8 +493,6 @@ mixin DAWClipMixin
 
     undoRedoManager.execute(command);
     timelineState.clearClipSelection();
-
-    statusMessage = 'Joined ${selected.length} clips into one';
   }
 
   // ============================================
@@ -705,7 +682,7 @@ mixin DAWClipMixin
 
     // Check if we have a selected track
     if (selectedTrackId == null) {
-      playbackController.setStatusMessage('Please select a MIDI track first');
+      Notices.info('Select a MIDI track first');
       return;
     }
 
@@ -760,7 +737,7 @@ mixin DAWClipMixin
     }
 
     if (notes.isEmpty) {
-      playbackController.setStatusMessage('No complete MIDI notes captured');
+      Notices.info('Nothing to capture yet: play some notes first');
       return;
     }
 
@@ -784,7 +761,6 @@ mixin DAWClipMixin
     );
 
     midiPlaybackManager?.addRecordedClip(clip);
-    playbackController.setStatusMessage('Captured ${notes.length} MIDI notes');
   }
 
   // ============================================
@@ -795,7 +771,6 @@ mixin DAWClipMixin
   Future<void> performUndo() async {
     final success = await undoRedoManager.undo();
     if (success && mounted) {
-      statusMessage = 'Undo - ${undoRedoManager.redoDescription ?? "Action"}';
       refreshTrackWidgets();
     }
   }
@@ -804,7 +779,6 @@ mixin DAWClipMixin
   Future<void> performRedo() async {
     final success = await undoRedoManager.redo();
     if (success && mounted) {
-      statusMessage = 'Redo - ${undoRedoManager.undoDescription ?? "Action"}';
       refreshTrackWidgets();
     }
   }

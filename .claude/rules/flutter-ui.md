@@ -110,7 +110,7 @@ CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
 - **`daw_screen.dart` / mixin trap:** `_DAWScreenState` **does** mix in `DAWClipMixin` etc., and
   many mixin methods are live: the instrument-drop/sampler/drum-kit constellation
   (`onInstrumentSelected`, `onInstrumentDropped(OnEmpty)`, `createDrumKitTrack`,
-  `createSamplerTrackWithSample`, `convertAudioTrackToSampler`, `showSnackBar`) is consolidated
+  `createSamplerTrackWithSample`, `convertAudioTrackToSampler`) is consolidated
   onto the mixins, as are `splitSelectedClipAtPlayhead` / `joinSelectedClips`. But other methods
   have **private `_` duplicates in `daw_screen.dart` that the call sites actually use** (e.g.
   `_bounceMidiToAudio`; the library double-click trio `_handleLibraryItemDoubleClick` /
@@ -148,6 +148,15 @@ CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
   app-support on first use by `services/bundled_content_service.dart`. The engine loads by
   filesystem path, never from the asset bundle. Bump `contentRevision` when bundled content
   changes and keep `drumSamples` in sync with the pubspec asset dirs.
+- **One notice system: `Notices` in `widgets/shared/boojy_notice.dart`.** Never `SnackBar` /
+  `ScaffoldMessenger`, and there is no status line. Two levels only: `Notices.info(text)` for a
+  hint after an action that did nothing (fades after 3 s), `Notices.problem(text, {id, action,
+  error})` for something that went wrong or needs the user (stays until closed or
+  `Notices.clear(id)`). **Never post success**: silence means it worked. Problem text is plain
+  words ("Couldn't save the project"); pass the exception as `error:` so it goes to the log, not
+  the screen. Posting needs no `BuildContext`, so it's safe from handlers and controllers.
+  `NoticeHost` (in `main.dart`'s `MaterialApp.builder`) draws them above dialogs, centred on the
+  `NoticeAnchor` that wraps the arrangement.
 - **Use `Log.d()` / `Log.e()` / `Log.i()`** (from `utils/logger.dart`), not `print()`.
 - **File/folder dialogs go through `ui/lib/utils/native_dialogs.dart`**
   (`pickFolder` / `pickSaveFilePath` / `sanitizeFileName`). Never call `osascript` inline.

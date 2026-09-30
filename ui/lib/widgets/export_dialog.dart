@@ -10,6 +10,7 @@ import '../audio_engine.dart';
 import '../services/user_settings.dart';
 import '../utils/logger.dart';
 import '../utils/native_dialogs.dart';
+import 'shared/boojy_notice.dart';
 
 /// Export progress info from the engine
 class ExportProgressInfo {
@@ -677,20 +678,12 @@ class _ExportDialogState extends State<ExportDialog> {
         _options.exportStems && _options.stemTracks.any((t) => t.selected);
 
     if (!hasFormatSelected && !hasStemsSelected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select at least one format or stems'),
-        ),
-      );
+      Notices.info('Choose MP3, WAV or stems to export');
       return;
     }
 
     if (_options.exportStems && !_options.stemTracks.any((t) => t.selected)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select at least one track for stem export'),
-        ),
-      );
+      Notices.info('Choose at least one track to export as a stem');
       return;
     }
 
@@ -746,10 +739,8 @@ class _ExportDialogState extends State<ExportDialog> {
         _showSuccessDialog(results);
       }
     } catch (e) {
-      if (mounted && e.toString() != 'Export cancelled') {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+      if (e.toString() != 'Export cancelled') {
+        Notices.problem("Couldn't export", error: e);
       }
     } finally {
       if (mounted) {
