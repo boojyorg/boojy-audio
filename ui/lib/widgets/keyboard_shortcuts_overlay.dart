@@ -103,7 +103,7 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
                     _buildSection(context, 'View', [
                       _Shortcut('\u2318 L', 'Toggle Library Panel'),
                       _Shortcut('\u2318 M', 'Toggle Mixer Panel'),
-                      _Shortcut('\u2318 E', 'Toggle Editor Panel'),
+                      _Shortcut('\u21E7 \u2318 E', 'Toggle Editor Panel'),
                       _Shortcut('\u2318 P', 'Toggle Virtual Piano'),
                       _Shortcut('\u2318 ,', 'Project Settings'),
                     ]),

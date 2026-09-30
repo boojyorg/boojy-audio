@@ -65,13 +65,10 @@ reproduces them.
   live peak feed from the engine (new FFI) and a painter. Row 2.
 - **Recording with loop on shows a negative playhead** (−0.9s, −1.9s after the loop wraps).
   *(Tyr)* decide what loop-on recording does (stop at loop end, or ignore the loop) first.
-- **Cmd+E is bound twice**: "Split at Marker" and "Show Editor Panel" (`daw_menu_bar.dart`).
-  Rename to "Split at Playhead" and give one a different shortcut.
 - **The appcast commit can't reach `master`** (branch protection). Details and options in
   [RELEASING.md](RELEASING.md#what-the-release-workflow-does).
 - *If reproduced:*
   - New Project keeps the previous tempo and time signature (U2).
-  - The toolbar Snap doesn't reach the arrangement (U1): hide it now, wire it before release.
   - The volume fader jumps when grabbed (U3).
   - Save As renames before the folder is picked; cancel leaves it renamed (U5).
   - No unsaved-changes signal (U6): a quiet dot beside the name; close warns only when dirty.
@@ -79,8 +76,7 @@ reproduces them.
   - Tempo edits flood undo (U30); an empty tempo field becomes 120 (U29).
   - "No Output" in Settings may never be applied (U66; the input half was fixed in #153).
   - Playhead and selected strip vanish in the Light theme (U7).
-  - The empty "Sounds" library root (B3): hide it until it has content.
-  - No Tour or Help on Windows; "Boojy Audio Help" does nothing on macOS (B6).
+  - No Tour on Windows (B6).
   - MP3 export needs ffmpeg (B5): README caveat plus a Windows install line.
 
 **After release**
@@ -109,8 +105,8 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
 
 ## Next
 
-- **Scale highlight is fixed to C major.** Bring back root and type pickers in the piano-roll
-  controls bar.
+- **Scale highlight** (hidden while fixed to C major): bring it back with root and type pickers
+  in the piano-roll controls bar.
 - **CC lane is unreachable** (`ccLaneExpanded` is never true). Expose one toggle or delete it.
 - **Start-screen thumbnails are read synchronously in `build()`** (`project_card.dart`).
 - **Tooltip coverage is uneven**: piano-roll Quantize/Legato/Snap use the plain tooltip;

@@ -5,7 +5,6 @@ import '../../../models/vst3_plugin_data.dart';
 import '../../../services/commands/track_commands.dart';
 import '../../../services/plugin_preferences_service.dart';
 import '../../../services/vst3_editor_service.dart';
-import '../../../theme/boojy_icons.dart';
 import '../../../theme/theme_extension.dart';
 import '../../../theme/tokens.dart';
 import '../../daw_screen.dart';
@@ -202,20 +201,6 @@ mixin DAWVst3Mixin
                                   ),
                                 ),
                               ],
-                            ),
-                          ),
-                          ElevatedButton.icon(
-                            onPressed: () => Notices.info(
-                              "The plugin's own window isn't supported here "
-                              'yet. Use the sliders below.',
-                            ),
-                            icon: Icon(BI.openInNew, size: 16),
-                            label: const Text('Open GUI'),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
                             ),
                           ),
                         ],

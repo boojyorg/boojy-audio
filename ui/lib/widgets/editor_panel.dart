@@ -16,7 +16,6 @@ import 'editor_button_variant.dart';
 import 'piano_roll.dart';
 import 'audio_editor/audio_editor.dart';
 import 'device_chain/device_chain_view.dart';
-import 'device_chain/device_dropdown.dart';
 import 'sampler_editor/sampler_editor.dart';
 import 'preset_nav.dart';
 import 'preset_browser_dropdown.dart';
@@ -381,20 +380,9 @@ class _EditorPanelState extends State<EditorPanel>
         widget.currentEditingAudioClip?.clipId;
   }
 
-  /// Handle user manually tapping a tab.
-  /// If already on the instrument tab (index 0) and not audio track,
-  /// open the instrument dropdown instead of no-op. The Master track is
-  /// excluded too: its single Effects tab has no instrument dropdown (and no
-  /// buttonKey to anchor one), so re-tapping it would only do a pointless
-  /// RenderBox lookup that returns silently.
+  /// Handle user manually tapping a tab. (Swapping the instrument lives on the
+  /// device's name in the chain, not on a re-tap of this tab.)
   void _onManualTabTap(int index) {
-    if (_selectedTabIndex == index &&
-        index == 0 &&
-        !_isAudioTrack &&
-        !_isMasterTrack) {
-      _showInstrumentDropdownFromTab();
-      return;
-    }
     _userManuallySelectedTab = true;
     _switchedToPianoRollAwaitingData = false;
     _tabController.index = index;
@@ -803,8 +791,6 @@ class _EditorPanelState extends State<EditorPanel>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Virtual Piano toggle hidden from the collapsed bar for now
-                // (the _buildPianoToggle widget is kept for easy restore).
                 // Expand chevron (rightmost)
                 _buildCollapseChevron(isCollapsed: true),
               ],
@@ -1090,35 +1076,6 @@ class _EditorPanelState extends State<EditorPanel>
     }
   }
 
-  /// Show instrument dropdown positioned below the instrument tab button.
-  /// Called when the user clicks the instrument tab while already on it.
-  Future<void> _showInstrumentDropdownFromTab() async {
-    final box =
-        _instrumentTabKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box == null) return;
-
-    final position = box.localToGlobal(Offset(0, box.size.height));
-    final instrumentName = _getInstrumentTabLabel();
-
-    final action = await DeviceDropdown.showForInstrument(
-      context,
-      position,
-      currentName: instrumentName,
-    );
-    if (action == null || !mounted) return;
-
-    switch (action) {
-      case ResetAction():
-        _resetPluginToDefault?.call();
-      case SwapAction():
-        // Future: swap instrument implementation
-        break;
-      case DeleteAction():
-        // Future: remove instrument from track
-        break;
-    }
-  }
-
   /// Build the expanded tab buttons — derived from [_tabs] (evaluated once in
   /// `build()` and passed in, so the FFI-backed track-type checks behind the
   /// getter run once per frame), same list the collapsed strip and the
@@ -1331,54 +1288,6 @@ class _EditorPanelState extends State<EditorPanel>
               border: border,
             ),
             child: Icon(icon, size: 18, color: iconColor),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Build the Virtual Piano toggle button.
-  /// Currently not rendered (hidden from the collapsed bar) but kept so it can
-  /// be dropped back in without rebuilding it.
-  // ignore: unused_element
-  Widget _buildPianoToggle() {
-    final isActive = widget.virtualPianoEnabled;
-
-    return Tooltip(
-      message: 'Virtual Piano (P)',
-      child: GestureDetector(
-        onTap: widget.callbacks.onVirtualPianoToggle,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: isActive ? context.colors.accent : context.colors.dark,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  BI.keyboard,
-                  size: 16,
-                  color: isActive
-                      ? context.colors.elevated
-                      : context.colors.textPrimary,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Piano',
-                  style: TextStyle(
-                    fontSize: BT.fontLabel,
-                    fontWeight: BT.weightMedium,
-                    color: isActive
-                        ? context.colors.elevated
-                        : context.colors.textPrimary,
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ),

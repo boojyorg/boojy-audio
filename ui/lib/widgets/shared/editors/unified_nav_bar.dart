@@ -11,7 +11,6 @@ class UnifiedNavBarConfig {
   final bool loopEnabled;
   final double loopStart;
   final double loopEnd;
-  final double? insertMarkerPosition;
   final double? playheadPosition; // in beats (null = not shown)
   final bool isPlaying;
   final int beatsPerBar;
@@ -22,7 +21,6 @@ class UnifiedNavBarConfig {
     this.loopEnabled = false,
     this.loopStart = 0.0,
     this.loopEnd = 4.0,
-    this.insertMarkerPosition,
     this.playheadPosition,
     this.isPlaying = false,
     this.beatsPerBar = 4,
@@ -174,7 +172,6 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
                 loopEnabled: widget.config.loopEnabled,
                 loopStart: widget.config.loopStart,
                 loopEnd: widget.config.loopEnd,
-                insertMarkerPosition: widget.config.insertMarkerPosition,
                 playheadPosition: widget.config.playheadPosition,
                 hoverBeat: _isHoveringLoopEdge ? _hoverBeat : null,
                 isHoveringPlayhead: _isHoveringPlayhead,

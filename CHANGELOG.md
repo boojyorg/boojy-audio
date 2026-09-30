@@ -134,6 +134,9 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Controls that did nothing are gone**: Add Marker, dead clip-menu items, Bounce to Audio, the
+  toolbar Snap, the C-major Scale toggle, the empty Sounds root, Copy Path, Open GUI and menu
+  placeholders. Split at Playhead now works on audio clips; ⌘E splits, ⇧⌘E toggles the editor.
 - **Minimum macOS is now 12 (Monterey).** Xcode 27 no longer builds for older versions, so
   Macs that can't run macOS 12 or later won't get this or future updates.
 

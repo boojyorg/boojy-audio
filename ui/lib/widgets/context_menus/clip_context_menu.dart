@@ -18,8 +18,11 @@ Future<String?> showClipContextMenu({
   required ClipType clipType,
   bool canJoin = false,
 }) {
+  // Only actions that work for this clip type are offered ("inert controls
+  // work or are hidden"). Audio clips have no cut/copy/paste, mute, colour or
+  // rename yet, so they don't show them.
+  final isMidi = clipType == ClipType.midi;
   final items = <BoojyMenuEntry<String>>[
-    // Common actions
     ContextMenuItem(
       value: 'delete',
       icon: BI.delete,
@@ -35,7 +38,7 @@ Future<String?> showClipContextMenu({
     ContextMenuItem(
       value: 'split',
       icon: BI.cut,
-      label: 'Split at Marker',
+      label: 'Split at Playhead',
       shortcut: '⌘E',
     ),
     // Only offered with 2+ clips of this type selected
@@ -46,39 +49,31 @@ Future<String?> showClipContextMenu({
         label: 'Join Clips',
         shortcut: '⌘J',
       ),
-    const BoojyMenuDivider<String>(),
-    ContextMenuItem(value: 'cut', icon: BI.cut, label: 'Cut', shortcut: '⌘X'),
-    ContextMenuItem(
-      value: 'copy',
-      icon: BI.copy,
-      label: 'Copy',
-      shortcut: '⌘C',
-    ),
-    ContextMenuItem(
-      value: 'paste',
-      icon: BI.paste,
-      label: 'Paste',
-      shortcut: '⌘V',
-    ),
-    const BoojyMenuDivider<String>(),
-    ContextMenuItem(value: 'mute', icon: BI.speakerNone, label: 'Mute Clip'),
-    // MIDI-specific actions
-    if (clipType == ClipType.midi) ...[
-      ContextMenuItem(value: 'loop', icon: BI.loop, label: 'Loop Clip'),
+    if (isMidi) ...[
+      const BoojyMenuDivider<String>(),
+      ContextMenuItem(value: 'cut', icon: BI.cut, label: 'Cut', shortcut: '⌘X'),
       ContextMenuItem(
-        value: 'bounce',
-        icon: BI.musicNote,
-        label: 'Bounce to Audio',
+        value: 'copy',
+        icon: BI.copy,
+        label: 'Copy',
+        shortcut: '⌘C',
       ),
+      ContextMenuItem(
+        value: 'paste',
+        icon: BI.paste,
+        label: 'Paste',
+        shortcut: '⌘V',
+      ),
+      const BoojyMenuDivider<String>(),
+      ContextMenuItem(value: 'mute', icon: BI.speakerNone, label: 'Mute Clip'),
+      ContextMenuItem(value: 'loop', icon: BI.loop, label: 'Loop Clip'),
       ContextMenuItem(
         value: 'export_midi',
         icon: BI.download,
         label: 'Export as MIDI File...',
       ),
+      ContextMenuItem(value: 'rename', icon: BI.pencil, label: 'Rename...'),
     ],
-    const BoojyMenuDivider<String>(),
-    ContextMenuItem(value: 'color', icon: BI.colorLens, label: 'Color...'),
-    ContextMenuItem(value: 'rename', icon: BI.pencil, label: 'Rename...'),
   ];
 
   return ContextMenuHelper.show(

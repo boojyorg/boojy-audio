@@ -340,13 +340,6 @@ mixin TimelineViewStateMixin on State<TimelineView>
   double splitPreviewBeatPosition = 0.0;
 
   // ============================================
-  // INSERT MARKER STATE
-  // ============================================
-
-  /// Insert marker position in beats (null = not visible).
-  double? insertMarkerBeats;
-
-  // ============================================
   // TOOL MODE STATE
   // ============================================
 

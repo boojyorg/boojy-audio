@@ -11,7 +11,6 @@ import '../theme/app_colors.dart';
 import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
-import '../state/ui_layout_state.dart';
 import 'shared/boojy_tooltip.dart';
 import 'shared/button_hover_mixin.dart';
 import 'shared/circular_toggle_button.dart';
@@ -23,7 +22,6 @@ import 'transport_bar/loop_toggle_button.dart';
 import 'transport_bar/metronome_toggle_button.dart';
 import 'transport_bar/position_display.dart';
 import 'transport_bar/signature_dropdown.dart';
-import 'transport_bar/snap_split_button.dart';
 import 'transport_bar/tempo_controls.dart';
 import 'transport_bar/record_controls.dart';
 import 'transport_bar/transport_bar_models.dart';
@@ -130,10 +128,6 @@ extension TransportDensityValues on TransportDensity {
   /// keep room for the traffic lights and undo/redo at the 960px window.
   bool get showCountInLabel => this != TransportDensity.minimum;
 
-  /// Whether the Snap value zone gives up its fixed "1/16T"-wide slot and
-  /// hugs the current value. Only at [TransportDensity.minimum].
-  bool get compactSnapValue => this == TransportDensity.minimum;
-
   /// Compact the LCD readouts ("120 BPM" → "120", Tap → narrow). One stage
   /// later than [showLabels], so the tool names shed first.
   bool get compactReadouts {
@@ -189,12 +183,12 @@ class _WellWidths {
 }
 
 const Map<TransportDensity, _WellWidths> _kWellWidths = {
-  TransportDensity.comfortable: _WellWidths(221, 146, 219),
-  TransportDensity.compact: _WellWidths(218, 143, 175),
-  TransportDensity.tight: _WellWidths(215, 140, 169),
-  TransportDensity.iconsOnly: _WellWidths(215, 140, 169),
-  TransportDensity.compressed: _WellWidths(212, 125, 167),
-  TransportDensity.minimum: _WellWidths(161, 113, 72),
+  TransportDensity.comfortable: _WellWidths(132, 146, 219),
+  TransportDensity.compact: _WellWidths(130, 143, 175),
+  TransportDensity.tight: _WellWidths(128, 140, 169),
+  TransportDensity.iconsOnly: _WellWidths(128, 140, 169),
+  TransportDensity.compressed: _WellWidths(126, 125, 167),
+  TransportDensity.minimum: _WellWidths(89, 113, 72),
 };
 
 /// Centre width a tier needs when its three wells simply sit side by side:
@@ -332,13 +326,6 @@ class TransportBar extends StatefulWidget {
   final String? undoDescription;
   final String? redoDescription;
 
-  // Snap control: on/off and the grid are separate, so the value stays visible
-  // (dimmed) while snap is off.
-  final bool snapEnabled;
-  final SnapValue snapResolution;
-  final VoidCallback? onSnapToggle;
-  final ValueChanged<SnapValue>? onSnapResolutionChanged;
-
   // Loop playback
   final bool loopPlaybackEnabled;
 
@@ -393,10 +380,6 @@ class TransportBar extends StatefulWidget {
     this.hasArmedTracks = true,
     this.undoDescription,
     this.redoDescription,
-    this.snapEnabled = true,
-    this.snapResolution = SnapValue.bar,
-    this.onSnapToggle,
-    this.onSnapResolutionChanged,
     this.loopPlaybackEnabled = false,
     this.beatsPerBar = 4,
     this.onTimeSignatureChanged,
@@ -933,14 +916,6 @@ class _TransportBarState extends State<TransportBar> with WindowListener {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SnapSplitButton(
-            isEnabled: widget.snapEnabled,
-            resolution: widget.snapResolution,
-            onToggle: widget.onSnapToggle,
-            onResolutionChanged: widget.onSnapResolutionChanged,
-            compactValue: density.compactSnapValue,
-          ),
-          SizedBox(width: wGap),
           LoopToggleButton(
             isActive: widget.loopPlaybackEnabled,
             onToggle: widget.transport.onLoopPlaybackToggle,

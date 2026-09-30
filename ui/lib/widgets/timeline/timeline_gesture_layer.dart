@@ -290,6 +290,7 @@ mixin TimelineGestureLayerMixin
   /// callbacks only mutating the on-screen `clips` list. Shared by the slice tool
   /// and the Cmd+E path so audio split is always engine-synced and undoable
   /// (the Cmd+E path used to mutate the UI only and never touch the engine).
+  @override
   void runAudioSplit(ClipData clip, double splitTimeAbsolute) {
     final splitTimeRelative = splitTimeAbsolute - clip.startTime;
 

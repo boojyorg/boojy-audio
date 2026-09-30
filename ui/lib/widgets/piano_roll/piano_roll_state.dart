@@ -331,7 +331,8 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   /// Scale type.
   ScaleType scaleType = ScaleType.major;
 
-  /// Whether scale highlighting is enabled.
+  /// Whether scale highlighting is enabled. No toggle while the scale is fixed
+  /// to C major; comes back with root and type pickers (docs/BACKLOG.md).
   bool scaleHighlightEnabled = false;
 
   /// Whether fold view is enabled.

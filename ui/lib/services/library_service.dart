@@ -311,22 +311,10 @@ class LibraryService extends ChangeNotifier {
   /// Get all built-in categories with content
   List<LibraryCategory> getBuiltInCategories() {
     return [
-      _buildSoundsCategory(),
       _buildSamplesCategory(),
       _buildInstrumentsCategory(),
       _buildEffectsCategory(),
     ];
-  }
-
-  /// Build Sounds category (empty - not yet implemented)
-  LibraryCategory _buildSoundsCategory() {
-    return LibraryCategory(
-      id: 'sounds',
-      name: 'Sounds',
-      icon: BI.queue,
-      subcategories: [],
-      items: [],
-    );
   }
 
   /// Build Samples category — bundled content, copied out to disk on first

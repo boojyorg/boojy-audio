@@ -66,21 +66,12 @@ void main() {
         expect(layout.isVirtualPianoEnabled, isFalse);
       });
 
-      test('arrangement snap defaults to bar', () {
-        expect(layout.arrangementSnap, SnapValue.bar);
-      });
-
       test('loop playback enabled by default', () {
         expect(layout.loopPlaybackEnabled, isTrue);
         expect(layout.loopStartBeats, 0.0);
         expect(layout.loopEndBeats, 4.0);
         expect(layout.loopDurationBeats, 4.0);
         expect(layout.loopAutoFollow, isTrue);
-      });
-
-      test('arrangement snap is on, at Bar, by default', () {
-        expect(layout.arrangementSnapEnabled, isTrue);
-        expect(layout.arrangementSnapResolution, SnapValue.bar);
       });
     });
 
@@ -505,40 +496,6 @@ void main() {
       });
     });
 
-    // ── Arrangement snap ───────────────────────
-
-    group('arrangement snap', () {
-      test('toggling off keeps the resolution and reports Off', () {
-        layout.setArrangementSnap(SnapValue.beat);
-        layout.toggleArrangementSnap();
-        expect(layout.arrangementSnapEnabled, isFalse);
-        expect(layout.arrangementSnap, SnapValue.off);
-        expect(layout.arrangementSnapResolution, SnapValue.beat);
-      });
-
-      test('toggling back on restores the remembered resolution', () {
-        layout.setArrangementSnap(SnapValue.quarter);
-        layout.toggleArrangementSnap();
-        layout.toggleArrangementSnap();
-        expect(layout.arrangementSnap, SnapValue.quarter);
-      });
-
-      test('choosing a resolution turns snap on', () {
-        layout.toggleArrangementSnap();
-        expect(layout.arrangementSnapEnabled, isFalse);
-        layout.setArrangementSnap(SnapValue.half);
-        expect(layout.arrangementSnapEnabled, isTrue);
-        expect(layout.arrangementSnap, SnapValue.half);
-      });
-
-      test('setting Off disables without forgetting the resolution', () {
-        layout.setArrangementSnap(SnapValue.beat);
-        layout.setArrangementSnap(SnapValue.off);
-        expect(layout.arrangementSnap, SnapValue.off);
-        expect(layout.arrangementSnapResolution, SnapValue.beat);
-      });
-    });
-
     // ── Listener notification ──────────────────
 
     group('listener notification', () {
@@ -595,20 +552,6 @@ void main() {
         var notified = false;
         layout.addListener(() => notified = true);
         layout.resizeLeftColumn(10.0);
-        expect(notified, isTrue);
-      });
-
-      test('setArrangementSnap notifies listeners', () {
-        var notified = false;
-        layout.addListener(() => notified = true);
-        layout.setArrangementSnap(SnapValue.beat);
-        expect(notified, isTrue);
-      });
-
-      test('toggleArrangementSnap notifies listeners', () {
-        var notified = false;
-        layout.addListener(() => notified = true);
-        layout.toggleArrangementSnap();
         expect(notified, isTrue);
       });
     });

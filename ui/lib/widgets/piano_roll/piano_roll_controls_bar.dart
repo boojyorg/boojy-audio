@@ -50,10 +50,6 @@ class PianoRollControlsBar extends StatefulWidget {
   final bool foldEnabled;
   final VoidCallback? onFoldToggle;
 
-  // Scale section
-  final bool highlightEnabled;
-  final VoidCallback? onHighlightToggle;
-
   // Transform section
   final VoidCallback? onLegato;
 
@@ -103,8 +99,6 @@ class PianoRollControlsBar extends StatefulWidget {
     this.foldEnabled = false,
     this.onFoldToggle,
     // Scale section
-    this.highlightEnabled = false,
-    this.onHighlightToggle,
     // Transform section
     this.onLegato,
     // Lane visibility toggles
@@ -238,10 +232,6 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                     _buildGridGroup(context),
                     _buildSeparator(context),
 
-                    // === SCALE GROUP ===
-                    _buildScaleGroup(context),
-                    _buildSeparator(context),
-
                     // === TRANSFORM GROUP (Legato) ===
                     _buildTransformGroup(context),
                     _buildSeparator(context),
@@ -338,26 +328,6 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
               widget.onBeatsPerBarChanged?.call(numerator),
           onDragStart: widget.onSignatureDragStart,
           onDragEnd: widget.onSignatureDragEnd,
-        ),
-      ],
-    );
-  }
-
-  // ============ SCALE GROUP ============
-  // Scale Highlight toggle, keyed to the default root/scale (C major). Root and
-  // type pickers are a future feature (docs/BACKLOG.md).
-  Widget _buildScaleGroup(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildToggleButton(
-          context,
-          icon: BI.piano,
-          label: 'Scale',
-          isActive: widget.highlightEnabled,
-          onTap: widget.onHighlightToggle,
-          tooltip:
-              'Highlight the scale: mark root-note rows and dim out-of-scale notes',
         ),
       ],
     );

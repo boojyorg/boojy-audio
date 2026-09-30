@@ -7,7 +7,6 @@ import 'dart:async';
 import 'daw_screen_io.dart';
 import '../audio_engine.dart';
 import '../theme/animation_constants.dart';
-import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../widgets/shared/boojy_notice.dart';
@@ -1931,20 +1930,6 @@ class _DAWScreenState extends State<DAWScreen>
                               ],
                             ),
                           ),
-                          ElevatedButton.icon(
-                            onPressed: () => Notices.info(
-                              "The plugin's own window isn't supported here "
-                              'yet. Use the sliders below.',
-                            ),
-                            icon: Icon(BI.openInNew, size: 16),
-                            label: const Text('Open GUI'),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -2159,47 +2144,6 @@ class _DAWScreenState extends State<DAWScreen>
   /// Select all clips in the timeline view
   void _selectAllClips() {
     timelineKey.currentState?.selectAllClips();
-  }
-
-  /// Bounce MIDI to Audio - renders MIDI through instrument to audio file
-  /// NOTE: This is a placeholder that shows planned feature message.
-  /// Full implementation requires Rust-side single-track offline rendering.
-  void _bounceMidiToAudio() {
-    final selectedClipId = midiPlaybackManager?.selectedClipId;
-    final selectedClip = midiPlaybackManager?.currentEditingClip;
-
-    if (selectedClipId == null || selectedClip == null) {
-      Notices.info('Select a MIDI clip to bounce it to audio');
-      return;
-    }
-
-    // Show dialog explaining this is a planned feature
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Bounce MIDI to Audio'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Selected clip: ${selectedClip.name}'),
-            const SizedBox(height: 12),
-            Text(
-              'This feature will render the MIDI clip through its instrument '
-              'to create an audio file.\n\n'
-              'Coming soon in a future update.',
-              style: TextStyle(color: context.colors.textSecondary),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _deleteMidiClip(int clipId, int trackId) {
@@ -2932,10 +2876,6 @@ class _DAWScreenState extends State<DAWScreen>
           canRedo: undoRedoManager.canRedo,
           undoDescription: undoRedoManager.undoDescription,
           redoDescription: undoRedoManager.redoDescription,
-          snapEnabled: uiLayout.arrangementSnapEnabled,
-          snapResolution: uiLayout.arrangementSnapResolution,
-          onSnapToggle: uiLayout.toggleArrangementSnap,
-          onSnapResolutionChanged: uiLayout.setArrangementSnap,
           loopPlaybackEnabled: uiLayout.loopPlaybackEnabled,
           beatsPerBar: projectMetadata.timeSignatureNumerator,
           onTimeSignatureChanged: _onTimeSignatureChanged,
@@ -3424,7 +3364,8 @@ class _DAWScreenState extends State<DAWScreen>
                 }
               : null,
           onDuplicate: _duplicateSelectedClip,
-          onSplitAtMarker:
+          onSelectAll: _selectAllClips,
+          onSplitAtPlayhead:
               (midiPlaybackManager?.selectedClipId != null ||
                   timelineKey.currentState?.selectedAudioClipId != null)
               ? splitSelectedClipAtPlayhead
@@ -3437,9 +3378,6 @@ class _DAWScreenState extends State<DAWScreen>
           onJoinClips:
               (timelineKey.currentState?.selectedMidiClipIds.length ?? 0) >= 2
               ? joinSelectedClips
-              : null,
-          onBounceMidiToAudio: midiPlaybackManager?.selectedClipId != null
-              ? _bounceMidiToAudio
               : null,
           hasSelectedMidiClip: midiPlaybackManager?.selectedClipId != null,
           hasSelectedAudioClip:
@@ -3467,7 +3405,7 @@ class _DAWScreenState extends State<DAWScreen>
           // ? key (Shift + /) to show keyboard shortcuts
           const SingleActivator(LogicalKeyboardKey.slash, shift: true):
               _showKeyboardShortcuts,
-          // Cmd+E to split clip at insert marker (or playhead if no marker)
+          // Cmd+E splits the selected clip at the playhead
           const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
               splitSelectedClipAtPlayhead,
           // Cmd+D to duplicate clip
@@ -3479,9 +3417,6 @@ class _DAWScreenState extends State<DAWScreen>
           // Cmd+J to join selected clips into one
           const SingleActivator(LogicalKeyboardKey.keyJ, meta: true):
               joinSelectedClips,
-          // Cmd+B to bounce MIDI to audio
-          const SingleActivator(LogicalKeyboardKey.keyB, meta: true):
-              _bounceMidiToAudio,
           // Cmd+Shift+P to toggle palette editor (debug only)
           const SingleActivator(
             LogicalKeyboardKey.keyP,
@@ -3494,12 +3429,6 @@ class _DAWScreenState extends State<DAWScreen>
             meta: true,
             shift: true,
           ): _toggleUiLabsSwitcher,
-          // Cmd+Shift+E to toggle the editor-button A/B/C switcher (debug only)
-          const SingleActivator(
-            LogicalKeyboardKey.keyE,
-            meta: true,
-            shift: true,
-          ): _toggleEditorButtonSwitcher,
           // Cmd+Shift+B cycles the arrangement-canvas background (debug only)
           const SingleActivator(
             LogicalKeyboardKey.keyB,

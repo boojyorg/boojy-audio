@@ -53,7 +53,11 @@ Future<void> renderPreview(
     ),
   );
   before?.call();
-  await tester.pumpAndSettle(const Duration(milliseconds: 50));
+  // Fixed pumps, not pumpAndSettle: some widgets animate forever (the record
+  // button's pulse), which would never settle.
+  for (var i = 0; i < 20; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
 
   final out = Platform.environment['PREVIEW_OUT'] ?? Directory.systemTemp.path;
   await tester.runAsync(() async {
@@ -62,9 +66,10 @@ Future<void> renderPreview(
     await File('$out/$name.png').writeAsBytes(data!.buffer.asUint8List());
   });
 
-  // Let pending timers (e.g. a notice's fade) fire, so the test can end.
+  // Let pending timers (e.g. a notice's fade) fire, then unmount so looping
+  // animations stop and the test can end.
   await tester.pump(const Duration(minutes: 1));
-  await tester.pumpAndSettle();
+  await tester.pumpWidget(const SizedBox.shrink());
 }
 
 bool _iconsLoaded = false;
