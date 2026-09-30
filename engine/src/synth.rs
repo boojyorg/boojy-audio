@@ -800,6 +800,12 @@ impl TrackSynthManager {
         output
     }
 
+    /// Drop every per-track instrument and bypass flag (project teardown).
+    pub fn clear_all(&mut self) {
+        self.instruments.clear();
+        self.bypass_states.clear();
+    }
+
     pub fn remove_synth(&mut self, track_id: u64) -> bool {
         self.instruments.remove(&track_id).is_some()
     }

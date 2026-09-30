@@ -255,13 +255,11 @@ impl AudioGraph {
                     .audio_clips
                     .iter()
                     .map(|timeline_clip| {
-                        // Extract just the filename from the path for cleaner storage
-                        let filename = std::path::Path::new(&timeline_clip.clip.file_path)
-                            .file_name()
-                            .map_or_else(
-                                || timeline_clip.clip.file_path.clone(),
-                                |f| f.to_string_lossy().to_string(),
-                            );
+                        // Just the file name, without any `NNN-` prefix an earlier
+                        // save added inside a project's audio/ folder.
+                        let filename = crate::project::clean_audio_file_name(std::path::Path::new(
+                            &timeline_clip.clip.file_path,
+                        ));
                         AudioFileData {
                             id: timeline_clip.id,
                             original_name: filename.clone(),
@@ -308,10 +306,73 @@ impl AudioGraph {
         }
     }
 
-    /// Restore state from `ProjectData` (for loading) - native only (uses recorder)
-    /// Restore graph state from project data. Returns a map of save-time
-    /// track IDs to fresh-load track IDs so the API layer can remap audio
-    /// clip attachments (audio clips are restored after this method runs).
+    /// Remove everything a project owns, leaving only the master track, and
+    /// restart track and clip numbering. Used by New/Close Project
+    /// (`clear_all_tracks`) and at the start of `restore_from_project_data`.
+    ///
+    /// Because a reopened project keeps its saved track and clip ids, anything
+    /// left behind here (an instrument, a bypass flag, an effect, a MIDI clip)
+    /// would silently attach itself to the new project's tracks.
+    ///
+    /// Lock order follows the audio callback (synth → track → effect), and
+    /// each manager is locked on its own, never nested.
+    pub fn teardown_project_state(&mut self) {
+        let _ = self.stop();
+
+        // Snapshot what to remove (non-master tracks and their effects).
+        let (track_ids, effect_ids): (Vec<u64>, Vec<u64>) = {
+            let track_manager = self.track_manager.lock();
+            let mut track_ids = Vec::new();
+            let mut effect_ids = Vec::new();
+            for track_arc in track_manager.get_all_tracks() {
+                let track = track_arc.lock();
+                if track.id != 0 {
+                    track_ids.push(track.id);
+                    effect_ids.extend(track.fx_chain.iter().copied());
+                }
+            }
+            (track_ids, effect_ids)
+        };
+
+        // 1. synth: every per-track instrument and bypass flag.
+        self.track_synth_manager.lock().clear_all();
+
+        // Global MIDI clip storage (clips never attached to a track included)
+        // and the legacy audio timeline.
+        self.midi_clips.lock().clear();
+        self.clips.lock().clear();
+
+        // 2. track: remove tracks, restart numbering at 1.
+        {
+            let mut track_manager = self.track_manager.lock();
+            for track_id in &track_ids {
+                track_manager.remove_track(*track_id);
+            }
+            track_manager.reset_ids();
+        }
+
+        // 3. effect: remove the effects (VST3 included) those tracks owned.
+        if !effect_ids.is_empty() {
+            let mut effect_manager = self.effect_manager.lock();
+            for effect_id in &effect_ids {
+                effect_manager.remove_effect(*effect_id);
+            }
+            eprintln!(
+                "🧹 [Graph] Removed {} effects from cleared tracks",
+                effect_ids.len()
+            );
+        }
+
+        self.reset_clip_ids();
+    }
+
+    /// Restore graph state from project data (for loading) - native only (uses recorder).
+    ///
+    /// Tracks and MIDI clips keep the ids they were saved with, so UI data
+    /// filed under those ids (colours, automation, clip names) still lines up.
+    /// Returns a map of save-time track IDs to restored track IDs: the
+    /// identity for a healthy project, and only different if a damaged file
+    /// had a duplicate or reserved (0) track id that needed a fresh one.
     pub fn restore_from_project_data(
         &mut self,
         project_data: crate::project::ProjectData,
@@ -324,32 +385,11 @@ impl AudioGraph {
         // Stop playback
         let _ = self.stop();
 
-        // Clear existing tracks (except master will be kept and updated)
-        {
-            let mut track_manager = self.track_manager.lock();
-            let _effect_manager = self.effect_manager.lock();
-
-            // Get all track IDs except master (ID 0)
-            let all_tracks = track_manager.get_all_tracks();
-            let track_ids_to_remove: Vec<u64> = all_tracks
-                .iter()
-                .filter_map(|track_arc| {
-                    let track = track_arc.lock();
-                    if track.id != 0 {
-                        Some(track.id)
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-
-            // Remove non-master tracks
-            for track_id in track_ids_to_remove {
-                track_manager.remove_track(track_id);
-            }
-
-            eprintln!("   - Cleared existing tracks");
-        }
+        // Fully tear down the previous project (tracks, instruments, effects,
+        // stray MIDI clips, id counters). Tracks and clips keep their SAVED ids
+        // below, so anything left over would attach itself to the new project.
+        self.teardown_project_state();
+        eprintln!("   - Cleared existing project state");
 
         // Restore tempo (via recorder)
         self.recorder.set_tempo(project_data.tempo);
@@ -395,12 +435,29 @@ impl AudioGraph {
             eprintln!("   - Buffer size: {buffer_preset:?}");
         }
 
-        // Track save-time IDs to fresh-load-time IDs. `create_track` assigns
-        // new sequential IDs at restore, so a send saved with target=2 may
-        // need to point to (say) new id=4 after restore. Master is always at
-        // id 0 — both save and restore.
+        // Save-time track ids to restored track ids. Healthy projects map every
+        // id to itself; the map exists so sends and group parents still resolve
+        // if a damaged file forced a fresh id. Master is always id 0.
         let mut id_map: HashMap<u64, u64> = HashMap::new();
         id_map.insert(0, 0);
+
+        // Clip ids that are safe to keep as saved (unique across the project),
+        // and make sure the counter is above every saved id up front so fresh
+        // ids handed out for damaged duplicates can never collide with one.
+        let keepable_clip_ids = crate::project::unique_saved_clip_ids(&project_data);
+        if let Some(max_clip_id) = project_data
+            .tracks
+            .iter()
+            .flat_map(|t| t.clips.iter().map(|c| c.id))
+            .max()
+        {
+            self.ensure_next_clip_id_above(max_clip_id);
+        }
+        // Fresh track ids for the rare damaged case start above every saved id.
+        let mut fallback_track_id = project_data.tracks.iter().map(|t| t.id).max().unwrap_or(0) + 1;
+        // Group parents are resolved after all tracks exist (a parent can be
+        // listed after its child).
+        let mut pending_parents: Vec<(u64, u64)> = Vec::new();
         // Sends are restored AFTER all tracks are created so target IDs can
         // be remapped via `id_map` (the target return might be created later
         // in the loop than the source track).
@@ -453,9 +510,23 @@ impl AudioGraph {
             drop(track_manager); // Release lock before creating track
             let track_id = {
                 let mut tm = self.track_manager.lock();
-                tm.create_track(track_type, track_data.name.clone())
+                match tm.insert_track_with_id(track_data.id, track_type, track_data.name.clone()) {
+                    Ok(id) => id,
+                    Err(reason) => {
+                        // Damaged file (duplicate or reserved id): give this
+                        // track a fresh id above every saved one.
+                        let fresh = fallback_track_id;
+                        fallback_track_id += 1;
+                        eprintln!(
+                            "⚠️  [restore] track '{}': {reason}; using fresh id {fresh}",
+                            track_data.name
+                        );
+                        tm.insert_track_with_id(fresh, track_type, track_data.name.clone())
+                            .expect("fresh track id is above every saved id")
+                    }
+                }
             };
-            id_map.insert(track_data.id, track_id);
+            id_map.entry(track_data.id).or_insert(track_id);
 
             // Update track properties
             {
@@ -468,8 +539,11 @@ impl AudioGraph {
                     track.solo = track_data.solo;
                     track.armed = track_data.armed;
 
-                    // Restore parent group and input monitoring
-                    track.parent_group = track_data.parent_group_id;
+                    // Restore input monitoring (parent group is resolved below,
+                    // once every track exists)
+                    if let Some(parent) = track_data.parent_group_id {
+                        pending_parents.push((track_id, parent));
+                    }
                     track.input_monitoring = track_data.input_monitoring;
                     track.timeline_visible = if track_type == TrackType::Return {
                         false
@@ -750,8 +824,12 @@ impl AudioGraph {
                     );
                     let clip_arc = Arc::new(midi_clip);
 
-                    // Generate a new clip ID
-                    let clip_id = {
+                    // Keep the saved clip id (UI data such as the clip's name,
+                    // mute and loop settings is filed under it). Only a
+                    // duplicated id in a damaged file gets a fresh one.
+                    let clip_id = if keepable_clip_ids.contains(&clip_data.id) {
+                        clip_data.id
+                    } else {
                         let mut next_id = self.next_clip_id.lock();
                         let id = *next_id;
                         *next_id += 1;
@@ -818,6 +896,20 @@ impl AudioGraph {
                         }
                     }
                 }
+            }
+        }
+
+        // Resolve group parents through the id map.
+        for (child_id, saved_parent) in pending_parents {
+            let Some(parent_id) = id_map.get(&saved_parent).copied() else {
+                eprintln!(
+                    "⚠️  [restore] track {child_id}: parent group {saved_parent} not found, leaving ungrouped"
+                );
+                continue;
+            };
+            let tm = self.track_manager.lock();
+            if let Some(track_arc) = tm.get_track(child_id) {
+                track_arc.lock().parent_group = Some(parent_id);
             }
         }
 

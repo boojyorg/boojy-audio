@@ -46,6 +46,19 @@ pub extern "C" fn load_audio_file_ffi(path: *const c_char) -> i64 {
     )
 }
 
+/// Get every audio clip on every track as a `;`-separated list of CSV rows.
+/// See `api::get_all_audio_clips_info` for the field order.
+#[no_mangle]
+pub extern "C" fn get_all_audio_clips_info_ffi() -> *mut c_char {
+    ffi_catch(
+        std::ptr::null_mut(),
+        || match api::get_all_audio_clips_info() {
+            Ok(info) => safe_cstring(info).into_raw(),
+            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+        },
+    )
+}
+
 /// Get clip duration in seconds
 #[no_mangle]
 pub extern "C" fn get_clip_duration_ffi(clip_id: u64) -> f64 {

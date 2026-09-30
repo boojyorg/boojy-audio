@@ -31,6 +31,7 @@ abstract class AudioEngineInterface {
     double startTime = 0.0,
   });
   double getClipDuration(int clipId);
+  String getAllAudioClipsInfo();
   List<double> getWaveformPeaks(int clipId, int resolution);
   bool removeAudioClip(int trackId, int clipId);
   int addExistingClipToTrack(

@@ -388,6 +388,358 @@ fn load_reports_missing_audio_file_instead_of_dropping_the_clip() {
 }
 
 // ============================================================================
+// STABLE IDS ACROSS RELOAD
+// ============================================================================
+
+/// One row of `get_all_audio_clips_info`, the fields the tests care about.
+#[derive(Debug, Clone, PartialEq)]
+struct AudioClipRow {
+    clip_id: u64,
+    track_id: u64,
+    start_time: f64,
+    offset: f64,
+    duration: f64,
+    file_duration: f64,
+    file_path: String,
+}
+
+fn audio_clip_rows() -> Vec<AudioClipRow> {
+    let info = get_all_audio_clips_info().expect("audio clips info");
+    let mut rows: Vec<AudioClipRow> = info
+        .split(';')
+        .filter(|e| !e.is_empty())
+        .map(|entry| {
+            let f: Vec<&str> = entry.split(',').collect();
+            assert_eq!(f.len(), 14, "14 fields per audio clip row: {entry}");
+            AudioClipRow {
+                clip_id: f[0].parse().unwrap(),
+                track_id: f[1].parse().unwrap(),
+                start_time: f[2].parse().unwrap(),
+                offset: f[3].parse().unwrap(),
+                duration: f[4].parse().unwrap(),
+                file_duration: f[5].parse().unwrap(),
+                file_path: f[13]
+                    .replace("%2C", ",")
+                    .replace("%3B", ";")
+                    .replace("%25", "%"),
+            }
+        })
+        .collect();
+    rows.sort_by_key(|r| r.clip_id);
+    rows
+}
+
+/// `(clip_id, track_id)` of every MIDI clip in the engine, sorted by clip id.
+fn midi_clip_rows() -> Vec<(u64, i64)> {
+    let info = get_all_midi_clips_info().expect("midi clips info");
+    let mut rows: Vec<(u64, i64)> = info
+        .split(';')
+        .filter(|e| !e.is_empty())
+        .map(|entry| {
+            let f: Vec<&str> = entry.split(',').collect();
+            (f[0].parse().unwrap(), f[1].parse().unwrap())
+        })
+        .collect();
+    rows.sort_unstable();
+    rows
+}
+
+/// File names in a project's `audio/` folder, sorted.
+fn audio_dir_files(project: &Path) -> Vec<String> {
+    let mut names: Vec<String> = std::fs::read_dir(project.join("audio"))
+        .map(|rd| {
+            rd.map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+                .collect()
+        })
+        .unwrap_or_default();
+    names.sort();
+    names
+}
+
+/// Builds: a MIDI track and two audio tracks whose ids are NOT contiguous
+/// (the middle track is deleted), 2 audio clips + 1 MIDI clip. Returns
+/// `(midi_track, audio_track, source_wav)`.
+fn build_mixed_project(dir: &Path) -> (u64, u64, PathBuf) {
+    let wav = write_sine_wav(dir, "source.wav", 2.0, 0.5);
+    let midi_track = create_track("Midi", "Keys".to_string()).unwrap();
+    let doomed = create_track("Audio", "Doomed".to_string()).unwrap();
+    let audio_track = create_track("Audio", "Drums".to_string()).unwrap();
+    delete_track(doomed).unwrap();
+
+    let midi_clip = create_midi_clip().unwrap();
+    add_midi_note_to_clip(midi_clip, 60, 100, 0.0, 1.0).unwrap();
+    add_midi_clip_to_track_api(midi_track, midi_clip, 2.5).unwrap();
+
+    load_audio_file_to_track_api(path_str(&wav), audio_track, 0.0).unwrap();
+    load_audio_file_to_track_api(path_str(&wav), audio_track, 3.0).unwrap();
+    (midi_track, audio_track, wav)
+}
+
+#[test]
+fn track_and_clip_ids_are_identical_after_save_and_load() {
+    let _guard = engine_lock();
+
+    let dir = temp_dir("stable_ids");
+    let (midi_track, audio_track, _wav) = build_mixed_project(&dir);
+
+    let tracks_before = track_ids_and_names();
+    let audio_before = audio_clip_rows();
+    let midi_before = midi_clip_rows();
+    assert_eq!(tracks_before.len(), 2);
+    assert_eq!(audio_before.len(), 2);
+    assert_eq!(midi_before.len(), 1);
+    assert_eq!(
+        tracks_before.iter().map(|t| t.0).collect::<Vec<_>>(),
+        vec![midi_track, audio_track],
+        "ids are non-contiguous (a track was deleted)"
+    );
+
+    let project = dir.join("Stable.audio");
+    save_project("Stable".to_string(), path_str(&project)).unwrap();
+
+    // Reopen twice: ids must survive every cycle, not just the first.
+    for _ in 0..2 {
+        load_project(path_str(&project)).unwrap();
+
+        assert_eq!(track_ids_and_names(), tracks_before, "track ids and names");
+        assert_eq!(midi_clip_rows(), midi_before, "MIDI clip ids and owners");
+
+        let audio_after = audio_clip_rows();
+        assert_eq!(
+            audio_after
+                .iter()
+                .map(|r| (r.clip_id, r.track_id))
+                .collect::<Vec<_>>(),
+            audio_before
+                .iter()
+                .map(|r| (r.clip_id, r.track_id))
+                .collect::<Vec<_>>(),
+            "audio clip ids and owners"
+        );
+        for (a, b) in audio_after.iter().zip(&audio_before) {
+            assert!((a.start_time - b.start_time).abs() < 1e-9, "start time");
+        }
+        assert_eq!(
+            audio_clip_positions(audio_track),
+            audio_before
+                .iter()
+                .map(|r| (r.clip_id, r.start_time))
+                .collect::<Vec<_>>()
+        );
+
+        // Saving again still finds every clip's audio under its (kept) id.
+        save_project("Stable".to_string(), path_str(&project)).unwrap();
+    }
+}
+
+#[test]
+fn new_tracks_and_clips_after_load_get_ids_above_restored_ones() {
+    let _guard = engine_lock();
+
+    let dir = temp_dir("ids_above_restored");
+    let (_midi_track, _audio_track, wav) = build_mixed_project(&dir);
+    let project = dir.join("Above.audio");
+    save_project("Above".to_string(), path_str(&project)).unwrap();
+    load_project(path_str(&project)).unwrap();
+
+    let max_track = track_ids_and_names().iter().map(|t| t.0).max().unwrap();
+    let max_clip = audio_clip_rows()
+        .iter()
+        .map(|r| r.clip_id)
+        .chain(midi_clip_rows().iter().map(|r| r.0))
+        .max()
+        .unwrap();
+
+    let new_track = create_track("Audio", "After load".to_string()).unwrap();
+    assert!(
+        new_track > max_track,
+        "new track id {new_track} > {max_track}"
+    );
+
+    let new_audio_clip = load_audio_file_to_track_api(path_str(&wav), new_track, 0.0).unwrap();
+    assert!(
+        new_audio_clip > max_clip,
+        "new audio clip id above restored"
+    );
+
+    let new_midi_clip = create_midi_clip().unwrap();
+    assert!(new_midi_clip > new_audio_clip, "new MIDI clip id above all");
+}
+
+#[test]
+fn loading_project_b_over_a_leaves_no_stale_midi_clips() {
+    let _guard = engine_lock();
+
+    let dir = temp_dir("no_stale_midi");
+
+    // Project A: two MIDI clips on one track.
+    let track_a = create_track("Midi", "A".to_string()).unwrap();
+    for start in [0.0, 4.0] {
+        let clip = create_midi_clip().unwrap();
+        add_midi_note_to_clip(clip, 60, 100, 0.0, 1.0).unwrap();
+        add_midi_clip_to_track_api(track_a, clip, start).unwrap();
+    }
+    let project_a = dir.join("A.audio");
+    save_project("A".to_string(), path_str(&project_a)).unwrap();
+
+    // Project B: one MIDI clip (built after a reset, like New Project).
+    reset_engine();
+    let track_b = create_track("Midi", "B".to_string()).unwrap();
+    let clip = create_midi_clip().unwrap();
+    add_midi_note_to_clip(clip, 64, 100, 0.0, 1.0).unwrap();
+    add_midi_clip_to_track_api(track_b, clip, 1.0).unwrap();
+    let project_b = dir.join("B.audio");
+    save_project("B".to_string(), path_str(&project_b)).unwrap();
+
+    load_project(path_str(&project_a)).unwrap();
+    assert_eq!(midi_clip_rows().len(), 2);
+
+    // Also leave a clip that never reached a track: it must not survive.
+    let _orphan = create_midi_clip().unwrap();
+
+    load_project(path_str(&project_b)).unwrap();
+    let rows = midi_clip_rows();
+    assert_eq!(rows.len(), 1, "only B's clip remains, got {rows:?}");
+    assert_eq!(track_ids_and_names().len(), 1);
+    assert_eq!(track_ids_and_names()[0].1, "B");
+}
+
+#[test]
+fn save_load_save_does_not_grow_the_audio_folder_or_stack_prefixes() {
+    let _guard = engine_lock();
+
+    let dir = temp_dir("audio_folder_stable");
+    let (_midi_track, _audio_track, _wav) = build_mixed_project(&dir);
+    let audio_ids: Vec<u64> = audio_clip_rows().iter().map(|r| r.clip_id).collect();
+
+    let project_a = dir.join("A.audio");
+    save_project("A".to_string(), path_str(&project_a)).unwrap();
+    let after_first_save = audio_dir_files(&project_a);
+    let expected: Vec<String> = audio_ids
+        .iter()
+        .map(|id| format!("{id:03}-source.wav"))
+        .collect();
+    assert_eq!(after_first_save, expected);
+
+    // Reopen + save several times: nothing added, nothing renamed.
+    for _ in 0..3 {
+        load_project(path_str(&project_a)).unwrap();
+        save_project("A".to_string(), path_str(&project_a)).unwrap();
+        assert_eq!(audio_dir_files(&project_a), after_first_save);
+    }
+
+    // Save As into a second project copies from A's audio/ folder: the
+    // copies carry exactly one prefix, never a stacked one.
+    let project_b = dir.join("B.audio");
+    save_project("B".to_string(), path_str(&project_b)).unwrap();
+    assert_eq!(audio_dir_files(&project_b), expected);
+    load_project(path_str(&project_b)).unwrap();
+    save_project("B".to_string(), path_str(&project_b)).unwrap();
+    assert_eq!(audio_dir_files(&project_b), expected);
+}
+
+#[test]
+fn clear_all_tracks_restarts_track_and_clip_numbering() {
+    let _guard = engine_lock();
+
+    let dir = temp_dir("clear_resets_ids");
+    let wav = write_sine_wav(&dir, "source.wav", 1.0, 0.5);
+    for i in 0..3 {
+        let t = create_track("Audio", format!("T{i}")).unwrap();
+        load_audio_file_to_track_api(path_str(&wav), t, 0.0).unwrap();
+    }
+    create_midi_clip().unwrap();
+
+    clear_all_tracks().unwrap();
+
+    let first_track = create_track("Audio", "Fresh".to_string()).unwrap();
+    assert_eq!(first_track, 1, "first track of a new project is id 1");
+    let first_clip = load_audio_file_to_track_api(path_str(&wav), first_track, 0.0).unwrap();
+    assert_eq!(first_clip, 0, "clip numbering restarts too");
+}
+
+#[test]
+fn audio_clips_info_lists_restored_clips() {
+    let _guard = engine_lock();
+
+    let dir = temp_dir("audio_clips_info");
+    let (_midi_track, audio_track, _wav) = build_mixed_project(&dir);
+    let project = dir.join("Info.audio");
+    save_project("Info".to_string(), path_str(&project)).unwrap();
+    load_project(path_str(&project)).unwrap();
+
+    let rows = audio_clip_rows();
+    assert_eq!(rows.len(), 2);
+    assert!(rows.iter().all(|r| r.track_id == audio_track));
+    assert!(rows[0].start_time.abs() < 1e-9);
+    assert!((rows[1].start_time - 3.0).abs() < 1e-9);
+    for r in &rows {
+        assert!(r.offset.abs() < 1e-9);
+        assert!(
+            (r.duration - -1.0).abs() < 1e-9,
+            "no explicit duration => -1"
+        );
+        assert!(
+            (r.file_duration - 2.0).abs() < 0.01,
+            "file duration in seconds"
+        );
+        assert!(
+            r.file_path.contains("Info.audio") && r.file_path.ends_with("-source.wav"),
+            "points at the file inside the project, got {}",
+            r.file_path
+        );
+    }
+
+    // Waveforms are available for every listed clip id (UI recomputes peaks).
+    for r in &rows {
+        assert!(!get_waveform_peaks(r.clip_id, 100).unwrap().is_empty());
+    }
+}
+
+#[test]
+fn damaged_project_with_duplicate_ids_still_loads_with_distinct_ids() {
+    let _guard = engine_lock();
+
+    let dir = temp_dir("duplicate_ids");
+    let wav = write_sine_wav(&dir, "source.wav", 1.0, 0.5);
+    let a = create_track("Audio", "A".to_string()).unwrap();
+    let b = create_track("Audio", "B".to_string()).unwrap();
+    load_audio_file_to_track_api(path_str(&wav), a, 0.0).unwrap();
+    load_audio_file_to_track_api(path_str(&wav), b, 1.0).unwrap();
+    let project = dir.join("Dup.audio");
+    save_project("Dup".to_string(), path_str(&project)).unwrap();
+
+    // Damage project.json: both tracks claim id 1, both clips claim id 0.
+    let json_path = project.join("project.json");
+    let mut json: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&json_path).unwrap()).unwrap();
+    for track in json["tracks"].as_array_mut().unwrap() {
+        if track["id"] != 0 {
+            track["id"] = serde_json::json!(1);
+            for clip in track["clips"].as_array_mut().unwrap() {
+                clip["id"] = serde_json::json!(0);
+            }
+        }
+    }
+    std::fs::write(&json_path, serde_json::to_string(&json).unwrap()).unwrap();
+
+    load_project(path_str(&project)).unwrap();
+
+    let tracks = track_ids_and_names();
+    assert_eq!(tracks.len(), 2);
+    assert_ne!(
+        tracks[0].0, tracks[1].0,
+        "duplicate track ids are made distinct"
+    );
+    let rows = audio_clip_rows();
+    assert_eq!(rows.len(), 2);
+    assert_ne!(
+        rows[0].clip_id, rows[1].clip_id,
+        "duplicate clip ids are made distinct"
+    );
+}
+
+// ============================================================================
 // COMMAND EXECUTE → UNDO → REDO vs ENGINE STATE (locks Phase 1: C46/C63)
 // ============================================================================
 

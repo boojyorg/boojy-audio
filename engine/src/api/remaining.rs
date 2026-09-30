@@ -45,6 +45,51 @@ pub fn add_existing_clip_to_track(
     Ok(clip_id)
 }
 
+/// List every audio clip on every track, so the UI can rebuild its arrangement
+/// from the engine's copy of the song (the way MIDI clips already work).
+///
+/// Returns a `;`-separated list, one entry per clip. Each entry is
+/// `clip_id,track_id,start_time,offset,duration,file_duration,gain_db,`
+/// `warp_enabled,stretch_factor,warp_mode,transpose_semitones,transpose_cents,`
+/// `reversed,file_path`
+///
+/// `duration` is `-1` when the clip plays to the end of its file (no explicit
+/// duration). Booleans are `0`/`1`. `file_path` is last and percent-encoded
+/// (`encode_csv_field`; decode with `decodeCsvField` on the Dart side).
+pub fn get_all_audio_clips_info() -> Result<String, String> {
+    use super::helpers::encode_csv_field;
+
+    let graph_mutex = graph()?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
+
+    let mut entries: Vec<String> = Vec::new();
+    for track_arc in track_manager.get_all_tracks() {
+        let track = track_arc.lock();
+        for clip in &track.audio_clips {
+            entries.push(format!(
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                clip.id,
+                track.id,
+                clip.start_time,
+                clip.offset,
+                clip.duration.unwrap_or(-1.0),
+                clip.clip.duration_seconds,
+                clip.gain_db,
+                u8::from(clip.warp_enabled),
+                clip.stretch_factor,
+                clip.warp_mode,
+                clip.transpose_semitones,
+                clip.transpose_cents,
+                u8::from(clip.reversed),
+                encode_csv_field(&clip.clip.file_path),
+            ));
+        }
+    }
+
+    Ok(entries.join(";"))
+}
+
 /// Join (bounce) a set of audio clips on one track into a single rendered WAV.
 ///
 /// RENDER-ONLY: the engine writes a stereo 48 kHz WAV baking each clip's
@@ -225,64 +270,13 @@ pub fn clear_all_tracks() -> Result<String, String> {
     let graph_mutex = graph()?;
     let mut graph = graph_mutex.lock();
 
-    // Stop playback if running
-    let _ = graph.stop();
-
-    // Get all track IDs except master
-    let track_ids_to_remove: Vec<u64> = {
+    // Tear down tracks, instruments, effects, MIDI clips and restart track and
+    // clip numbering, so the first track in every new project gets id 1.
+    let cleared_tracks = {
         let track_manager = graph.track_manager.lock();
-        let all_tracks = track_manager.get_all_tracks();
-        all_tracks
-            .iter()
-            .filter_map(|track_arc| {
-                let track = track_arc.lock();
-                if track.id != 0 {
-                    Some(track.id)
-                } else {
-                    None
-                }
-            })
-            .collect()
+        track_manager.get_all_tracks().len().saturating_sub(1)
     };
-
-    // Collect all fx_chains from tracks being deleted
-    let all_effect_ids: Vec<u64> = {
-        let track_manager = graph.track_manager.lock();
-        track_ids_to_remove.iter().flat_map(|track_id| {
-            if let Some(track_arc) = track_manager.get_track(*track_id) {
-                let track = track_arc.lock();
-                track.fx_chain.clone()
-            } else {
-                Vec::new()
-            }
-        }).collect()
-    };
-
-    // Delete all non-master tracks
-    for track_id in &track_ids_to_remove {
-        // Stop any playing notes on the per-track synth
-        { let mut synth_manager = graph.track_synth_manager.lock();
-            synth_manager.all_notes_off(*track_id);
-            synth_manager.remove_synth(*track_id);
-        }
-
-        // Remove all MIDI clips belonging to this track
-        graph.remove_midi_clips_for_track(*track_id);
-
-        // Remove the track
-        let mut track_manager = graph.track_manager.lock();
-        track_manager.remove_track(*track_id);
-    }
-
-    // Remove all VST3 effects that were on deleted tracks
-    if !all_effect_ids.is_empty() {
-        { let mut effect_manager = graph.effect_manager.lock();
-            for effect_id in &all_effect_ids {
-                effect_manager.remove_effect(*effect_id);
-            }
-            eprintln!("🧹 [API] Removed {} effects from deleted tracks", all_effect_ids.len());
-        }
-    }
+    graph.teardown_project_state();
 
     // Clear all audio clips from global storage
     let clips_mutex = clips()?;
@@ -301,11 +295,8 @@ pub fn clear_all_tracks() -> Result<String, String> {
         }
     }
 
-    eprintln!(
-        "🧹 [API] Cleared {} tracks (master track preserved)",
-        track_ids_to_remove.len()
-    );
-    Ok(format!("Cleared {} tracks", track_ids_to_remove.len()))
+    eprintln!("🧹 [API] Cleared {cleared_tracks} tracks (master track preserved)");
+    Ok(format!("Cleared {cleared_tracks} tracks"))
 }
 
 /// Duplicate a track (cannot duplicate master)

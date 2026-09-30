@@ -55,10 +55,6 @@ reproduces them.
   audio track is armed, so the meter moves and you hear yourself; warn "Boojy can't hear your
   input" on a failed capture start or all-zero input (a closed-lid Mac mic or a denied
   microphone permission gives exact digital silence). Next PR; uses `Notices.problem(id:)`.
-- **Reopening a project loses its audio clips and recolours tracks** (row 9). The engine gives
-  tracks and clips new ids on load; the arrangement restores audio clips from `ui_layout.json`
-  by the old ids, and the palette colour is picked by track id. MIDI survives (rebuilt from the
-  engine). Next PR: keep ids stable across save/load, rebuild audio clips from the engine.
 - *If reproduced:* **VST3 effects may drop out of the device chain** (U4). The engine reports
   `name:` and `path:` as text; the Dart parser reads every value as a number. Windows `C:` paths
   break the split too.
@@ -74,9 +70,6 @@ reproduces them.
 - **Export showed an error pop-up** (Tyr, 2026-09-30; format and message not captured). Maybe
   the ffmpeg lookup: it's installed in `/opt/homebrew/bin`, which apps opened from Finder
   don't get in their PATH.
-- **Every save copies the audio files again under longer names** (`010-007-005-….wav`), so the
-  project's `audio/` folder keeps growing.
-- **`ui_layout.json` stores waveform peaks** (2.2 MB for three clips). Recompute them on load.
 - *If reproduced:*
   - New Project keeps the previous tempo and time signature (U2).
   - The volume fader jumps when grabbed (U3).

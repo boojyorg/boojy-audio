@@ -90,11 +90,29 @@ void main() {
       expect(restored.startTime, equals(5.5));
       expect(restored.duration, equals(10.0));
       expect(restored.offset, equals(1.5));
-      expect(restored.waveformPeaks, equals([0.1, 0.5, 0.8, 0.3]));
+      // Peaks are recomputed from the audio on load, never written to the file.
+      expect(json.containsKey('waveformPeaks'), isFalse);
+      expect(restored.waveformPeaks, isEmpty);
       expect(restored.color, equals(const Color(0xFFFF5500)));
       expect(restored.editData, equals(editData));
       expect(restored.loopLength, equals(8.0));
       expect(restored.canRepeat, isFalse);
+    });
+
+    test('still reads waveformPeaks written by older builds', () {
+      final json = ClipData(
+        clipId: 1,
+        trackId: 0,
+        filePath: 'test.wav',
+        startTime: 0.0,
+        duration: 4.0,
+      ).toJson();
+      json['waveformPeaks'] = [0.25, 0.75];
+
+      final restored = ClipData.fromJson(json);
+
+      expect(restored.waveformPeaks, equals([0.25, 0.75]));
+      expect(restored.toJson().containsKey('waveformPeaks'), isFalse);
     });
 
     test('ignores an old clip-automation key', () {
@@ -484,7 +502,7 @@ void main() {
       expect(restored.startTime, equals(10.0));
       expect(restored.duration, equals(20.0));
       expect(restored.offset, equals(2.0));
-      expect(restored.waveformPeaks, equals([0.1, 0.9]));
+      expect(restored.waveformPeaks, isEmpty);
       expect(restored.color, equals(const Color(0xFF00AAFF)));
       expect(restored.loopLength, equals(16.0));
       expect(restored.canRepeat, isTrue);

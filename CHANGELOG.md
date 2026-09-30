@@ -73,6 +73,17 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Reopening a project brings everything back.** Audio clips no longer vanish from the
+  arrangement, tracks keep their colours, MIDI clips keep their names, mute and loop settings,
+  and colour overrides, automation and the selected track stay on the right track. Tracks and
+  clips now keep their numbers when a project opens, and the arrangement rebuilds its audio
+  clips from the engine's copy of the song, so projects already affected get their audio back
+  too (clip gain, warp and pitch from those older saves come back as defaults). Saving no longer
+  re-copies audio into the project's `audio` folder under ever-longer names
+  (`014-010-007-…wav`); files already there are reused, and nothing is deleted. Waveforms are
+  redrawn when a project opens instead of being stored, so the layout file shrinks from about
+  2 MB to a few KB. Opening a project now fully clears the previous one first, and New Project
+  numbers tracks from 1 again.
 - **macOS menus no longer flicker shut.** A menu you opened closed within half a second, because
   a background MIDI check redrew the whole screen twice a second; menus now only refresh when
   something in them changes.

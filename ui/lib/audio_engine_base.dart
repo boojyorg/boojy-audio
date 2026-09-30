@@ -24,6 +24,7 @@ class _AudioEngineBase {
   late final _GetRecordStartPositionFfi _getRecordStartPosition;
   late final _SetRecordStartPositionFfi _setRecordStartPosition;
   late final _GetClipDurationFfi _getClipDuration;
+  late final _GetAllAudioClipsInfoFfi _getAllAudioClipsInfo;
 
   // Latency Control functions
   late final _SetBufferSizeFfi _setBufferSize;
@@ -477,6 +478,12 @@ class _AudioEngineBase {
       _getClipDuration = _lib
           .lookup<ffi.NativeFunction<_GetClipDurationFfiNative>>(
             'get_clip_duration_ffi',
+          )
+          .asFunction();
+
+      _getAllAudioClipsInfo = _lib
+          .lookup<ffi.NativeFunction<_GetAllAudioClipsInfoFfiNative>>(
+            'get_all_audio_clips_info_ffi',
           )
           .asFunction();
 

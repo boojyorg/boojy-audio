@@ -466,6 +466,45 @@ impl TrackManager {
         id
     }
 
+    /// Insert a track under a caller-chosen id (used when restoring a saved
+    /// project so tracks keep the ids the UI's layout data is filed under).
+    ///
+    /// Rejects id 0 (master) and ids already in use. Bumps the id counter past
+    /// `id` so later `create_track` calls never collide with a restored id.
+    pub fn insert_track_with_id(
+        &mut self,
+        id: TrackId,
+        track_type: TrackType,
+        name: String,
+    ) -> Result<TrackId, String> {
+        if id == self.master_track_id {
+            return Err("track id 0 is reserved for the master track".to_string());
+        }
+        if self.tracks.iter().any(|t| t.lock().id == id) {
+            return Err(format!("track id {id} is already in use"));
+        }
+
+        self.tracks
+            .push(Arc::new(parking_lot::Mutex::new(Track::new(
+                id, track_type, name,
+            ))));
+        self.next_id = self.next_id.max(id + 1);
+        Ok(id)
+    }
+
+    /// Restart track numbering from 1. Only call when no non-master tracks
+    /// exist (New Project / Close Project), so the first new track in every
+    /// project gets the same id.
+    pub fn reset_ids(&mut self) {
+        debug_assert!(
+            self.tracks
+                .iter()
+                .all(|t| t.lock().id == self.master_track_id),
+            "reset_ids called while non-master tracks exist"
+        );
+        self.next_id = 1;
+    }
+
     /// Get a track by ID
     pub fn get_track(&self, id: TrackId) -> Option<Arc<parking_lot::Mutex<Track>>> {
         self.tracks.iter().find(|t| t.lock().id == id).cloned()
@@ -631,5 +670,42 @@ mod tests {
 
         // Cannot remove master
         assert!(!manager.remove_track(0));
+    }
+
+    #[test]
+    fn test_insert_track_with_id_keeps_ids_and_bumps_counter() {
+        let mut manager = TrackManager::new();
+        assert_eq!(
+            manager.insert_track_with_id(7, TrackType::Audio, "A".to_string()),
+            Ok(7)
+        );
+        assert_eq!(
+            manager.insert_track_with_id(3, TrackType::Midi, "B".to_string()),
+            Ok(3)
+        );
+        assert!(manager.get_track(7).is_some());
+        assert!(manager.get_track(3).is_some());
+
+        // Duplicates and the master id are rejected
+        assert!(manager
+            .insert_track_with_id(7, TrackType::Audio, "dup".to_string())
+            .is_err());
+        assert!(manager
+            .insert_track_with_id(0, TrackType::Audio, "master".to_string())
+            .is_err());
+
+        // New tracks land above every restored id
+        let next = manager.create_track(TrackType::Audio, "C".to_string());
+        assert_eq!(next, 8);
+    }
+
+    #[test]
+    fn test_reset_ids_restarts_numbering() {
+        let mut manager = TrackManager::new();
+        let id = manager.create_track(TrackType::Audio, "A".to_string());
+        assert_eq!(id, 1);
+        assert!(manager.remove_track(id));
+        manager.reset_ids();
+        assert_eq!(manager.create_track(TrackType::Audio, "B".to_string()), 1);
     }
 }

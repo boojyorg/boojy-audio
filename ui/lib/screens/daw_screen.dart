@@ -46,7 +46,6 @@ import '../services/project_manager.dart';
 import '../services/midi_playback_manager.dart';
 import '../services/vst3_editor_service.dart';
 import '../services/plugin_preferences_service.dart';
-import '../widgets/settings_dialog.dart';
 import '../widgets/app_settings_dialog.dart';
 import '../widgets/export_dialog.dart';
 import '../services/midi_file_service.dart';
@@ -441,7 +440,7 @@ class _DAWScreenState extends State<DAWScreen>
       autoSaveService.start();
 
       // Check for crash recovery
-      _checkForCrashRecovery();
+      checkForCrashRecovery();
     } catch (e) {
       Log.e('Audio engine initialization failed: $e');
       if (mounted) {
@@ -2236,63 +2235,6 @@ class _DAWScreenState extends State<DAWScreen>
     ];
   }
 
-  /// Apply UI layout from loaded project
-  void _applyUILayout(UILayoutData layout) => applyUILayout(layout);
-
-  /// Check for crash recovery backup on startup
-  Future<void> _checkForCrashRecovery() async {
-    try {
-      final backupPath = await autoSaveService.checkForRecovery();
-      if (backupPath == null || !mounted) return;
-
-      // Get backup modification time
-      final backupDir = Directory(backupPath);
-      if (!await backupDir.exists()) return;
-
-      final stat = await backupDir.stat();
-      final backupDate = stat.modified;
-
-      if (!mounted) return;
-
-      // Show recovery dialog
-      final shouldRecover = await RecoveryDialog.show(
-        context,
-        backupPath: backupPath,
-        backupDate: backupDate,
-      );
-
-      if (shouldRecover == true && mounted) {
-        // Load the backup project
-        final result = await projectManager?.loadProject(backupPath);
-        if (result?.result.success == true) {
-          // Clear and restore MIDI clips from engine for UI display. Sync the
-          // engine tempo first so beat→time conversion uses the recovered
-          // project's BPM, not the stale default (notes would shift off-grid).
-          midiPlaybackManager?.clearClipIdMappings();
-          recordingController.setTempo(audioEngine!.getTempo());
-          // User preference wins over the count-in stored in the backup.
-          audioEngine!.setCountInBars(userSettings.countInBars);
-          midiPlaybackManager?.restoreClipsFromEngine(
-            tempo,
-            savedMetadata: result?.uiLayout?.midiClips,
-          );
-
-          refreshTrackWidgets();
-
-          // Apply UI layout if available
-          if (result?.uiLayout != null) {
-            _applyUILayout(result!.uiLayout!);
-          }
-        }
-      }
-
-      // Clear the recovery marker regardless of choice
-      await autoSaveService.clearRecoveryMarker();
-    } catch (e) {
-      Log.e('Failed to check for crash recovery: $e');
-    }
-  }
-
   void _exportAudio() {
     if (audioEngine == null) return;
 
@@ -2525,6 +2467,9 @@ class _DAWScreenState extends State<DAWScreen>
               projectManager?.closeProject();
               midiPlaybackManager?.clear();
               undoRedoManager.clear();
+              // Track numbering restarts at 1, so per-track UI data from this
+              // project must not survive into the next one.
+              resetPerTrackUiState();
 
               // Refresh track widgets to show empty state (clear clips too)
               refreshTrackWidgets(clearClips: true);

@@ -171,6 +171,12 @@ class MockAudioEngine implements AudioEngineInterface {
   }
 
   @override
+  String getAllAudioClipsInfo() {
+    _record('getAllAudioClipsInfo');
+    return '';
+  }
+
+  @override
   List<double> getWaveformPeaks(int clipId, int resolution) {
     _record('getWaveformPeaks');
     return [];

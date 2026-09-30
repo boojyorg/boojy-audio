@@ -256,6 +256,22 @@ void main() {
       expect(controller.trackColorOverrides, isEmpty);
     });
 
+    test(
+      'clearAllTrackOverrides also drops per-track instruments '
+      '(ids are kept across reopen, so none may leak into the next project)',
+      () {
+        controller.setTrackInstrument(
+          2,
+          InstrumentData(trackId: 2, type: 'synthesizer', parameters: const {}),
+        );
+
+        controller.clearAllTrackOverrides();
+
+        expect(controller.hasInstrument(2), isFalse);
+        expect(controller.trackInstruments, isEmpty);
+      },
+    );
+
     test('clearAllTrackOverrides with nothing set does not notify', () {
       var notifications = 0;
       controller.addListener(() => notifications++);
