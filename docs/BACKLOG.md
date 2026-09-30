@@ -163,5 +163,5 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
   tests). The Windows machine is a release test rig, not a development machine.
 - **VST2 was never accepted.** AU is a candidate, not a plan.
 
-Older reviews and plans are in [`docs/archive/`](archive/reviews/README.md); re-verify any
-archived item against today's code before reopening it.
+Older reviews and plans are in git history (tag `docs-archive-final`); re-verify anything from
+them against today's code before reopening it.
