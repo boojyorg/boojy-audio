@@ -278,55 +278,6 @@ mixin DAWVst3Mixin
   // VST3 INSTRUMENT DROP HANDLERS
   // ============================================
 
-  /// Handle VST3 instrument dropped on existing track
-  Future<void> onVst3InstrumentDropped(int trackId, Vst3Plugin plugin) async {
-    if (audioEngine == null) return;
-
-    try {
-      // Load the VST3 plugin as a track instrument
-      final effectId = audioEngine!.addVst3EffectToTrack(trackId, plugin.path);
-      if (effectId < 0) {
-        return;
-      }
-
-      // Create and store InstrumentData for this VST3 instrument
-      trackController.setTrackInstrument(
-        trackId,
-        InstrumentData.vst3Instrument(
-          trackId: trackId,
-          pluginPath: plugin.path,
-          pluginName: plugin.name,
-          effectId: effectId,
-        ),
-      );
-
-      // Auto-populate track name with plugin name if not user-edited
-      if (!trackController.isTrackNameUserEdited(trackId)) {
-        audioEngine?.setTrackName(trackId, plugin.name);
-      }
-
-      // Send a test note to trigger audio processing (some VST3 instruments
-      // like Serum show "Audio Processing disabled" until they receive MIDI)
-      final noteOnResult = audioEngine!.vst3SendMidiNote(
-        effectId,
-        0,
-        0,
-        60,
-        100,
-      ); // C4, velocity 100
-      if (noteOnResult.isNotEmpty) {
-        // Note on sent
-      }
-      // Send note off after a short delay
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (!mounted || audioEngine == null) return;
-        audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0); // Note off
-      });
-    } catch (e) {
-      Log.e('Failed to preview VST3 instrument: $e');
-    }
-  }
-
   /// Handle VST3 instrument dropped on empty area - creates new track
   Future<void> onVst3InstrumentDroppedOnEmpty(Vst3Plugin plugin) async {
     if (audioEngine == null) return;

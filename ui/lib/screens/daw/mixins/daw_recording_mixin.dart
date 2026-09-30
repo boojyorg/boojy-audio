@@ -5,7 +5,6 @@ import '../../../models/clip_data.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../models/track_data.dart';
 import '../../../services/commands/clip_commands.dart';
-import '../../../services/clip_naming_service.dart';
 import '../../../services/live_recording_notifier.dart';
 import '../../../utils/clip_overlap_handler.dart';
 import '../../../utils/csv_field.dart';
@@ -13,6 +12,7 @@ import '../../daw_screen.dart';
 import 'daw_screen_state.dart';
 import '../../../utils/logger.dart';
 import '../../../widgets/shared/boojy_notice.dart';
+import '../../../utils/track_naming.dart';
 
 /// Mixin containing recording-related methods for DAWScreen.
 /// Handles record, metronome, count-in, tempo, virtual piano, and MIDI devices.
@@ -582,13 +582,17 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     return decodeCsvField(parts[1]);
   }
 
-  /// Generate clip name for a track using instrument or track name
+  /// Whether the track still has a name Boojy gave it (see
+  /// [isAutomaticTrackName]); dropping an instrument renames only such tracks,
+  /// never one the user named.
+  bool hasAutomaticName(int trackId) => isAutomaticTrackName(
+    getTrackName(trackId) ?? '',
+    currentPluginName: trackController.getTrackInstrument(trackId)?.pluginName,
+  );
+
+  /// Name for a new MIDI clip: the track's current name ("MIDI" if unknown).
   String generateClipName(int trackId) {
-    final instrument = trackInstruments[trackId];
     final trackName = getTrackName(trackId);
-    return ClipNamingService.generateClipName(
-      instrument: instrument,
-      trackName: trackName,
-    );
+    return (trackName != null && trackName.isNotEmpty) ? trackName : 'MIDI';
   }
 }
