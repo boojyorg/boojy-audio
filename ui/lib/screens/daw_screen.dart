@@ -10,6 +10,7 @@ import '../theme/animation_constants.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../widgets/shared/boojy_notice.dart';
+import '../widgets/shared/stable_menu_bar.dart';
 import '../widgets/transport_bar.dart';
 import '../widgets/dev_tools/palette_editor.dart';
 import '../widgets/dev_tools/ui_labs_switcher.dart';
@@ -3336,7 +3337,7 @@ class _DAWScreenState extends State<DAWScreen>
       });
     }
 
-    return PlatformMenuBar(
+    return StableMenuBar(
       menus: buildDawMenus(
         context,
         DawMenuConfig(

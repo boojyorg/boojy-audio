@@ -73,6 +73,9 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **macOS menus no longer flicker shut.** A menu you opened closed within half a second, because
+  a background MIDI check redrew the whole screen twice a second; menus now only refresh when
+  something in them changes.
 - **One audio input, chosen in Settings.** Settings → Audio → Input now offers System default
   (follows macOS, so plugging in an interface just works), each connected device, or Off, and
   the choice applies at launch and the moment you change it. Before, the engine grabbed the macOS
