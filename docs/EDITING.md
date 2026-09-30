@@ -3,19 +3,15 @@
 How you create, select, move, split and delete things in Boojy: clips in the arrangement, notes in
 the piano roll, points in automation lanes. One set of rules for every view and every device.
 
-> **This is the plan, not the current app.** The app still has the five-tool row (Draw, Select,
-> Erase, Duplicate, Slice; keys Z X C V B) described under "Today" below. Reviewers and agents:
-> the five tools' problems (modal switching, borrowed cursors, the tool row far from the canvas,
-> Duplicate and Slice quirks) are **known and being replaced by this design**. Don't report them
-> as new findings or propose other tool models, and don't read this document as a description of
-> what the code does. Bugs that would survive the change (undo, clip overlap, snapping) are
-> still worth reporting.
+> **This is the plan, not the current app**, which still has the five-tool row (Draw, Select,
+> Erase, Duplicate, Slice; keys Z X C V B). Reviewers and agents: the five tools' problems are
+> known and being replaced by this design; don't report them or propose other tool models. Bugs
+> that would survive the change (undo, clip overlap, snapping) are still worth reporting.
 
-**Status: agreed direction, 2026-09-29; scheduled for v0.7.** From a design session with Tyr
-(called "B+" there; it extends Option B of `docs/reviews/2026_09_13_product_review.md` §4.1). Not
-built. A throwaway prototype on Mac and iPad comes first (see [Prototype](#prototype)); the
-behaviour below becomes the spec once the prototype confirms it. Scheduling lives in
-[BACKLOG.md](BACKLOG.md).
+**Status:** agreed with Tyr 2026-09-29 ("B+"), scheduled for v0.7, not built. A throwaway Mac +
+iPad prototype (no sound, default mode as a setting) comes first and must answer: does Select +
+double-click feel fast enough for note entry, is Draw-tap-to-remove natural, does the action bar
+get in the way, and should one-finger drag on touch scroll or select.
 
 ## What changes for the user
 
@@ -118,13 +114,8 @@ plus `⋯`, which opens the same menu as right-click and long-press.
 - Clips: `⧉ Duplicate   ✂ Split   ⌫ Delete   ⋯` (rename and colour are in `⋯`)
 - Points: `⌫ Delete   ⋯`
 
-**Split** cuts where you last clicked on the selected clip or note. A faint line shows the spot,
-and with a mouse a hover line previews it. The cut snaps to the grid.
-
-```text
-│  Drums  ▓▓▓▓▓▓▓▓▓▓▓▓│▓▓▓▓▓▓      ← clicked here; faint line = split point
-│          ⧉ Duplicate   ✂ Split   ⌫ Delete   ⋯
-```
+***Split** cuts where you last clicked on the selected clip or note (a faint line shows the spot;
+with a mouse a hover line previews it). The cut snaps to the grid.
 
 The bar sits above the selection and flips below it near the top edge. It is not a tool badge:
 it shows actions for the selection, not the current mode.
@@ -166,27 +157,12 @@ Touch-readiness rules that follow from this, for all new UI from now on:
 
 ## Helping people find it
 
-- **The labelled toggle** says "Draw" and shows `B`, rather than a bare icon.
-- **Empty views say what to do**, and the hint goes away once you've done it:
+- **Empty views say what to do** ("Double-click to add a note, or press B to draw"); the hint
+  goes away once you've done it.
+- **A one-time tip** after a few double-click adds: "Adding lots of notes? Press B to draw."
 
-  ```text
-  ┌─────────────────────────────────────────────┐
-  │   Double-click to add a note                │
-  │   or press B to draw  ✏                     │
-  └─────────────────────────────────────────────┘
-  ```
-
-- **A one-time tip:** after you've added a few notes by double-clicking, show once: "Adding lots
-  of notes? Press B to draw." After that, it stays quiet.
-
-## What goes away
-
-- The five-tool row, and with it the Erase, Duplicate and Slice tools. Every capability survives:
-  deleting via double-click, Draw-tap, the Delete key and the bar; duplicating via Cmd+D,
-  Option-drag and the bar; splitting via Cmd+E and the bar.
-- The Z / X / C / V tool keys and the "Alt = Erase" override.
-- The borrowed cursors ("forbidden" for Erase, the text cursor for Slice).
-- The tool row over the audio editor and on an empty project.
+The five-tool row, the Z / X / C / V keys, "Alt = Erase" and the borrowed cursors all go; every
+capability survives through double-click, Draw, the keys and the action bar.
 
 ## Open questions
 
@@ -203,21 +179,6 @@ Touch-readiness rules that follow from this, for all new UI from now on:
   version.
 - **Shortcut clashes to resolve:** Cmd+B is bounce globally and duplicate in the piano roll; Z and X
   are also the virtual piano's octave keys.
-
-## Prototype
-
-Before any real implementation, a small throwaway Flutter app: a piano roll and an arrangement
-lane with B+ and no sound, running on the Mac and on Tyr's iPad from Xcode. The default mode is a
-setting, so both can be felt.
-
-What it should answer, over a few short beat-making sessions per device (mouse only, trackpad
-only, keyboard and mouse, iPad):
-
-- Does Select default plus double-click feel fast enough, or does Draw default (with a "safe"
-  deselect) still win for note entry?
-- Is Draw-tap-to-remove natural, or surprising?
-- Does the action bar help, or get in the way of neighbouring notes?
-- Does one-finger drag on touch want to scroll or select?
 
 ## Scope
 
