@@ -53,8 +53,8 @@ fvm flutter run -d macos
 ```
 
 Windows builds also need the VST3 host libraries compiled with Visual Studio; the steps are in
-[`engine/vst3_host/README.md`](engine/vst3_host/README.md). Engineering conventions, build
-gates and the rules files live in [AGENTS.md](AGENTS.md).
+[`engine/vst3_host/README.md`](engine/vst3_host/README.md). Engineering conventions and build
+gates are in [AGENTS.md](AGENTS.md).
 
 ## Documentation
 
@@ -64,7 +64,6 @@ gates and the rules files live in [AGENTS.md](AGENTS.md).
 | [BACKLOG.md](docs/BACKLOG.md) | What's next, what's parked, and decisions already made |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the Flutter UI and Rust engine fit together |
 | [PLATFORMS.md](docs/PLATFORMS.md) | Which platforms ship when, and why the stack is what it is |
-| [RELEASING.md](docs/RELEASING.md) | How a release is cut and checked |
 | [CHANGELOG.md](CHANGELOG.md) | What changed, release by release |
 
 ## Keyboard shortcuts
