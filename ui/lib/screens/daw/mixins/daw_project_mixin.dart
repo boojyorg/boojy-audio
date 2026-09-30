@@ -373,49 +373,6 @@ mixin DAWProjectMixin
     }
   }
 
-  /// Save a new version of the project
-  Future<void> saveNewVersion() async {
-    if (projectManager?.currentPath == null) {
-      Notices.info('Save the project before making a new version');
-      return;
-    }
-
-    try {
-      final currentPath = projectManager!.currentPath!;
-      final currentName = projectManager!.currentName;
-      final parentDir = Directory(currentPath).parent.path;
-
-      // Find the next version number
-      int nextVersion = 2;
-      final baseName = currentName.replaceAll(RegExp(r'_v\d+$'), '');
-
-      while (true) {
-        final versionPath = '$parentDir/${baseName}_v$nextVersion.audio';
-        if (!await Directory(versionPath).exists()) {
-          break;
-        }
-        nextVersion++;
-      }
-
-      // Create new version path
-      final newName = '${baseName}_v$nextVersion';
-      final newPath = '$parentDir/$newName.audio';
-
-      // Copy project to new path (saveProjectToPath updates internal path)
-      await projectManager!.saveProjectToPath(newPath, getCurrentUILayout());
-
-      // Update project name
-      projectManager!.setProjectName(newName);
-      WindowTitleService.setProjectName(newName);
-
-      setState(() {
-        projectMetadata = projectMetadata.copyWith(name: newName);
-      });
-    } catch (e) {
-      Notices.problem("Couldn't save a new version", error: e);
-    }
-  }
-
   /// Rename current project
   Future<void> renameProject() async {
     if (projectManager?.currentPath == null) {
@@ -501,11 +458,6 @@ mixin DAWProjectMixin
     );
   }
 
-  // Project settings + versioning live in daw_screen.dart
-  // (_openProjectSettings / _createVersion / _restoreVersion) — the copies
-  // that used to live here were dead duplicates (the CLAUDE.md mixin trap)
-  // and have been removed.
-
   // ============================================
   // CRASH RECOVERY
   // ============================================
@@ -581,7 +533,7 @@ mixin DAWProjectMixin
       audioEngine?.setTimeSignature(tsNum);
     }
 
-    if (userSettings.continueWhereLeftOff && layout.viewState != null) {
+    if (layout.viewState != null) {
       restoreViewState(layout.viewState!);
     }
 
@@ -686,24 +638,19 @@ mixin DAWProjectMixin
 
   /// Get current UI layout for saving
   UILayoutData getCurrentUILayout() {
-    ProjectViewState? viewState;
-    if (userSettings.continueWhereLeftOff) {
-      final timelineState = timelineKey.currentState;
-
-      viewState = ProjectViewState(
-        horizontalScroll: timelineState?.scrollOffset ?? 0.0,
-        verticalScroll: 0.0,
-        zoom: timelineState?.pixelsPerBeat ?? 25.0,
-        libraryVisible: !uiLayout.isLibraryPanelCollapsed,
-        mixerVisible: uiLayout.isMixerVisible,
-        editorVisible: uiLayout.isEditorPanelVisible,
-        virtualPianoVisible: uiLayout.isVirtualPianoEnabled,
-        selectedTrackId: selectedTrackId,
-        playheadPosition: playheadPosition,
-      );
-    }
-
     final timelineState = timelineKey.currentState;
+
+    final viewState = ProjectViewState(
+      horizontalScroll: timelineState?.scrollOffset ?? 0.0,
+      verticalScroll: 0.0,
+      zoom: timelineState?.pixelsPerBeat ?? 25.0,
+      libraryVisible: !uiLayout.isLibraryPanelCollapsed,
+      mixerVisible: uiLayout.isMixerVisible,
+      editorVisible: uiLayout.isEditorPanelVisible,
+      virtualPianoVisible: uiLayout.isVirtualPianoEnabled,
+      selectedTrackId: selectedTrackId,
+      playheadPosition: playheadPosition,
+    );
 
     return ProjectPersistence.collect(
       libraryWidth: uiLayout.libraryPanelWidth,

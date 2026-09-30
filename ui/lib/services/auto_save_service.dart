@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../utils/logger.dart';
 import 'project_manager.dart';
-import 'user_settings.dart';
 
 import 'auto_save_service_io.dart';
 
@@ -24,6 +23,9 @@ class AutoSaveService extends ChangeNotifier {
   // Max number of rotating auto-save backups
   static const int maxBackups = 3;
 
+  /// Auto-save is always on, at a fixed interval
+  static const Duration interval = Duration(minutes: 5);
+
   /// Whether auto-save is currently running
   bool get isRunning => _timer != null;
 
@@ -43,16 +45,8 @@ class AutoSaveService extends ChangeNotifier {
     _getUILayout = getUILayout;
   }
 
-  /// Start auto-save with the given interval
+  /// Start auto-save (every [interval])
   Future<void> start() async {
-    final settings = UserSettings();
-    final minutes = settings.autoSaveMinutes;
-
-    if (minutes <= 0) {
-      stop();
-      return;
-    }
-
     // Initialize backup directory
     await _initBackupDirectory();
 
@@ -60,10 +54,7 @@ class AutoSaveService extends ChangeNotifier {
     _timer?.cancel();
 
     // Start new timer
-    _timer = Timer.periodic(
-      Duration(minutes: minutes),
-      (_) => _performAutoSave(),
-    );
+    _timer = Timer.periodic(interval, (_) => _performAutoSave());
 
     notifyListeners();
   }
@@ -73,12 +64,6 @@ class AutoSaveService extends ChangeNotifier {
     _timer?.cancel();
     _timer = null;
     notifyListeners();
-  }
-
-  /// Restart with new settings (call after settings change)
-  Future<void> restart() async {
-    stop();
-    await start();
   }
 
   /// Perform an auto-save

@@ -105,7 +105,7 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
                       _Shortcut('\u2318 M', 'Toggle Mixer Panel'),
                       _Shortcut('\u21E7 \u2318 E', 'Toggle Editor Panel'),
                       _Shortcut('\u2318 P', 'Toggle Virtual Piano'),
-                      _Shortcut('\u2318 ,', 'Project Settings'),
+                      _Shortcut('\u2318 ,', 'Settings'),
                     ]),
                     const SizedBox(height: 20),
                     _buildSection(context, 'Piano Roll Tools', [

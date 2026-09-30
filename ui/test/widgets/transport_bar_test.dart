@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:boojy_audio/services/user_settings.dart';
 import 'package:boojy_audio/widgets/transport_bar.dart';
 import 'package:boojy_audio/widgets/transport_bar/position_display.dart';
 import 'package:boojy_audio/widgets/transport_bar/record_controls.dart';
@@ -112,10 +111,8 @@ void main() {
             onSaveProject: () {},
             onSaveProjectAs: () {},
             onRenameProject: () {},
-            onSaveNewVersion: () {},
             onExportAudio: () {},
             onAppSettings: () {},
-            onProjectSettings: () {},
             onCloseProject: () {},
           ),
           transport: TransportCallbacks(
@@ -218,14 +215,8 @@ void main() {
     });
   });
 
-  // X1 regression: with onTap + onDoubleTap on one detector, every mode-cycle
-  // tap waited ~300 ms for the double-tap recognizer to give up the arena.
-  // Double-click is now detected manually, so a single tap must land at once.
-  group('PositionDisplay tap latency (X1)', () {
-    tearDown(() => UserSettings().positionDisplayMode = 'bars');
-
-    testWidgets('single tap cycles the mode immediately', (tester) async {
-      UserSettings().positionDisplayMode = 'bars';
+  group('PositionDisplay', () {
+    testWidgets('shows bars.beats only', (tester) async {
       await tester.pumpWidget(
         buildTestWidget(
           child: const PositionDisplay(playheadPosition: 0.0, tempo: 120.0),
@@ -233,19 +224,14 @@ void main() {
       );
       expect(find.text('1.1.1'), findsOneWidget);
 
+      // A single tap no longer changes the readout.
       await tester.tap(find.byType(PositionDisplay), warnIfMissed: false);
       await tester.pump(const Duration(milliseconds: 50));
-      expect(
-        find.text('0:00.000'),
-        findsOneWidget,
-        reason:
-            'The mode must cycle within 50ms of the tap. A failure here '
-            'means a double-tap recognizer is holding the arena again (X1).',
-      );
+      expect(find.text('1.1.1'), findsOneWidget);
+      expect(find.text('0:00.000'), findsNothing);
     });
 
     testWidgets('double-click opens the jump editor', (tester) async {
-      UserSettings().positionDisplayMode = 'bars';
       await tester.pumpWidget(
         buildTestWidget(
           child: const PositionDisplay(playheadPosition: 0.0, tempo: 120.0),
@@ -257,8 +243,6 @@ void main() {
       await tester.tapAt(spot);
       await tester.pump();
       expect(find.byType(TextField), findsOneWidget);
-      // The first tap's mode-cycle is reverted when it turns into a double.
-      expect(UserSettings().positionDisplayMode, 'bars');
     });
   });
 

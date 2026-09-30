@@ -1,4 +1,3 @@
-import 'dart:async' show unawaited;
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
@@ -6,7 +5,6 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import '../audio_engine.dart';
 import '../models/audio_input_status.dart';
-import '../services/auto_save_service.dart';
 import '../services/updater_service.dart';
 import '../theme/animation_constants.dart';
 import '../services/user_settings.dart';
@@ -71,8 +69,6 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     'appearance': GlobalKey(),
     'audio': GlobalKey(),
     'midi': GlobalKey(),
-    'saving': GlobalKey(),
-    'projects': GlobalKey(),
     'updates': GlobalKey(),
   };
 
@@ -128,8 +124,6 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
       ('appearance', 'Appearance', BI.colorLens),
       ('audio', 'Audio', BI.speakerHigh),
       ('midi', 'MIDI', BI.piano),
-      ('saving', 'Saving', BI.save),
-      ('projects', 'Projects', BI.folder),
       if (UpdaterService.isSupported) ('updates', 'Updates', BI.download),
     ];
 
@@ -331,18 +325,6 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                             'MIDI',
                             _buildMidiSettings(),
                           ),
-                          const SizedBox(height: 24),
-                          _buildSectionWithKey(
-                            'saving',
-                            'SAVING',
-                            _buildSavingSettings(),
-                          ),
-                          const SizedBox(height: 24),
-                          _buildSectionWithKey(
-                            'projects',
-                            'PROJECTS',
-                            _buildProjectSettings(),
-                          ),
                           if (UpdaterService.isSupported) ...[
                             const SizedBox(height: 24),
                             _buildSectionWithKey(
@@ -531,23 +513,25 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Audio Driver dropdown
-        _buildAudioDriverSelector(),
-        const SizedBox(height: 6),
-        // Driver description
-        Text(
-          _getDriverDescription(_selectedDriver),
-          style: TextStyle(
-            color: context.colors.textMuted,
-            fontSize: BT.fontLabel,
+        // Audio Driver (Windows only: macOS/Linux have a single driver)
+        if (Platform.isWindows) ...[
+          _buildAudioDriverSelector(),
+          const SizedBox(height: 6),
+          // Driver description
+          Text(
+            _getDriverDescription(_selectedDriver),
+            style: TextStyle(
+              color: context.colors.textMuted,
+              fontSize: BT.fontLabel,
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
 
-        // ASIO Guide (expandable)
-        if (_selectedDriver == 'wasapi') ...[
-          _buildAsioGuideExpander(),
-          const SizedBox(height: 16),
+          // ASIO Guide (expandable)
+          if (_selectedDriver == 'wasapi') ...[
+            _buildAsioGuideExpander(),
+            const SizedBox(height: 16),
+          ],
         ],
 
         // Output Device dropdown
@@ -578,22 +562,8 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     }
   }
 
-  /// Get list of available audio drivers based on platform
+  /// Get list of available audio drivers (Windows: WASAPI + optional ASIO)
   List<Map<String, String>> _getAvailableDrivers() {
-    // macOS uses CoreAudio
-    if (Platform.isMacOS) {
-      return [
-        {'id': 'coreaudio', 'name': 'CoreAudio', 'latency': '5-15ms'},
-      ];
-    }
-
-    // Linux uses ALSA
-    if (Platform.isLinux) {
-      return [
-        {'id': 'alsa', 'name': 'ALSA', 'latency': '10-30ms'},
-      ];
-    }
-
     // Windows uses WASAPI + optional ASIO
     final drivers = <Map<String, String>>[
       {'id': 'wasapi', 'name': 'Windows Audio (WASAPI)', 'latency': '15-30ms'},
@@ -1109,109 +1079,6 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
           'Boojy listens to your keyboard automatically and remembers your '
           'choice. Pick a specific device above if you have more than one.',
           style: TextStyle(color: context.colors.textMuted, fontSize: 12),
-        ),
-      ],
-    );
-  }
-
-  /// Reschedule the auto-save timer from the updated settings (#44).
-  ///
-  /// Fired (unawaited) from sync onChanged handlers; logs instead of silently
-  /// dropping the error if the backup directory can't be initialised.
-  Future<void> _restartAutoSave() async {
-    try {
-      await AutoSaveService().restart();
-    } catch (e) {
-      Log.e('Failed to restart auto-save: $e');
-    }
-  }
-
-  Widget _buildSavingSettings() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Auto-save toggle; interval picker appears below when enabled.
-        _buildCheckboxSetting(
-          label: 'Auto-save',
-          subtitle: 'Save a backup of your project on a timer',
-          value: widget.settings.autoSaveMinutes > 0,
-          onChanged: (value) {
-            setState(() {
-              // Default to 5 minutes when turning on; 0 disables.
-              widget.settings.autoSaveMinutes = value == true ? 5 : 0;
-            });
-            // Apply immediately — reschedules the timer from now (#44).
-            unawaited(_restartAutoSave());
-          },
-        ),
-        if (widget.settings.autoSaveMinutes > 0) ...[
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Text(
-                'Save every',
-                style: TextStyle(
-                  color: context.colors.textSecondary,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(width: 8),
-              BoojyDropdown<int>(
-                value: widget.settings.autoSaveMinutes,
-                items: const [1, 2, 5, 10, 15]
-                    .map((m) => BoojyMenuItem<int>(value: m, label: '$m'))
-                    .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    widget.settings.autoSaveMinutes = value;
-                  });
-                  // Apply immediately — reschedules the timer from now
-                  // instead of waiting for a relaunch (#44).
-                  unawaited(_restartAutoSave());
-                },
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'minutes',
-                style: TextStyle(
-                  color: context.colors.textSecondary,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildProjectSettings() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Continue where I left off
-        _buildCheckboxSetting(
-          label: 'Continue where I left off',
-          subtitle: 'Restores zoom, scroll, and panel visibility',
-          value: widget.settings.continueWhereLeftOff,
-          onChanged: (value) {
-            setState(() {
-              widget.settings.continueWhereLeftOff = value ?? true;
-            });
-          },
-        ),
-        const SizedBox(height: 16),
-
-        // Copy samples to project folder
-        _buildCheckboxSetting(
-          label: 'Copy imported samples to project folder',
-          subtitle: 'Prevents missing files if samples are moved or deleted',
-          value: widget.settings.copySamplesToProject,
-          onChanged: (value) {
-            setState(() {
-              widget.settings.copySamplesToProject = value ?? true;
-            });
-          },
         ),
       ],
     );

@@ -3,16 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
-import '../../services/user_settings.dart';
 
-/// Display mode for the position readout
-enum PositionDisplayMode { bars, time, both }
-
-/// Position display with click-to-toggle between bars and time,
-/// and double-click to jump to a specific position.
-///
-/// Mode 1 (bars): bar.beat.subdivision (1.1.1)
-/// Mode 2 (time): min:sec.ms (0:00.000)
+/// Position readout (bar.beat.subdivision, e.g. 1.1.1). Drag to scrub,
+/// double-click to jump to a bar.
 class PositionDisplay extends StatefulWidget {
   final double playheadPosition; // seconds
   final double tempo;
@@ -44,20 +37,17 @@ class PositionDisplay extends StatefulWidget {
 }
 
 class _PositionDisplayState extends State<PositionDisplay> {
-  PositionDisplayMode _mode = PositionDisplayMode.bars;
   bool _isEditing = false;
   bool _isHovered = false;
   bool _isScrubbing = false;
   double _scrubBeats = 0;
   DateTime? _lastTapAt;
-  PositionDisplayMode? _modeBeforeTap;
   late TextEditingController _editController;
   late FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
-    _mode = _modeFromString(UserSettings().positionDisplayMode);
     _editController = TextEditingController();
     _focusNode = FocusNode();
     _focusNode.addListener(() {
@@ -86,76 +76,25 @@ class _PositionDisplayState extends State<PositionDisplay> {
     return '$bar.$beat.$subdivision';
   }
 
-  String _formatTime() {
-    final totalSeconds = widget.playheadPosition;
-    final minutes = totalSeconds ~/ 60;
-    final seconds = (totalSeconds % 60).floor();
-    final millis = ((totalSeconds % 1) * 1000).floor();
-
-    return '$minutes:${seconds.toString().padLeft(2, '0')}.${millis.toString().padLeft(3, '0')}';
-  }
-
-  void _toggleMode() {
-    if (_isEditing) return;
-    setState(() {
-      _mode = _nextMode(_mode);
-    });
-    // Persist globally so the chosen readout mode survives restarts.
-    UserSettings().positionDisplayMode = _mode.name;
-  }
-
   // Double-click is detected manually from single taps: a real onDoubleTap
-  // recognizer holds the gesture arena for ~300 ms after every tap-up, which
-  // made every mode-cycle tap land late (X1). The first tap of a double-click
-  // cycles immediately; the second tap reverts that cycle and opens the edit.
+  // recognizer holds the gesture arena for ~300 ms after every tap-up.
   void _handleTap() {
     final now = DateTime.now();
     final last = _lastTapAt;
     if (last != null && now.difference(last) < kDoubleTapTimeout) {
       _lastTapAt = null;
-      final revert = _modeBeforeTap;
-      if (revert != null && revert != _mode) {
-        setState(() => _mode = revert);
-        UserSettings().positionDisplayMode = _mode.name;
-      }
       _startEdit();
     } else {
       _lastTapAt = now;
-      _modeBeforeTap = _mode;
-      _toggleMode();
-    }
-  }
-
-  static PositionDisplayMode _nextMode(PositionDisplayMode m) {
-    switch (m) {
-      case PositionDisplayMode.bars:
-        return PositionDisplayMode.time;
-      case PositionDisplayMode.time:
-        return PositionDisplayMode.both;
-      case PositionDisplayMode.both:
-        return PositionDisplayMode.bars;
-    }
-  }
-
-  static PositionDisplayMode _modeFromString(String s) {
-    switch (s) {
-      case 'time':
-        return PositionDisplayMode.time;
-      case 'both':
-        return PositionDisplayMode.both;
-      default:
-        return PositionDisplayMode.bars;
     }
   }
 
   void _startEdit() {
     setState(() {
       _isEditing = true;
-      _editController.text = _mode == PositionDisplayMode.time
-          ? ''
-          : _formatBars()
-                .split('.')
-                .first; // bars & both: pre-fill the bar number
+      _editController.text = _formatBars()
+          .split('.')
+          .first; // pre-fill the bar number
     });
     // Focus after build
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -174,20 +113,12 @@ class _PositionDisplayState extends State<PositionDisplay> {
       return;
     }
 
-    if (_mode == PositionDisplayMode.time) {
-      // Parse time as seconds
-      final seconds = double.tryParse(text);
-      if (seconds != null && seconds >= 0) {
-        widget.onPositionChanged?.call(seconds);
-      }
-    } else {
-      // bars & both: parse bar number and convert to seconds
-      final bar = int.tryParse(text);
-      if (bar != null && bar >= 1) {
-        final beats = (bar - 1) * widget.beatsPerBar.toDouble();
-        final seconds = beats * 60.0 / widget.tempo;
-        widget.onPositionChanged?.call(seconds);
-      }
+    // Parse bar number and convert to seconds
+    final bar = int.tryParse(text);
+    if (bar != null && bar >= 1) {
+      final beats = (bar - 1) * widget.beatsPerBar.toDouble();
+      final seconds = beats * 60.0 / widget.tempo;
+      widget.onPositionChanged?.call(seconds);
     }
 
     _cancelEdit();
@@ -199,43 +130,17 @@ class _PositionDisplayState extends State<PositionDisplay> {
     });
   }
 
-  /// The numeric readout content for the current mode. In "both" mode the
-  /// bars line sits over a smaller, dimmer min:sec line (Logic-style dual).
   Widget _buildReadout() {
     final colors = context.colors;
     final base = BT.display(colors.textPrimary);
     final primaryStyle = widget.scale == 1.0
         ? base
         : base.copyWith(fontSize: (base.fontSize ?? 15.0) * widget.scale);
-    switch (_mode) {
-      case PositionDisplayMode.bars:
-        return Text(
-          _formatBars(),
-          textAlign: TextAlign.center,
-          style: primaryStyle,
-        );
-      case PositionDisplayMode.time:
-        return Text(
-          _formatTime(),
-          textAlign: TextAlign.center,
-          style: primaryStyle,
-        );
-      case PositionDisplayMode.both:
-        final timeStyle = BT
-            .display(colors.textSecondary)
-            .copyWith(fontSize: BT.fontLabel * widget.scale);
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              _formatBars(),
-              textAlign: TextAlign.center,
-              style: primaryStyle,
-            ),
-            Text(_formatTime(), textAlign: TextAlign.center, style: timeStyle),
-          ],
-        );
-    }
+    return Text(
+      _formatBars(),
+      textAlign: TextAlign.center,
+      style: primaryStyle,
+    );
   }
 
   @override
@@ -270,8 +175,7 @@ class _PositionDisplayState extends State<PositionDisplay> {
     }
 
     return Tooltip(
-      message:
-          'Drag to scrub · Click to cycle bars / time / both · Double-click to jump',
+      message: 'Drag to scrub · Double-click to jump',
       child: MouseRegion(
         cursor: SystemMouseCursors.resizeLeftRight,
         onEnter: (_) {

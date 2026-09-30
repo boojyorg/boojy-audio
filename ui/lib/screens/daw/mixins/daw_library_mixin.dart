@@ -484,11 +484,10 @@ mixin DAWLibraryMixin
   // HELPER METHODS
   // ============================================
 
-  /// Copy audio file to project's Samples folder if setting is enabled
+  /// Copy audio file to project's Samples folder
   Future<String> prepareSamplePath(String originalPath) async {
-    // If setting is disabled or no project is open, use original path
-    if (!userSettings.copySamplesToProject ||
-        projectManager?.currentPath == null) {
+    // No project open: use the original path
+    if (projectManager?.currentPath == null) {
       return originalPath;
     }
 
