@@ -324,8 +324,8 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
     trackController.setMasterTrackHeight(height);
   }
 
-  Color getTrackColor(int trackId, String trackName, String trackType) {
-    return trackController.getTrackColor(trackId, trackName, trackType);
+  Color getTrackColor(int trackId, String trackType) {
+    return trackController.getTrackColor(trackId, trackType);
   }
 
   void setTrackColor(int trackId, Color color) {

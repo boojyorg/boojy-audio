@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:boojy_audio/controllers/track_controller.dart';
 import 'package:boojy_audio/models/instrument_data.dart';
+import 'package:boojy_audio/utils/track_colors.dart';
 
 void main() {
   late TrackController controller;
@@ -209,29 +210,27 @@ void main() {
     test('setTrackColor stores override', () {
       const red = Color(0xFFFF0000);
       controller.setTrackColor(1, red);
-      expect(controller.getTrackColor(1, 'Track', 'audio'), red);
+      expect(controller.getTrackColor(1, 'audio'), red);
     });
 
-    test('color override takes precedence over auto-detection', () {
-      const custom = Color(0xFF123456);
-      controller.setTrackColor(1, custom);
-      // Even with a name that would auto-detect as drums, override wins
-      expect(controller.getTrackColor(1, 'Drum Kit', 'audio'), custom);
-    });
-
-    test('clearTrackColorOverride reverts to auto-detection', () {
+    test('clearTrackColorOverride reverts to the palette colour', () {
       const custom = Color(0xFF123456);
       controller.setTrackColor(1, custom);
       controller.clearTrackColorOverride(1);
-      // After clearing, auto-detection kicks in; result should differ from custom
-      final autoColor = controller.getTrackColor(1, 'Track', 'audio');
-      expect(autoColor, isNot(equals(custom)));
+      expect(
+        controller.getTrackColor(1, 'audio'),
+        TrackColors.getTrackColor(1),
+      );
     });
 
-    test('getTrackColor without override returns auto-detected color', () {
-      // 'audio' type with no keywords matches audio category (grey)
-      final color = controller.getTrackColor(1, 'Track', 'audio');
-      expect(color, isA<Color>());
+    test('without an override, tracks take palette colours in id order', () {
+      for (var id = 1; id <= TrackColors.palette.length + 1; id++) {
+        expect(
+          controller.getTrackColor(id, 'midi'),
+          TrackColors.palette[id % TrackColors.palette.length],
+        );
+      }
+      expect(controller.getTrackColor(0, 'master'), TrackColors.masterColor);
     });
 
     test('different tracks can have different overrides', () {
@@ -239,54 +238,21 @@ void main() {
       const blue = Color(0xFF0000FF);
       controller.setTrackColor(1, red);
       controller.setTrackColor(2, blue);
-      expect(controller.getTrackColor(1, 'Track', 'audio'), red);
-      expect(controller.getTrackColor(2, 'Track', 'audio'), blue);
+      expect(controller.getTrackColor(1, 'audio'), red);
+      expect(controller.getTrackColor(2, 'audio'), blue);
     });
   });
 
   // ---------------------------------------------------------------------------
-  // Icons
+  // Override clearing
   // ---------------------------------------------------------------------------
-  group('Icons', () {
-    test('getTrackIcon returns null when not set', () {
-      expect(controller.getTrackIcon(1), isNull);
-    });
-
-    test('setTrackIcon stores the icon', () {
-      controller.setTrackIcon(1, 'guitar');
-      expect(controller.getTrackIcon(1), 'guitar');
-    });
-
-    test('clearTrackIcon removes the override', () {
-      controller.setTrackIcon(1, 'guitar');
-      controller.clearTrackIcon(1);
-      expect(controller.getTrackIcon(1), isNull);
-    });
-
-    test('different tracks can have different icons', () {
-      controller.setTrackIcon(1, 'guitar');
-      controller.setTrackIcon(2, 'piano');
-      expect(controller.getTrackIcon(1), 'guitar');
-      expect(controller.getTrackIcon(2), 'piano');
-    });
-
-    test('setTrackIcon overwrites previous icon', () {
-      controller.setTrackIcon(1, 'guitar');
-      controller.setTrackIcon(1, 'drums');
-      expect(controller.getTrackIcon(1), 'drums');
-    });
-
-    test('clearAllTrackOverrides removes every icon and colour override '
+  group('Override clearing', () {
+    test('clearAllTrackOverrides removes every colour override '
         '(project load/new — no cross-project leak)', () {
-      controller.setTrackIcon(1, 'guitar');
-      controller.setTrackIcon(2, 'piano');
       controller.setTrackColor(1, const Color(0xFF112233));
 
       controller.clearAllTrackOverrides();
 
-      expect(controller.getTrackIcon(1), isNull);
-      expect(controller.getTrackIcon(2), isNull);
-      expect(controller.trackIconOverrides, isEmpty);
       expect(controller.trackColorOverrides, isEmpty);
     });
 
@@ -297,39 +263,6 @@ void main() {
       controller.clearAllTrackOverrides();
 
       expect(notifications, 0);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // Track Name State
-  // ---------------------------------------------------------------------------
-  group('Track Name State', () {
-    test('isTrackNameUserEdited defaults to false', () {
-      expect(controller.isTrackNameUserEdited(1), isFalse);
-    });
-
-    test('markTrackNameUserEdited sets to true', () {
-      controller.markTrackNameUserEdited(1, edited: true);
-      expect(controller.isTrackNameUserEdited(1), isTrue);
-    });
-
-    test('markTrackNameUserEdited can reset to false', () {
-      controller.markTrackNameUserEdited(1, edited: true);
-      controller.markTrackNameUserEdited(1, edited: false);
-      expect(controller.isTrackNameUserEdited(1), isFalse);
-    });
-
-    test('initTrackNameState sets state to false (auto-generated)', () {
-      controller.markTrackNameUserEdited(1, edited: true);
-      controller.initTrackNameState(1);
-      expect(controller.isTrackNameUserEdited(1), isFalse);
-    });
-
-    test('different tracks have independent name states', () {
-      controller.markTrackNameUserEdited(1, edited: true);
-      controller.markTrackNameUserEdited(2, edited: false);
-      expect(controller.isTrackNameUserEdited(1), isTrue);
-      expect(controller.isTrackNameUserEdited(2), isFalse);
     });
   });
 
@@ -487,14 +420,7 @@ void main() {
       controller.setTrackColor(1, custom);
       controller.onTrackDeleted(1);
       // After deletion, auto-detection should apply (not the custom color)
-      expect(controller.getTrackColor(1, 'Track', 'audio'), isNot(custom));
-    });
-
-    test('removes icon override for deleted track', () {
-      controller.setTrackIcon(1, 'guitar');
-      controller.onTrackDeleted(1);
-      // A new track reusing id 1 must not inherit the old icon
-      expect(controller.getTrackIcon(1), isNull);
+      expect(controller.getTrackColor(1, 'audio'), isNot(custom));
     });
 
     test('removes instrument for deleted track', () {
@@ -504,13 +430,6 @@ void main() {
       );
       controller.onTrackDeleted(1);
       expect(controller.hasInstrument(1), isFalse);
-    });
-
-    test('removes track name user-edited state for deleted track', () {
-      controller.markTrackNameUserEdited(1, edited: true);
-      controller.onTrackDeleted(1);
-      // Defaults to false for unknown track
-      expect(controller.isTrackNameUserEdited(1), isFalse);
     });
 
     test('removes deleted track from selectedTrackIds', () {
@@ -582,21 +501,7 @@ void main() {
       const custom = Color(0xFFABCDEF);
       controller.setTrackColor(1, custom);
       controller.onTrackDuplicated(1, 2);
-      expect(controller.getTrackColor(2, 'Track', 'audio'), custom);
-    });
-
-    test('copies icon override from source to new track', () {
-      controller.setTrackIcon(1, 'guitar');
-      controller.onTrackDuplicated(1, 2);
-      expect(controller.getTrackIcon(2), 'guitar');
-      // Source keeps its own override
-      expect(controller.getTrackIcon(1), 'guitar');
-    });
-
-    test('copies track name user-edited state from source to new track', () {
-      controller.markTrackNameUserEdited(1, edited: true);
-      controller.onTrackDuplicated(1, 2);
-      expect(controller.isTrackNameUserEdited(2), isTrue);
+      expect(controller.getTrackColor(2, 'audio'), custom);
     });
 
     test('does not copy when source has no custom state', () {
@@ -604,7 +509,6 @@ void main() {
       // New track should have defaults
       expect(controller.getClipHeight(2), TrackController.defaultClipHeight);
       expect(controller.hasInstrument(2), isFalse);
-      expect(controller.getTrackIcon(2), isNull);
     });
 
     test('source track state is preserved after duplication', () {
@@ -618,10 +522,7 @@ void main() {
       controller.onTrackDuplicated(1, 2);
 
       expect(controller.getClipHeight(1), 250.0);
-      expect(
-        controller.getTrackColor(1, 'Track', 'audio'),
-        const Color(0xFFABCDEF),
-      );
+      expect(controller.getTrackColor(1, 'audio'), const Color(0xFFABCDEF));
       expect(controller.hasInstrument(1), isTrue);
     });
 
@@ -683,13 +584,7 @@ void main() {
       const custom = Color(0xFFFF0000);
       controller.setTrackColor(1, custom);
       controller.clear();
-      expect(controller.getTrackColor(1, 'Track', 'audio'), isNot(custom));
-    });
-
-    test('resets icon overrides (no leak into the next project)', () {
-      controller.setTrackIcon(1, 'guitar');
-      controller.clear();
-      expect(controller.getTrackIcon(1), isNull);
+      expect(controller.getTrackColor(1, 'audio'), isNot(custom));
     });
 
     test('resets instruments', () {
@@ -699,12 +594,6 @@ void main() {
       );
       controller.clear();
       expect(controller.hasInstrument(1), isFalse);
-    });
-
-    test('resets track name user-edited state', () {
-      controller.markTrackNameUserEdited(1, edited: true);
-      controller.clear();
-      expect(controller.isTrackNameUserEdited(1), isFalse);
     });
 
     test('resets track order', () {
@@ -773,35 +662,6 @@ void main() {
       controller.addListener(() => callCount++);
       controller.clearTrackColorOverride(1);
       expect(callCount, 1);
-    });
-
-    test('setTrackIcon notifies listeners', () {
-      int callCount = 0;
-      controller.addListener(() => callCount++);
-      controller.setTrackIcon(1, 'guitar');
-      expect(callCount, 1);
-    });
-
-    test('clearTrackIcon notifies listeners', () {
-      int callCount = 0;
-      controller.setTrackIcon(1, 'guitar');
-      controller.addListener(() => callCount++);
-      controller.clearTrackIcon(1);
-      expect(callCount, 1);
-    });
-
-    test('markTrackNameUserEdited notifies listeners', () {
-      int callCount = 0;
-      controller.addListener(() => callCount++);
-      controller.markTrackNameUserEdited(1, edited: true);
-      expect(callCount, 1);
-    });
-
-    test('initTrackNameState does not notify listeners', () {
-      int callCount = 0;
-      controller.addListener(() => callCount++);
-      controller.initTrackNameState(1);
-      expect(callCount, 0);
     });
 
     test('syncTrackOrder does not notify listeners', () {

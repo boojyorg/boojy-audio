@@ -62,7 +62,7 @@ mixin TimelineTrackListMixin
 
           // Use auto-detected color with override support, fallback to index-based
           final trackColor =
-              widget.getTrackColor?.call(track.id, track.name, track.type) ??
+              widget.getTrackColor?.call(track.id, track.type) ??
               TrackColors.getTrackColor(index);
           final currentAudioCount = track.type.toLowerCase() == 'audio'
               ? audioCount

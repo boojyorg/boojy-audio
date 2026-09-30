@@ -137,6 +137,10 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Tracks stop changing themselves.** Colour and icon no longer follow the track's name or
+  instrument (new tracks take the next palette colour; one icon per type), and new clips take
+  the track's name. Dropping an instrument renames a track only while its name is still
+  automatic ("MIDI 2", "Synthesizer", a plugin's name), never one you typed, even after reopening.
 - **Controls that did nothing are gone**: Add Marker, dead clip-menu items, Bounce to Audio, the
   toolbar Snap, the C-major Scale toggle, the empty Sounds root, Copy Path, Open GUI and menu
   placeholders. Split at Playhead now works on audio clips; ⌘E splits, ⇧⌘E toggles the editor.

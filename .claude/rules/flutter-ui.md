@@ -76,8 +76,9 @@ iOS); check it applies to this macOS/Windows desktop app before acting on it.
   window width, never the project name, and the centre never scales. If a centre button's width
   changes, `test/widgets/transport_bar_density_test.dart` fails: re-measure `_kWellWidths` with
   real fonts, don't loosen the test.
-- **Track icons are `BI` icons keyed by string** (`utils/track_icons.dart`); legacy emoji from old
-  projects map through a table. No emoji in track chrome.
+- **One icon per track type** (`TrackIcons.forType`, `utils/track_icons.dart`): MIDI piano, Audio
+  waveform, Master headphones. No per-track picker, no guessing from the name; old `track_icons`
+  keys in `ui_layout.json` are ignored on load. No emoji in track chrome.
 - **Bundled samples** (`ui/assets/samples/drums/`) are copied to app support on first use by
   `services/bundled_content_service.dart`; the engine loads them by path. Bump `contentRevision`
   when bundled content changes.

@@ -27,17 +27,11 @@ class TrackController extends ChangeNotifier {
   static const double minAutomationHeight = 40.0;
   static const double maxAutomationHeight = 200.0;
 
-  // Track color state (auto-detected with manual override)
+  // Track color state (palette order by track id, with manual override)
   final Map<int, Color> _trackColorOverrides = {};
-
-  // Track icon state (auto-detected from name/type, with manual override)
-  final Map<int, String> _trackIconOverrides = {};
 
   // Track instruments
   final Map<int, InstrumentData> _trackInstruments = {};
-
-  // Track name user-edited state (false = auto-generated, true = user edited)
-  final Map<int, bool> _trackNameUserEdited = {};
 
   // Track display order (list of track IDs, excluding Master)
   List<int> _trackOrder = [];
@@ -56,24 +50,6 @@ class TrackController extends ChangeNotifier {
       Map.unmodifiable(_trackInstruments);
   Map<int, Color> get trackColorOverrides =>
       Map.unmodifiable(_trackColorOverrides);
-  Map<int, String> get trackIconOverrides =>
-      Map.unmodifiable(_trackIconOverrides);
-
-  /// Check if track name was manually edited by user
-  bool isTrackNameUserEdited(int trackId) {
-    return _trackNameUserEdited[trackId] ?? false;
-  }
-
-  /// Mark track name as user-edited or auto-generated
-  void markTrackNameUserEdited(int trackId, {required bool edited}) {
-    _trackNameUserEdited[trackId] = edited;
-    notifyListeners();
-  }
-
-  /// Initialize a new track with auto-generated name state
-  void initTrackNameState(int trackId) {
-    _trackNameUserEdited[trackId] = false;
-  }
 
   /// Get clip area height, returning default if not set
   double getClipHeight(int trackId) {
@@ -134,27 +110,16 @@ class TrackController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Get track color with auto-detection (respects manual overrides)
-  Color getTrackColor(int trackId, String trackName, String trackType) {
-    // Check for user override first
-    if (_trackColorOverrides.containsKey(trackId)) {
-      return _trackColorOverrides[trackId]!;
-    }
-
-    // Get instrument/plugin info for detection
-    final instrument = _trackInstruments[trackId];
-    final instrumentType = instrument?.type;
-    final pluginName = instrument?.pluginName;
-
-    // Auto-detect category based on keywords
-    final category = TrackColors.detectCategory(
-      trackName,
-      trackType,
-      instrumentType: instrumentType,
-      pluginName: pluginName,
+  /// A track's colour: the one picked by hand, otherwise the next palette
+  /// colour in creation order (by track id). Never guessed from the name or
+  /// instrument, so renaming a track or swapping its instrument keeps it.
+  Color getTrackColor(int trackId, String trackType) {
+    final override = _trackColorOverrides[trackId];
+    if (override != null) return override;
+    return TrackColors.getTrackColor(
+      trackId,
+      isMaster: trackType.toLowerCase() == 'master',
     );
-
-    return TrackColors.getColorForCategory(category);
   }
 
   /// Set track color (manual override)
@@ -163,39 +128,21 @@ class TrackController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Clear track color override (revert to auto-detection)
+  /// Clear track color override (revert to the palette colour)
   void clearTrackColorOverride(int trackId) {
     _trackColorOverrides.remove(trackId);
     notifyListeners();
   }
 
-  /// Get track icon (custom override or null for auto-detection)
-  String? getTrackIcon(int trackId) {
-    return _trackIconOverrides[trackId];
-  }
-
-  /// Set custom track icon emoji
-  void setTrackIcon(int trackId, String icon) {
-    _trackIconOverrides[trackId] = icon;
-    notifyListeners();
-  }
-
-  /// Clear custom track icon (revert to auto-detection)
-  void clearTrackIcon(int trackId) {
-    _trackIconOverrides.remove(trackId);
-    notifyListeners();
-  }
-
-  /// Clear every per-track colour and icon override at once.
+  /// Clear every per-track colour override at once.
   ///
   /// Called when a project is loaded or a new project is created: the engine
   /// reuses track ids across projects, so leftover overrides from the previous
   /// project would silently attach themselves to the next project's tracks
-  /// (project B inheriting project A's icons/colours).
+  /// (project B inheriting project A's colours).
   void clearAllTrackOverrides() {
-    if (_trackColorOverrides.isEmpty && _trackIconOverrides.isEmpty) return;
+    if (_trackColorOverrides.isEmpty) return;
     _trackColorOverrides.clear();
-    _trackIconOverrides.clear();
     notifyListeners();
   }
 
@@ -298,8 +245,6 @@ class TrackController extends ChangeNotifier {
     _clipHeights.remove(trackId);
     _automationHeights.remove(trackId);
     _trackColorOverrides.remove(trackId);
-    _trackIconOverrides.remove(trackId);
-    _trackNameUserEdited.remove(trackId);
     _selectedTrackIds.remove(trackId);
 
     if (_selectedTrackId == trackId) {
@@ -337,16 +282,6 @@ class TrackController extends ChangeNotifier {
       _trackColorOverrides[newTrackId] = _trackColorOverrides[sourceTrackId]!;
     }
 
-    // Copy icon override if present
-    if (_trackIconOverrides.containsKey(sourceTrackId)) {
-      _trackIconOverrides[newTrackId] = _trackIconOverrides[sourceTrackId]!;
-    }
-
-    // Copy user-edited name state
-    if (_trackNameUserEdited.containsKey(sourceTrackId)) {
-      _trackNameUserEdited[newTrackId] = _trackNameUserEdited[sourceTrackId]!;
-    }
-
     notifyListeners();
   }
 
@@ -358,9 +293,7 @@ class TrackController extends ChangeNotifier {
     _trackSendCounts.clear();
     _automationHeights.clear();
     _trackColorOverrides.clear();
-    _trackIconOverrides.clear();
     _trackInstruments.clear();
-    _trackNameUserEdited.clear();
     _trackOrder.clear();
     _masterTrackHeight = 50.0;
     notifyListeners();
@@ -374,9 +307,7 @@ class TrackController extends ChangeNotifier {
     _trackSendCounts.clear();
     _automationHeights.clear();
     _trackColorOverrides.clear();
-    _trackIconOverrides.clear();
     _trackInstruments.clear();
-    _trackNameUserEdited.clear();
     _trackOrder.clear();
     super.dispose();
   }

@@ -124,10 +124,6 @@ class TrackMixerStrip extends StatefulWidget {
   final double?
   inputLevel; // 0.0 to 1.0, input level overlay on fader when armed
 
-  // Custom icon (emoji override from user)
-  final String? customIcon;
-  final Function(String)? onIconChanged;
-
   const TrackMixerStrip({
     super.key,
     required this.trackId,
@@ -197,8 +193,6 @@ class TrackMixerStrip extends StatefulWidget {
     this.onInputChanged,
     this.isRecording = false,
     this.inputLevel,
-    this.customIcon,
-    this.onIconChanged,
   });
 
   @override
@@ -909,25 +903,11 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Icon (fixed size, clickable to change)
-            GestureDetector(
-              onTap: widget.onIconChanged != null
-                  ? () => _showIconPopup(context)
-                  : null,
-              child: MouseRegion(
-                cursor: widget.onIconChanged != null
-                    ? SystemMouseCursors.click
-                    : SystemMouseCursors.basic,
-                child: Icon(
-                  TrackIcons.iconFor(
-                    customIcon: widget.customIcon,
-                    trackName: widget.trackName,
-                    trackType: widget.trackType,
-                  ),
-                  size: iconSize,
-                  color: textColor,
-                ),
-              ),
+            // Icon (fixed size, set by track type)
+            Icon(
+              TrackIcons.forType(widget.trackType),
+              size: iconSize,
+              color: textColor,
             ),
             const SizedBox(width: 6),
             // Number (sequential display index, not internal ID) - fixed size
@@ -1682,166 +1662,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
 
     // Use the track color directly for text (like Master track uses accent color)
     return trackColor;
-  }
-
-  /// The currently-effective icon key for this track (custom or default).
-  String _currentIconKey() {
-    return TrackIcons.keyFor(widget.customIcon) ??
-        TrackIcons.defaultKey(widget.trackName, widget.trackType);
-  }
-
-  /// Show icon picker popup
-  void _showIconPopup(BuildContext context) {
-    final RenderBox box = this.context.findRenderObject() as RenderBox;
-    final Offset position = box.localToGlobal(Offset.zero);
-
-    showDialog(
-      context: context,
-      barrierColor: Colors.transparent,
-      builder: (dialogContext) {
-        return Stack(
-          children: [
-            // Dismiss on tap outside
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: () => Navigator.of(dialogContext).pop(),
-                behavior: HitTestBehavior.opaque,
-                child: const ColoredBox(color: Colors.transparent),
-              ),
-            ),
-            // Popup positioned near the icon
-            Positioned(
-              left: position.dx,
-              top: position.dy + box.size.height,
-              child: Material(
-                elevation: 8,
-                borderRadius: BorderRadius.circular(8),
-                color: dialogContext.colors.elevated,
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: dialogContext.colors.hover,
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Track Icon',
-                        style: TextStyle(
-                          color: dialogContext.colors.textPrimary,
-                          fontSize: 12,
-                          fontWeight: BT.weightSemiBold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      // Icon grid (2 rows x 8 cols) — BI icons, persisted by
-                      // key (legacy emoji keys map through TrackIcons)
-                      ...List.generate(2, (row) {
-                        final keys = TrackIcons.pickerIcons.keys.toList();
-                        return Padding(
-                          padding: EdgeInsets.only(bottom: row == 0 ? 4 : 0),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: List.generate(8, (col) {
-                              final key = keys[row * 8 + col];
-                              final isSelected = _currentIconKey() == key;
-                              return Padding(
-                                padding: EdgeInsets.only(
-                                  right: col < 7 ? 4 : 0,
-                                ),
-                                child: GestureDetector(
-                                  onTap: () {
-                                    widget.onIconChanged?.call(key);
-                                    Navigator.of(dialogContext).pop();
-                                  },
-                                  child: Container(
-                                    width: 30,
-                                    height: 30,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                        color: isSelected
-                                            ? dialogContext.colors.textPrimary
-                                            : dialogContext.colors.hover,
-                                        width: isSelected ? 2 : 1,
-                                      ),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Icon(
-                                      TrackIcons.pickerIcons[key],
-                                      size: 16,
-                                      color: dialogContext.colors.textSecondary,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }),
-                          ),
-                        );
-                      }),
-                      const SizedBox(height: 8),
-                      // Color grid below
-                      Text(
-                        'Track Color',
-                        style: TextStyle(
-                          color: dialogContext.colors.textPrimary,
-                          fontSize: 12,
-                          fontWeight: BT.weightSemiBold,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      ...List.generate(2, (row) {
-                        return Padding(
-                          padding: EdgeInsets.only(bottom: row == 0 ? 4 : 0),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: List.generate(8, (col) {
-                              final color =
-                                  TrackColors.manualPalette[row * 8 + col];
-                              final isSelected = widget.trackColor == color;
-                              return Padding(
-                                padding: EdgeInsets.only(
-                                  right: col < 7 ? 4 : 0,
-                                ),
-                                child: GestureDetector(
-                                  onTap: () {
-                                    widget.onColorChanged?.call(color);
-                                    Navigator.of(dialogContext).pop();
-                                  },
-                                  child: Container(
-                                    width: 30,
-                                    height: 30,
-                                    decoration: BoxDecoration(
-                                      color: color,
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                        color: isSelected
-                                            ? dialogContext.colors.textPrimary
-                                            : dialogContext.colors.hover,
-                                        width: isSelected ? 2 : 1,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }),
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 }
 

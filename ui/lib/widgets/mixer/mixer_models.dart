@@ -22,9 +22,7 @@ class TrackManagementCallbacks {
   final Function(int oldIndex, int newIndex)? onReordered;
   final Function(List<int> trackIds)? onOrderSync;
   final Function(int trackId)? onDoubleClick;
-  final Function(int trackId, String newName)? onNameChanged;
   final Function(int trackId, Color color)? onColorChanged;
-  final Function(int trackId, String icon)? onIconChanged;
   final Function(int)? onConvertToSampler;
 
   /// Header "+ MIDI" / "+ Audio" buttons — the panel is the track list, so
@@ -41,9 +39,7 @@ class TrackManagementCallbacks {
     this.onReordered,
     this.onOrderSync,
     this.onDoubleClick,
-    this.onNameChanged,
     this.onColorChanged,
-    this.onIconChanged,
     this.onConvertToSampler,
     this.onAddMidiTrack,
     this.onAddAudioTrack,

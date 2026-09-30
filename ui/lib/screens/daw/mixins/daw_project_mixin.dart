@@ -605,13 +605,6 @@ mixin DAWProjectMixin
       }
     }
 
-    // Restore custom track icon overrides (stable keys, see track_icons.dart)
-    if (layout.trackIcons != null) {
-      for (final entry in layout.trackIcons!.entries) {
-        trackController.setTrackIcon(entry.key, entry.value);
-      }
-    }
-
     // Restore loop region (overrides the default reset)
     if (layout.loopEnabled != null) {
       uiLayout.loopPlaybackEnabled = layout.loopEnabled!;
@@ -730,7 +723,6 @@ mixin DAWProjectMixin
       midiClips: midiPlaybackManager?.persistableMidiClips.toList(),
       automationData: automationController.toJson(),
       trackColorOverrides: trackController.trackColorOverrides,
-      trackIconOverrides: trackController.trackIconOverrides,
       timeSignatureNumerator: projectMetadata.timeSignatureNumerator,
       timeSignatureDenominator: projectMetadata.timeSignatureDenominator,
     );

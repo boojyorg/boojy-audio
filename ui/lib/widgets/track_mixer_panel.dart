@@ -37,15 +37,11 @@ class TrackMixerPanel extends StatefulWidget {
   final Function(double height)? onMasterTrackHeightChanged;
 
   // Track color management
-  final Color Function(int trackId, String trackName, String trackType)?
-  getTrackColor;
+  final Color Function(int trackId, String trackType)? getTrackColor;
 
   // Automation (reuses AutomationCallbacks from timeline_models)
   final AutomationCallbacks automationCallbacks;
   final MixerAutomationState automationState;
-
-  // Custom track icons
-  final String? Function(int trackId)? getTrackIcon;
 
   // Grouped callback/config objects
   final TrackSelectionState selectionState;
@@ -65,7 +61,6 @@ class TrackMixerPanel extends StatefulWidget {
     this.getTrackColor,
     this.automationCallbacks = const AutomationCallbacks(),
     this.automationState = const MixerAutomationState(),
-    this.getTrackIcon,
     this.selectionState = const TrackSelectionState(),
     this.trackCallbacks = const TrackManagementCallbacks(),
     this.instrumentCallbacks = const MixerInstrumentCallbacks(),
@@ -804,9 +799,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
             child: AddTrackButton(
               label: 'MIDI',
               typeIcon: BI.piano,
-              typeColor:
-                  TrackColors.categoryColors[TrackColorCategory.synth] ??
-                  colors.accent,
+              typeColor: TrackColors.midiTypeColor,
               onTap: widget.trackCallbacks.onAddMidiTrack,
               tooltip: 'Add MIDI Track',
               // 1px shorter than the strip so the bottom border keeps its room.
@@ -818,9 +811,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
             child: AddTrackButton(
               label: 'Audio',
               typeIcon: BI.waveform,
-              typeColor:
-                  TrackColors.categoryColors[TrackColorCategory.audio] ??
-                  colors.accent,
+              typeColor: TrackColors.audioTypeColor,
               onTap: widget.trackCallbacks.onAddAudioTrack,
               tooltip: 'Add Audio Track',
               height: 22,
@@ -973,7 +964,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                 trackName: masterTrack.name,
                 trackColor: widget.getTrackColor?.call(
                   masterTrack.id,
-                  masterTrack.name,
                   masterTrack.type,
                 ),
                 onNameChanged: (newName) async {
@@ -988,10 +978,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                         setState(() {
                           masterTrack.name = name;
                         });
-                        widget.trackCallbacks.onNameChanged?.call(
-                          trackId,
-                          name,
-                        );
                       }
                     },
                   );
@@ -1237,7 +1223,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   ) {
     final returnMeta = _returns.where((r) => r.id == track.id).firstOrNull;
     final trackColor =
-        widget.getTrackColor?.call(track.id, track.name, track.type) ??
+        widget.getTrackColor?.call(track.id, track.type) ??
         TrackColors.getTrackColor(track.id);
 
     return TrackMixerStrip(
@@ -1344,7 +1330,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     List<TrackData> allTracks,
   ) {
     final trackColor =
-        widget.getTrackColor?.call(track.id, track.name, track.type) ??
+        widget.getTrackColor?.call(track.id, track.type) ??
         TrackColors.getTrackColor(index);
 
     return ValueListenableBuilder<Map<int, (double, double)>>(
@@ -1588,7 +1574,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                       setState(() {
                         track.name = name;
                       });
-                      widget.trackCallbacks.onNameChanged?.call(trackId, name);
                     }
                   },
                 );
@@ -1597,12 +1582,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
               onColorChanged: widget.trackCallbacks.onColorChanged != null
                   ? (color) =>
                         widget.trackCallbacks.onColorChanged!(track.id, color)
-                  : null,
-              // Custom icon
-              customIcon: widget.getTrackIcon?.call(track.id),
-              onIconChanged: widget.trackCallbacks.onIconChanged != null
-                  ? (icon) =>
-                        widget.trackCallbacks.onIconChanged!(track.id, icon)
                   : null,
               // Input routing
               inputDeviceIndex: track.inputDeviceIndex,

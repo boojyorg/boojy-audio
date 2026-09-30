@@ -560,7 +560,7 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
     final track = tracks.where((t) => t.id == preview.trackId).firstOrNull;
     final trackIndex = track != null ? tracks.indexOf(track) : 0;
     final trackColor = track != null
-        ? (widget.getTrackColor?.call(track.id, track.name, track.type) ??
+        ? (widget.getTrackColor?.call(track.id, track.type) ??
               TrackColors.getTrackColor(trackIndex))
         : TrackColors.getTrackColor(0);
 

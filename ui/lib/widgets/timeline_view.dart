@@ -99,8 +99,7 @@ class TimelineView extends StatefulWidget {
   final List<int> trackOrder;
 
   // Track color callback (for auto-detected colors with override support)
-  final Color Function(int trackId, String trackName, String trackType)?
-  getTrackColor;
+  final Color Function(int trackId, String trackType)? getTrackColor;
 
   // Loop playback state (controls if arrangement playback loops)
   final bool loopPlaybackEnabled;
@@ -1217,10 +1216,7 @@ class TimelineViewState extends State<TimelineView>
                         child: AddTrackButton(
                           label: 'MIDI',
                           typeIcon: BI.piano,
-                          typeColor:
-                              TrackColors.categoryColors[TrackColorCategory
-                                  .synth] ??
-                              colors.accent,
+                          typeColor: TrackColors.midiTypeColor,
                           onTap: widget.onAddMidiTrack,
                           height: 40,
                           backgroundColor: colors.dark,
@@ -1233,10 +1229,7 @@ class TimelineViewState extends State<TimelineView>
                         child: AddTrackButton(
                           label: 'Audio',
                           typeIcon: BI.waveform,
-                          typeColor:
-                              TrackColors.categoryColors[TrackColorCategory
-                                  .audio] ??
-                              colors.accent,
+                          typeColor: TrackColors.audioTypeColor,
                           onTap: widget.onAddAudioTrack,
                           height: 40,
                           backgroundColor: colors.dark,

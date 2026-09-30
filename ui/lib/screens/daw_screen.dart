@@ -851,30 +851,6 @@ class _DAWScreenState extends State<DAWScreen>
     );
   }
 
-  /// Apply a track icon override (null key clears it → auto icon).
-  void _applyTrackIcon(int trackId, String? iconKey) {
-    // TrackController notifies its listeners; no setState needed (mirrors
-    // _applyTrackColor — wrapping in setState rebuilt the whole DAW screen).
-    if (iconKey == null) {
-      trackController.clearTrackIcon(trackId);
-    } else {
-      trackController.setTrackIcon(trackId, iconKey);
-    }
-  }
-
-  Future<void> _onTrackIconChanged(int trackId, String iconKey) async {
-    final oldIcon = trackController.getTrackIcon(trackId);
-    if (oldIcon == iconKey) return;
-    await undoRedoManager.execute(
-      SetTrackIconCommand(
-        trackId: trackId,
-        newIconKey: iconKey,
-        oldIconKey: oldIcon,
-        onIconChanged: _applyTrackIcon,
-      ),
-    );
-  }
-
   // M3: Virtual piano methods
   void _toggleVirtualPiano() {
     final success = recordingController.toggleVirtualPiano();
@@ -1140,6 +1116,9 @@ class _DAWScreenState extends State<DAWScreen>
     if (audioEngine == null) return;
 
     try {
+      // Checked before the instrument changes (see hasAutomaticName).
+      final rename = hasAutomaticName(trackId);
+
       // Load the VST3 plugin as a track instrument
       final effectId = audioEngine!.addVst3EffectToTrack(trackId, plugin.path);
       if (effectId < 0) {
@@ -1156,11 +1135,7 @@ class _DAWScreenState extends State<DAWScreen>
           effectId: effectId,
         ),
       );
-
-      // Auto-populate track name with plugin name if not user-edited
-      if (!trackController.isTrackNameUserEdited(trackId)) {
-        audioEngine?.setTrackName(trackId, plugin.name);
-      }
+      if (rename) audioEngine?.setTrackName(trackId, plugin.name);
 
       // Send a test note to trigger audio processing (some VST3 instruments
       // like Serum show "Audio Processing disabled" until they receive MIDI)
@@ -3077,8 +3052,6 @@ class _DAWScreenState extends State<DAWScreen>
                 trackVst3PluginCounts: _getTrackVst3PluginCounts(), // M10
                 onAudioFileDropped: (path) => _onAudioFileDroppedOnEmpty(path),
                 getTrackColor: getTrackColor,
-                getTrackIcon: (trackId) =>
-                    trackController.getTrackIcon(trackId),
                 config: MixerPanelConfig(
                   isEngineReady: isAudioGraphInitialized,
                   panelWidth: uiLayout.mixerPanelWidth,
@@ -3111,15 +3084,7 @@ class _DAWScreenState extends State<DAWScreen>
                       _toggleEditor();
                     }
                   },
-                  onNameChanged: (trackId, newName) {
-                    // Mark track name as user-edited
-                    trackController.markTrackNameUserEdited(
-                      trackId,
-                      edited: true,
-                    );
-                  },
                   onColorChanged: _onTrackColorChanged,
-                  onIconChanged: _onTrackIconChanged,
                   onConvertToSampler: convertAudioTrackToSampler,
                 ),
                 instrumentCallbacks: MixerInstrumentCallbacks(
@@ -3519,7 +3484,6 @@ class _DAWScreenState extends State<DAWScreen>
                               trackColor: selectedTrackId != null
                                   ? getTrackColor(
                                       selectedTrackId!,
-                                      _getSelectedTrackName() ?? '',
                                       _getSelectedTrackType() ?? '',
                                     )
                                   : null,

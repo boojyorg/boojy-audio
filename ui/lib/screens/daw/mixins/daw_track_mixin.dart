@@ -158,6 +158,10 @@ mixin DAWTrackMixin
 
   /// Handle instrument selection for a track
   void onInstrumentSelected(int trackId, String instrumentId) {
+    // Checked before the instrument changes: "is this the current plugin's
+    // name?" must look at the old instrument.
+    final rename = hasAutomaticName(trackId);
+
     // The Sampler is an engine-side instrument (tracked via isSamplerTrack),
     // not an InstrumentData, so it can't go through the synth path below —
     // that would silently leave the track a Synthesizer. Swap the existing
@@ -167,9 +171,7 @@ mixin DAWTrackMixin
       audioEngine?.createSamplerForTrack(trackId);
       trackController.selectTrack(trackId);
       uiLayout.isEditorPanelVisible = true;
-      if (!trackController.isTrackNameUserEdited(trackId)) {
-        audioEngine?.setTrackName(trackId, 'Sampler');
-      }
+      if (rename) audioEngine?.setTrackName(trackId, 'Sampler');
       return;
     }
 
@@ -185,11 +187,7 @@ mixin DAWTrackMixin
     trackController.setTrackInstrument(trackId, instrumentData);
     trackController.selectTrack(trackId);
     uiLayout.isEditorPanelVisible = true;
-
-    // Auto-populate track name if not user-edited
-    if (!trackController.isTrackNameUserEdited(trackId)) {
-      audioEngine?.setTrackName(trackId, 'Synthesizer');
-    }
+    if (rename) audioEngine?.setTrackName(trackId, 'Synthesizer');
 
     // Call audio engine to set instrument
     if (audioEngine != null) {
