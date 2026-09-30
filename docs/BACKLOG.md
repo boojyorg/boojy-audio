@@ -112,8 +112,6 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
 - **Tooltip coverage is uneven**: piano-roll Quantize/Legato/Snap use the plain tooltip;
   track-header Mute/Solo have none.
 - **Two `showMenu` calls remain** in `track_mixer_strip.dart`; migrate to `showBoojyMenu`.
-- **UI Labs dev switchers are still in the build** (canvas background, editor-button style,
-  playhead lab, palette editor). *(Tyr)* picks winners; delete the switchers.
 - **MP3 export shells out to `ffmpeg`.** Replace with the `mp3lame-encoder` crate.
 - **Zoom spec** *(Tyr)*: anchor, modifiers, pinch, ruler drag, zoom-to-fit, independent axes.
 - **Sampler workflow** *(Tyr)*: research what it should be before touching it again.

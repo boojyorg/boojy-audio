@@ -1260,15 +1260,11 @@ mixin TimelineTrackListMixin
                               widget.trackHeightState.clipHeights[track.id] ??
                               UIConstants.defaultClipHeight,
                           decoration: BoxDecoration(
-                            // Normally transparent (shows the canvas + grid
-                            // through); the tinted-lanes bg variant washes
-                            // alternating lanes for Logic-style structure.
+                            // Transparent (shows the canvas + grid through);
+                            // no alternating-lane tint.
                             color: isHovered
                                 ? context.colors.accent.withValues(alpha: 0.1)
-                                : (laneIndex.isOdd
-                                          ? widget.canvasBgVariant.laneTint
-                                          : null) ??
-                                      Colors.transparent,
+                                : Colors.transparent,
                             border: Border(
                               top: isHovered
                                   ? BorderSide(

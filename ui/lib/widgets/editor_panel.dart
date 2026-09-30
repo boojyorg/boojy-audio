@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../audio_engine.dart';
 import '../theme/animation_constants.dart';
+import '../theme/app_colors.dart';
 import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
@@ -12,7 +13,6 @@ import '../services/tool_mode_resolver.dart';
 import '../utils/logger.dart';
 import '../services/undo_redo_manager.dart';
 import 'drum_kit_editor/drum_kit_editor.dart';
-import 'editor_button_variant.dart';
 import 'piano_roll.dart';
 import 'audio_editor/audio_editor.dart';
 import 'device_chain/device_chain_view.dart';
@@ -67,9 +67,6 @@ class EditorPanel extends StatefulWidget {
 
   // Tool mode (shared with arrangement view)
   final ToolMode toolMode;
-
-  // Visual language for the tabs + tool palette (dev UI Labs A/B/C, Cmd+Shift+E)
-  final EditorButtonVariant editorButtonVariant;
 
   // Time signature (from project settings)
   final int beatsPerBar;
@@ -132,7 +129,6 @@ class EditorPanel extends StatefulWidget {
     this.onBuiltInEffectDropped,
     this.onVst3EffectDropped,
     this.toolMode = ToolMode.draw,
-    this.editorButtonVariant = EditorButtonVariant.outline,
     this.beatsPerBar = 4,
     this.beatUnit = 4,
     this.onTimeSignatureChanged,
@@ -1145,11 +1141,9 @@ class _EditorPanelState extends State<EditorPanel>
     Key? buttonKey,
   }) {
     final isSelected = _selectedTabIndex == index;
-    final style = resolveEditorButtonStyle(
-      widget.editorButtonVariant,
+    final style = _resolveEditorButtonStyle(
       context.colors,
       selected: isSelected,
-      onAccentContent: Colors.white,
       inactiveContent: context.colors.textSecondary,
       inactiveBackground: context.colors.surface.withValues(alpha: 0.5),
       inactiveBorder: context.colors.divider.withValues(alpha: 0.5),
@@ -1227,15 +1221,13 @@ class _EditorPanelState extends State<EditorPanel>
     final isActive = widget.toolMode == mode;
     final isTempActive = _tempToolMode == mode && !isActive;
 
-    // The selected look follows the active editor-button variant; the inactive
+    // The selected look is the shared selection style; the inactive
     // look is shared (surface bg + divider border so the tool stands out from
     // the toolbar). A temporary hold-modifier preview reuses the selected style
     // at half-strength fill.
-    final style = resolveEditorButtonStyle(
-      widget.editorButtonVariant,
+    final style = _resolveEditorButtonStyle(
       context.colors,
       selected: isActive || isTempActive,
-      onAccentContent: context.colors.elevated,
       inactiveContent: context.colors.textPrimary,
       inactiveBackground: context.colors.surface,
     );
@@ -1492,4 +1484,41 @@ class _EditorTab {
     this.buttonKey,
     required this.content,
   });
+}
+
+/// Resolved background / border / content colours for one editor-button state.
+class _EditorButtonStyle {
+  final Color background;
+  final Color border;
+  final Color content;
+
+  const _EditorButtonStyle({
+    required this.background,
+    required this.border,
+    required this.content,
+  });
+}
+
+/// How a one-of-N selection control (editor tabs, tool palette) paints. Selected
+/// rides the shared selection tokens (accent outline + faint tint, accent icon)
+/// so it matches the transport toggles exactly.
+_EditorButtonStyle _resolveEditorButtonStyle(
+  BoojyColors colors, {
+  required bool selected,
+  required Color inactiveContent,
+  required Color inactiveBackground,
+  Color? inactiveBorder,
+}) {
+  if (!selected) {
+    return _EditorButtonStyle(
+      background: inactiveBackground,
+      border: inactiveBorder ?? colors.divider,
+      content: inactiveContent,
+    );
+  }
+  return _EditorButtonStyle(
+    background: colors.selectionFill,
+    border: colors.selectionBorder,
+    content: colors.accent,
+  );
 }

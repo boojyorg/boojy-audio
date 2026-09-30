@@ -124,8 +124,8 @@ class BoojyColors {
   // same everywhere. The buttons used a translucent accent@15% fill, which
   // resolves to a *different* colour on every surface (and goes muddy over the
   // gold loop band). Baking that appearance over the dark surface as a SOLID
-  // colour keeps it identical on any background. Alphas mirror BoojyButton's
-  // active states (0.15 fill / 0.22 hover, 0.50 border / 0.65 hover).
+  // colour keeps it identical on any background. Alphas: 0.15 fill / 0.22 hover,
+  // 0.50 border / 0.65 hover.
 
   /// Fill for a selected/active control (solid grey-blue).
   Color get selectionFill =>
@@ -273,9 +273,7 @@ class BoojyColors {
   // "Gunmetal" ramp (v0.4.0 default): one near-neutral dark-grey family with a
   // faint cool undertone — chrome (`dark`) matches the content area instead of
   // the old warm charcoal #2C2C32, a touch cooler than flat Graphite but
-  // without the navy cast of the Indigo ramp. Alternatives (Graphite, Slate,
-  // Indigo) live as dev-tool presets — toggle the live palette editor with
-  // Cmd+Shift+P to A/B them.
+  // without the navy cast of the Indigo ramp.
   static const Map<String, Color> _darkBackgrounds = {
     'editor': Color(0xFF0C0E11), // BG.editor — content area, star field
     'darkest': Color(0xFF131418), // BG.darkest — text inputs

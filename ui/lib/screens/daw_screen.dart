@@ -12,12 +12,6 @@ import '../theme/tokens.dart';
 import '../widgets/shared/boojy_notice.dart';
 import '../widgets/shared/stable_menu_bar.dart';
 import '../widgets/transport_bar.dart';
-import '../widgets/dev_tools/palette_editor.dart';
-import '../widgets/dev_tools/ui_labs_switcher.dart';
-import '../widgets/dev_tools/editor_button_switcher.dart';
-import '../widgets/dev_tools/playhead_lab.dart';
-import '../widgets/canvas_bg_variant.dart';
-import '../widgets/editor_button_variant.dart';
 import '../widgets/timeline/timeline_models.dart';
 import '../widgets/timeline_view.dart';
 import '../widgets/mixer/mixer_models.dart';
@@ -95,67 +89,12 @@ class _DAWScreenState extends State<DAWScreen>
   final _leftDividerActive = ValueNotifier<bool>(false);
   final _rightDividerActive = ValueNotifier<bool>(false);
 
-  // Palette editor (debug only)
-  bool _showPaletteEditor = false;
-
-  void _togglePaletteEditor() {
-    assert(() {
-      setState(() => _showPaletteEditor = !_showPaletteEditor);
-      return true;
-    }());
-  }
-
   // Cmd+Shift+T cycles Dark ↔ Light (the selectable themes only), persisted
   // exactly like the Settings picker so a relaunch keeps the choice.
   void _cycleAppTheme() {
     final themeProvider = context.themeProvider;
     themeProvider.cycleTheme();
     UserSettings().theme = themeProvider.themeKey;
-  }
-
-  // UI Labs top-bar switcher (debug only) + the live A/B selections it drives.
-  bool _showUiLabsSwitcher = false;
-  TopBarVariant _topBarVariant = TopBarVariant.inline;
-
-  void _toggleUiLabsSwitcher() {
-    assert(() {
-      setState(() => _showUiLabsSwitcher = !_showUiLabsSwitcher);
-      return true;
-    }());
-  }
-
-  // Playhead Lab (debug only) — A/B the grabber's border + vertical position.
-  bool _showPlayheadLab = false;
-
-  void _togglePlayheadLab() {
-    assert(() {
-      setState(() => _showPlayheadLab = !_showPlayheadLab);
-      return true;
-    }());
-  }
-
-  // UI Labs editor-button switcher (debug only) + the live A/B/C it drives.
-  bool _showEditorButtonSwitcher = false;
-  EditorButtonVariant _editorButtonVariant = EditorButtonVariant.outline;
-
-  void _toggleEditorButtonSwitcher() {
-    assert(() {
-      setState(() => _showEditorButtonSwitcher = !_showEditorButtonSwitcher);
-      return true;
-    }());
-  }
-
-  // Arrangement-canvas background lift. Chosen default = noticeableGrey
-  // (#1C1D21) — Tyr picked it in the v0.5 polish pass; may revisit later, so
-  // the dev Cmd+Shift+B cycle is left in place to A/B the options live.
-  CanvasBgVariant _canvasBgVariant = CanvasBgVariant.noticeableGrey;
-
-  void _cycleCanvasBg() {
-    assert(() {
-      setState(() => _canvasBgVariant = _canvasBgVariant.next);
-      Notices.info('Canvas background: ${_canvasBgVariant.labLabel}');
-      return true;
-    }());
   }
 
   @override
@@ -209,12 +148,6 @@ class _DAWScreenState extends State<DAWScreen>
               userSettings.libraryRightColumnWidth;
           uiLayout.mixerPanelWidth = userSettings.mixerWidth;
           uiLayout.editorPanelHeight = userSettings.editorHeight;
-          // Restore the persisted top-bar variant (dev A/B choice).
-          _topBarVariant = topBarVariantFromName(userSettings.topBarVariant);
-          // Restore the persisted editor-button variant (dev A/B/C choice).
-          _editorButtonVariant = editorButtonVariantFromName(
-            userSettings.editorButtonVariant,
-          );
         });
 
         // Show start screen modal on launch
@@ -606,7 +539,7 @@ class _DAWScreenState extends State<DAWScreen>
     if (isTextFieldFocused()) return false;
 
     // A held command modifier means this belongs to a combo shortcut
-    // (e.g. Cmd+Shift+L) — leave it for CallbackShortcuts.
+    // (e.g. Cmd+Shift+T) — leave it for CallbackShortcuts.
     final keyboard = HardwareKeyboard.instance;
     if (keyboard.isMetaPressed ||
         keyboard.isControlPressed ||
@@ -643,7 +576,7 @@ class _DAWScreenState extends State<DAWScreen>
 
     // These are bare single-key shortcuts (L = loop, M = metronome, …). When a
     // command modifier is held the keystroke belongs to a combo shortcut
-    // (e.g. Cmd+Shift+L opens UI Labs) — bail so it reaches CallbackShortcuts
+    // (e.g. Cmd+Shift+T cycles the theme) — bail so it reaches CallbackShortcuts
     // instead of being swallowed here.
     final keyboard = HardwareKeyboard.instance;
     if (keyboard.isMetaPressed ||
@@ -2796,59 +2729,6 @@ class _DAWScreenState extends State<DAWScreen>
             onTogglePiano: _toggleVirtualPiano,
             onResetPanelLayout: _resetPanelLayout,
           ),
-          dividers: DividerState(
-            sidebarWidth: uiLayout.libraryPanelWidth,
-            onSidebarDividerDrag: (delta) {
-              setState(() {
-                uiLayout.resizeRightColumn(delta);
-                userSettings.libraryRightColumnWidth =
-                    uiLayout.libraryRightColumnWidth;
-                userSettings.libraryCollapsed =
-                    uiLayout.isLibraryPanelCollapsed;
-              });
-            },
-            onSidebarDividerDoubleClick: () {
-              setState(() {
-                uiLayout.toggleLibraryPanel();
-                userSettings.libraryCollapsed =
-                    uiLayout.isLibraryPanelCollapsed;
-              });
-            },
-            onSidebarDividerDragStart: () =>
-                setState(() => _isDraggingLibrary = true),
-            onSidebarDividerDragEnd: () =>
-                setState(() => _isDraggingLibrary = false),
-            mixerWidth: uiLayout.mixerPanelWidth,
-            onMixerDividerDrag: (delta) {
-              final windowWidth = MediaQuery.of(context).size.width;
-              final maxWidth = UILayoutState.getMixerMaxWidth(windowWidth);
-              setState(() {
-                final newWidth = uiLayout.mixerPanelWidth - delta;
-                if (newWidth < UILayoutState.mixerCollapseThreshold) {
-                  uiLayout.collapseMixer();
-                  userSettings.mixerVisible = false;
-                } else {
-                  uiLayout.mixerPanelWidth = newWidth.clamp(
-                    UILayoutState.mixerMinWidth,
-                    maxWidth,
-                  );
-                  userSettings.mixerWidth = uiLayout.mixerPanelWidth;
-                }
-              });
-            },
-            onMixerDividerDoubleClick: () {
-              setState(() {
-                uiLayout.toggleMixer();
-                userSettings.mixerVisible = uiLayout.isMixerVisible;
-              });
-            },
-            onMixerDividerDragStart: () =>
-                setState(() => _isDraggingMixer = true),
-            onMixerDividerDragEnd: () =>
-                setState(() => _isDraggingMixer = false),
-            leftDividerNotifier: _leftDividerActive,
-            rightDividerNotifier: _rightDividerActive,
-          ),
           // Remaining individual parameters
           playheadPosition: playheadPos,
           isPlaying: isPlaying,
@@ -2884,7 +2764,6 @@ class _DAWScreenState extends State<DAWScreen>
           onTimeSignatureDragEnd: _onTimeSignatureDragEnd,
           isLoading: isLoading,
           engineFailed: engineInitFailed,
-          topBarVariant: _topBarVariant,
         ),
       ),
     );
@@ -3030,8 +2909,6 @@ class _DAWScreenState extends State<DAWScreen>
             waveformPeaks: waveformPeaks,
             audioEngine: audioEngine,
             tempo: tempo,
-            showPinnedReadout: _topBarVariant.pinsReadoutToArrangement,
-            canvasBgVariant: _canvasBgVariant,
             selectedMidiTrackId: selectedTrackId,
             selectedMidiClipId: midiPlaybackManager?.selectedClipId,
             currentEditingClip: midiPlaybackManager?.currentEditingClip,
@@ -3418,30 +3295,6 @@ class _DAWScreenState extends State<DAWScreen>
           // Cmd+J to join selected clips into one
           const SingleActivator(LogicalKeyboardKey.keyJ, meta: true):
               joinSelectedClips,
-          // Cmd+Shift+P to toggle palette editor (debug only)
-          const SingleActivator(
-            LogicalKeyboardKey.keyP,
-            meta: true,
-            shift: true,
-          ): _togglePaletteEditor,
-          // Cmd+Shift+L to toggle the UI Labs top-bar switcher (debug only)
-          const SingleActivator(
-            LogicalKeyboardKey.keyL,
-            meta: true,
-            shift: true,
-          ): _toggleUiLabsSwitcher,
-          // Cmd+Shift+B cycles the arrangement-canvas background (debug only)
-          const SingleActivator(
-            LogicalKeyboardKey.keyB,
-            meta: true,
-            shift: true,
-          ): _cycleCanvasBg,
-          // Cmd+Shift+H toggles the Playhead Lab (debug only)
-          const SingleActivator(
-            LogicalKeyboardKey.keyH,
-            meta: true,
-            shift: true,
-          ): _togglePlayheadLab,
           // Cmd+Shift+T cycles the app theme (Dark ↔ Light)
           const SingleActivator(
             LogicalKeyboardKey.keyT,
@@ -3464,8 +3317,8 @@ class _DAWScreenState extends State<DAWScreen>
                 Column(
                   children: [
                     // Reserve space for the transport bar (rendered in the
-                    // Stack above). Height tracks the active top-bar variant.
-                    SizedBox(height: _topBarVariant.barHeight),
+                    // Stack above).
+                    const SizedBox(height: kTopBarHeight),
 
                     // Main content area - 3-column layout
                     Expanded(
@@ -3652,7 +3505,6 @@ class _DAWScreenState extends State<DAWScreen>
                               },
                               isCollapsed: !uiLayout.isEditorPanelVisible,
                               toolMode: currentToolMode,
-                              editorButtonVariant: _editorButtonVariant,
                               beatsPerBar:
                                   projectMetadata.timeSignatureNumerator,
                               beatUnit:
@@ -3705,28 +3557,6 @@ class _DAWScreenState extends State<DAWScreen>
                   right: 0,
                   child: _buildTransportBar(),
                 ),
-                if (_showPaletteEditor)
-                  PaletteEditor(onClose: _togglePaletteEditor),
-                if (_showUiLabsSwitcher)
-                  UiLabsSwitcher(
-                    activeVariant: _topBarVariant,
-                    onVariantSelected: (v) {
-                      setState(() => _topBarVariant = v);
-                      userSettings.topBarVariant = v.token;
-                    },
-                    onClose: _toggleUiLabsSwitcher,
-                  ),
-                if (_showPlayheadLab)
-                  PlayheadLabSwitcher(onClose: _togglePlayheadLab),
-                if (_showEditorButtonSwitcher)
-                  EditorButtonSwitcher(
-                    activeVariant: _editorButtonVariant,
-                    onVariantSelected: (v) {
-                      setState(() => _editorButtonVariant = v);
-                      userSettings.editorButtonVariant = v.token;
-                    },
-                    onClose: _toggleEditorButtonSwitcher,
-                  ),
               ],
             ),
           ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/tokens.dart';
-import '../dev_tools/playhead_lab.dart';
 
 /// Painter for the unified navigation bar that combines loop region and bar numbers.
 /// Single row (~24px) that handles both loop visualization and time display.
@@ -32,7 +31,7 @@ class UnifiedNavBarPainter extends CustomPainter {
     this.isPlaying = false,
     this.beatsPerBar = 4,
     this.textScale = 1.0,
-  }) : super(repaint: PlayheadLab.notifier);
+  });
 
   /// Get adaptive grid division based on zoom level
   /// Must match TimelineGridPainter._getGridDivision() for alignment
@@ -285,7 +284,6 @@ class UnifiedNavBarPainter extends CustomPainter {
     if (playheadPosition == null) return;
 
     final x = playheadPosition! * pixelsPerBeat;
-    final lab = PlayheadLab.notifier.value;
 
     // The grabber (triangle) keeps one calm colour; only the vertical line
     // below it changes — white while playing so the moving time cursor is
@@ -300,20 +298,11 @@ class UnifiedNavBarPainter extends CustomPainter {
     const halfWidth = 8.5;
     const headHeight = 11.0;
 
-    // Anchor the inverted-triangle grabber to the top or bottom of the ruler
-    // band (A/B in the Playhead Lab).
-    final double headTop;
-    final double headBottom;
-    final double lineTop;
-    if (lab.anchor == PlayheadAnchor.bottom) {
-      headBottom = size.height; // tip touches the bottom edge of the band
-      headTop = headBottom - headHeight;
-      lineTop = 0.0; // line spans the whole band above the head
-    } else {
-      headTop = 1.0; // hug the top edge (just off it so it isn't hard-clipped)
-      headBottom = headTop + headHeight;
-      lineTop = headTop; // no nub poking above the head
-    }
+    // The inverted-triangle grabber hugs the top edge of the ruler band (just
+    // off it so it isn't hard-clipped); no nub pokes above the head.
+    const headTop = 1.0;
+    const headBottom = headTop + headHeight;
+    const lineTop = headTop;
 
     // Vertical line.
     final linePaint = Paint()
@@ -327,37 +316,22 @@ class UnifiedNavBarPainter extends CustomPainter {
       ..lineTo(x + halfWidth, headTop)
       ..lineTo(x, headBottom)
       ..close();
-    if (lab.fill == PlayheadFill.buttonBlue) {
-      // The shared, solid selection fill — identical to the buttons on any
-      // surface (incl. the gold band).
-      canvas.drawPath(headPath, Paint()..color = colors.selectionFill);
-    } else {
-      canvas.drawPath(
-        headPath,
-        Paint()
-          ..color = headColor
-          ..style = PaintingStyle.fill,
-      );
-    }
+    canvas.drawPath(
+      headPath,
+      Paint()
+        ..color = headColor
+        ..style = PaintingStyle.fill,
+    );
 
-    // Optional border (A/B in the Playhead Lab). Blue matches the button
-    // border (accent@65%).
-    final Color? borderColor = switch (lab.border) {
-      PlayheadBorder.none => null,
-      PlayheadBorder.white => Colors.white,
-      PlayheadBorder.darkGrey => const Color(0xFF2B2B2B),
-      PlayheadBorder.blue => colors.selectionBorder,
-    };
-    if (borderColor != null) {
-      canvas.drawPath(
-        headPath,
-        Paint()
-          ..color = borderColor
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.0
-          ..strokeJoin = StrokeJoin.round,
-      );
-    }
+    // Thin dark-grey outline around the grabber.
+    canvas.drawPath(
+      headPath,
+      Paint()
+        ..color = const Color(0xFF2B2B2B)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0
+        ..strokeJoin = StrokeJoin.round,
+    );
   }
 
   @override
