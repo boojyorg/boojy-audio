@@ -1,7 +1,7 @@
 //! MP3 file export using ffmpeg command-line
 //!
-//! Uses ffmpeg for encoding, which is commonly available on macOS/Linux.
-//! Falls back to WAV export if ffmpeg is not available.
+//! Pipes PCM to the ffmpeg CLI. If ffmpeg is missing, export returns an error
+//! (no automatic WAV fallback; WAV is a separate format the user picks).
 
 use super::normalize::normalize_peak;
 use super::options::{ExportOptions, ExportResult, Mp3Bitrate};
@@ -43,7 +43,8 @@ pub fn export_mp3(
         return Err(
             "ffmpeg is not installed. Please install ffmpeg to export MP3 files.\n\
              On macOS: brew install ffmpeg\n\
-             On Linux: sudo apt install ffmpeg"
+             On Linux: sudo apt install ffmpeg\n\
+             On Windows: winget install ffmpeg"
                 .to_string(),
         );
     }

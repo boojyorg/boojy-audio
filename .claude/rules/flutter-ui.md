@@ -5,173 +5,82 @@ paths:
   - ui/pubspec.yaml
 ---
 
-# Flutter 3.47 / Dart 3.13 conventions & UI changes
+# Flutter UI rules
 
-Flutter is pinned to **3.47.5 / Dart 3.13** via FVM (`ui/.fvmrc`).
+Flutter is pinned in `ui/.fvmrc`. Much public Flutter advice targets mobile (SwiftPM, Android,
+iOS); check it applies to this macOS/Windows desktop app before acting on it.
 
-> Heads-up: much of the public 3.44 advice targets **mobile** (iOS SwiftPM, Android Hybrid
-> Composition) and does **not** apply to this macOS/Windows desktop DAW. Verify against this
-> project before acting on a generic "3.44 best practices" list.
+## Platform and packages
 
-The load-bearing rules:
+- **Keep `package:flutter/material.dart` imports.** Don't move to the preview `material_ui` /
+  `cupertino_ui` packages until they're stable and the in-SDK imports are deprecated.
+- **Icons are Material-only, via the `BI` facade** (`theme/boojy_icons.dart`). No icon packages:
+  `IconData` is `final`, so packages that extend it don't compile.
+- **Plugins use CocoaPods, not SwiftPM.** Don't enable SwiftPM until `window_manager`,
+  `desktop_drop` and `screen_retriever_macos` support it. Leave the generated
+  `FlutterGeneratedPluginSwiftPackage` scaffolding alone.
+- **macOS: the transport bar is the only top chrome.** The native title is hidden
+  (`TitleBarStyle.hidden`, traffic lights kept); the bar insets its left edge past the lights and
+  drops the inset in full screen. Don't re-enable the native title bar or add a title strip.
+- **Reorderable lists use `onReorderItem`** (it already adjusts `newIndex`; don't decrement it).
+- Private named parameters are fine in new constructors; primary constructors stay off.
 
-- **Keep `package:flutter/material.dart` imports.** Do **not** migrate to the standalone
-  `material_ui` / `cupertino_ui` packages yet: they're preview (`0.0.1`) and the in-SDK imports are
-  **not** deprecated in 3.44. Revisit only when those packages reach a stable release.
-- **Icons are Material-only, via the `BI` facade** (`ui/lib/theme/boojy_icons.dart`). Prefer `BI.*`
-  over importing `Icons.*` directly in widgets. `phosphor_flutter` was removed because it extends
-  `IconData`, which became `final` in 3.44. Any icon package that extends/implements `IconData`
-  will fail to compile, so don't add one.
-- **Plugins use CocoaPods, not SwiftPM.** Do **not** run
-  `flutter config --enable-swift-package-manager`: `window_manager`, `desktop_drop`, and
-  `screen_retriever_macos` don't support SwiftPM yet. The `FlutterGeneratedPluginSwiftPackage`
-  scaffolding in `ui/macos/Runner.xcodeproj` is Flutter-generated (hybrid). Leave it, don't
-  hand-edit.
-- **macOS title bar: native title is hidden, the transport bar is the only top chrome.** No native
-  `NSToolbar` style gives "centred + compact": `.expanded` centres the title but adds an empty,
-  taller toolbar row; `.unifiedCompact` is compact but left-aligned. So we hide the native title via
-  `window_manager` `TitleBarStyle.hidden` (keeping the traffic lights) and let the transport bar run
-  edge-to-edge: the bar insets its left rail past the lights (`_kTrafficLightInset`) and collapses
-  that inset in full screen via `WindowListener`. The separate 28px title strip that once hosted
-  the lights was removed in v0.7. Don't re-enable the native title bar or re-add the strip.
-- **Reorderable lists use `onReorderItem`**, not the deprecated `onReorder`. `onReorderItem` already
-  adjusts `newIndex` for the removed item, so do **not** add a manual `if (newIndex > oldIndex)
-  newIndex--`.
-- **Dart 3.12 private named parameters** (`MyType({required this._field})`) are fine for new
-  constructors, but not a required refactor of existing code. Primary constructors are still
-  experimental, so don't use them.
-- **Toolchain sync:** changing the Flutter version means updating `ui/.fvmrc` **and**
-  `FLUTTER_VERSION` in both `.github/workflows/*.yml` together.
+## Shared surfaces (one of each)
 
-## Deferred 3.44 decisions and when to revisit them
+- **Menus:** every picker and context menu goes through `showBoojyMenu<T>()`
+  (`widgets/shared/boojy_dropdown.dart`); `BoojyDropdown<T>` is the standard trigger;
+  right-click goes through `ContextMenuHelper`. Never `showMenu` / `PopupMenuButton`. Pass
+  `selectedValue: null` for context menus.
+- **Notices:** `Notices.info(text)` for a hint after an action that did nothing (fades after
+  3 s); `Notices.problem(text, {id, action, error})` for something that went wrong (stays until
+  closed or `Notices.clear(id)`). Never `SnackBar`, no status line, **never post success**.
+  Plain words on screen; pass the exception as `error:` so it goes to the log. Posting needs no
+  `BuildContext`. The look is settled (neutral pill, amber ⚠ only).
+- **File dialogs and reveal:** `utils/native_dialogs.dart` (`pickFolder`, `pickSaveFilePath`,
+  `sanitizeFileName`, `revealInFinder`). Never inline `osascript` or `open -R`: they broke Save As,
+  Open and Export on Windows.
+- **Zoom:** `shared/editors/anchored_zoom.dart`'s `zoomAnchored`. Set zoom and scroll the grid and
+  its ruler in the same call; never correct scroll in a post-frame callback (one-frame wobble).
+- **Logging:** `Log.d()` / `Log.e()` / `Log.i()`, never `print()`.
+- **UI state:** `provider`, used lightly. Riverpod is a planned migration, not a casual swap.
+- **`ui_layout.json`** fields go through `ProjectPersistence.collect()` / `applyUILayout()`.
 
-| Topic | Decision | Revisit when |
-| --- | --- | --- |
-| `material_ui` / `cupertino_ui` standalone packages | **Stay on `package:flutter/material.dart`.** Preview (`material_ui` is `0.0.1`, "Coming soon"); the in-SDK imports are **not** deprecated in 3.44. Migrating now bets ~170 files on a preview package. | `material_ui` ships a stable (≥1.0) release **and** the in-SDK imports start emitting deprecation warnings. |
-| SwiftPM (3.44 default for new iOS/macOS projects) | **Keep CocoaPods.** Don't run `flutter config --enable-swift-package-manager`. | `window_manager`, `desktop_drop`, and `screen_retriever_macos` all ship SwiftPM support (today `flutter pub get` warns they don't). |
-| Dart 3.12 private named parameters | **Allowed, not mandated.** Fine for new constructors, no mass refactor. | n/a, use at discretion. Primary constructors stay off (experimental). |
+## Gotchas that caused real bugs
 
-**Not applicable here** (don't burn time on generic 3.44 advice): Android Hybrid Composition /
-SurfaceControl (no Android target); Impeller migration (already the macOS default); iOS
-CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
+- **Never read `context.colors` inside an event handler** (onTap, a menu `.then`, a dialog
+  callback). It's a listening `Provider.of`: in debug the handler dies silently, so the action
+  just doesn't happen. Use `context.themeProvider.colors` or capture colours in `build()`.
+  `test/lint/provider_listen_guard_test.dart` guards it.
+- **Never combine `Border.all` + `borderRadius` + `clipBehavior` on one Container**: the clip
+  shaves the border at the corners. Use a bordered box with no clip and an inner `ClipRRect`.
+  Moving Container → `DecoratedBox` loses the border inset, so child fills cover the stroke; use
+  `DecoratedBox(position: DecorationPosition.foreground)` for bordered boxes with filled children.
+- **Never put `onDoubleTap` on an ancestor of buttons.** The recogniser holds every tap ~300 ms
+  (the old M/S/R lag). Detect double-click manually with a `_lastTapAt` timestamp (see
+  `track_mixer_strip.dart`). `onDoubleTap` on a leaf widget is fine.
+- **Timeline coordinates:** track rows and clips live inside the horizontal scroll view, so their
+  `localPosition.dx` is already content space: never add the scroll offset. The ruler and
+  `findRenderObject()` drag-ghost maths are outside it (viewport space), where `+ scrollOffset` is
+  right. The ruler (`UnifiedNavBar`) is content-width inside its scroll view: never add the
+  offset to its local x. Check which render box a position is relative to before adjusting.
+- **`timeline_view.dart` uses part files** (`timeline_gesture_layer.dart`,
+  `timeline_track_list.dart`): import `timeline_view.dart` only.
+- **`daw_screen.dart` mixin trap:** `_DAWScreenState` mixes in `DAWClipMixin` etc., and some
+  mixin methods have private `_` duplicates in `daw_screen.dart` that the call sites actually use
+  (e.g. `_bounceMidiToAudio`, `_quantizeSelectedClip`). Before editing either copy, check which
+  one the shortcuts, menus and callbacks reference; delete the dead one when you can.
+- **Transport bar layout:** `_SingleRowLayout` (`transport_bar.dart`) sizes everything from the
+  window width, never the project name, and the centre never scales. If a centre button's width
+  changes, `test/widgets/transport_bar_density_test.dart` fails: re-measure `_kWellWidths` with
+  real fonts, don't loosen the test.
+- **Track icons are `BI` icons keyed by string** (`utils/track_icons.dart`); legacy emoji from old
+  projects map through a table. No emoji in track chrome.
+- **Bundled samples** (`ui/assets/samples/drums/`) are copied to app support on first use by
+  `services/bundled_content_service.dart`; the engine loads them by path. Bump `contentRevision`
+  when bundled content changes.
 
-## When modifying UI widgets
+## When changing a widget
 
-- **Check parent consumers** before changing a widget's API or layout: check all call sites.
-- **Preserve existing behavior.** Design changes shouldn't break other panels.
-- **Test at different window sizes.** The DAW layout is responsive; verify small and large.
-- **Painters are sensitive.** Changes to `CustomPainter` classes affect rendering across the
-  timeline.
-- **Never combine `Border.all` + `borderRadius` + `clipBehavior` on one Container.** The clip
-  shaves the outer half of the border stroke at the corner arcs (ragged-corner artifact; was
-  visible on the metronome button and every device card). Instead: bordered container with NO
-  clip, and either round the inner fills to `radius - borderWidth` (metronome pattern) or wrap
-  the child in `ClipRRect` at the inner radius (DeviceBox pattern).
-  - **Container→DecoratedBox loses the border inset.** A `Container` with a border decoration
-    silently pads its child by the border width; `DecoratedBox` paints the border *behind* a
-    full-size child, so opaque child fills cover the stroke entirely (the `use_decorated_box`
-    lint pushes you straight into this and broke the Loop/Snap outlines in v0.6). For a
-    bordered box whose children paint their own fills, put the border on a
-    `DecoratedBox(position: DecorationPosition.foreground)` so the stroke paints on top:
-    same height, fills can't eat it (Loop/Snap split buttons, piano-roll Snap/Quantize chips).
-- **Zoom goes through `shared/editors/anchored_zoom.dart`.** Every editor (arrangement, piano
-  roll, audio editor) changes zoom with `zoomAnchored(factor, anchorBeat, anchorViewportX)`:
-  set the zoom, then `applyZoomScroll` the grid AND its mirrored ruler controller(s) in the
-  same call. Never correct scroll in a post-frame callback (that is the one-frame wobble), and
-  never `jumpTo` past the pre-zoom extent without `applyContentDimensions` first (a spring-back
-  animation starts). The ruler drag ratio is `rulerDragZoomFactor(dy)`: exponential, down = in.
-  The ruler (`UnifiedNavBar`) is a content-width child INSIDE its scroll view, so its local x is
-  content space: never add the scroll offset to it.
-- **Transport bar centre never scales; the window decides the layout.** `_SingleRowLayout` in
-  `transport_bar.dart` allocates from the window width alone: the project name gets a budget
-  (56–220px) that depends on width, never on the name, so renaming moves nothing; the transport
-  sits on the window midpoint where that leaves the name its minimum and otherwise slides right
-  by exactly the shortfall (continuous during a resize, nothing hidden or relocated); density
-  tiers shed by the side-by-side sum of the three wells (`_kWellWidths`, measured with the app's
-  real typefaces via `test/helpers/load_app_fonts.dart` + `ThemeData(fontFamily: 'Inter')`). The
-  flank slots are `OverflowBox`es, never `FittedBox`es. If you change a centre button's width,
-  `test/widgets/transport_bar_density_test.dart` fails at some window width; re-measure the well
-  table, don't loosen the test or re-add a scale-down.
-- **Track icons are BI icons keyed by string** (`utils/track_icons.dart`): `customIcon` persists
-  a key like `'mic'`; legacy emoji strings from old projects map through the legacy-emoji table.
-  Don't reintroduce emoji glyphs in track chrome.
-- **Timeline layout:** `timeline_view.dart` uses `part` files for `timeline_gesture_layer.dart` and
-  `timeline_track_list.dart` (private methods share one library). Import `timeline_view.dart` only,
-  never the part files directly.
-- **Timeline coordinate spaces (gesture math):** track rows and clips live INSIDE the horizontal
-  scroll view at full content width, so their `details.localPosition.dx` is already **content
-  space**, so never add `scrollController.offset` to it (`calculateBeatPosition` once did; every
-  beat computed from a row gesture drifted right by the scrolled amount, breaking drag-to-create /
-  double-click-create / empty-click deselect whenever scrolled past bar 1). The **ruler** and the
-  `context.findRenderObject()`-based drag-ghost math are OUTSIDE that scroll → viewport space →
-  there `+ scrollOffset` is correct. Box-selection state: X content space, Y visible space (the
-  overlay Stack is the content-space one the playhead mounts in). When in doubt, check which
-  render box the position is relative to before adding/subtracting scroll offsets.
-- **`daw_screen.dart` / mixin trap:** `_DAWScreenState` **does** mix in `DAWClipMixin` etc., and
-  many mixin methods are live: the instrument-drop/sampler/drum-kit constellation
-  (`onInstrumentSelected`, `onInstrumentDropped(OnEmpty)`, `createDrumKitTrack`,
-  `createSamplerTrackWithSample`, `convertAudioTrackToSampler`) is consolidated
-  onto the mixins, as are `splitSelectedClipAtPlayhead` / `joinSelectedClips`. But other methods
-  have **private `_` duplicates in `daw_screen.dart` that the call sites actually use** (e.g.
-  `_bounceMidiToAudio`; the library double-click trio `_handleLibraryItemDoubleClick` /
-  `_handleVst3DoubleClick` / `_handleOpenInSampler`, whose dead mixin copies were deleted in v0.6
-  batch 4 after they silently diverged). Before editing either copy, check which one the
-  Cmd-shortcuts/menus/callbacks reference; edit that one and delete the other when possible (the
-  v0.6 join work removed the dead `_consolidateSelectedClips` this way).
-- **UI persistence:** new fields saved in `ui_layout.json` must go through
-  `ProjectPersistence.collect()` / `applyUILayout()`. Don't scatter field lists across project
-  managers.
-- **UI state is `provider` today, used lightly** (~9 files: `main.dart`, `daw_screen.dart`,
-  `theme_extension.dart`, a few widgets/dialogs); most state flows through services and
-  controllers. **Riverpod** is the deliberate future target *if* state management starts to
-  hurt: a planned migration, not a drop-in swap. Don't start it casually.
-- **One shared menu surface.** All value pickers and context menus go through
-  `showBoojyMenu<T>()` in `widgets/shared/boojy_dropdown.dart`. `BoojyDropdown<T>` is the
-  standard trigger chip; bespoke triggers call `showBoojyMenu` directly; `ContextMenuHelper`
-  (`widgets/shared/context_menu_item.dart`) routes right-click menus to it. Never replace a
-  migrated site with `showMenu` / `PopupMenuButton`. Entry types: `BoojyMenuItem<T>` (action, with
-  optional `icon`, `shortcut`, `destructive`), `BoojyMenuDivider<T>`, `BoojyMenuSection<T>`
-  (header). Pass `selectedValue: null` for context menus (suppresses the trailing check) and the
-  current value for value dropdowns. Residual pre-migration sites are listed in BACKLOG.
-- **Never read `context.colors` inside an event handler** (onTap/onPressed, a `showMenu().then`,
-  a dialog callback). It's a listening `Provider.of`, which asserts "listen outside build" in
-  DEBUG builds only. Release looks fine, but in debug the handler dies silently and the
-  menu/dialog/action just doesn't happen (v0.5.1 right-click Delete; v0.6 found five dead
-  context/signature menus this way). In handlers use `context.themeProvider.colors`
-  (listen:false), or capture the colors in `build()` / inside the menu's item builder.
-  Regression guard = `ui/test/lint/provider_listen_guard_test.dart` (AST scan of `lib/**`, runs
-  under plain `flutter test`). It also catches reads inside methods *invoked from* handlers
-  (`onTap: _showMenu` tearoffs and `onTap: () => _showMenu()`), the shape that shipped the
-  sampler Root Note bug (#23). Note `UndoRedoManager` now rethrows command errors in debug
-  (`kDebugMode`), so swallowed handler asserts surface instead of dying silently.
-- **Bundled samples** (`ui/assets/samples/drums/`, licences in its `LICENSES.md`) are copied to
-  app-support on first use by `services/bundled_content_service.dart`. The engine loads by
-  filesystem path, never from the asset bundle. Bump `contentRevision` when bundled content
-  changes and keep `drumSamples` in sync with the pubspec asset dirs.
-- **One notice system: `Notices` in `widgets/shared/boojy_notice.dart`.** Never `SnackBar` /
-  `ScaffoldMessenger`, and there is no status line. Two levels only: `Notices.info(text)` for a
-  hint after an action that did nothing (fades after 3 s), `Notices.problem(text, {id, action,
-  error})` for something that went wrong or needs the user (stays until closed or
-  `Notices.clear(id)`). **Never post success**: silence means it worked. Problem text is plain
-  words ("Couldn't save the project"); pass the exception as `error:` so it goes to the log, not
-  the screen. Posting needs no `BuildContext`, so it's safe from handlers and controllers.
-  `NoticeHost` (in `main.dart`'s `MaterialApp.builder`) draws them above dialogs, centred on the
-  `NoticeAnchor` that wraps the arrangement.
-- **Use `Log.d()` / `Log.e()` / `Log.i()`** (from `utils/logger.dart`), not `print()`.
-- **File/folder dialogs go through `ui/lib/utils/native_dialogs.dart`**
-  (`pickFolder` / `pickSaveFilePath` / `sanitizeFileName`). Never call `osascript` inline.
-  AppleScript dialogs throw a `ProcessException` on Windows; that's exactly how Save As / Open /
-  Export shipped broken there through v0.5.3. The helper keeps AppleScript on macOS and uses
-  `file_picker` everywhere else. Same rule for revealing files: use `revealInFinder(path)` +
-  `revealInFinderLabel` from that file, never an inline `Process.run('open', ['-R', …])`.
-  Windows needs `explorer /select,` with backslashes (and `explorer` exits nonzero even on
-  success, so don't treat its exit code as failure).
-- **Never put `onDoubleTap` on an ancestor of interactive controls.** A real
-  `DoubleTapGestureRecognizer` HOLDS the gesture arena for `kDoubleTapTimeout` (~300 ms) after
-  every tap-up, so every button inside the detector fires that late. This was the v0.6 M/S/R
-  "100–400 ms lag" on track headers and mixer strips (misdiagnosed twice before; the engine lock
-  fix in #85 was a real but separate lag). Detect double-click manually instead: keep a
-  `DateTime? _lastTapAt` and compare in `onTap` against `kDoubleTapTimeout` (see
-  `track_mixer_strip.dart`). Bonus: the first click of a double-click then
-  fires `onTap` immediately instead of being swallowed. `onDoubleTap` on a *leaf* widget with no
-  interactive children (fader reset, name-rename) is fine.
+Check every call site before changing its API, keep other panels working, test at small and
+large window sizes, and treat `CustomPainter` changes as timeline-wide. Render new UI to PNG
+before handing it over (`test/helpers/render_preview.dart`).
