@@ -32,10 +32,10 @@ class DawMenuConfig {
   final UndoRedoManager undoRedoManager;
   final VoidCallback? onDelete;
   final VoidCallback onDuplicate;
-  final VoidCallback? onSplitAtMarker;
+  final VoidCallback? onSplitAtPlayhead;
+  final VoidCallback onSelectAll;
   final VoidCallback? onQuantizeClip;
   final VoidCallback? onJoinClips;
-  final VoidCallback? onBounceMidiToAudio;
   final bool hasSelectedMidiClip;
   final bool hasSelectedAudioClip;
   final int selectedMidiClipCount;
@@ -73,10 +73,10 @@ class DawMenuConfig {
     required this.undoRedoManager,
     required this.onDelete,
     required this.onDuplicate,
-    required this.onSplitAtMarker,
+    required this.onSplitAtPlayhead,
+    required this.onSelectAll,
     required this.onQuantizeClip,
     required this.onJoinClips,
-    required this.onBounceMidiToAudio,
     required this.hasSelectedMidiClip,
     required this.hasSelectedAudioClip,
     required this.selectedMidiClipCount,
@@ -231,21 +231,6 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
           ),
           onSelected: config.undoRedoManager.canRedo ? config.onRedo : null,
         ),
-        const PlatformMenuItem(
-          label: 'Cut',
-          shortcut: SingleActivator(LogicalKeyboardKey.keyX, meta: true),
-          onSelected: null, // Disabled - future feature
-        ),
-        const PlatformMenuItem(
-          label: 'Copy',
-          shortcut: SingleActivator(LogicalKeyboardKey.keyC, meta: true),
-          onSelected: null, // Disabled - future feature
-        ),
-        const PlatformMenuItem(
-          label: 'Paste',
-          shortcut: SingleActivator(LogicalKeyboardKey.keyV, meta: true),
-          onSelected: null, // Disabled - future feature
-        ),
         PlatformMenuItem(
           label: 'Delete',
           shortcut: const SingleActivator(LogicalKeyboardKey.delete),
@@ -257,9 +242,9 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
           onSelected: config.onDuplicate,
         ),
         PlatformMenuItem(
-          label: 'Split at Marker',
+          label: 'Split at Playhead',
           shortcut: const SingleActivator(LogicalKeyboardKey.keyE, meta: true),
-          onSelected: config.onSplitAtMarker,
+          onSelected: config.onSplitAtPlayhead,
         ),
         PlatformMenuItem(
           label: 'Quantize Clip',
@@ -272,14 +257,9 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
           onSelected: config.onJoinClips,
         ),
         PlatformMenuItem(
-          label: 'Bounce MIDI to Audio',
-          shortcut: const SingleActivator(LogicalKeyboardKey.keyB, meta: true),
-          onSelected: config.onBounceMidiToAudio,
-        ),
-        const PlatformMenuItem(
           label: 'Select All',
-          shortcut: SingleActivator(LogicalKeyboardKey.keyA, meta: true),
-          onSelected: null, // Disabled - future feature
+          shortcut: const SingleActivator(LogicalKeyboardKey.keyA, meta: true),
+          onSelected: config.onSelectAll,
         ),
       ],
     ),
@@ -306,7 +286,11 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
           label: config.uiLayout.isEditorPanelVisible
               ? '✓ Show Editor Panel'
               : 'Show Editor Panel',
-          shortcut: const SingleActivator(LogicalKeyboardKey.keyE, meta: true),
+          shortcut: const SingleActivator(
+            LogicalKeyboardKey.keyE,
+            meta: true,
+            shift: true,
+          ),
           onSelected: config.onToggleEditor,
         ),
         PlatformMenuItem(
@@ -343,12 +327,6 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
             onSelected: () => UpdaterService.checkForUpdates(),
           ),
         PlatformMenuItem(label: 'Take a Tour', onSelected: config.onStartTour),
-        PlatformMenuItem(
-          label: 'Boojy Audio Help',
-          onSelected: () {
-            // Future: Help menu links to docs/tutorials (v0.6.0)
-          },
-        ),
       ],
     ),
   ];

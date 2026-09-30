@@ -7,8 +7,8 @@ import '../../services/commands/clip_commands.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../context_menus/clip_context_menu.dart';
-import '../../utils/track_colors.dart';
 import '../shared/boojy_dropdown.dart';
+import '../shared/boojy_notice.dart';
 import 'timeline_state.dart';
 import 'timeline_selection.dart';
 import '../timeline_view.dart';
@@ -17,6 +17,9 @@ import '../timeline_view.dart';
 /// Separates menu/dialog UI and clip manipulation from main timeline code.
 mixin TimelineContextMenusMixin
     on State<TimelineView>, TimelineViewStateMixin, TimelineSelectionMixin {
+  /// Undoable audio split; implemented in [TimelineGestureLayerMixin].
+  void runAudioSplit(ClipData clip, double splitTimeAbsolute);
+
   // ========================================================================
   // CONTEXT MENUS
   // ========================================================================
@@ -42,21 +45,12 @@ mixin TimelineContextMenusMixin
           widget.audioClipCallbacks.onJoinSelected?.call();
           break;
         case 'split':
-          // Future: Audio clip split from context menu (v0.3.0)
-          break;
-        case 'cut':
-        case 'copy':
-        case 'paste':
-          // Future: Audio clip cut/copy/paste (v0.3.0)
-          break;
-        case 'mute':
-          // Future: Audio clip mute toggle (v0.3.0)
-          break;
-        case 'color':
-          // Future: Clip color picker (v0.6.0)
-          break;
-        case 'rename':
-          // Future: Clip inline rename (v0.6.0)
+          final playhead = widget.playheadNotifier.value;
+          if (playhead > clip.startTime && playhead < clip.endTime) {
+            runAudioSplit(clip, playhead);
+          } else {
+            Notices.info('Put the playhead inside the clip to split it');
+          }
           break;
       }
     });
@@ -100,14 +94,8 @@ mixin TimelineContextMenusMixin
         case 'loop':
           toggleMidiClipLoop(clip);
           break;
-        case 'bounce':
-          // Future: Bounce MIDI to audio (v0.3.0)
-          break;
         case 'export_midi':
           widget.midiClipCallbacks.onExported?.call(clip);
-          break;
-        case 'color':
-          showColorPicker(clip);
           break;
         case 'rename':
           showRenameDialog(clip);
@@ -155,13 +143,6 @@ mixin TimelineContextMenusMixin
           icon: BI.gridOn,
           label: 'Set 4 Bar Loop Here',
         ),
-        const BoojyMenuDivider<String>(),
-        BoojyMenuItem(
-          value: 'add_marker',
-          icon: BI.bookmark,
-          label: 'Add Marker',
-          enabled: false,
-        ),
       ],
       selectedValue: null,
       colors: colors,
@@ -179,8 +160,6 @@ mixin TimelineContextMenusMixin
           widget.onLoopRegionChanged?.call(snappedBeat, snappedBeat + 4.0);
         case 'set_loop_4_bars':
           widget.onLoopRegionChanged?.call(snappedBeat, snappedBeat + 16.0);
-        case 'add_marker':
-          break; // Future: Timeline markers
       }
     });
   }
@@ -397,52 +376,6 @@ mixin TimelineContextMenusMixin
   // ========================================================================
   // MIDI CLIP DIALOGS
   // ========================================================================
-
-  /// Show color picker for a MIDI clip
-  void showColorPicker(MidiClipData clip) {
-    // Use the curated track palette (soft row) instead of raw Material colours.
-    final colors = TrackColors.manualPalette.take(8).toList();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clip Color'),
-        content: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: colors.map((color) {
-            return GestureDetector(
-              onTap: () {
-                final coloredClip = clip.copyWith(color: color);
-                widget.midiClipCallbacks.onUpdated?.call(coloredClip);
-                Navigator.of(context).pop();
-              },
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: clip.color == color
-                        ? this.context.colors.textPrimary
-                        : this.context.colors.dark,
-                    width: 3,
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
-  }
 
   /// Show rename dialog for a MIDI clip
   void showRenameDialog(MidiClipData clip) {

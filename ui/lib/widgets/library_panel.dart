@@ -283,7 +283,6 @@ class _LibraryPanelState extends State<LibraryPanel> {
   /// Built-in roots in display order: (id, icon, label).
   List<(String, IconData, String)> get _builtInRoots => [
     ('favorites', BI.starFilled, 'Favorites'),
-    ('sounds', BI.musicNote, 'Sounds'),
     ('samples', BI.equalizer, 'Samples'),
     ('instruments', BI.piano, 'Instruments'),
     ('effects', BI.lightning, 'Effects'),
@@ -876,7 +875,6 @@ class _LibraryPanelState extends State<LibraryPanel> {
   (IconData, String)? _categoryMeta(String? id) {
     return switch (id) {
       'favorites' => (BI.starFilled, 'Favorites'),
-      'sounds' => (BI.musicNote, 'Sounds'),
       'samples' => (BI.equalizer, 'Samples'),
       'instruments' => (BI.piano, 'Instruments'),
       'effects' => (BI.lightning, 'Effects'),
@@ -1462,7 +1460,6 @@ class _LibraryPanelState extends State<LibraryPanel> {
             icon: BI.folderOpen,
             label: revealInFinderLabel,
           ),
-          BoojyMenuItem(value: 'copy_path', icon: BI.copy, label: 'Copy Path'),
         ],
       ],
       selectedValue: null,
@@ -1483,10 +1480,6 @@ class _LibraryPanelState extends State<LibraryPanel> {
         widget.libraryService.toggleFavorite(item.id);
       case 'reveal':
         if (filePath != null) revealInFinder(filePath);
-      case 'copy_path':
-        if (filePath != null) {
-          await Clipboard.setData(ClipboardData(text: filePath));
-        }
     }
   }
 

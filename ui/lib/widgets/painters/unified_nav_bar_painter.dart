@@ -11,7 +11,6 @@ class UnifiedNavBarPainter extends CustomPainter {
   final bool loopEnabled;
   final double loopStart;
   final double loopEnd;
-  final double? insertMarkerPosition;
   final double? playheadPosition; // in beats (null = not shown)
   final double? hoverBeat; // For loop edge hover feedback
   final bool isHoveringPlayhead; // For expanded hover state
@@ -27,7 +26,6 @@ class UnifiedNavBarPainter extends CustomPainter {
     this.loopEnabled = false,
     this.loopStart = 0.0,
     this.loopEnd = 4.0,
-    this.insertMarkerPosition,
     this.playheadPosition,
     this.hoverBeat,
     this.isHoveringPlayhead = false,
@@ -67,12 +65,7 @@ class UnifiedNavBarPainter extends CustomPainter {
     // 3. Draw grid lines and bar numbers
     _drawGridAndNumbers(canvas, size);
 
-    // 4. Draw insert marker (if set)
-    if (insertMarkerPosition != null) {
-      _drawInsertMarker(canvas, size, insertMarkerPosition!);
-    }
-
-    // 5. Draw playhead (if set)
+    // 4. Draw playhead (if set)
     if (playheadPosition != null) {
       _drawPlayhead(canvas, size);
     }
@@ -288,29 +281,6 @@ class UnifiedNavBarPainter extends CustomPainter {
     }
   }
 
-  void _drawInsertMarker(Canvas canvas, Size size, double beat) {
-    final x = beat * pixelsPerBeat;
-
-    // Vertical line (accent blue)
-    final linePaint = Paint()
-      ..color = colors.accent
-      ..strokeWidth = 2.0;
-    canvas.drawLine(Offset(x, 0), Offset(x, size.height), linePaint);
-
-    // Small diamond at top
-    final diamondPath = Path()
-      ..moveTo(x, 4)
-      ..lineTo(x - 4, 0)
-      ..lineTo(x, -4)
-      ..lineTo(x + 4, 0)
-      ..close();
-
-    final diamondPaint = Paint()
-      ..color = colors.accent
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(diamondPath, diamondPaint);
-  }
-
   void _drawPlayhead(Canvas canvas, Size size) {
     if (playheadPosition == null) return;
 
@@ -397,7 +367,6 @@ class UnifiedNavBarPainter extends CustomPainter {
         loopEnabled != oldDelegate.loopEnabled ||
         loopStart != oldDelegate.loopStart ||
         loopEnd != oldDelegate.loopEnd ||
-        insertMarkerPosition != oldDelegate.insertMarkerPosition ||
         playheadPosition != oldDelegate.playheadPosition ||
         hoverBeat != oldDelegate.hoverBeat ||
         isHoveringPlayhead != oldDelegate.isHoveringPlayhead ||

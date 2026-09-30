@@ -7,7 +7,6 @@ import '../../../models/midi_event.dart';
 import '../../../services/commands/command.dart';
 import '../../../services/commands/clip_commands.dart';
 import '../../../utils/clip_overlap_handler.dart';
-import '../../../theme/theme_extension.dart';
 import '../../../widgets/capture_midi_dialog.dart';
 import '../../daw_screen.dart';
 import 'daw_screen_state.dart';
@@ -273,46 +272,6 @@ mixin DAWClipMixin
   // ============================================
   // BOUNCE MIDI TO AUDIO
   // ============================================
-
-  /// Bounce MIDI to Audio - renders MIDI through instrument to audio file
-  /// NOTE: This is a placeholder that shows planned feature message.
-  void bounceMidiToAudio() {
-    final selectedClipId = midiPlaybackManager?.selectedClipId;
-    final selectedClip = midiPlaybackManager?.currentEditingClip;
-
-    if (selectedClipId == null || selectedClip == null) {
-      Notices.info('Select a MIDI clip to bounce it to audio');
-      return;
-    }
-
-    // Show dialog explaining this is a planned feature
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Bounce MIDI to Audio'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Selected clip: ${selectedClip.name}'),
-            const SizedBox(height: 12),
-            Text(
-              'This feature will render the MIDI clip through its instrument '
-              'to create an audio file.\n\n'
-              'Coming soon in a future update.',
-              style: TextStyle(color: context.colors.textSecondary),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
 
   // ============================================
   // JOIN CLIPS

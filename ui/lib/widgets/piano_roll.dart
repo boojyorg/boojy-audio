@@ -523,10 +523,6 @@ class _PianoRollState extends State<PianoRoll>
       // View section
       foldEnabled: foldViewEnabled,
       onFoldToggle: () => setState(() => foldViewEnabled = !foldViewEnabled),
-      // Scale section
-      highlightEnabled: scaleHighlightEnabled,
-      onHighlightToggle: () =>
-          setState(() => scaleHighlightEnabled = !scaleHighlightEnabled),
       // Transform section
       onLegato: applyLegato,
       // Lane visibility toggles (Randomize/CC type are in lane headers)

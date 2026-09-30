@@ -88,12 +88,6 @@ class UILayoutState extends ChangeNotifier {
   bool _isVirtualPianoVisible = false;
   bool _isVirtualPianoEnabled = false;
 
-  // Arrangement snap (independent from Piano Roll snap). On/off and the grid
-  // resolution are stored separately so turning snap off never forgets the
-  // grid: the toolbar keeps showing the remembered value while off.
-  bool _arrangementSnapEnabled = true;
-  SnapValue _arrangementSnapResolution = SnapValue.bar;
-
   // Loop playback state (controls if arrangement playback loops)
   bool _loopPlaybackEnabled = true; // Loop ON by default
   double _loopStartBeats = 0.0;
@@ -432,40 +426,6 @@ class UILayoutState extends ChangeNotifier {
     _isEditorPanelVisible = false;
     _isVirtualPianoVisible = false;
     _isVirtualPianoEnabled = false;
-    notifyListeners();
-  }
-
-  // ============================================
-  // ARRANGEMENT SNAP
-  // ============================================
-
-  /// Effective snap for arrangement edits: the remembered resolution while
-  /// enabled, [SnapValue.off] while disabled. Consumers keep reading this one
-  /// value; the two-part state below is the toolbar's concern.
-  SnapValue get arrangementSnap =>
-      _arrangementSnapEnabled ? _arrangementSnapResolution : SnapValue.off;
-
-  bool get arrangementSnapEnabled => _arrangementSnapEnabled;
-
-  /// The grid the arrangement snaps to when enabled — never [SnapValue.off].
-  SnapValue get arrangementSnapResolution => _arrangementSnapResolution;
-
-  void toggleArrangementSnap() {
-    _arrangementSnapEnabled = !_arrangementSnapEnabled;
-    notifyListeners();
-  }
-
-  /// Pick a grid resolution; also turns snap on, since choosing a grid you
-  /// can't feel is never what the click meant. [SnapValue.off] is accepted
-  /// for callers that still speak the old single-value form and maps to
-  /// "disabled, resolution unchanged".
-  void setArrangementSnap(SnapValue value) {
-    if (value == SnapValue.off) {
-      _arrangementSnapEnabled = false;
-    } else {
-      _arrangementSnapResolution = value;
-      _arrangementSnapEnabled = true;
-    }
     notifyListeners();
   }
 

@@ -41,6 +41,9 @@ iOS); check it applies to this macOS/Windows desktop app before acting on it.
   Open and Export on Windows.
 - **Zoom:** `shared/editors/anchored_zoom.dart`'s `zoomAnchored`. Set zoom and scroll the grid and
   its ruler in the same call; never correct scroll in a post-frame callback (one-frame wobble).
+- **Menu bar:** `StableMenuBar` (`widgets/shared/stable_menu_bar.dart`), never a bare
+  `PlatformMenuBar`: the plain one resends every menu on every rebuild, which closes an open
+  macOS menu. Also avoid `notifyListeners()` from pollers when nothing changed.
 - **Logging:** `Log.d()` / `Log.e()` / `Log.i()`, never `print()`.
 - **UI state:** `provider`, used lightly. Riverpod is a planned migration, not a casual swap.
 - **`ui_layout.json`** fields go through `ProjectPersistence.collect()` / `applyUILayout()`.

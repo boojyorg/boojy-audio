@@ -17,7 +17,6 @@ import 'package:boojy_audio/widgets/transport_bar/metronome_toggle_button.dart';
 import 'package:boojy_audio/widgets/transport_bar/position_display.dart';
 import 'package:boojy_audio/widgets/transport_bar/record_controls.dart';
 import 'package:boojy_audio/widgets/transport_bar/signature_dropdown.dart';
-import 'package:boojy_audio/widgets/transport_bar/snap_split_button.dart';
 import 'package:boojy_audio/widgets/transport_bar/tempo_controls.dart';
 
 import '../helpers/load_app_fonts.dart';
@@ -127,7 +126,6 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
         for (final w in widths()) {
           await pumpBar(tester, w);
-          expectUnscaled(tester, find.byType(SnapSplitButton), w);
           expectUnscaled(tester, find.byType(LoopToggleButton), w);
           expectUnscaled(tester, find.byType(MetronomeToggleButton), w);
           expectUnscaled(tester, find.byType(CountInToggleButton), w);
@@ -163,7 +161,6 @@ void main() {
               find.byTooltip('Hide Library'),
             );
             final mixerToggle = tester.getRect(find.byTooltip('Hide Mixer'));
-            final snap = tester.getRect(find.byType(SnapSplitButton));
             final loop = tester.getRect(find.byType(LoopToggleButton));
             final metronome = tester.getRect(
               find.byType(MetronomeToggleButton),
@@ -187,11 +184,10 @@ void main() {
               expect(wordmark.left, greaterThanOrEqualTo(74.0), reason: '$w');
             }
             expect(
-              snap.left,
+              loop.left,
               greaterThanOrEqualTo(libraryToggle.right),
               reason: '${w}px',
             );
-            expect(loop.left, greaterThanOrEqualTo(snap.right), reason: '$w');
             expect(
               metronome.left,
               greaterThanOrEqualTo(loop.right),
@@ -246,8 +242,9 @@ void main() {
         expect(longSlot, closeTo(shortSlot, 0.5));
         expect(playLong.left, closeTo(playShort.left, 0.5));
 
-        // A long name truncates at the default window and fits when the
+        // A long name truncates at the minimum window and fits when the
         // window is wide enough to pay for it.
+        await pumpBar(tester, minWindow, projectName: longName);
         expect(nameTruncated(tester, longName), isTrue);
         await pumpBar(tester, maxWindow, projectName: longName);
         expect(nameTruncated(tester, longName), isFalse);
@@ -266,7 +263,6 @@ void main() {
     await pumpBar(tester, 1280);
     expect(find.text('Count-in'), findsOneWidget);
     expect(find.text('BPM'), findsOneWidget);
-    expect(find.text('Bar'), findsOneWidget);
     debugDefaultTargetPlatformOverride = null;
   });
 }

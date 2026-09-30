@@ -27,14 +27,7 @@ void main() {
     );
   }
 
-  const roots = [
-    'Favorites',
-    'Sounds',
-    'Samples',
-    'Instruments',
-    'Effects',
-    'Plugins',
-  ];
+  const roots = ['Favorites', 'Samples', 'Instruments', 'Effects', 'Plugins'];
 
   testWidgets('Samples category lists the built-in Drums folder', (
     tester,
@@ -169,8 +162,8 @@ void main() {
     await tester.tapAt(Offset(panel.center.dx, panel.bottom - 8));
     await tester.pump();
 
-    // Down ×4: Favorites → Sounds → Samples → Instruments.
-    for (var i = 0; i < 4; i++) {
+    // Down ×3: Favorites → Samples → Instruments.
+    for (var i = 0; i < 3; i++) {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pump();
     }

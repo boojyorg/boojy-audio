@@ -529,9 +529,22 @@ class RecordingController extends ChangeNotifier {
       } catch (e) {
         Log.e('RecordingController: MIDI device scan failed: $e');
       }
+      final before = (
+        _midiDevices.map((d) => '${d['name']}|${d['isDefault']}').join(';'),
+        _selectedMidiDeviceIndex,
+        _selectedMidiDeviceName,
+      );
       _midiDevices = _audioEngine!.getMidiInputDevices();
       _applyDeviceSelection();
-      notifyListeners();
+      final after = (
+        _midiDevices.map((d) => '${d['name']}|${d['isDefault']}').join(';'),
+        _selectedMidiDeviceIndex,
+        _selectedMidiDeviceName,
+      );
+      // The hot-plug poll calls this every 500 ms. Only tell listeners when
+      // something changed: each notify rebuilds the DAW screen, and a rebuild
+      // while a macOS menu is open used to close it.
+      if (after != before) notifyListeners();
     } catch (e) {
       Log.e('RecordingController: Failed to load MIDI devices: $e');
     }

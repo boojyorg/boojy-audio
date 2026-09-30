@@ -234,7 +234,6 @@ class _AudioEditorState extends State<AudioEditor>
           loopEnabled: loopEnabled,
           loopStart: loopStartBeats,
           loopEnd: loopEndBeats,
-          insertMarkerPosition: null, // No insert marker for audio editor
           playheadPosition:
               null, // Future: Wire playhead position from PlaybackController
         ),
