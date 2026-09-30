@@ -20,10 +20,8 @@ class DawMenuConfig {
   final VoidCallback onOpenProject;
   final VoidCallback onSaveProject;
   final VoidCallback onSaveProjectAs;
-  final VoidCallback? onSaveNewVersion;
   final VoidCallback? onRenameProject;
   final VoidCallback onExportAudio;
-  final VoidCallback onProjectSettings;
   final VoidCallback onCloseProject;
   final VoidCallback? onStartScreen;
   final List<PlatformMenuItem> recentProjectsMenu;
@@ -63,10 +61,8 @@ class DawMenuConfig {
     required this.onOpenProject,
     required this.onSaveProject,
     required this.onSaveProjectAs,
-    this.onSaveNewVersion,
     this.onRenameProject,
     required this.onExportAudio,
-    required this.onProjectSettings,
     required this.onCloseProject,
     this.onStartScreen,
     required this.recentProjectsMenu,
@@ -182,19 +178,9 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
             label: 'Rename...',
             onSelected: config.onRenameProject,
           ),
-        if (config.onSaveNewVersion != null)
-          PlatformMenuItem(
-            label: 'Save New Version...',
-            onSelected: config.onSaveNewVersion,
-          ),
         PlatformMenuItem(
           label: 'Export Audio...',
           onSelected: config.onExportAudio,
-        ),
-        PlatformMenuItem(
-          label: 'Project Settings...',
-          shortcut: const SingleActivator(LogicalKeyboardKey.comma, meta: true),
-          onSelected: config.onProjectSettings,
         ),
         PlatformMenuItem(
           label: 'Close Project',
@@ -312,6 +298,7 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
         ),
         PlatformMenuItem(
           label: 'Settings...',
+          shortcut: const SingleActivator(LogicalKeyboardKey.comma, meta: true),
           onSelected: config.onAppSettings,
         ),
       ],

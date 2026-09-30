@@ -268,8 +268,6 @@ class ExportOptions {
   // Common settings
   int sampleRate; // 44100, 48000
   bool normalize;
-  bool dither;
-  bool mono;
 
   // Stem export
   bool exportStems;
@@ -278,9 +276,6 @@ class ExportOptions {
   // Metadata
   String? title;
   String? artist;
-  String? album;
-  int? year;
-  String? genre;
 
   ExportOptions({
     this.exportMp3 = true,
@@ -289,24 +284,16 @@ class ExportOptions {
     this.wavBitDepth = 16,
     this.sampleRate = 44100,
     this.normalize = false,
-    this.dither = false,
-    this.mono = false,
     this.exportStems = false,
     this.stemTracks = const [],
     this.title,
     this.artist,
-    this.album,
-    this.year,
-    this.genre,
   });
 
   /// Get metadata as JSON for FFI
   String get metadataJson => jsonEncode({
     if (title != null && title!.isNotEmpty) 'title': title,
     if (artist != null && artist!.isNotEmpty) 'artist': artist,
-    if (album != null && album!.isNotEmpty) 'album': album,
-    if (year != null) 'year': year,
-    if (genre != null && genre!.isNotEmpty) 'genre': genre,
   });
 }
 
@@ -392,9 +379,6 @@ class _ExportDialogState extends State<ExportDialog> {
   // Text controllers for metadata
   final _titleController = TextEditingController();
   final _artistController = TextEditingController();
-  final _albumController = TextEditingController();
-  final _yearController = TextEditingController();
-  final _genreController = TextEditingController();
 
   @override
   void initState() {
@@ -429,10 +413,9 @@ class _ExportDialogState extends State<ExportDialog> {
     _options.wavBitDepth = settings.exportWavBitDepth;
     _options.sampleRate = settings.exportSampleRate;
     _options.normalize = settings.exportNormalize;
-    _options.dither = settings.exportDither;
 
-    // Load remembered artist
-    if (settings.rememberArtist && settings.exportArtist != null) {
+    // Pre-fill the last artist used
+    if (settings.exportArtist != null) {
       _options.artist = settings.exportArtist;
       _artistController.text = settings.exportArtist!;
     }
@@ -455,11 +438,11 @@ class _ExportDialogState extends State<ExportDialog> {
     settings.exportWavBitDepth = _options.wavBitDepth;
     settings.exportSampleRate = _options.sampleRate;
     settings.exportNormalize = _options.normalize;
-    settings.exportDither = _options.dither;
 
-    // Save artist if remember is enabled
-    if (settings.rememberArtist) {
-      settings.exportArtist = _options.artist;
+    // Remember the artist for next time
+    final artist = _options.artist;
+    if (artist != null && artist.isNotEmpty) {
+      settings.exportArtist = artist;
     }
   }
 
@@ -498,13 +481,13 @@ class _ExportDialogState extends State<ExportDialog> {
   void dispose() {
     _titleController.dispose();
     _artistController.dispose();
-    _albumController.dispose();
-    _yearController.dispose();
-    _genreController.dispose();
     super.dispose();
   }
 
   // Helper to convert bit depth int to Rust enum string
+  /// Dither automatically when the output is 16-bit PCM (WAV 16-bit).
+  bool get _ditherOn => _options.exportWav && _options.wavBitDepth == 16;
+
   String _wavBitDepthString(int bitDepth) {
     switch (bitDepth) {
       case 16:
@@ -574,8 +557,8 @@ class _ExportDialogState extends State<ExportDialog> {
                       },
                 'sample_rate': _options.sampleRate,
                 'normalize': _options.normalize,
-                'dither': _options.dither,
-                'mono': _options.mono,
+                'dither': _ditherOn,
+                'mono': false,
               });
 
               final stemResultJson = widget.audioEngine.exportStems(
@@ -612,16 +595,13 @@ class _ExportDialogState extends State<ExportDialog> {
                   bitrate: _options.mp3Bitrate,
                   sampleRate: _options.sampleRate,
                   normalize: _options.normalize,
-                  mono: _options.mono,
                 );
 
                 final parsed = jsonDecode(resultJson);
                 results.add(ExportResult.fromJson(parsed));
 
                 // Write metadata if we have any
-                if (_options.title != null ||
-                    _options.artist != null ||
-                    _options.album != null) {
+                if (_options.title != null || _options.artist != null) {
                   try {
                     widget.audioEngine.writeMp3Metadata(
                       mp3Path,
@@ -644,8 +624,7 @@ class _ExportDialogState extends State<ExportDialog> {
                   bitDepth: _options.wavBitDepth,
                   sampleRate: _options.sampleRate,
                   normalize: _options.normalize,
-                  dither: _options.dither,
-                  mono: _options.mono,
+                  dither: _ditherOn,
                 );
 
                 final parsed = jsonDecode(resultJson);
@@ -1184,26 +1163,6 @@ class _ExportDialogState extends State<ExportDialog> {
           _buildTextFieldRow('Artist', _artistController, (v) {
             _options.artist = v;
           }),
-          const SizedBox(height: 8),
-          _buildTextFieldRow('Album', _albumController, (v) {
-            _options.album = v;
-          }),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _buildTextFieldRow('Year', _yearController, (v) {
-                  _options.year = int.tryParse(v);
-                }, isNumber: true),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildTextFieldRow('Genre', _genreController, (v) {
-                  _options.genre = v;
-                }),
-              ),
-            ],
-          ),
         ],
       ],
     );
@@ -1245,21 +1204,6 @@ class _ExportDialogState extends State<ExportDialog> {
             subtitle: 'Maximize volume to -0.1 dBFS',
             value: _options.normalize,
             onChanged: (v) => setState(() => _options.normalize = v),
-          ),
-          const SizedBox(height: 8),
-          if (_options.exportWav && _options.wavBitDepth < 32)
-            _buildSwitchRow(
-              label: 'Dither',
-              subtitle: 'Add noise shaping for bit depth reduction',
-              value: _options.dither,
-              onChanged: (v) => setState(() => _options.dither = v),
-            ),
-          const SizedBox(height: 8),
-          _buildSwitchRow(
-            label: 'Mono',
-            subtitle: 'Mix down to single channel',
-            value: _options.mono,
-            onChanged: (v) => setState(() => _options.mono = v),
           ),
         ],
       ],
@@ -1386,9 +1330,8 @@ class _ExportDialogState extends State<ExportDialog> {
   Widget _buildTextFieldRow(
     String label,
     TextEditingController controller,
-    ValueChanged<String> onChanged, {
-    bool isNumber = false,
-  }) {
+    ValueChanged<String> onChanged,
+  ) {
     return Row(
       children: [
         SizedBox(
@@ -1411,9 +1354,7 @@ class _ExportDialogState extends State<ExportDialog> {
             child: TextField(
               controller: controller,
               onChanged: onChanged,
-              keyboardType: isNumber
-                  ? TextInputType.number
-                  : TextInputType.text,
+              keyboardType: TextInputType.text,
               style: TextStyle(
                 color: context.colors.textPrimary,
                 fontSize: BT.fontBody,

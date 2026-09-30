@@ -12,10 +12,8 @@ class FileMenuCallbacks {
   final VoidCallback? onSaveProject;
   final VoidCallback? onSaveProjectAs;
   final VoidCallback? onRenameProject;
-  final VoidCallback? onSaveNewVersion;
   final VoidCallback? onExportAudio;
   final VoidCallback? onAppSettings;
-  final VoidCallback? onProjectSettings;
   final VoidCallback? onCloseProject;
 
   /// Open the Start screen (an "Audio" menu item).
@@ -30,10 +28,8 @@ class FileMenuCallbacks {
     this.onSaveProject,
     this.onSaveProjectAs,
     this.onRenameProject,
-    this.onSaveNewVersion,
     this.onExportAudio,
     this.onAppSettings,
-    this.onProjectSettings,
     this.onCloseProject,
     this.onStartScreen,
     this.onKeyboardShortcuts,

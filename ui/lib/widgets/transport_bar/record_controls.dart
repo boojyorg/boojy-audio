@@ -11,8 +11,7 @@ enum _RecordButtonVisualState { idle, disabled, countingIn, recording }
 /// Record button with the count-in ring timer.
 ///
 /// During count-in: depleting orange ring + beat number inside.
-/// During recording: solid red fill + white dot + glow.
-/// Transition flash on recording start.
+/// During recording: solid red fill + white dot. No animation.
 class RecordButton extends StatefulWidget {
   final bool isRecording;
   final bool isCountingIn;
@@ -37,46 +36,9 @@ class RecordButton extends StatefulWidget {
   State<RecordButton> createState() => _RecordButtonState();
 }
 
-class _RecordButtonState extends State<RecordButton>
-    with TickerProviderStateMixin {
+class _RecordButtonState extends State<RecordButton> {
   bool _isHovered = false;
   bool _isPressed = false;
-  late AnimationController _flashController;
-  late AnimationController _pulseController;
-  bool _wasCountingIn = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _flashController = AnimationController(
-      vsync: this,
-      duration: AnimationConstants.hoverDuration,
-    );
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat();
-    _wasCountingIn = widget.isCountingIn;
-  }
-
-  @override
-  void didUpdateWidget(RecordButton oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    // Flash on count-in → recording transition
-    if (widget.isRecording && !oldWidget.isRecording && _wasCountingIn) {
-      _flashController.forward(from: 0.0);
-    }
-
-    _wasCountingIn = widget.isCountingIn;
-  }
-
-  @override
-  void dispose() {
-    _flashController.dispose();
-    _pulseController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -140,25 +102,18 @@ class _RecordButtonState extends State<RecordButton>
             scale: scale,
             duration: AnimationConstants.hoverDuration,
             curve: AnimationConstants.standardCurve,
-            child: AnimatedBuilder(
-              animation: Listenable.merge([_flashController, _pulseController]),
-              builder: (context, child) {
-                return CustomPaint(
-                  size: Size(widget.size, widget.size),
-                  painter: _RecordButtonPainter(
-                    state: visualState,
-                    ringProgress: widget.countInProgress,
-                    beatNumber: widget.countInBeat,
-                    flashValue: _flashController.value,
-                    pulseValue: _pulseController.value,
-                    isHovered: _isHovered,
-                    recordColor: recordColor,
-                    countInColor: countInColor,
-                    disabledColor: context.colors.elevated,
-                    textMutedColor: context.colors.textMuted,
-                  ),
-                );
-              },
+            child: CustomPaint(
+              size: Size(widget.size, widget.size),
+              painter: _RecordButtonPainter(
+                state: visualState,
+                ringProgress: widget.countInProgress,
+                beatNumber: widget.countInBeat,
+                isHovered: _isHovered,
+                recordColor: recordColor,
+                countInColor: countInColor,
+                disabledColor: context.colors.elevated,
+                textMutedColor: context.colors.textMuted,
+              ),
             ),
           ),
         ),
@@ -173,13 +128,11 @@ class _RecordButtonState extends State<RecordButton>
 /// - Idle: red border + dim red fill + red dot
 /// - Disabled: grey border + grey fill + grey dot
 /// - CountingIn: orange depleting ring (CW from 12 o'clock) + beat number
-/// - Recording: red fill + pulsing glow + white dot + optional flash overlay
+/// - Recording: solid red fill + white dot
 class _RecordButtonPainter extends CustomPainter {
   final _RecordButtonVisualState state;
   final double ringProgress; // 0.0 (start) to 1.0 (end of count-in)
   final int beatNumber; // 1-indexed beat within bar
-  final double flashValue; // 0.0 to 1.0 (flash animation)
-  final double pulseValue; // 0.0 to 1.0 (pulse animation, 2-second cycle)
   final bool isHovered;
   final Color recordColor;
   final Color countInColor;
@@ -190,8 +143,6 @@ class _RecordButtonPainter extends CustomPainter {
     required this.state,
     required this.ringProgress,
     required this.beatNumber,
-    required this.flashValue,
-    required this.pulseValue,
     required this.isHovered,
     required this.recordColor,
     required this.countInColor,
@@ -213,7 +164,7 @@ class _RecordButtonPainter extends CustomPainter {
         _drawDisabled(canvas, center, radius, borderWidth);
         break;
       case _RecordButtonVisualState.countingIn:
-        _drawCountingIn(canvas, center, radius, borderWidth, size);
+        _drawCountingIn(canvas, center, radius, borderWidth);
         break;
       case _RecordButtonVisualState.recording:
         _drawRecording(canvas, center, radius, borderWidth);
@@ -234,14 +185,6 @@ class _RecordButtonPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = bw;
     canvas.drawCircle(center, radius - bw / 2, borderPaint);
-
-    // Glow on hover
-    if (isHovered) {
-      final glowPaint = Paint()
-        ..color = recordColor.withValues(alpha: 0.3)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-      canvas.drawCircle(center, radius, glowPaint);
-    }
 
     // Red dot in center
     final dotPaint = Paint()
@@ -271,13 +214,7 @@ class _RecordButtonPainter extends CustomPainter {
     canvas.drawCircle(center, radius * 0.30, dotPaint);
   }
 
-  void _drawCountingIn(
-    Canvas canvas,
-    Offset center,
-    double radius,
-    double bw,
-    Size size,
-  ) {
+  void _drawCountingIn(Canvas canvas, Offset center, double radius, double bw) {
     // Dim orange fill
     final fillPaint = Paint()
       ..color = countInColor.withValues(alpha: 0.2)
@@ -327,40 +264,17 @@ class _RecordButtonPainter extends CustomPainter {
   }
 
   void _drawRecording(Canvas canvas, Offset center, double radius, double bw) {
-    // Pulsing glow: 0.8 to 1.0 opacity (2-second cycle)
-    final glowAlpha = 0.8 + (0.2 * sin(pulseValue * 2 * pi));
-    final glowPaint = Paint()
-      ..color = recordColor.withValues(alpha: glowAlpha * 0.4)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-    canvas.drawCircle(center, radius + 2, glowPaint);
-
-    // Solid red fill with subtle pulse
-    final fillAlpha = 0.8 + (0.15 * sin(pulseValue * 2 * pi));
+    // Solid red fill
     final fillPaint = Paint()
-      ..color = recordColor.withValues(alpha: isHovered ? 0.95 : fillAlpha)
+      ..color = recordColor
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, radius, fillPaint);
-
-    // Border
-    final borderPaint = Paint()
-      ..color = recordColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = bw;
-    canvas.drawCircle(center, radius - bw / 2, borderPaint);
 
     // White dot in center
     final dotPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, radius * 0.28, dotPaint);
-
-    // Flash overlay (on transition from count-in)
-    if (flashValue > 0) {
-      final flashPaint = Paint()
-        ..color = Colors.white.withValues(alpha: 0.6 * (1.0 - flashValue))
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(center, radius, flashPaint);
-    }
   }
 
   @override
@@ -368,8 +282,6 @@ class _RecordButtonPainter extends CustomPainter {
     return state != oldDelegate.state ||
         ringProgress != oldDelegate.ringProgress ||
         beatNumber != oldDelegate.beatNumber ||
-        flashValue != oldDelegate.flashValue ||
-        pulseValue != oldDelegate.pulseValue ||
         isHovered != oldDelegate.isHovered;
   }
 }

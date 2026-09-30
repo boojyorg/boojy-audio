@@ -21,7 +21,8 @@ import 'load_app_fonts.dart';
 ///   PREVIEW_OUT=/some/dir fvm flutter test test/my_preview_test.dart
 ///
 /// [builder] wraps the Navigator like `MaterialApp.builder` (e.g. to mount
-/// `NoticeHost`); [before] runs after the first frame, before settling.
+/// `NoticeHost`); [before] runs after the first frame, before settling;
+/// [interact] runs after settling, before capture (e.g. tap to expand).
 Future<void> renderPreview(
   WidgetTester tester, {
   required String name,
@@ -30,6 +31,7 @@ Future<void> renderPreview(
   Size size = const Size(1440, 900),
   TransitionBuilder? builder,
   VoidCallback? before,
+  Future<void> Function(WidgetTester tester)? interact,
 }) async {
   await loadAppFonts(tester);
   await _loadMaterialIcons(tester);
@@ -53,10 +55,16 @@ Future<void> renderPreview(
     ),
   );
   before?.call();
-  // Fixed pumps, not pumpAndSettle: some widgets animate forever (the record
-  // button's pulse), which would never settle.
+  // Fixed pumps, not pumpAndSettle: some widgets animate forever, which
+  // would never settle.
   for (var i = 0; i < 20; i++) {
     await tester.pump(const Duration(milliseconds: 50));
+  }
+  if (interact != null) {
+    await interact(tester);
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
   }
 
   final out = Platform.environment['PREVIEW_OUT'] ?? Directory.systemTemp.path;

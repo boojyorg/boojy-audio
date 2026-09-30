@@ -48,7 +48,6 @@ import '../services/vst3_editor_service.dart';
 import '../services/plugin_preferences_service.dart';
 import '../widgets/settings_dialog.dart';
 import '../widgets/app_settings_dialog.dart';
-import '../widgets/project_settings_dialog.dart';
 import '../widgets/export_dialog.dart';
 import '../services/midi_file_service.dart';
 import '../widgets/start_screen/start_screen_modal.dart';
@@ -717,8 +716,8 @@ class _DAWScreenState extends State<DAWScreen>
     }
     syncAllVolumeAutomationToEngine();
 
-    // Keep the metadata BPM in step (the project settings dialog seeds
-    // its BPM field from projectMetadata) — including on undo/redo.
+    // Keep the metadata BPM in step with the engine tempo — including on
+    // undo/redo.
     setState(() {
       projectMetadata = projectMetadata.copyWith(bpm: newBpm);
     });
@@ -1568,13 +1567,12 @@ class _DAWScreenState extends State<DAWScreen>
     }
   }
 
-  /// Copy audio file to project's Samples folder if setting is enabled
+  /// Copy audio file to project's Samples folder
   ///
   /// Returns the path to use (either copied path or original path)
   Future<String> _prepareSamplePath(String originalPath) async {
-    // If setting is disabled or no project is open, use original path
-    if (!userSettings.copySamplesToProject ||
-        projectManager?.currentPath == null) {
+    // No project open: use the original path
+    if (projectManager?.currentPath == null) {
       return originalPath;
     }
 
@@ -2305,88 +2303,6 @@ class _DAWScreenState extends State<DAWScreen>
     );
   }
 
-  Future<void> _saveNewVersion() async {
-    if (projectManager?.currentPath == null) {
-      Notices.info('Save the project before making a new version');
-      return;
-    }
-
-    try {
-      final currentPath = projectManager!.currentPath!;
-      final currentName = projectManager!.currentName;
-      final parentDir = Directory(currentPath).parent.path;
-
-      // Find the next version number by scanning for existing versions
-      int nextVersion = 2;
-      final baseName = currentName.replaceAll(
-        RegExp(r'_v\d+$'),
-        '',
-      ); // Remove existing _vN suffix
-
-      while (true) {
-        final versionPath = '$parentDir/${baseName}_v$nextVersion.audio';
-        if (!await Directory(versionPath).exists()) {
-          break;
-        }
-        nextVersion++;
-      }
-
-      final newVersionName = '${baseName}_v$nextVersion';
-      final newVersionPath = '$parentDir/$newVersionName.audio';
-
-      setState(() => isLoading = true);
-
-      // Create new version folder
-      final newVersionDir = Directory(newVersionPath);
-      await newVersionDir.create(recursive: true);
-
-      // Copy project.json
-      final sourceProjectFile = File('$currentPath/project.json');
-      if (await sourceProjectFile.exists()) {
-        await sourceProjectFile.copy('$newVersionPath/project.json');
-      }
-
-      // Copy ui_layout.json
-      final sourceLayoutFile = File('$currentPath/ui_layout.json');
-      if (await sourceLayoutFile.exists()) {
-        await sourceLayoutFile.copy('$newVersionPath/ui_layout.json');
-      }
-
-      // Create symlink for Samples folder (shares samples to save space)
-      final sourceSamplesDir = Directory('$currentPath/Samples');
-      if (await sourceSamplesDir.exists()) {
-        // Use Process.run to create symlink since dart:io Link may have issues
-        await Process.run('ln', [
-          '-s',
-          '$currentPath/Samples',
-          '$newVersionPath/Samples',
-        ]);
-      }
-
-      // Update project manager to point to new version
-      projectManager!.setProjectName(newVersionName);
-      await projectManager!.saveProjectToPath(
-        newVersionPath,
-        getCurrentUILayout(),
-      );
-
-      // Update UI
-      setState(() {
-        projectMetadata = projectMetadata.copyWith(name: newVersionName);
-        isLoading = false;
-      });
-
-      // Update window title
-      WindowTitleService.setProjectName(newVersionName);
-
-      // Add to recent projects
-      await userSettings.addRecentProject(newVersionPath, newVersionName);
-    } catch (e) {
-      setState(() => isLoading = false);
-      Notices.problem("Couldn't save a new version", error: e);
-    }
-  }
-
   Future<void> _renameProject() async {
     if (projectManager?.currentPath == null) {
       Notices.info('Save the project before renaming it');
@@ -2485,29 +2401,6 @@ class _DAWScreenState extends State<DAWScreen>
       userSettings,
       audioEngine: audioEngine,
     );
-  }
-
-  Future<void> _openProjectSettings() async {
-    if (!mounted) return;
-
-    // Open project-specific settings dialog (accessed via clicking song name)
-    final updated = await ProjectSettingsDialog.show(
-      context,
-      metadata: projectMetadata,
-    );
-
-    if (updated == null || !mounted) return;
-
-    final nameChanged = updated.name != projectMetadata.name;
-
-    setState(() {
-      projectMetadata = updated;
-    });
-
-    if (nameChanged) {
-      projectManager?.setProjectName(updated.name);
-      WindowTitleService.setProjectName(updated.name);
-    }
   }
 
   // ========================================================================
@@ -2669,11 +2562,9 @@ class _DAWScreenState extends State<DAWScreen>
             onOpenProject: _openProject,
             onSaveProject: saveProject,
             onSaveProjectAs: saveProjectAs,
-            onSaveNewVersion: _saveNewVersion,
             onRenameProject: _renameProject,
             onExportAudio: _exportAudio,
             onAppSettings: _appSettings,
-            onProjectSettings: _openProjectSettings,
             onCloseProject: _closeProject,
             onStartScreen: _showStartScreen,
             onKeyboardShortcuts: _showKeyboardShortcuts,
@@ -3188,10 +3079,8 @@ class _DAWScreenState extends State<DAWScreen>
           onOpenProject: _openProject,
           onSaveProject: saveProject,
           onSaveProjectAs: saveProjectAs,
-          onSaveNewVersion: _saveNewVersion,
           onRenameProject: _renameProject,
           onExportAudio: _exportAudio,
-          onProjectSettings: _openProjectSettings,
           onCloseProject: _closeProject,
           onStartScreen: _showStartScreen,
           recentProjectsMenu: _buildRecentProjectsMenu(),

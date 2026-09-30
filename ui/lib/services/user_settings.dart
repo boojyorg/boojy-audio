@@ -70,7 +70,6 @@ class UserSettings extends ChangeNotifier {
 
   // Setting keys
   static const String _keyUndoLimit = 'undo_limit';
-  static const String _keyAutoSaveMinutes = 'auto_save_minutes';
   static const String _keyLastCleanExit = 'last_clean_exit';
   static const String _keyRecentProjects = 'recent_projects';
 
@@ -81,9 +80,7 @@ class UserSettings extends ChangeNotifier {
   static const String _keyExportWavBitDepth = 'export_wav_bit_depth';
   static const String _keyExportSampleRate = 'export_sample_rate';
   static const String _keyExportNormalize = 'export_normalize';
-  static const String _keyExportDither = 'export_dither';
   static const String _keyExportArtist = 'export_artist';
-  static const String _keyExportRememberArtist = 'export_remember_artist';
 
   // Audio device setting keys
   static const String _keyAudioDriver = 'audio_driver';
@@ -97,10 +94,6 @@ class UserSettings extends ChangeNotifier {
 
   // Recording setting keys
   static const String _keyCountInBars = 'count_in_bars';
-
-  // Project setting keys
-  static const String _keyContinueWhereLeftOff = 'continue_where_left_off';
-  static const String _keyCopySamplesToProject = 'copy_samples_to_project';
 
   // Panel visibility keys
   static const String _keyLibraryCollapsed = 'panel_library_collapsed';
@@ -121,7 +114,6 @@ class UserSettings extends ChangeNotifier {
   // Appearance keys
   static const String _keyTheme = 'theme';
   static const String _keyUiScale = 'ui_scale';
-  static const String _keyPositionDisplayMode = 'position_display_mode';
 
   // Privacy keys
   static const String _keyHasCompletedTour = 'has_completed_tour';
@@ -131,7 +123,6 @@ class UserSettings extends ChangeNotifier {
 
   // Default values
   static const int defaultUndoLimit = 100;
-  static const int defaultAutoSaveMinutes = 5;
 
   // Export defaults
   static const String defaultExportFormat = 'mp3';
@@ -139,11 +130,9 @@ class UserSettings extends ChangeNotifier {
   static const int defaultWavBitDepth = 16;
   static const int defaultSampleRate = 44100;
   static const bool defaultNormalize = false;
-  static const bool defaultDither = false;
 
   // Current values
   int _undoLimit = defaultUndoLimit;
-  int _autoSaveMinutes = defaultAutoSaveMinutes;
   DateTime? _lastCleanExit;
   List<RecentProject> _recentProjects = [];
 
@@ -153,9 +142,7 @@ class UserSettings extends ChangeNotifier {
   int _exportWavBitDepth = defaultWavBitDepth;
   int _exportSampleRate = defaultSampleRate;
   bool _exportNormalize = defaultNormalize;
-  bool _exportDither = defaultDither;
   String? _exportArtist;
-  bool _rememberArtist = false;
 
   // Audio device settings
   String _audioDriver =
@@ -171,10 +158,6 @@ class UserSettings extends ChangeNotifier {
 
   // Recording settings
   int _countInBars = 1; // 0 = off, 1 = 1 bar (the only two choices)
-
-  // Project settings
-  bool _continueWhereLeftOff = true;
-  bool _copySamplesToProject = true;
 
   // Panel visibility settings
   bool _libraryCollapsed = false;
@@ -195,8 +178,6 @@ class UserSettings extends ChangeNotifier {
   String _theme =
       'dark'; // 'dark', 'highContrastDark', 'light', 'highContrastLight'
   double _uiScale = 1.0; // UI text scale factor (see uiScaleOptions)
-  String _positionDisplayMode =
-      'bars'; // transport readout: 'bars' | 'time' | 'both'
 
   // Privacy settings
   bool _hasCompletedTour = false;
@@ -210,17 +191,6 @@ class UserSettings extends ChangeNotifier {
     final clamped = value.clamp(10, 500);
     if (_undoLimit != clamped) {
       _undoLimit = clamped;
-      _save();
-      notifyListeners();
-    }
-  }
-
-  /// Auto-save interval in minutes (0 = disabled)
-  int get autoSaveMinutes => _autoSaveMinutes;
-  set autoSaveMinutes(int value) {
-    final clamped = value.clamp(0, 60);
-    if (_autoSaveMinutes != clamped) {
-      _autoSaveMinutes = clamped;
       _save();
       notifyListeners();
     }
@@ -286,33 +256,11 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
-  /// Whether to apply dithering on export
-  bool get exportDither => _exportDither;
-  set exportDither(bool value) {
-    if (_exportDither != value) {
-      _exportDither = value;
-      _saveExportSettings();
-      notifyListeners();
-    }
-  }
-
-  /// Remembered artist name for metadata
-  String? get exportArtist => _rememberArtist ? _exportArtist : null;
+  /// Last artist name used in export metadata
+  String? get exportArtist => _exportArtist;
   set exportArtist(String? value) {
     if (_exportArtist != value) {
       _exportArtist = value;
-      if (_rememberArtist) {
-        _saveExportSettings();
-      }
-      notifyListeners();
-    }
-  }
-
-  /// Whether to remember artist name across sessions
-  bool get rememberArtist => _rememberArtist;
-  set rememberArtist(bool value) {
-    if (_rememberArtist != value) {
-      _rememberArtist = value;
       _saveExportSettings();
       notifyListeners();
     }
@@ -419,30 +367,6 @@ class UserSettings extends ChangeNotifier {
 
   /// 0 stays off; every other value (1, or a legacy 2 / 4) becomes 1 bar.
   static int clampCountInBars(int value) => value <= 0 ? 0 : 1;
-
-  // ========================================================================
-  // Project Settings
-  // ========================================================================
-
-  /// Continue where I left off (restore zoom, scroll, panels)
-  bool get continueWhereLeftOff => _continueWhereLeftOff;
-  set continueWhereLeftOff(bool value) {
-    if (_continueWhereLeftOff != value) {
-      _continueWhereLeftOff = value;
-      _saveProjectSettings();
-      notifyListeners();
-    }
-  }
-
-  /// Copy imported samples to project folder
-  bool get copySamplesToProject => _copySamplesToProject;
-  set copySamplesToProject(bool value) {
-    if (_copySamplesToProject != value) {
-      _copySamplesToProject = value;
-      _saveProjectSettings();
-      notifyListeners();
-    }
-  }
 
   // ========================================================================
   // Panel Visibility Settings
@@ -579,17 +503,6 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
-  /// Transport position readout mode: 'bars', 'time', or 'both'. Persisted
-  /// globally (a display preference, like [theme] / [uiScale]).
-  String get positionDisplayMode => _positionDisplayMode;
-  set positionDisplayMode(String value) {
-    if (_positionDisplayMode != value) {
-      _positionDisplayMode = value;
-      _saveAppearanceSettings();
-      notifyListeners();
-    }
-  }
-
   /// Human-readable label for a UI Scale factor.
   static String uiScaleLabel(double scale) {
     if (scale <= 0.90) return 'Compact';
@@ -612,11 +525,6 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
-  /// Convenience method to set auto-save minutes
-  void setAutoSaveMinutes(int value) {
-    autoSaveMinutes = value;
-  }
-
   /// Load settings from SharedPreferences
   Future<void> load() async {
     if (_isLoaded) return;
@@ -625,8 +533,6 @@ class UserSettings extends ChangeNotifier {
       _prefs = await SharedPreferences.getInstance();
 
       _undoLimit = _prefs?.getInt(_keyUndoLimit) ?? defaultUndoLimit;
-      _autoSaveMinutes =
-          _prefs?.getInt(_keyAutoSaveMinutes) ?? defaultAutoSaveMinutes;
 
       final exitTimestamp = _prefs?.getInt(_keyLastCleanExit);
       if (exitTimestamp != null) {
@@ -659,9 +565,7 @@ class UserSettings extends ChangeNotifier {
           _prefs?.getInt(_keyExportSampleRate) ?? defaultSampleRate;
       _exportNormalize =
           _prefs?.getBool(_keyExportNormalize) ?? defaultNormalize;
-      _exportDither = _prefs?.getBool(_keyExportDither) ?? defaultDither;
       _exportArtist = _prefs?.getString(_keyExportArtist);
-      _rememberArtist = _prefs?.getBool(_keyExportRememberArtist) ?? false;
 
       // Load audio device settings
       _audioDriver = _prefs?.getString(_keyAudioDriver) ?? 'wasapi';
@@ -690,10 +594,6 @@ class UserSettings extends ChangeNotifier {
 
       // Load recording settings
       _countInBars = clampCountInBars(_prefs?.getInt(_keyCountInBars) ?? 1);
-
-      // Load project settings
-      _continueWhereLeftOff = _prefs?.getBool(_keyContinueWhereLeftOff) ?? true;
-      _copySamplesToProject = _prefs?.getBool(_keyCopySamplesToProject) ?? true;
 
       // Load panel visibility settings
       _libraryCollapsed = _prefs?.getBool(_keyLibraryCollapsed) ?? false;
@@ -728,8 +628,6 @@ class UserSettings extends ChangeNotifier {
         await _prefs?.setString(_keyTheme, _theme);
       }
       _uiScale = _prefs?.getDouble(_keyUiScale) ?? 1.0;
-      _positionDisplayMode =
-          _prefs?.getString(_keyPositionDisplayMode) ?? 'bars';
 
       // Load privacy settings
       _hasCompletedTour = _prefs?.getBool(_keyHasCompletedTour) ?? false;
@@ -747,7 +645,6 @@ class UserSettings extends ChangeNotifier {
 
     try {
       await _prefs!.setInt(_keyUndoLimit, _undoLimit);
-      await _prefs!.setInt(_keyAutoSaveMinutes, _autoSaveMinutes);
     } catch (e) {
       Log.e('UserSettings: Failed to save settings: $e');
     }
@@ -775,9 +672,7 @@ class UserSettings extends ChangeNotifier {
       await _prefs!.setInt(_keyExportWavBitDepth, _exportWavBitDepth);
       await _prefs!.setInt(_keyExportSampleRate, _exportSampleRate);
       await _prefs!.setBool(_keyExportNormalize, _exportNormalize);
-      await _prefs!.setBool(_keyExportDither, _exportDither);
-      await _prefs!.setBool(_keyExportRememberArtist, _rememberArtist);
-      if (_rememberArtist && _exportArtist != null) {
+      if (_exportArtist != null) {
         await _prefs!.setString(_keyExportArtist, _exportArtist!);
       } else {
         await _prefs!.remove(_keyExportArtist);
@@ -850,18 +745,6 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
-  /// Save project settings to SharedPreferences
-  Future<void> _saveProjectSettings() async {
-    if (_prefs == null) return;
-
-    try {
-      await _prefs!.setBool(_keyContinueWhereLeftOff, _continueWhereLeftOff);
-      await _prefs!.setBool(_keyCopySamplesToProject, _copySamplesToProject);
-    } catch (e) {
-      Log.e('UserSettings: Failed to save project settings: $e');
-    }
-  }
-
   /// Save panel visibility and size settings to SharedPreferences
   Future<void> _savePanelSettings() async {
     if (_prefs == null) return;
@@ -899,7 +782,6 @@ class UserSettings extends ChangeNotifier {
     try {
       await _prefs!.setString(_keyTheme, _theme);
       await _prefs!.setDouble(_keyUiScale, _uiScale);
-      await _prefs!.setString(_keyPositionDisplayMode, _positionDisplayMode);
     } catch (e) {
       Log.e('UserSettings: Failed to save appearance settings: $e');
     }
@@ -997,26 +879,7 @@ class UserSettings extends ChangeNotifier {
   /// Reset all settings to defaults
   Future<void> resetToDefaults() async {
     _undoLimit = defaultUndoLimit;
-    _autoSaveMinutes = defaultAutoSaveMinutes;
     await _save();
     notifyListeners();
   }
-
-  /// Get available auto-save interval options
-  static List<AutoSaveOption> get autoSaveOptions => [
-    AutoSaveOption(0, 'Off'),
-    AutoSaveOption(1, '1 minute'),
-    AutoSaveOption(2, '2 minutes'),
-    AutoSaveOption(5, '5 minutes'),
-    AutoSaveOption(10, '10 minutes'),
-    AutoSaveOption(15, '15 minutes'),
-  ];
-}
-
-/// Helper class for auto-save dropdown options
-class AutoSaveOption {
-  final int minutes;
-  final String label;
-
-  AutoSaveOption(this.minutes, this.label);
 }

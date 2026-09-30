@@ -7,7 +7,7 @@ import '../shared/boojy_dropdown.dart';
 import '../shared/boojy_tooltip.dart';
 
 /// The project name as a plain text button; clicking it opens the project
-/// menu (New, Open, Save, Export, Project Settings, Close). No chevron — the
+/// menu (New, Open, Save, Export, Close). No chevron — the
 /// hover lift and the tooltip say it's a menu, and it sits beside the equally
 /// plain "Audio" app menu.
 class FileMenuButton extends StatefulWidget {
@@ -18,9 +18,7 @@ class FileMenuButton extends StatefulWidget {
   final VoidCallback? onSaveProject;
   final VoidCallback? onSaveProjectAs;
   final VoidCallback? onRenameProject;
-  final VoidCallback? onSaveNewVersion;
   final VoidCallback? onExportAudio;
-  final VoidCallback? onProjectSettings;
   final VoidCallback? onCloseProject;
 
   const FileMenuButton({
@@ -32,9 +30,7 @@ class FileMenuButton extends StatefulWidget {
     this.onSaveProject,
     this.onSaveProjectAs,
     this.onRenameProject,
-    this.onSaveNewVersion,
     this.onExportAudio,
-    this.onProjectSettings,
     this.onCloseProject,
   });
 
@@ -82,23 +78,12 @@ class _FileMenuButtonState extends State<FileMenuButton> {
         if (widget.hasProject) ...[
           const BoojyMenuDivider(),
           BoojyMenuItem(value: 'rename', icon: BI.rename, label: 'Rename…'),
-          BoojyMenuItem(
-            value: 'save_new_version',
-            icon: BI.history,
-            label: 'Save New Version…',
-          ),
         ],
         const BoojyMenuDivider(),
         BoojyMenuItem(
           value: 'export_audio',
           icon: BI.waveform,
           label: 'Export Audio…',
-        ),
-        BoojyMenuItem(
-          value: 'project_settings',
-          icon: BI.settings,
-          label: 'Project Settings…',
-          shortcut: '⌘,',
         ),
         const BoojyMenuDivider(),
         BoojyMenuItem(value: 'close', icon: BI.close, label: 'Close Project'),
@@ -117,12 +102,8 @@ class _FileMenuButtonState extends State<FileMenuButton> {
         widget.onSaveProjectAs?.call();
       case 'rename':
         widget.onRenameProject?.call();
-      case 'save_new_version':
-        widget.onSaveNewVersion?.call();
       case 'export_audio':
         widget.onExportAudio?.call();
-      case 'project_settings':
-        widget.onProjectSettings?.call();
       case 'close':
         widget.onCloseProject?.call();
     }

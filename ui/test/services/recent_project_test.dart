@@ -148,39 +148,4 @@ void main() {
       });
     });
   });
-
-  group('AutoSaveOption', () {
-    test('creates AutoSaveOption with minutes and label', () {
-      final option = AutoSaveOption(5, '5 minutes');
-
-      expect(option.minutes, 5);
-      expect(option.label, '5 minutes');
-    });
-
-    test('autoSaveOptions returns expected options', () {
-      final options = UserSettings.autoSaveOptions;
-
-      expect(options.length, 6);
-
-      // Check first option (Off)
-      expect(options[0].minutes, 0);
-      expect(options[0].label, 'Off');
-
-      // Check last option (15 minutes)
-      expect(options.last.minutes, 15);
-      expect(options.last.label, '15 minutes');
-    });
-
-    test('autoSaveOptions includes common intervals', () {
-      final options = UserSettings.autoSaveOptions;
-      final minutes = options.map((o) => o.minutes).toList();
-
-      expect(minutes, contains(0)); // Off
-      expect(minutes, contains(1)); // 1 minute
-      expect(minutes, contains(2)); // 2 minutes
-      expect(minutes, contains(5)); // 5 minutes
-      expect(minutes, contains(10)); // 10 minutes
-      expect(minutes, contains(15)); // 15 minutes
-    });
-  });
 }
