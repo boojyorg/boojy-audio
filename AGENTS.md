@@ -22,7 +22,7 @@ touching each area. **Each fact has one home; everything else here is a pointer.
 | `docs/EDITING.md` | **Planned** editing model for v0.7 (Select default, Draw toggle, action bar, every input method). The app still has the five-tool row; reviews should treat its problems as known, not new. |
 | `docs/RELEASING.md` | Release steps, version sync, Windows smoke test, milestone-review cadence. |
 | `.claude/rules/*.md` | Full-text engineering gotchas, one area per file. See the index below. |
-| `docs/reviews/` | The current review (2026-09-13 brief + evidence) and any untriaged reports. Everything older: `docs/archive/`. |
+| `docs/reviews/` | Review reports whose findings are not yet all in BACKLOG. Everything older: `docs/archive/`. |
 | `CHANGELOG.md` | Completed work, `## Unreleased` on top. |
 
 ## Build & run

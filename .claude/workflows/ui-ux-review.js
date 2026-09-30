@@ -3,7 +3,7 @@ export const meta = {
   description:
     'UI/UX review: parallel readers over the Flutter UI by area + 4 competitive DAW teardowns → synthesized verdict, bug ledger, design direction, ASCII mockups, and a milestone proposal. Optional screenshot grounding. Model-tiered (readers + teardowns Sonnet, synthesis Opus). Mirrors docs/archive/reviews/2026_05_30_ui_ux_review.md.',
   whenToUse:
-    "Before opening a new MINOR version's plan doc, to set the visual/UX theme. Lighter than the codebase audit. For visual grounding, drop current-build screenshots into docs/reviews/_screenshots/ BEFORE running (see that folder's README) — the readers Glob/Read them from there. Without staged screenshots the visual read is ungrounded and the report will say so. Save the returned report to docs/reviews/.",
+    "Before opening a new MINOR version's plan doc, to set the visual/UX theme. Lighter than the codebase audit. For visual grounding, drop current-build screenshots into docs/reviews/_screenshots/ BEFORE running (see that folder's README) — the readers list and Read them from there. Without staged screenshots the visual read is ungrounded and the report will say so. Save the returned report to docs/reviews/.",
   phases: [
     { title: 'Read', detail: 'one read-only reader per UI area (Sonnet)' },
     { title: 'Compare', detail: '4 competitive DAW teardowns (Sonnet)' },
@@ -64,10 +64,12 @@ const TEARDOWN = {
   required: ['steal', 'avoid'],
 }
 
-// Screenshots are grounded from a COMMITTED staging path, not from args.
+// Screenshots are grounded from a fixed staging path, not from args. The PNGs
+// are gitignored (big, disposable), so readers list the folder with `ls`:
+// Glob may skip ignored files.
 // Named-workflow `args` get dropped, and pasted-image paths under
 // ~/.claude/image-cache/ are purged mid-run — both leave subagents blind. The
-// staging folder is a real repo path the readers (Explore agents with Glob/Read)
+// staging folder is a real repo path the readers (Explore agents with Bash/Read)
 // can always reach. `args.screenshots` is still honoured as an extra hint if the
 // orchestrator manages to pass absolute paths through. See docs/reviews/_screenshots/README.md.
 const STAGED_SHOTS_DIR = 'docs/reviews/_screenshots/'
@@ -75,7 +77,7 @@ const extraShots = (args && args.screenshots) || []
 const groundingHint =
   ` Screenshots of the running app are staged in the repo at \`${STAGED_SHOTS_DIR}\`` +
   (extraShots.length ? ` (and also at: ${extraShots.join(', ')})` : '') +
-  ` — Glob that folder for \`*.png\` and Read every match to ground your visual judgements against the real pixels.` +
+  ` — list it with \`ls ${STAGED_SHOTS_DIR}*.png\` (they're gitignored, so don't rely on Glob) and Read every match to ground your visual judgements against the real pixels.` +
   ` If the folder has no PNGs, say so explicitly and treat your visual read as ungrounded.`
 
 phase('Read')

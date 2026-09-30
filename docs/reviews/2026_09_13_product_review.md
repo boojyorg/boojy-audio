@@ -1,9 +1,8 @@
 # Product, UI/UX and repo-health review — 2026-09-13
 
-**Decision brief.** Evidence, file:line citations, the full tool behaviour matrix, the dialog
-inventory and the verifier's verdicts are in
-[`2026_09_13_product_review_evidence.md`](2026_09_13_product_review_evidence.md). Read-only
-review of master at `988a068`; nothing in the repo was changed except these two files.
+***Decision brief.** Read-only review of master at `988a068`. The evidence file (file:line
+citations, tool behaviour matrix, dialog inventory) was deleted in the 2026-09-30 docs prune;
+it is in git history before that date.
 
 Method: four readers (tools and interaction model; panels, layout and mixer; correctness and
 architecture; repo health, dependencies, platforms and docs), one adversarial verifier over
