@@ -53,13 +53,9 @@ class PianoRollControlsBar extends StatefulWidget {
   // Transform section
   final VoidCallback? onLegato;
 
-  // Lane visibility toggles (Randomize/CC type moved to lane headers)
+  // Lane visibility toggle
   final bool velocityLaneVisible;
   final VoidCallback? onVelocityLaneToggle;
-  final bool ccLaneVisible;
-  final VoidCallback? onCCLaneToggle;
-  final bool clipAutomationLaneVisible;
-  final VoidCallback? onClipAutomationLaneToggle;
 
   // Virtual Piano toggle
   final bool virtualPianoVisible;
@@ -104,10 +100,6 @@ class PianoRollControlsBar extends StatefulWidget {
     // Lane visibility toggles
     this.velocityLaneVisible = false,
     this.onVelocityLaneToggle,
-    this.ccLaneVisible = false,
-    this.onCCLaneToggle,
-    this.clipAutomationLaneVisible = false,
-    this.onClipAutomationLaneToggle,
     // Virtual Piano toggle
     this.virtualPianoVisible = false,
     this.onVirtualPianoToggle,
@@ -236,7 +228,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                     _buildTransformGroup(context),
                     _buildSeparator(context),
 
-                    // === LANES GROUP (velocity / CC lane toggles) ===
+                    // === LANES GROUP (velocity lane toggle) ===
                     _buildLanesGroup(context),
                   ],
                 ),
@@ -353,7 +345,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
   }
 
   // ============ LANES GROUP ============
-  // Toggle velocity lane open/closed. CC lane deferred (no opener shipped yet).
+  // Toggle velocity lane open/closed.
   Widget _buildLanesGroup(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,

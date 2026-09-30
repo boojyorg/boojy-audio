@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/midi_note_data.dart';
-import '../../models/midi_cc_data.dart';
 import '../../models/scale_data.dart';
 import '../../models/tool_mode.dart';
-import '../../models/track_automation_data.dart';
 import '../../services/undo_redo_manager.dart';
 import '../piano_roll.dart';
 
@@ -217,34 +215,6 @@ mixin PianoRollStateMixin on State<PianoRoll> {
 
   /// Velocity randomization amount (0-100%).
   double velocityRandomizeAmount = 0.0;
-
-  // ============================================
-  // CC AUTOMATION LANE STATE
-  // ============================================
-
-  /// Whether CC lane is expanded.
-  bool ccLaneExpanded = false;
-
-  /// CC lane height in pixels.
-  static const double ccLaneHeight = 80.0;
-
-  /// Current CC lane data.
-  MidiCCLane ccLane = MidiCCLane(ccType: MidiCCType.modWheel);
-
-  // ============================================
-  // CLIP AUTOMATION LANE STATE
-  // ============================================
-
-  /// Whether clip automation lane is expanded.
-  bool clipAutomationLaneExpanded = false;
-
-  /// Clip automation lane height in pixels (resizable).
-  double clipAutomationLaneHeight = 80.0;
-  static const double clipAutomationLaneMinHeight = 30.0;
-
-  /// Currently active automation parameter for the clip automation lane.
-  AutomationParameter activeClipAutomationParameter =
-      AutomationParameter.volume;
 
   // ============================================
   // MULTI-SELECT STATE

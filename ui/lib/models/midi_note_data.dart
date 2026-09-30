@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
-import 'clip_automation_data.dart';
 
 /// Represents a MIDI note in the piano roll
 @immutable
@@ -206,10 +205,6 @@ class MidiClipData {
   /// Null means this is a standalone clip (not linked to others).
   final String? patternId;
 
-  /// Clip-based automation data. Automation lives inside the clip and moves,
-  /// copies, slices, and loops with the clip content.
-  final ClipAutomation automation;
-
   MidiClipData({
     required this.clipId,
     required this.trackId,
@@ -224,11 +219,9 @@ class MidiClipData {
     this.canRepeat = true,
     this.contentStartOffset = 0.0,
     this.patternId,
-    ClipAutomation? automation,
   }) : loopLength =
            loopLength ??
-           duration, // Default loopLength to duration if not specified
-       automation = automation ?? ClipAutomation.empty();
+           duration; // Default loopLength to duration if not specified
 
   /// Total duration including all loop iterations
   double get totalDuration => duration * loopCount;
@@ -252,7 +245,6 @@ class MidiClipData {
       canRepeat: canRepeat,
       contentStartOffset: contentStartOffset,
       patternId: patternId,
-      automation: automation,
     );
   }
 
@@ -272,7 +264,6 @@ class MidiClipData {
       canRepeat: canRepeat,
       contentStartOffset: contentStartOffset,
       patternId: patternId,
-      automation: automation,
     );
   }
 
@@ -292,7 +283,6 @@ class MidiClipData {
       canRepeat: canRepeat,
       contentStartOffset: contentStartOffset,
       patternId: patternId,
-      automation: automation,
     );
   }
 
@@ -381,7 +371,6 @@ class MidiClipData {
       canRepeat: canRepeat,
       contentStartOffset: contentStartOffset,
       patternId: patternId,
-      automation: automation,
     );
   }
 
@@ -401,7 +390,6 @@ class MidiClipData {
       canRepeat: canRepeat,
       contentStartOffset: contentStartOffset,
       patternId: patternId,
-      automation: automation,
     );
   }
 
@@ -420,7 +408,6 @@ class MidiClipData {
     bool? canRepeat,
     double? contentStartOffset,
     String? patternId,
-    ClipAutomation? automation,
   }) {
     return MidiClipData(
       clipId: clipId ?? this.clipId,
@@ -436,7 +423,6 @@ class MidiClipData {
       canRepeat: canRepeat ?? this.canRepeat,
       contentStartOffset: contentStartOffset ?? this.contentStartOffset,
       patternId: patternId ?? this.patternId,
-      automation: automation ?? this.automation,
     );
   }
 
@@ -458,7 +444,6 @@ class MidiClipData {
     'contentStartOffset': contentStartOffset,
     'loopLength': loopLength,
     if (patternId != null) 'patternId': patternId,
-    if (automation.hasAutomation) 'automation': automation.toJson(),
   };
 
   /// Rebuild a metadata-only clip from `ui_layout.json`. `clipId`/`duration`
@@ -467,7 +452,6 @@ class MidiClipData {
   /// match key are authoritative here.
   factory MidiClipData.fromUiLayoutJson(Map<String, dynamic> json) {
     final colorValue = json['color'] as int?;
-    final automationJson = json['automation'] as Map<String, dynamic>?;
     final loopLength = (json['loopLength'] as num?)?.toDouble();
     return MidiClipData(
       clipId: -1,
@@ -482,9 +466,6 @@ class MidiClipData {
       contentStartOffset:
           (json['contentStartOffset'] as num?)?.toDouble() ?? 0.0,
       patternId: json['patternId'] as String?,
-      automation: automationJson != null
-          ? ClipAutomation.fromJson(automationJson)
-          : null,
     );
   }
 }

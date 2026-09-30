@@ -100,8 +100,8 @@ AudioEngine (dart:ffi)
   navigation and search results, so the widget never keeps a second model in sync. Row widget
   keys are path-like (parent key + id) because the same file can be listed under Favorites and
   under its own folder at once.
-- **Painting** is `CustomPainter` (`widgets/painters/`): grid, notes, velocity and CC lanes,
-  automation, ruler, nav bar. Golden tests cover the load-bearing ones.
+- **Painting** is `CustomPainter` (`widgets/painters/`): grid, notes, the velocity lane,
+  track automation, ruler, nav bar. Golden tests cover the load-bearing ones.
 - **Menus and pickers** share one overlay surface, `showBoojyMenu` in `widgets/shared/`;
   `BoojyDropdown` is the standard trigger chip and `ContextMenuHelper` routes right-clicks to it.
 

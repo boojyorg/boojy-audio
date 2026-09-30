@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../utils/logger.dart';
-import '../../../models/clip_automation_data.dart';
 import '../../../models/clip_data.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../models/midi_event.dart';
@@ -338,12 +337,6 @@ mixin DAWClipMixin
     }
     mergedNotes.sort((a, b) => a.startTime.compareTo(b.startTime));
 
-    // Carry clip automation across, shifted onto the joined timeline
-    final mergedAutomation = ClipAutomation.joined([
-      for (final clip in sortedClips)
-        (clip.automation, clip.startTime - firstClipStart, clip.duration),
-    ]);
-
     // Create the joined clip — named after the first clip, standalone
     // (joining breaks any pattern link, the merged content is new material)
     final joinedClip = MidiClipData(
@@ -355,7 +348,6 @@ mixin DAWClipMixin
       notes: mergedNotes,
       name: sortedClips.first.name,
       color: sortedClips.first.color,
-      automation: mergedAutomation,
     );
 
     // Route the whole operation through one undo step: delete each original

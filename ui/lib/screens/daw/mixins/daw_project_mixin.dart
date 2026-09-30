@@ -207,7 +207,7 @@ mixin DAWProjectMixin
     audioEngine!.setCountInBars(userSettings.countInBars);
 
     // Restore MIDI clips from engine for UI display, merging the saved UI
-    // metadata (name/colour/offset/loop/mute/automation) from ui_layout.json.
+    // metadata (name/colour/offset/loop/mute) from ui_layout.json.
     midiPlaybackManager?.restoreClipsFromEngine(
       tempo,
       savedMetadata: loadResult.uiLayout?.midiClips,

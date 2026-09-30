@@ -13,12 +13,6 @@ class UIConstants {
   /// Set to false to hide automation UI while preserving all data/engine code.
   static const bool enableAutomation = true;
 
-  /// Show the per-clip automation lane in the piano roll.
-  /// Kept off: the engine never reads clip-level automation (no FFI setter,
-  /// no render-path caller), so the lane would be purely cosmetic. Flip only
-  /// once clip automation is wired end-to-end.
-  static const bool enableClipAutomation = false;
-
   // ============================================
   // TIMELINE CONSTANTS
   // ============================================
