@@ -286,7 +286,6 @@ class TransportBar extends StatefulWidget {
   final FileMenuCallbacks fileMenu;
   final TransportCallbacks transport;
   final PanelCallbacks panels;
-  final DividerState dividers;
 
   // Playback state
   final double playheadPosition;
@@ -346,14 +345,12 @@ class TransportBar extends StatefulWidget {
 
   /// Active top-bar layout variant (dev "UI Labs" A/B). Drives the readout
   /// layout, the bar height, and (for C) the two-row structure.
-  final TopBarVariant topBarVariant;
 
   const TransportBar({
     super.key,
     this.fileMenu = const FileMenuCallbacks(),
     this.transport = const TransportCallbacks(),
     this.panels = const PanelCallbacks(),
-    this.dividers = const DividerState(),
     required this.playheadPosition,
     this.isPlaying = false,
     this.canPlay = false,
@@ -387,7 +384,6 @@ class TransportBar extends StatefulWidget {
     this.onTimeSignatureDragEnd,
     this.isLoading = false,
     this.engineFailed = false,
-    this.topBarVariant = TopBarVariant.inline,
   });
 
   @override
@@ -399,10 +395,6 @@ class _TransportBarState extends State<TransportBar> with WindowListener {
   /// them collapses. Tracked here (not in the screen) because only the bar
   /// cares; false everywhere the bar isn't the top chrome.
   bool _isFullScreen = false;
-  bool _sidebarHandleHovered = false;
-  bool _sidebarHandleDragging = false;
-  bool _mixerHandleHovered = false;
-  bool _mixerHandleDragging = false;
 
   /// Anchors the "record to new track" menu shown when record is pressed with
   /// no armed tracks.
@@ -446,19 +438,9 @@ class _TransportBarState extends State<TransportBar> with WindowListener {
     }
   }
 
-  void _onLeftNotifierChanged() {
-    if (mounted) setState(() {});
-  }
-
-  void _onRightNotifierChanged() {
-    if (mounted) setState(() {});
-  }
-
   @override
   void initState() {
     super.initState();
-    widget.dividers.leftDividerNotifier?.addListener(_onLeftNotifierChanged);
-    widget.dividers.rightDividerNotifier?.addListener(_onRightNotifierChanged);
     if (_replacesTitleBar) {
       windowManager.addListener(this);
       // Catch a window that is already full screen (relaunch into the saved
@@ -486,33 +468,8 @@ class _TransportBarState extends State<TransportBar> with WindowListener {
   }
 
   @override
-  void didUpdateWidget(TransportBar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.dividers.leftDividerNotifier !=
-        widget.dividers.leftDividerNotifier) {
-      oldWidget.dividers.leftDividerNotifier?.removeListener(
-        _onLeftNotifierChanged,
-      );
-      widget.dividers.leftDividerNotifier?.addListener(_onLeftNotifierChanged);
-    }
-    if (oldWidget.dividers.rightDividerNotifier !=
-        widget.dividers.rightDividerNotifier) {
-      oldWidget.dividers.rightDividerNotifier?.removeListener(
-        _onRightNotifierChanged,
-      );
-      widget.dividers.rightDividerNotifier?.addListener(
-        _onRightNotifierChanged,
-      );
-    }
-  }
-
-  @override
   void dispose() {
     if (_replacesTitleBar) windowManager.removeListener(this);
-    widget.dividers.leftDividerNotifier?.removeListener(_onLeftNotifierChanged);
-    widget.dividers.rightDividerNotifier?.removeListener(
-      _onRightNotifierChanged,
-    );
     super.dispose();
   }
 
@@ -529,17 +486,10 @@ class _TransportBarState extends State<TransportBar> with WindowListener {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    // Extra floor on macOS so the two-row variant's left group is wide enough
-    // to fully clear the traffic lights even when the sidebar is collapsed.
-    final leftMinWidth = _trafficLightInset > _kRailPadding ? 214.0 : 200.0;
-
-    // C splits the bar into two rows; A/B/D keep the single-row layout.
-    final body = widget.topBarVariant == TopBarVariant.twoRow
-        ? _buildTwoRowBody(colors, leftMinWidth)
-        : _buildSingleRowBody(colors);
+    final body = _buildSingleRowBody(colors);
 
     return Container(
-      height: widget.topBarVariant.barHeight,
+      height: kTopBarHeight,
       decoration: BoxDecoration(
         color: colors.dark,
         boxShadow: [
@@ -564,7 +514,7 @@ class _TransportBarState extends State<TransportBar> with WindowListener {
     );
   }
 
-  /// A/B/D — the standard single-row bar: left rail · centre · right rail,
+  /// The single-row bar: left rail · centre · right rail,
   /// allocated by [_SingleRowLayout] from the window width alone.
   Widget _buildSingleRowBody(BoojyColors colors) {
     return LayoutBuilder(
@@ -595,148 +545,6 @@ class _TransportBarState extends State<TransportBar> with WindowListener {
           ],
         );
       },
-    );
-  }
-
-  /// C — two-row bar. Row 1 keeps the brand/chrome plus the centred project
-  /// title, and preserves the resize handles + sidebar/mixer column alignment.
-  /// Row 2 carries the transport · readout · modifier clusters, grouped and
-  /// centred (the cleanest grouping, at ~2× the single-row height).
-  Widget _buildTwoRowBody(BoojyColors colors, double leftMinWidth) {
-    return Column(
-      children: [
-        SizedBox(
-          height: 44,
-          child: Row(
-            children: [
-              SizedBox(
-                width: math.max(widget.dividers.sidebarWidth, leftMinWidth),
-                child: _buildLeftGroup(
-                  colors,
-                  nameWidth: _kNameMaxWidth,
-                  compactWordmark: false,
-                ),
-              ),
-              _buildSidebarHandle(colors),
-              Expanded(child: Center(child: _buildCentredTitle(colors))),
-              _buildMixerHandle(colors),
-              SizedBox(
-                width: widget.dividers.mixerWidth,
-                child: _buildRightGroup(colors),
-              ),
-            ],
-          ),
-        ),
-        Container(height: 1, color: colors.divider),
-        Expanded(child: _buildSecondRow(colors)),
-      ],
-    );
-  }
-
-  /// Centred project title for C's row 1 — its natural home, since the row has
-  /// the horizontal space the single-row variants don't. IgnorePointer so it
-  /// never blocks a window drag in the empty middle.
-  Widget _buildCentredTitle(BoojyColors colors) {
-    return IgnorePointer(
-      child: Text(
-        widget.projectName,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: colors.textMuted,
-          fontSize: BT.fontLabel,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-
-  void _setSidebarHandleActive(bool hovered, bool dragging) {
-    setState(() {
-      _sidebarHandleHovered = hovered;
-      _sidebarHandleDragging = dragging;
-    });
-    widget.dividers.leftDividerNotifier?.value = hovered || dragging;
-  }
-
-  void _setMixerHandleActive(bool hovered, bool dragging) {
-    setState(() {
-      _mixerHandleHovered = hovered;
-      _mixerHandleDragging = dragging;
-    });
-    widget.dividers.rightDividerNotifier?.value = hovered || dragging;
-  }
-
-  Widget _buildDividerHandle({
-    required BoojyColors colors,
-    required bool isActive,
-    required Function(double) onDrag,
-    required VoidCallback onDoubleClick,
-    required void Function(bool hovered, bool dragging) setActive,
-    required bool isHovered,
-    required bool isDragging,
-    VoidCallback? onDragStart,
-    VoidCallback? onDragEnd,
-  }) {
-    return GestureDetector(
-      onPanStart: (_) {
-        setActive(isHovered, true);
-        onDragStart?.call();
-      },
-      onPanUpdate: (details) => onDrag(details.delta.dx),
-      onPanEnd: (_) {
-        setActive(isHovered, false);
-        onDragEnd?.call();
-      },
-      onDoubleTap: onDoubleClick,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.resizeColumn,
-        onEnter: (_) => setActive(true, isDragging),
-        onExit: (_) => setActive(false, isDragging),
-        // No visible line in the bar — the top bar reads as one clean band.
-        // This stays a silent 4px resize zone (cursor + drag still work, and
-        // hovering still lights the panel boundary below via the shared
-        // notifier); the actual visible divider lives in the panels below.
-        child: Container(width: 4, color: colors.dark),
-      ),
-    );
-  }
-
-  Widget _buildSidebarHandle(BoojyColors colors) {
-    final isActive =
-        _sidebarHandleHovered ||
-        _sidebarHandleDragging ||
-        (widget.dividers.leftDividerNotifier?.value ?? false);
-
-    return _buildDividerHandle(
-      colors: colors,
-      isActive: isActive,
-      onDrag: (delta) => widget.dividers.onSidebarDividerDrag?.call(delta),
-      onDoubleClick: () => widget.dividers.onSidebarDividerDoubleClick?.call(),
-      setActive: _setSidebarHandleActive,
-      isHovered: _sidebarHandleHovered,
-      isDragging: _sidebarHandleDragging,
-      onDragStart: widget.dividers.onSidebarDividerDragStart,
-      onDragEnd: widget.dividers.onSidebarDividerDragEnd,
-    );
-  }
-
-  Widget _buildMixerHandle(BoojyColors colors) {
-    final isActive =
-        _mixerHandleHovered ||
-        _mixerHandleDragging ||
-        (widget.dividers.rightDividerNotifier?.value ?? false);
-
-    return _buildDividerHandle(
-      colors: colors,
-      isActive: isActive,
-      onDrag: (delta) => widget.dividers.onMixerDividerDrag?.call(delta),
-      onDoubleClick: () => widget.dividers.onMixerDividerDoubleClick?.call(),
-      setActive: _setMixerHandleActive,
-      isHovered: _mixerHandleHovered,
-      isDragging: _mixerHandleDragging,
-      onDragStart: widget.dividers.onMixerDividerDragStart,
-      onDragEnd: widget.dividers.onMixerDividerDragEnd,
     );
   }
 
@@ -880,33 +688,7 @@ class _TransportBarState extends State<TransportBar> with WindowListener {
     );
   }
 
-  /// C — row 2: transport · readout · modifiers, grouped and centred (the
-  /// review's preferred two-row ordering, transport-first). Reuses the same
-  /// density ladder and well builders as the single-row centre group.
-  Widget _buildSecondRow(BoojyColors colors) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final density = _computeDensity(constraints.maxWidth);
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: BT.sm),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildTransportWell(colors, density),
-              SizedBox(width: density.clusterGap),
-              _buildReadoutWell(colors, density),
-              SizedBox(width: density.clusterGap),
-              _buildModifiersWell(colors, density),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  /// Modifier cluster: Snap · Loop · Metronome · Count-in, the familiar
-  /// left-of-transport order. Extracted so both the single-row centre group
-  /// and C's row 2 can compose it in either order.
+  /// Modifier cluster: Loop · Metronome · Count-in, left of the transport.
   Widget _buildModifiersWell(BoojyColors colors, TransportDensity density) {
     final wGap = density.withinGap;
     return _ClusterWell(
@@ -1025,11 +807,7 @@ class _TransportBarState extends State<TransportBar> with WindowListener {
     );
   }
 
-  /// Well 3 — the position / tempo / signature readouts. The dev "UI Labs"
-  /// variant chooses the layout: [TopBarVariant.inline] keeps the one-row
-  /// readout with the position promoted to a hero size; [TopBarVariant.lcd]
-  /// groups it into a bordered LCD panel with tempo/sig as dim satellites
-  /// beneath (the taller bar gives the vertical room).
+  /// Well 3 — the position / tempo / signature readouts, one row.
   Widget _buildReadoutWell(BoojyColors colors, TransportDensity density) {
     final wGap = density.withinGap;
     final tempo = TempoDisplay(
@@ -1049,91 +827,34 @@ class _TransportBarState extends State<TransportBar> with WindowListener {
       onDragEnd: widget.onTimeSignatureDragEnd,
     );
 
-    switch (widget.topBarVariant) {
-      case TopBarVariant.inline:
-      case TopBarVariant.twoRow:
-      case TopBarVariant.arrangementPinned:
-        // A (also C's row 2 and D's compact bar) — one row, position promoted
-        // to the hero readout. For D the bigger readout also lives pinned in
-        // the arrangement; this inline copy stays as the in-bar reference.
-        return _ClusterWell(
-          // Fixed size, same as the modifiers well: the centre group's
-          // OverflowBox slot absorbs any sub-pixel starvation (the old
-          // "RIGHT OVERFLOWED BY 0" sliver) without scaling the readouts.
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              PositionDisplay(
-                playheadPosition: widget.playheadPosition,
-                tempo: widget.tempo,
-                beatsPerBar: widget.beatsPerBar,
-                onPositionChanged: widget.transport.onPositionChanged,
-                // Uniform size with the tempo / signature boxes (no hero scale)
-                // for a cleaner, even readout row.
-                scale: 1.0,
-              ),
-              // At minimum density the tempo + signature shed entirely —
-              // the position readout + transport survive to the end.
-              if (density.showTempoSig) ...[
-                SizedBox(width: wGap),
-                // Tempo + tap fused into one split button (tap the BPM zone).
-                tempo,
-                SizedBox(width: wGap),
-                signature,
-              ],
-            ],
+    return _ClusterWell(
+      // Fixed size, same as the modifiers well: the centre group's
+      // OverflowBox slot absorbs any sub-pixel starvation (the old
+      // "RIGHT OVERFLOWED BY 0" sliver) without scaling the readouts.
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PositionDisplay(
+            playheadPosition: widget.playheadPosition,
+            tempo: widget.tempo,
+            beatsPerBar: widget.beatsPerBar,
+            onPositionChanged: widget.transport.onPositionChanged,
+            // Uniform size with the tempo / signature boxes (no hero scale)
+            // for a cleaner, even readout row.
+            scale: 1.0,
           ),
-        );
-      case TopBarVariant.lcd:
-        // B — bordered LCD panel: hero position over dim tempo/sig satellites.
-        // Horizontal-only padding (no _ClusterWell) so the panel gets the full
-        // bar height.
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: BT.xs),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.darkest,
-                  // Chrome radius (M25) — the bar uses radiusMd for chrome,
-                  // radiusLg for overlays; this panel had a stray 6.
-                  borderRadius: BT.borderMd,
-                  border: Border.all(
-                    color: colors.accent.withValues(alpha: 0.25),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    PositionDisplay(
-                      playheadPosition: widget.playheadPosition,
-                      tempo: widget.tempo,
-                      beatsPerBar: widget.beatsPerBar,
-                      onPositionChanged: widget.transport.onPositionChanged,
-                      scale: 1.3,
-                      chromeless: true,
-                    ),
-                    const SizedBox(height: 1),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        tempo,
-                        SizedBox(width: wGap + BT.xs),
-                        signature,
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-    }
+          // At minimum density the tempo + signature shed entirely —
+          // the position readout + transport survive to the end.
+          if (density.showTempoSig) ...[
+            SizedBox(width: wGap),
+            // Tempo + tap fused into one split button (tap the BPM zone).
+            tempo,
+            SizedBox(width: wGap),
+            signature,
+          ],
+        ],
+      ),
+    );
   }
 
   // ============================================

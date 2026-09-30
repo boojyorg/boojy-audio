@@ -122,8 +122,6 @@ class UserSettings extends ChangeNotifier {
   static const String _keyTheme = 'theme';
   static const String _keyUiScale = 'ui_scale';
   static const String _keyPositionDisplayMode = 'position_display_mode';
-  static const String _keyTopBarVariant = 'top_bar_variant';
-  static const String _keyEditorButtonVariant = 'editor_button_variant';
 
   // Privacy keys
   static const String _keyHasCompletedTour = 'has_completed_tour';
@@ -199,9 +197,6 @@ class UserSettings extends ChangeNotifier {
   double _uiScale = 1.0; // UI text scale factor (see uiScaleOptions)
   String _positionDisplayMode =
       'bars'; // transport readout: 'bars' | 'time' | 'both'
-  String _topBarVariant = 'inline'; // top-bar layout: 'inline' | 'lcd'
-  // editor selection-button style: 'solidFill' | 'outline' | 'softFill'
-  String _editorButtonVariant = 'outline';
 
   // Privacy settings
   bool _hasCompletedTour = false;
@@ -595,28 +590,6 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
-  /// Top-bar layout variant token ('inline' | 'lcd'). Chosen live via the dev
-  /// UI Labs switcher (Cmd+Shift+L) and persisted so a relaunch keeps it.
-  String get topBarVariant => _topBarVariant;
-  set topBarVariant(String value) {
-    if (_topBarVariant != value) {
-      _topBarVariant = value;
-      _saveAppearanceSettings();
-      notifyListeners();
-    }
-  }
-
-  /// Editor selection-button style token ('solidFill' | 'outline' | 'softFill').
-  /// Chosen live via the dev switcher (Cmd+Shift+E) and persisted across launches.
-  String get editorButtonVariant => _editorButtonVariant;
-  set editorButtonVariant(String value) {
-    if (_editorButtonVariant != value) {
-      _editorButtonVariant = value;
-      _saveAppearanceSettings();
-      notifyListeners();
-    }
-  }
-
   /// Human-readable label for a UI Scale factor.
   static String uiScaleLabel(double scale) {
     if (scale <= 0.90) return 'Compact';
@@ -757,9 +730,6 @@ class UserSettings extends ChangeNotifier {
       _uiScale = _prefs?.getDouble(_keyUiScale) ?? 1.0;
       _positionDisplayMode =
           _prefs?.getString(_keyPositionDisplayMode) ?? 'bars';
-      _topBarVariant = _prefs?.getString(_keyTopBarVariant) ?? 'inline';
-      _editorButtonVariant =
-          _prefs?.getString(_keyEditorButtonVariant) ?? 'outline';
 
       // Load privacy settings
       _hasCompletedTour = _prefs?.getBool(_keyHasCompletedTour) ?? false;
@@ -930,8 +900,6 @@ class UserSettings extends ChangeNotifier {
       await _prefs!.setString(_keyTheme, _theme);
       await _prefs!.setDouble(_keyUiScale, _uiScale);
       await _prefs!.setString(_keyPositionDisplayMode, _positionDisplayMode);
-      await _prefs!.setString(_keyTopBarVariant, _topBarVariant);
-      await _prefs!.setString(_keyEditorButtonVariant, _editorButtonVariant);
     } catch (e) {
       Log.e('UserSettings: Failed to save appearance settings: $e');
     }
