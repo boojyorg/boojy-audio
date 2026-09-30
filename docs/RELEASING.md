@@ -19,6 +19,36 @@ the easiest step to forget. On every release:
 
 Documentation cleanup never implies a release or a version bump.
 
+## The release gate
+
+A release ships when its scorecard rows (`docs/BACKLOG.md`) reach 8 and nothing blocks.
+
+### Severity rule
+
+- **Blocks release:** known data loss, or a core workflow (record, arrange, edit, mix, save and
+  reopen, export) that does not complete.
+- **Fix before release:** visible and cheap enough to do now, but the release could ship without it.
+- **After release:** improvements and polish; they wait for a patch. Noticing something during the
+  gate doesn't make it a blocker.
+
+### Process
+
+1. Known bugs go in BACKLOG, classified by the rule above.
+2. Each fix is one PR: a failing test that reproduces it, the fix, CI green, Tyr's walkthrough,
+   merge. The fix goes under Unreleased in the changelog.
+3. Tyr dogfoods builds that already passed the suites; new findings go in BACKLOG.
+4. Re-score the release's rows. Release when they're at 8, nothing blocks, and the checks below
+   pass.
+
+### Release-day checks
+
+- **Sparkle offers the update:** install the previous release on a Mac, launch, expect the offer.
+  (The v0.6.0 appcast fix has never been seen working.)
+- **"Check for updates automatically" sticks** on macOS: Sparkle persists it, not the app. Toggle
+  it, relaunch, confirm.
+- **Windows hides the Updates section** (no native updater yet), plus the smoke test below.
+- **EDITING.md's "plan, not current app" box** comes out once the editing model ships.
+
 ## What the release workflow does
 
 Pushing a `v*` tag runs `.github/workflows/release.yml`:
@@ -75,9 +105,8 @@ never scheduled: their value is in Tyr reading and triaging the output.
 1. Run the review; save the report to `docs/reviews/` with a date-first name (`YYYY_MM_DD_topic.md`).
 2. Triage it: accepted work and open items go to `docs/BACKLOG.md`; the triage doc records the
    per-item decisions and stays in `docs/reviews/`.
-3. In the same PR, move the raw reports to `docs/archive/reviews/` and add a row to that
-   folder's README saying where the cycle's decisions landed.
+3. Delete a report once every ID BACKLOG cites from it is either described in BACKLOG or
+   dropped on purpose. Git history keeps it.
 
-`docs/reviews/` normally holds just the current cycle. Never re-open an item from an archived
-report without re-verifying it against today's code; those reports describe builds that no
-longer exist.
+`docs/reviews/` holds only reports that BACKLOG still points at. Never reopen an item from an old
+report without re-verifying it against today's code.
