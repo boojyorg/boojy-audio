@@ -10,7 +10,7 @@ before.
 | --- | --- |
 | v0.8 | macOS, Windows |
 | After v0.8 | Linux, once the engine and UX are at or near 8/10 |
-| Beta | macOS, Windows, Linux |
+| Beta | macOS, Windows (Linux later) |
 | v1.0 candidates | web, iPad (phone after) |
 
 **The goal is one app that looks and behaves the same on every device**, with every task
@@ -52,8 +52,9 @@ Keep the FFI boundary a plain C ABI so the Tauri exit stays real.
   channel in Swift in place of `midir`, iOS audio-session and sandbox handling, App Store review.
   No VST3 on iPad; AUv3 hosting is a separate, later decision, so the built-in sounds carry it.
 - **Web:** the real engine compiled to WebAssembly inside an AudioWorklet, talking to the UI
-  through shared memory. The current web target (`ui/lib/audio_engine_web.dart`) is a Dart-side
-  fake and will be deleted, not extended. In order:
+  through shared memory. The web target is parked: the Dart-side fake engine
+  (`audio_engine_web.dart`) was removed from `master`, and the June 2026 work is kept on the
+  `wip/web-engine-june-2026` branch. In order:
   1. A pure render path ("fill these 128 frames", no threads or clocks inside); worth doing
      anyway, it improves desktop.
   2. A `dart:js_interop` binding beside the FFI one, over the shared `api/` layer.
