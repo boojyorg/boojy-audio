@@ -88,6 +88,11 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Mixes are 3 dB louder: the master's pan is a balance control.** A centred track lost 3 dB
+  to its own pan and another 3 dB to the master's, so everything played 6 dB under its source.
+  Tracks keep the usual −3 dB at centre; the master's pan now only turns one side down. Existing
+  projects play 3 dB louder.
+
 - **Audio clips play back clean.** Playback picked each sample's position by truncating a float,
   so about 1 sample in 17 replayed its neighbour: a fine grit or crackle on every audio clip,
   most audible on recordings. Playback and export now play every sample in order (a rendered
