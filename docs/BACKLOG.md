@@ -10,30 +10,35 @@ shipped is in [RELEASING.md](RELEASING.md). Nothing here is a release commitment
 Every area reaches a solid **8/10: good to great compared with other DAWs**. Tyr and Claude
 score together in half points, from using the app and test evidence, not from reading code.
 Sounds and effects are scored on the quality of what exists, not how many there are. First
-scores 2026-09-29; re-score before each release.
+scores 2026-09-29, re-scored 2026-10-01 (after #151–#175); re-score before each release and at
+each state-of-play review ([RELEASING.md](RELEASING.md#milestone-reviews)).
 
 | # | Area | 8/10 means… | Score | Release |
 | --- | --- | --- | --- | --- |
-| 1 | Stability & performance | An hour of normal use with no crashes or crackles; CPU in line with other DAWs | 4 | v0.7 |
-| 2 | Recording | Audio and MIDI record first time, you hear yourself without noticeable delay, no take is lost | 2 | v0.7 |
-| 3 | Arranging & clip editing | Moving, trimming, splitting, duplicating and looping clips is quick; undo always works | 5 | v0.7 |
+| 1 | Stability & performance | An hour of normal use with no crashes or crackles; CPU in line with other DAWs | 4.5 | v0.7 |
+| 2 | Recording | Audio and MIDI record first time, you hear yourself without noticeable delay, no take is lost | 5.5 | v0.7 |
+| 3 | Arranging & clip editing | Moving, trimming, splitting, duplicating and looping clips is quick; undo always works | 5.5 | v0.7 |
 | 4 | Piano roll & MIDI | You can draw, edit and quantise notes without fighting the tools | 5 | v0.8 |
 | 5 | Instruments | The built-in synth, sampler and drums sound good straight away | 3.5 | Later |
-| 6 | Mixing & automation | Levels, pan, sends and automation are clear and dependable | 4.5 | v0.8 (UX) · Later |
+| 6 | Mixing & automation | Levels, pan, sends and automation are clear and dependable | 5 | v0.8 (UX) · Later |
 | 7 | Effects & plugins | Built-in effects work and sound good; VST3s load without taking the app down | 5 | v0.8 (UX) · Later |
 | 8 | Sound library | Browsing, previewing and dragging sounds in is quick (size not scored) | 3.5 | Later |
-| 9 | Projects & export | Save, reopen, auto-save, crash recovery and export never lose work | 5 | v0.7 |
-| 10 | First run & learnability | A beginner makes a beat in 10 minutes without a tutorial, no dead buttons | 4 | v0.8 |
-| 11 | Look & feel | Consistent and calm, fits a laptop screen, feels finished | 6 | v0.8 |
+| 9 | Projects & export | Save, reopen, auto-save, crash recovery and export never lose work | 5.5 | v0.7 |
+| 10 | First run & learnability | A beginner makes a beat in 10 minutes without a tutorial, no dead buttons | 4.5 | v0.8 |
+| 11 | Look & feel | Consistent and calm, fits a laptop screen, feels finished | 6.5 | v0.8 |
 | 12 | Input & accessibility | Mouse only, trackpad only, keyboard and mouse, and touch all work; text is readable | 3.5 | v0.8 |
 | 13 | Platforms | macOS, Windows and Linux feel the same, install and update cleanly | 4 | Later |
-| 14 | Repo, tests & CI | Bugs are caught before Tyr sees them | 4.5 | v0.7 → v0.8 |
+| 14 | Repo, tests & CI | Bugs are caught before Tyr sees them | 5 | v0.7 → v0.8 |
 | 15 | Public face | Site, README and release notes are honest and inviting | 4 | v0.8 release |
 
 - **v0.7.0: the core works every time.** Rows 1, 2, 3 and 9 reach 8 with no known blocker;
   row 14 gets the test net that proves it. Includes the editing model ([EDITING.md](EDITING.md))
   after a throwaway Mac + iPad prototype; if the prototype says no or the work balloons, it moves
   to v0.8.
+  **Order (2026-10-01):** offline-render tests that check the audio itself (Test plan 3; the
+  clip-playback grit hid for months) → dropout counter, log and stress tests (row 1) → finish
+  recording (multi-track takes, loop-on recording) → projects (Save As, unsaved dot, export
+  error) → editing model prototype.
 - **v0.8.0: the app feels right.** UI/UX and bugs, not new sounds: rows 4, 10, 11, 12, 14 and
   the UX half of 6 and 7. Starting list: the [2026-09-29 UI/UX review](reviews/2026_09_29_ui_ux_review.md).
   Public face (row 15) refreshed at release.

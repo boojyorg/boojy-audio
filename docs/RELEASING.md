@@ -91,14 +91,15 @@ test rig, not a development machine.
 
 ## Milestone reviews
 
-Each version's theme comes from a deliberate review, not guesswork. Reviews are human-triggered,
-never scheduled: their value is in Tyr reading and triaging the output.
+Each version's theme comes from a deliberate review, not guesswork. The workflow reviews are
+human-triggered: their value is in Tyr reading and triaging the output.
 
 | Review | When | How |
 | --- | --- | --- |
 | UI/UX | every minor version | Stage current screenshots in `docs/reviews/_screenshots/` (see its README), then `Workflow({ name: 'ui-ux-review' })` |
 | Codebase audit | major boundaries only (pre-1.0, once per minor family), gates green first | `Workflow({ name: 'codebase-review' })` (~$30–50 tiered) |
 | Feature gap | when choosing a new feature theme, alongside the other two | `Workflow({ name: 'feature-gap-review' })` |
+| State of play | every ~10 merged PRs, or when Tyr asks; Claude offers it | Claude bids new scores for the 15 rows in BACKLOG with evidence and names the next priorities; Tyr adjusts, then the scores land in BACKLOG |
 
 **Triage, then retire.** A review's durable output is the triage, not the report.
 
