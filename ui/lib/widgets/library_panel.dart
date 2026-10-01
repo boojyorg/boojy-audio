@@ -16,7 +16,6 @@ import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../utils/native_dialogs.dart';
 import 'shared/boojy_dropdown.dart';
-import 'shared/boojy_notice.dart';
 
 /// Library panel — one full-width expandable tree.
 ///
@@ -162,11 +161,6 @@ class _LibraryPanelState extends State<LibraryPanel> {
   void initState() {
     super.initState();
     widget.libraryService.addListener(_onLibraryChanged);
-    // The service may have finished loading (and pruning legacy favourites)
-    // before this panel attached its listener — check once after mount.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _maybeShowLegacyFavoritesNotice();
-    });
   }
 
   @override
@@ -180,18 +174,6 @@ class _LibraryPanelState extends State<LibraryPanel> {
 
   void _onLibraryChanged() {
     setState(() {});
-    _maybeShowLegacyFavoritesNotice();
-  }
-
-  /// One-time upgrade notice: favourites saved before the path-based ID
-  /// format can't be restored (the service prunes them on load), so tell the
-  /// user instead of presenting a mysteriously empty Favorites view.
-  void _maybeShowLegacyFavoritesNotice() {
-    if (!widget.libraryService.takeLegacyFavoritesNotice()) return;
-    Notices.problem(
-      'Your favourites were reset when the library was upgraded.',
-      id: 'legacy-favourites',
-    );
   }
 
   // ==========================================================================

@@ -13,27 +13,9 @@ import '../screens/daw_screen_io.dart';
 class LibraryService extends ChangeNotifier {
   static const String _favoritesKey = 'library_favorites';
   static const String _userFoldersKey = 'library_user_folders';
-  static const String _userContentPathKey = 'library_user_content_path';
 
   final Set<String> _favoriteIds = {};
   final List<String> _userFolderPaths = [];
-  String _userContentPath = '';
-
-  /// Stale favourite IDs from the old `file_<hashCode>` format (pre path-based
-  /// `file_<path>` IDs). Those favourites can't be mapped back to a file.
-  static final RegExp _legacyFileFavoriteId = RegExp(r'^file_-?\d+$');
-
-  /// Set when [_loadPreferences] pruned old-format favourites; consumed once
-  /// by [takeLegacyFavoritesNotice] so the library panel can tell the user
-  /// instead of showing a mysteriously empty Favorites view.
-  bool _legacyFavoritesPruned = false;
-
-  /// One-shot: true exactly once after a load that pruned legacy favourites.
-  bool takeLegacyFavoritesNotice() {
-    final flag = _legacyFavoritesPruned;
-    _legacyFavoritesPruned = false;
-    return flag;
-  }
 
   // Cached folder contents
   final Map<String, List<LibraryItem>> _folderContents = {};
@@ -66,88 +48,21 @@ class LibraryService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Get default user content path based on platform
-  static Future<String> getDefaultUserContentPath() async {
-    if (isIOS) {
-      // On iOS, we can't use HOME environment variable
-      // Use the app's documents directory which is sandboxed
-      // This will be set during initialization
-      return ''; // Will be set by _loadPreferences
-    } else {
-      final home = getEnv('HOME') ?? '';
-      return '$home/Documents/Boojy/Audio';
-    }
-  }
-
   /// Load saved preferences
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Load favorites, pruning entries in the old `file_<hashCode>` format —
-    // they can't be mapped back to a file path, so they would just linger in
-    // SharedPreferences forever while the Favorites view ignores them. The
-    // pruned flag drives a one-time user-visible notice in the library panel.
+    // Load favorites
     final favorites = prefs.getStringList(_favoritesKey) ?? [];
-    final withoutLegacy = favorites
-        .where((id) => !_legacyFileFavoriteId.hasMatch(id))
-        .toList();
-    if (withoutLegacy.length != favorites.length) {
-      Log.i(
-        'LibraryService: pruned ${favorites.length - withoutLegacy.length} '
-        'legacy file_<hashCode> favourites (library index upgraded)',
-      );
-      await prefs.setStringList(_favoritesKey, withoutLegacy);
-      _legacyFavoritesPruned = true;
-    }
     _favoriteIds.clear();
-    _favoriteIds.addAll(withoutLegacy);
+    _favoriteIds.addAll(favorites);
 
     // Load user folders
     final folders = prefs.getStringList(_userFoldersKey) ?? [];
     _userFolderPaths.clear();
     _userFolderPaths.addAll(folders);
 
-    // Load user content path - platform specific handling
-    final savedPath = prefs.getString(_userContentPathKey);
-    if (savedPath != null && savedPath.isNotEmpty) {
-      _userContentPath = savedPath;
-    } else if (isIOS) {
-      // On iOS, skip folder creation - the sandbox manages user content
-      _userContentPath = '';
-      notifyListeners();
-      return;
-    } else {
-      final home = getEnv('HOME') ?? '';
-      _userContentPath = '$home/Documents/Boojy/Audio';
-    }
-
-    // Ensure default folder exists (skip on iOS if path is empty)
-    if (_userContentPath.isNotEmpty) {
-      await _ensureDefaultFolderExists();
-    }
-
     notifyListeners();
-  }
-
-  /// Ensure default user content folder exists
-  Future<void> _ensureDefaultFolderExists() async {
-    // Skip folder creation on iOS - the sandbox manages user content
-    if (isIOS || _userContentPath.isEmpty) {
-      return;
-    }
-
-    try {
-      final dir = Directory(_userContentPath);
-      if (!await dir.exists()) {
-        await dir.create(recursive: true);
-        // Create subfolders
-        await Directory('$_userContentPath/Samples').create(recursive: true);
-        await Directory('$_userContentPath/Presets').create(recursive: true);
-        await Directory('$_userContentPath/Projects').create(recursive: true);
-      }
-    } catch (e) {
-      // Don't throw - just log the error and continue
-    }
   }
 
   /// Check if item is favorited

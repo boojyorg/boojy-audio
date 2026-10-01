@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../services/user_settings.dart';
 import '../../theme/animation_constants.dart';
@@ -30,12 +31,44 @@ class ProjectCard extends StatefulWidget {
 class _ProjectCardState extends State<ProjectCard> {
   bool _isHovering = false;
 
+  /// The project's thumbnail, read off the UI thread (null until loaded, or
+  /// when the project has none). Bytes rather than a FileImage so a thumbnail
+  /// re-saved under the same path isn't served stale from the image cache.
+  Uint8List? _thumbnail;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThumbnail();
+  }
+
+  @override
+  void didUpdateWidget(ProjectCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.project.path != widget.project.path) {
+      _thumbnail = null;
+      _loadThumbnail();
+    }
+  }
+
+  Future<void> _loadThumbnail() async {
+    final path = widget.project.path;
+    try {
+      final file = File('$path/thumbnail.png');
+      if (!await file.exists()) return;
+      final bytes = await file.readAsBytes();
+      if (mounted && widget.project.path == path) {
+        setState(() => _thumbnail = bytes);
+      }
+    } catch (_) {
+      // No thumbnail: the placeholder stays.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final thumbnailPath = '${widget.project.path}/thumbnail.png';
-    final thumbnailFile = File(thumbnailPath);
-    final hasThumbnail = thumbnailFile.existsSync();
+    final thumbnail = _thumbnail;
     final borderWidth = _isHovering ? 1.5 : 1.0;
 
     return GestureDetector(
@@ -82,12 +115,12 @@ class _ProjectCardState extends State<ProjectCard> {
                 children: [
                   // Thumbnail area
                   Expanded(
-                    child: hasThumbnail
+                    child: thumbnail != null
                         // cover (not contain) so the preview bleeds to the card
                         // edges; anchor top-centre so overflow crops the empty
                         // bottom of the arrangement, not the tracks.
                         ? Image.memory(
-                            thumbnailFile.readAsBytesSync(),
+                            thumbnail,
                             fit: BoxFit.cover,
                             alignment: Alignment.topCenter,
                             errorBuilder: (_, __, ___) =>
