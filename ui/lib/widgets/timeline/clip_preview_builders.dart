@@ -536,6 +536,23 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
     ];
   }
 
+  /// Outline box for a Finder drag: where the clip will start, nothing more
+  /// (Finder only hands over the file on drop).
+  Widget _finderPlaceholderBox(Color color, double width, double height) {
+    return IgnorePointer(
+      child: Container(
+        key: const ValueKey('finder_drop_placeholder'),
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          border: Border.all(color: color.withValues(alpha: 0.8), width: 2),
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+    );
+  }
+
   /// Build preview clip widget for drag-and-drop from library
   Widget buildPreviewClip(PreviewClip preview) {
     final previewDuration = preview.duration ?? 3.0;
@@ -563,6 +580,14 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
         ? (widget.getTrackColor?.call(track.id, track.type) ??
               TrackColors.getTrackColor(trackIndex))
         : TrackColors.getTrackColor(0);
+
+    if (preview.isPlaceholder) {
+      return Positioned(
+        left: clipX,
+        top: 0,
+        child: _finderPlaceholderBox(trackColor, clipWidth, totalHeight),
+      );
+    }
 
     return Positioned(
       left: clipX,
@@ -702,12 +727,17 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
 
     // Use the color that the next track would get
     final trackColor = TrackColors.getTrackColor(tracks.length);
-    final scrollOffset = scrollController.hasClients
-        ? scrollController.offset
-        : 0.0;
+
+    if (preview.isPlaceholder) {
+      return Positioned(
+        left: clipX, // the empty area scrolls with the content
+        top: 8,
+        child: _finderPlaceholderBox(trackColor, clipWidth, totalHeight),
+      );
+    }
 
     return Positioned(
-      left: clipX - scrollOffset,
+      left: clipX, // the empty area scrolls with the content
       top: 8,
       child: IgnorePointer(
         child: Opacity(

@@ -116,8 +116,9 @@ mixin TimelineViewStateMixin on State<TimelineView>
   /// Whether a MIDI file is being dragged over empty space.
   bool isMidiFileDraggingOverEmpty = false;
 
-  /// Track ID when platform drag (Finder file) is over a MIDI track (for rejection feedback).
-  int? platformDragOverMidiTrackId;
+  /// Whether a Finder file is being dragged over empty space (its type is
+  /// unknown until it's dropped).
+  bool isFinderDraggingOverEmpty = false;
 
   // ============================================
   // AUDIO CLIP DRAG STATE
@@ -430,15 +431,6 @@ mixin TimelineViewStateMixin on State<TimelineView>
         clipLeftPx <= viewRight + 100;
   }
 
-  /// Calculate timeline position in seconds from X coordinate.
-  double calculateTimelinePosition(Offset localPosition) {
-    final scrollOffset = scrollController.hasClients
-        ? scrollController.offset
-        : 0.0;
-    final totalX = localPosition.dx + scrollOffset;
-    return totalX / pixelsPerSecond;
-  }
-
   /// Calculate beat position from X coordinate.
   double calculateBeatPosition(Offset localPosition) {
     // localPosition comes from widgets INSIDE the horizontal scroll content
@@ -449,6 +441,30 @@ mixin TimelineViewStateMixin on State<TimelineView>
     // whenever the timeline was scrolled past bar 1. (The ruler context menu
     // does its own math because the ruler lives OUTSIDE this scroll view.)
     return localPosition.dx / pixelsPerBeat;
+  }
+
+  /// Snapped beat where a file dragged in from Finder lands. Finder drop
+  /// targets sit inside the scroll content like the track rows, so their
+  /// local position is already a content position.
+  double finderDropBeats(Offset localPosition) => GridUtils.snapToGridRound(
+    calculateBeatPosition(localPosition),
+    GridUtils.getTimelineGridResolution(pixelsPerBeat),
+  ).clamp(0.0, double.infinity);
+
+  /// One-bar placeholder shown while a Finder file hovers over [trackId]
+  /// (-1 = empty space). Finder only sends the file on drop, so the
+  /// placeholder shows where the clip will start, not its length or type.
+  PreviewClip finderPlaceholder(Offset localPosition, int trackId) {
+    final secondsPerBeat = 60.0 / widget.tempo;
+    return PreviewClip(
+      fileName: '',
+      filePath: '',
+      startTime: finderDropBeats(localPosition) * secondsPerBeat,
+      trackId: trackId,
+      mousePosition: localPosition,
+      duration: widget.beatsPerBar * secondsPerBeat,
+      isPlaceholder: true,
+    );
   }
 
   // ============================================

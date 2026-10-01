@@ -321,23 +321,13 @@ mixin TimelineTrackListMixin
 
                         return PlatformDropTarget(
                           onDragDone: (details) {
-                            // Calculate beat position from Finder drop location
-                            final RenderBox? box =
-                                context.findRenderObject() as RenderBox?;
-                            final localPos =
-                                box?.globalToLocal(details.localPosition) ??
-                                Offset.zero;
-                            final scrollOffset = scrollController.hasClients
-                                ? scrollController.offset
-                                : 0.0;
-                            final xInContent = localPos.dx + scrollOffset;
-                            final rawBeats = xInContent / pixelsPerBeat;
-                            final snappedBeats = GridUtils.snapToGridRound(
-                              rawBeats,
-                              GridUtils.getTimelineGridResolution(
-                                pixelsPerBeat,
-                              ),
-                            ).clamp(0.0, double.infinity);
+                            final snappedBeats = finderDropBeats(
+                              details.localPosition,
+                            );
+                            setState(() {
+                              isFinderDraggingOverEmpty = false;
+                              previewClip = null;
+                            });
 
                             // Handle file drops from Finder
                             for (final file in details.files) {
@@ -369,12 +359,30 @@ mixin TimelineTrackListMixin
                           },
                           onDragEntered: (details) {
                             setState(() {
-                              isAudioFileDraggingOverEmpty = true;
+                              isFinderDraggingOverEmpty = true;
+                              previewClip = finderPlaceholder(
+                                details.localPosition,
+                                -1,
+                              );
                             });
+                          },
+                          onDragUpdated: (details) {
+                            final placeholder = finderPlaceholder(
+                              details.localPosition,
+                              -1,
+                            );
+                            if (previewClip?.startTime ==
+                                placeholder.startTime) {
+                              return;
+                            }
+                            setState(() => previewClip = placeholder);
                           },
                           onDragExited: (details) {
                             setState(() {
-                              isAudioFileDraggingOverEmpty = false;
+                              isFinderDraggingOverEmpty = false;
+                              if (previewClip?.isPlaceholder ?? false) {
+                                previewClip = null;
+                              }
                             });
                           },
                           child: DragTarget<Vst3Plugin>(
@@ -418,7 +426,9 @@ mixin TimelineTrackListMixin
                                           isAudioFileDraggingOverEmpty ||
                                           isLibraryAudioHovering;
                                       final isFileHovering =
-                                          isAudioHovering || isMidiFileHovering;
+                                          isAudioHovering ||
+                                          isMidiFileHovering ||
+                                          isFinderDraggingOverEmpty;
                                       final isAnyHovering =
                                           isInstrumentHovering ||
                                           isFileHovering;
@@ -456,6 +466,8 @@ mixin TimelineTrackListMixin
                                       } else if (isAudioFileDraggingOverEmpty) {
                                         dropLabel =
                                             'Drop to create new Audio track';
+                                      } else if (isFinderDraggingOverEmpty) {
+                                        dropLabel = 'Drop to create new track';
                                       } else if (isMidiFileDraggingOverEmpty) {
                                         dropLabel =
                                             'Drop to create new MIDI track';
@@ -912,44 +924,34 @@ mixin TimelineTrackListMixin
                     // are available for visual feedback if needed in the future
 
                     return PlatformDropTarget(
+                      // Finder drags: the file type is unknown until drop, so
+                      // every track shows the same placeholder; a mismatched
+                      // drop says so (handleFileDrop).
                       onDragEntered: (details) {
-                        // Only show hover state if not MIDI track (for audio file drops)
-                        if (!isMidiTrack) {
-                          setState(() {
-                            dragHoveredTrackId = track.id;
-                          });
-                        } else {
-                          // Track platform drag over MIDI for visual feedback
-                          setState(() {
-                            platformDragOverMidiTrackId = track.id;
-                          });
-                        }
+                        setState(() {
+                          dragHoveredTrackId = track.id;
+                          previewClip = finderPlaceholder(
+                            details.localPosition,
+                            track.id,
+                          );
+                        });
                       },
                       onDragExited: (details) {
                         setState(() {
                           dragHoveredTrackId = null;
                           previewClip = null;
-                          platformDragOverMidiTrackId = null;
                         });
                       },
                       onDragUpdated: (details) {
-                        // Only show preview on Audio tracks
-                        if (isMidiTrack) return;
-
-                        // Update preview position (Finder drag - no file info yet)
-                        final startTime = calculateTimelinePosition(
+                        final placeholder = finderPlaceholder(
                           details.localPosition,
+                          track.id,
                         );
-
-                        setState(() {
-                          previewClip = PreviewClip(
-                            fileName: 'Audio File',
-                            filePath: '', // Unknown until drop
-                            startTime: startTime,
-                            trackId: track.id,
-                            mousePosition: details.localPosition,
-                          );
-                        });
+                        if (previewClip?.trackId == track.id &&
+                            previewClip?.startTime == placeholder.startTime) {
+                          return;
+                        }
+                        setState(() => previewClip = placeholder);
                       },
                       onDragDone: (details) async {
                         await handleFileDrop(
@@ -1441,8 +1443,7 @@ mixin TimelineTrackListMixin
                                 ),
 
                               // Red rejection overlay when dragging audio onto MIDI track
-                              if (isAudioFileRejected ||
-                                  platformDragOverMidiTrackId == track.id)
+                              if (isAudioFileRejected)
                                 Positioned.fill(
                                   child: ColoredBox(
                                     color: context.colors.error.withValues(

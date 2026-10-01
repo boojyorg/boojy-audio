@@ -9,6 +9,7 @@ import '../../theme/theme_extension.dart';
 import 'timeline_state.dart';
 import '../timeline_view.dart';
 import '../../utils/logger.dart';
+import '../shared/boojy_notice.dart';
 
 /// Mixin containing file drop and preview loading methods for TimelineView.
 /// Separates file handling logic from main timeline code.
@@ -24,10 +25,28 @@ mixin TimelineFileHandlersMixin on State<TimelineView>, TimelineViewStateMixin {
     final file = files.first;
     final filePath = file.path;
     final ext = filePath.split('.').last.toLowerCase();
+    final isMidiFile = ext == 'mid' || ext == 'midi';
+    final isAudioFile = ['wav', 'mp3', 'aif', 'aiff', 'flac'].contains(ext);
+    final startBeats = finderDropBeats(localPosition);
+
+    // Finder only reveals the file on drop, so a mismatch can't be shown
+    // while hovering; say so instead of silently ignoring the drop.
+    final trackType = tracks
+        .where((t) => t.id == trackId)
+        .firstOrNull
+        ?.type
+        .toLowerCase();
+    if (isMidiFile && trackType != 'midi') {
+      Notices.info('MIDI files go on a MIDI track or empty space');
+      return;
+    }
+    if (isAudioFile && trackType != 'audio') {
+      Notices.info('Audio files go on an audio track or empty space');
+      return;
+    }
 
     // Handle MIDI files via callback
-    if (ext == 'mid' || ext == 'midi') {
-      final startBeats = calculateBeatPosition(localPosition);
+    if (isMidiFile) {
       widget.dragDropCallbacks.onMidiFileDroppedOnTrack?.call(
         trackId,
         filePath,
@@ -37,13 +56,13 @@ mixin TimelineFileHandlersMixin on State<TimelineView>, TimelineViewStateMixin {
     }
 
     // Only accept audio files
-    if (!['wav', 'mp3', 'aif', 'aiff', 'flac'].contains(ext)) {
+    if (!isAudioFile) {
       return;
     }
 
     try {
       // Calculate drop position first (needed for loadAudioFileToTrack)
-      final startTime = calculateTimelinePosition(localPosition);
+      final startTime = startBeats * 60.0 / widget.tempo;
 
       // Load audio file onto the correct track at the correct position
       final clipId = widget.audioEngine!.loadAudioFileToTrack(
