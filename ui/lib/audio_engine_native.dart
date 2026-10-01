@@ -8,6 +8,7 @@ import 'package:ffi/ffi.dart';
 
 import 'models/audio_input_status.dart';
 import 'models/drum_kit_info.dart';
+import 'models/live_peaks.dart';
 import 'models/sampler_info.dart';
 import 'services/commands/audio_engine_interface.dart';
 import 'utils/logger.dart';

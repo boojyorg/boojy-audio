@@ -3,7 +3,6 @@ import '../../../controllers/controllers.dart';
 import '../../../models/audio_input_status.dart';
 import '../../../models/clip_data.dart';
 import '../../../models/midi_note_data.dart';
-import '../../../models/track_data.dart';
 import '../../../services/commands/clip_commands.dart';
 import '../../../services/input_health_watcher.dart';
 import '../../../services/live_recording_notifier.dart';
@@ -226,6 +225,9 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
 
   /// Called at ~30fps during recording to update live clip display
   void _onLiveRecordingUpdate() {
+    // Live audio clips are read in build(); redraw as their peaks arrive.
+    if (liveRecordingNotifier.isRecordingAudio && mounted) setState(() {});
+
     final liveClip = liveRecordingNotifier.buildLiveClipData();
     midiPlaybackManager?.setLiveRecordingClip(liveClip);
 
@@ -306,6 +308,30 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     return ClipOverlapHandler.generateUniqueClipId();
   }
 
+  /// Track, start and length of audio clip [clipId] as the engine has it,
+  /// from `getAllAudioClipsInfo` (`id,track,start,offset,duration,
+  /// file duration,…`; duration -1 = to the end of the file).
+  ({int trackId, double startTime, double duration})? _engineAudioClipPlacement(
+    int clipId,
+  ) {
+    final info = audioEngine?.getAllAudioClipsInfo() ?? '';
+    for (final entry in info.split(';')) {
+      final f = entry.split(',');
+      if (f.length < 6 || int.tryParse(f[0]) != clipId) continue;
+      final trackId = int.tryParse(f[1]);
+      final start = double.tryParse(f[2]);
+      final explicit = double.tryParse(f[4]) ?? -1;
+      final fileLength = double.tryParse(f[5]) ?? 0;
+      if (trackId == null || start == null) return null;
+      return (
+        trackId: trackId,
+        startTime: start,
+        duration: explicit >= 0 ? explicit : fileLength,
+      );
+    }
+    return null;
+  }
+
   /// Handle recording completion - process audio and MIDI clips
   void handleRecordingComplete(
     RecordingResult result, {
@@ -333,20 +359,16 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
         waveformPeaks = result.waveformPeaks ?? [];
       });
 
-      // Find the armed audio track to place the clip on
-      final tracks = mixerKey.currentState?.tracks ?? [];
-      final armedAudioTrack = tracks.cast<TrackData?>().firstWhere(
-        (t) => t!.isAudio && t.armed,
-        orElse: () => null,
-      );
+      // Place it where the engine put it. The mixer's armed flags can lag
+      // (Record → New Audio Track arms the track a moment before recording),
+      // and the engine knows the take's real start (count-in, punch-in).
+      final placement = _engineAudioClipPlacement(result.audioClipId!);
 
-      if (armedAudioTrack != null &&
-          result.duration != null &&
-          result.duration! > 0) {
-        final audioTrackId = armedAudioTrack.id;
+      if (placement != null && placement.duration > 0) {
+        final audioTrackId = placement.trackId;
         audioTrackIdForUndo = audioTrackId;
-        final startTime = recordingController.recordingStartPosition;
-        final duration = result.duration!;
+        final startTime = placement.startTime;
+        final duration = placement.duration;
         final peaks = result.waveformPeaks ?? [];
 
         // Capture before snapshot

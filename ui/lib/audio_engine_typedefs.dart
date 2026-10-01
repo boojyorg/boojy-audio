@@ -158,8 +158,9 @@ typedef _GetRecordingStateFfi = int Function();
 typedef _GetRecordedDurationFfiNative = ffi.Double Function();
 typedef _GetRecordedDurationFfi = double Function();
 
-typedef _GetRecordingWaveformFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint32);
-typedef _GetRecordingWaveformFfi = ffi.Pointer<Utf8> Function(int);
+typedef _GetLiveRecordingPeaksFfiNative =
+    ffi.Pointer<Utf8> Function(ffi.Uint32);
+typedef _GetLiveRecordingPeaksFfi = ffi.Pointer<Utf8> Function(int);
 
 typedef _SetCountInBarsFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint32);
 typedef _SetCountInBarsFfi = ffi.Pointer<Utf8> Function(int);

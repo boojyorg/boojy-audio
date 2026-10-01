@@ -1,4 +1,5 @@
 /// Offline rendering for export and bounce
+use super::renderer::frame_at;
 use super::{interpolate_automation_gain, AudioGraph};
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
 use crate::effects::{Effect, EffectManager};
@@ -327,15 +328,16 @@ impl AudioGraph {
                                                 * f64::from(timeline_clip.stretch_factor)
                                                 * pitch_ratio;
                                             (
-                                                (stretched_time * f64::from(sample_rate)) as usize,
+                                                frame_at(stretched_time * f64::from(sample_rate)),
                                                 &*timeline_clip.clip,
                                             )
                                         }
                                     } else {
                                         // No warp - apply pitch ratio for transpose
                                         (
-                                            (time_in_clip * pitch_ratio * f64::from(sample_rate))
-                                                as usize,
+                                            frame_at(
+                                                time_in_clip * pitch_ratio * f64::from(sample_rate),
+                                            ),
                                             &*timeline_clip.clip,
                                         )
                                     };
@@ -834,9 +836,9 @@ impl AudioGraph {
                                     // Warp mode: use pre-stretched cached audio (pitch preserved)
                                     // Apply pitch ratio for transpose
                                     if let Some(ref stretched) = timeline_clip.stretched_cache {
-                                        let frame =
-                                            (time_in_clip * pitch_ratio * f64::from(sample_rate))
-                                                as usize;
+                                        let frame = frame_at(
+                                            time_in_clip * pitch_ratio * f64::from(sample_rate),
+                                        );
                                         (frame, stretched.as_ref())
                                     } else {
                                         // Fallback to Re-Pitch if cache not ready
@@ -844,7 +846,7 @@ impl AudioGraph {
                                             * f64::from(timeline_clip.stretch_factor)
                                             * pitch_ratio;
                                         (
-                                            (stretched_time * f64::from(sample_rate)) as usize,
+                                            frame_at(stretched_time * f64::from(sample_rate)),
                                             &*timeline_clip.clip,
                                         )
                                     }
@@ -855,14 +857,14 @@ impl AudioGraph {
                                         * f64::from(timeline_clip.stretch_factor)
                                         * pitch_ratio;
                                     (
-                                        (stretched_time * f64::from(sample_rate)) as usize,
+                                        frame_at(stretched_time * f64::from(sample_rate)),
                                         &*timeline_clip.clip,
                                     )
                                 }
                             } else {
                                 // No warp - apply pitch ratio for transpose
                                 (
-                                    (time_in_clip * pitch_ratio * f64::from(sample_rate)) as usize,
+                                    frame_at(time_in_clip * pitch_ratio * f64::from(sample_rate)),
                                     &*timeline_clip.clip,
                                 )
                             };

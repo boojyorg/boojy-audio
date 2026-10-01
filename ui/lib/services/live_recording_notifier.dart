@@ -1,4 +1,8 @@
+import 'dart:collection';
+
 import 'package:flutter/foundation.dart';
+import '../models/clip_data.dart';
+import '../models/live_peaks.dart';
 import '../models/midi_note_data.dart';
 
 /// Tracks an active (held) note during live recording
@@ -187,12 +191,101 @@ class LiveRecordingNotifier extends ChangeNotifier {
     );
   }
 
+  // ---------------------------------------------------------------------
+  // Live audio takes: one growing clip per armed audio track, with the
+  // waveform drawn from the engine's live peaks.
+  // ---------------------------------------------------------------------
+
+  /// Seconds per live peak (the engine publishes one per 10 ms at 48 kHz).
+  static const double livePeakSeconds = 0.01;
+
+  /// Clip id of the live audio clip on [trackId]: negative, never a real id.
+  static int liveAudioClipId(int trackId) => -1000 - trackId;
+
+  static bool isLiveAudioClipId(int clipId) => clipId <= -1000;
+
+  /// Armed audio tracks recording this take, with the input channel each one
+  /// records (even = left of the captured pair, odd = right).
+  List<({int trackId, int channel, String name})> _audioTracks = const [];
+  double _audioStartSeconds = 0.0;
+  int _peaksFetched = 0;
+
+  /// Peaks as min/max pairs, the shape `WaveformPainter` draws.
+  final List<double> _leftPairs = [];
+  final List<double> _rightPairs = [];
+
+  bool get isRecordingAudio => _audioTracks.isNotEmpty;
+
+  /// How many peaks have been fetched, to ask the engine only for new ones.
+  int get peaksFetched => _peaksFetched;
+
+  /// Start showing live clips for [tracks], placed at [startSeconds].
+  void startAudio({
+    required double startSeconds,
+    required List<({int trackId, int channel, String name})> tracks,
+  }) {
+    _audioTracks = List.unmodifiable(tracks);
+    _audioStartSeconds = startSeconds;
+    _peaksFetched = 0;
+    _leftPairs.clear();
+    _rightPairs.clear();
+    notifyListeners();
+  }
+
+  /// Add the engine's newest peaks.
+  void addPeaks(LivePeaksChunk chunk) {
+    if (!isRecordingAudio) return;
+    if (chunk.total < _peaksFetched) {
+      // A new take started in the engine (e.g. punch-in): start over.
+      _peaksFetched = 0;
+      _leftPairs.clear();
+      _rightPairs.clear();
+    }
+    if (chunk.left.isEmpty) return;
+    for (var i = 0; i < chunk.left.length; i++) {
+      _leftPairs
+        ..add(-chunk.left[i])
+        ..add(chunk.left[i]);
+      _rightPairs
+        ..add(-chunk.right[i])
+        ..add(chunk.right[i]);
+    }
+    _peaksFetched += chunk.left.length;
+    notifyListeners();
+  }
+
+  /// One live clip per armed audio track, as long as the audio recorded so
+  /// far. Empty until the first peak arrives.
+  List<ClipData> buildLiveAudioClips() {
+    if (!isRecordingAudio || _peaksFetched == 0) return const [];
+    final duration = _peaksFetched * livePeakSeconds;
+    // A fresh view each time so the painter sees new peaks; no copying.
+    final left = UnmodifiableListView(_leftPairs);
+    final right = UnmodifiableListView(_rightPairs);
+    return [
+      for (final t in _audioTracks)
+        ClipData(
+          clipId: liveAudioClipId(t.trackId),
+          trackId: t.trackId,
+          filePath: t.name,
+          startTime: _audioStartSeconds,
+          duration: duration,
+          waveformPeaks: t.channel.isEven ? left : right,
+          canRepeat: false,
+        ),
+    ];
+  }
+
   /// Clear all live recording state
   void clear() {
     _completedNotes.clear();
     _activeNotes.clear();
     _isActive = false;
     _lastProcessedEventCount = 0;
+    _audioTracks = const [];
+    _peaksFetched = 0;
+    _leftPairs.clear();
+    _rightPairs.clear();
     notifyListeners();
   }
 

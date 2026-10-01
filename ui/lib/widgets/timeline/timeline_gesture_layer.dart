@@ -415,6 +415,101 @@ mixin TimelineGestureLayerMixin
     );
   }
 
+  /// An audio take in progress: grows with the recording, draws its waveform
+  /// from the engine's live peaks, and has the live-recording header. Not
+  /// clickable or draggable; the finished clip replaces it on stop.
+  Widget _buildLiveAudioClip(ClipData clip, double trackHeight) {
+    final recordingColor = context.colors.error;
+    final clipX = clip.startTime * pixelsPerSecond;
+    final clipWidth = math.max(clip.duration * pixelsPerSecond, 2.0);
+    const headerHeight = UIConstants.clipHeaderHeight;
+    final totalHeight = trackHeight - UIConstants.clipContentPadding;
+
+    return Positioned(
+      key: ValueKey('live_audio_clip_${clip.clipId}'),
+      left: clipX,
+      top: 0,
+      child: IgnorePointer(
+        child: SizedBox(
+          width: clipWidth,
+          height: totalHeight,
+          child: Stack(
+            children: [
+              ClipPath(
+                clipper: ClipPathClipper(
+                  cornerRadius: 4,
+                  notchRadius: 4,
+                  loopBoundaryXPositions: const [],
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      height: headerHeight,
+                      color: recordingColor,
+                      padding: clipWidth > 26
+                          ? const EdgeInsets.symmetric(horizontal: 4)
+                          : null,
+                      child: clipWidth > 26
+                          ? Row(
+                              children: [
+                                Icon(
+                                  BI.mic,
+                                  size: 10,
+                                  color: context.colors.textPrimary,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    clip.fileName,
+                                    style: TextStyle(
+                                      color: context.colors.textPrimary,
+                                      fontSize: 10,
+                                      fontWeight: BT.weightSemiBold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : null,
+                    ),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) => CustomPaint(
+                          size: Size(
+                            constraints.maxWidth,
+                            constraints.maxHeight,
+                          ),
+                          painter: WaveformPainter(
+                            peaks: clip.waveformPeaks,
+                            color: TrackColors.getLighterShade(recordingColor),
+                            contentDuration: clip.duration,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              CustomPaint(
+                size: Size(clipWidth, totalHeight),
+                painter: ClipBorderPainter(
+                  borderColor: recordingColor,
+                  trackColor: recordingColor,
+                  headerHeight: headerHeight,
+                  borderWidth: 1,
+                  cornerRadius: 4,
+                  loopBoundaryXPositions: const [],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildClip(
     ClipData clip,
     Color trackColor,

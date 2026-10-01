@@ -58,8 +58,14 @@ class RecordingController extends ChangeNotifier {
   // Live recording notifier for real-time MIDI note display
   LiveRecordingNotifier? _liveRecordingNotifier;
 
-  // Callback to get the first armed MIDI track ID
-  int Function()? getFirstArmedMidiTrackId;
+  // Callback to get the first armed MIDI track ID, or null when no MIDI
+  // track is armed (then no live MIDI clip is drawn).
+  int? Function()? getFirstArmedMidiTrackId;
+
+  // Armed audio tracks with the input channel each records, for the live
+  // waveform clips.
+  List<({int trackId, int channel, String name})> Function()?
+  getArmedAudioTracks;
 
   // Callback to get a clip name for the recording
   String Function(int trackId)? getRecordingClipName;
@@ -70,9 +76,6 @@ class RecordingController extends ChangeNotifier {
   // Callback to read the user's saved preferred MIDI device name from
   // UserSettings (null = no preference). Set by daw_screen, which owns settings.
   String? Function()? getPreferredMidiDevice;
-
-  // Whether audio recording was started (to skip stop if not started)
-  bool _audioRecordingStarted = false;
 
   // Playhead position (seconds) when recording was initiated (before count-in)
   double _recordingStartPosition = 0.0;
@@ -209,9 +212,6 @@ class RecordingController extends ChangeNotifier {
       }
 
       // Always call startRecording — it starts the transport and count-in state machine.
-      // Track whether we should process the audio result on stop.
-      _audioRecordingStarted = hasArmedAudioTracks?.call() ?? false;
-      Log.d('🎙️ [REC_CTRL]   _audioRecordingStarted=$_audioRecordingStarted');
       _audioEngine!.startRecording();
       Log.d('🎙️ [REC_CTRL]   engine.startRecording() done');
       _audioEngine!.startMidiRecording();
@@ -273,14 +273,13 @@ class RecordingController extends ChangeNotifier {
       // Clear live recording display before stopping
       _liveRecordingNotifier?.clear();
 
-      // Always stop audio recording (it was always started for transport/count-in).
-      // Only process the audio clip result if audio tracks were armed.
-      final rawAudioClipId = _audioEngine!.stopRecording();
-      final audioClipId = _audioRecordingStarted ? rawAudioClipId : -1;
+      // The engine returns an audio clip only when an armed audio track had
+      // an open input, so trust it. (A UI-side "was an audio track armed at
+      // start?" check read a stale track list when Record created and armed
+      // the track itself, and threw the take away.)
+      final audioClipId = _audioEngine!.stopRecording();
       final midiClipId = _audioEngine!.stopMidiRecording();
-      Log.d(
-        '🎙️ [REC_CTRL]   rawAudioClipId=$rawAudioClipId, audioRecordingStarted=$_audioRecordingStarted → audioClipId=$audioClipId',
-      );
+      Log.d('🎙️ [REC_CTRL]   audioClipId=$audioClipId');
       Log.d('🎙️ [REC_CTRL]   midiClipId=$midiClipId');
       // Note: MIDI input stays running (always-on mode)
 
@@ -288,7 +287,6 @@ class RecordingController extends ChangeNotifier {
       _isCountingIn = false;
       _isWaitingForPunchIn = false;
       _isMidiRecording = false;
-      _audioRecordingStarted = false;
       _countInBeat = 0;
       _countInProgress = 0.0;
       _countInDurationSeconds = 0.0;
@@ -414,9 +412,10 @@ class RecordingController extends ChangeNotifier {
         // Initialize live recording notifier now that actual recording has started
         // Use saved recording start position (pre-count-in) so the live clip
         // appears at the correct timeline position (e.g. bar 1, not bar 2)
-        if (_liveRecordingNotifier != null) {
+        final midiTrackId = getFirstArmedMidiTrackId?.call();
+        if (_liveRecordingNotifier != null && midiTrackId != null) {
           final startBeat = _recordingStartPosition * (_tempo / 60.0);
-          final trackId = getFirstArmedMidiTrackId?.call() ?? 0;
+          final trackId = midiTrackId;
           final clipName = getRecordingClipName?.call(trackId) ?? 'Recording';
           Log.d(
             '🎙️ [REC_CTRL]   Live recording: startBeat=${startBeat.toStringAsFixed(3)}, '
@@ -430,8 +429,18 @@ class RecordingController extends ChangeNotifier {
             trackId: trackId,
             clipName: clipName,
           );
-        } else {
-          Log.e('🎙️ [REC_CTRL]   ⚠️ liveRecordingNotifier is null!');
+        }
+
+        // Live audio clips: the take lands at the punch-in point when the
+        // engine waited for one, else where recording was started.
+        final audioTracks = getArmedAudioTracks?.call() ?? const [];
+        if (_liveRecordingNotifier != null && audioTracks.isNotEmpty) {
+          _liveRecordingNotifier!.startAudio(
+            startSeconds: wasWaiting
+                ? _audioEngine!.getPunchInSeconds()
+                : _recordingStartPosition,
+            tracks: audioTracks,
+          );
         }
 
         notifyListeners();
@@ -455,6 +464,17 @@ class RecordingController extends ChangeNotifier {
       // Poll live MIDI events for real-time display during recording
       // Subtract count-in duration so the live clip's currentBeat matches
       // the visual playhead position (which also subtracts count-in offset)
+      // Live waveform for audio takes: only the peaks added since last poll.
+      if (_isRecording &&
+          _liveRecordingNotifier != null &&
+          _liveRecordingNotifier!.isRecordingAudio) {
+        _liveRecordingNotifier!.addPeaks(
+          _audioEngine!.getLiveRecordingPeaks(
+            _liveRecordingNotifier!.peaksFetched,
+          ),
+        );
+      }
+
       if (_isRecording &&
           _liveRecordingNotifier != null &&
           _liveRecordingNotifier!.isActive) {

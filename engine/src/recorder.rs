@@ -2,7 +2,7 @@
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
 use parking_lot::Mutex;
 use std::f32::consts::PI;
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 /// Realtime lock-contention counter for the recorder's per-sample reads on the
@@ -19,6 +19,91 @@ static RECORDER_LOCK_CONTENTION: AtomicU64 = AtomicU64::new(0);
 #[allow(dead_code)]
 pub fn recorder_lock_contention_count() -> u64 {
     RECORDER_LOCK_CONTENTION.load(Ordering::Relaxed)
+}
+
+/// Frames per live waveform peak: 10 ms at 48 kHz.
+pub const LIVE_PEAK_FRAMES: u32 = 480;
+
+/// Live peaks kept per take: one hour at 100 a second (~2.9 MB, allocated
+/// once). Longer takes still record; the live waveform just stops growing.
+const LIVE_PEAK_CAPACITY: usize = 360_000;
+
+/// The waveform of the take in progress, built on the audio thread as the
+/// input arrives so the UI never scans (or locks) the recorded samples.
+/// Slots are allocated up front and written with atomics: no locks and no
+/// allocation on the audio thread. One writer (the audio thread); the count is
+/// published with `Release` after the slot is written.
+pub struct LivePeaks {
+    left: Box<[AtomicU32]>,
+    right: Box<[AtomicU32]>,
+    count: AtomicUsize,
+    /// Running maxima and frame count for the peak being built (audio thread).
+    acc_left: AtomicU32,
+    acc_right: AtomicU32,
+    acc_frames: AtomicU32,
+}
+
+impl LivePeaks {
+    fn with_capacity(capacity: usize) -> Self {
+        let slots = || (0..capacity).map(|_| AtomicU32::new(0)).collect();
+        Self {
+            left: slots(),
+            right: slots(),
+            count: AtomicUsize::new(0),
+            acc_left: AtomicU32::new(0),
+            acc_right: AtomicU32::new(0),
+            acc_frames: AtomicU32::new(0),
+        }
+    }
+
+    /// Forget the previous take.
+    pub fn reset(&self) {
+        self.acc_left.store(0, Ordering::Relaxed);
+        self.acc_right.store(0, Ordering::Relaxed);
+        self.acc_frames.store(0, Ordering::Relaxed);
+        self.count.store(0, Ordering::Release);
+    }
+
+    /// Fold one recorded frame in; every [`LIVE_PEAK_FRAMES`] frames this
+    /// publishes one peak per side. Audio thread only.
+    #[inline]
+    pub fn push_frame(&self, left: f32, right: f32) {
+        let l = f32::from_bits(self.acc_left.load(Ordering::Relaxed)).max(left.abs());
+        let r = f32::from_bits(self.acc_right.load(Ordering::Relaxed)).max(right.abs());
+        let frames = self.acc_frames.load(Ordering::Relaxed) + 1;
+        if frames < LIVE_PEAK_FRAMES {
+            self.acc_left.store(l.to_bits(), Ordering::Relaxed);
+            self.acc_right.store(r.to_bits(), Ordering::Relaxed);
+            self.acc_frames.store(frames, Ordering::Relaxed);
+            return;
+        }
+        let n = self.count.load(Ordering::Relaxed);
+        if n < self.left.len() {
+            self.left[n].store(l.to_bits(), Ordering::Relaxed);
+            self.right[n].store(r.to_bits(), Ordering::Relaxed);
+            self.count.store(n + 1, Ordering::Release);
+        }
+        self.acc_left.store(0, Ordering::Relaxed);
+        self.acc_right.store(0, Ordering::Relaxed);
+        self.acc_frames.store(0, Ordering::Relaxed);
+    }
+
+    /// Peaks published so far this take.
+    pub fn len(&self) -> usize {
+        self.count.load(Ordering::Acquire)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// `(left, right)` peak at `index` (below [`Self::len`]).
+    pub fn get(&self, index: usize) -> (f32, f32) {
+        (
+            f32::from_bits(self.left[index].load(Ordering::Relaxed)),
+            f32::from_bits(self.right[index].load(Ordering::Relaxed)),
+        )
+    }
 }
 
 /// Recording state
@@ -80,6 +165,8 @@ pub struct Recorder {
     /// The renderer mutes track playback during the count-in in this case
     /// (the metronome is mixed in later, so it stays audible).
     count_in_in_place: Arc<AtomicBool>,
+    /// Waveform of the take in progress, for the live clip.
+    live_peaks: Arc<LivePeaks>,
 }
 
 /// Sentinel for `click_started_at`: no click is sounding.
@@ -119,7 +206,13 @@ impl Recorder {
             click_started_at: Arc::new(AtomicU64::new(NO_CLICK)),
             click_is_downbeat: Arc::new(AtomicBool::new(false)),
             count_in_in_place: Arc::new(AtomicBool::new(false)),
+            live_peaks: Arc::new(LivePeaks::with_capacity(LIVE_PEAK_CAPACITY)),
         }
+    }
+
+    /// Waveform of the take in progress.
+    pub fn live_peaks(&self) -> &LivePeaks {
+        &self.live_peaks
     }
 
     /// Flag the current take's count-in as playing (partly) in place.
@@ -151,6 +244,7 @@ impl Recorder {
             click_started_at: self.click_started_at.clone(),
             click_is_downbeat: self.click_is_downbeat.clone(),
             count_in_in_place: self.count_in_in_place.clone(),
+            live_peaks: self.live_peaks.clone(),
         }
     }
 
@@ -163,6 +257,7 @@ impl Recorder {
         }
 
         // Clear previous recording
+        self.live_peaks.reset();
         {
             let mut samples = self.recorded_samples.lock();
             samples.clear();
@@ -314,42 +409,6 @@ impl Recorder {
         frame_count as f64 / f64::from(TARGET_SAMPLE_RATE)
     }
 
-    /// Get recording waveform preview (downsampled for display)
-    /// Returns a list of peak values suitable for UI display
-    /// Each peak represents multiple samples averaged together
-    pub fn get_recording_waveform(&self, num_peaks: usize) -> Vec<f32> {
-        let samples = self.recorded_samples.lock();
-        if samples.is_empty() || num_peaks == 0 {
-            return Vec::new();
-        }
-
-        let frame_count = samples.len() / 2; // Stereo interleaved
-        let frames_per_peak = (frame_count / num_peaks).max(1);
-        let mut peaks = Vec::with_capacity(num_peaks);
-
-        for i in 0..num_peaks {
-            let start_frame = i * frames_per_peak;
-            let end_frame = ((i + 1) * frames_per_peak).min(frame_count);
-
-            if start_frame >= frame_count {
-                break;
-            }
-
-            let mut max_amplitude: f32 = 0.0;
-            for frame in start_frame..end_frame {
-                let left = samples.get(frame * 2).copied().unwrap_or(0.0).abs();
-                let right = samples.get(frame * 2 + 1).copied().unwrap_or(0.0).abs();
-                let amplitude = left.max(right);
-                if amplitude > max_amplitude {
-                    max_amplitude = amplitude;
-                }
-            }
-            peaks.push(max_amplitude);
-        }
-
-        peaks
-    }
-
     /// Reset metronome beat position (called when transport stops)
     pub fn reset_metronome(&self) {
         let old_value = self.sample_counter.swap(0, Ordering::SeqCst);
@@ -464,6 +523,7 @@ pub struct RecorderCallbackRefs {
     pub click_started_at: Arc<AtomicU64>,
     pub click_is_downbeat: Arc<AtomicBool>,
     pub count_in_in_place: Arc<AtomicBool>,
+    pub live_peaks: Arc<LivePeaks>,
 }
 
 impl RecorderCallbackRefs {
@@ -630,6 +690,7 @@ impl RecorderCallbackRefs {
                         let mut samples = self.recorded_samples.lock();
                         samples.clear();
                     }
+                    self.live_peaks.reset();
                     self.sample_counter.store(0, Ordering::SeqCst);
                     let mut state = self.state.lock();
                     *state = RecordingState::Recording;
@@ -657,6 +718,7 @@ impl RecorderCallbackRefs {
                     samples.push(input_right);
                     // (No per-second audio-thread progress logging — see C3.)
                 }
+                self.live_peaks.push_frame(input_left, input_right);
             }
             RecordingState::Idle => {
                 // Don't reset counter - allow metronome to continue counting through beats
@@ -1035,5 +1097,62 @@ mod tests {
             1,
             "restart must click its downbeat right away"
         );
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)] // exact peak values are the point
+    fn live_peaks_publish_one_max_per_hop() {
+        let peaks = LivePeaks::with_capacity(8);
+        for i in 0..LIVE_PEAK_FRAMES * 2 {
+            let v = if i == 10 { -0.5 } else { 0.1 };
+            peaks.push_frame(v, if i == LIVE_PEAK_FRAMES + 3 { 0.75 } else { 0.0 });
+        }
+        assert_eq!(peaks.len(), 2);
+        assert_eq!(peaks.get(0), (0.5, 0.0));
+        assert_eq!(peaks.get(1), (0.1, 0.75));
+    }
+
+    #[test]
+    fn live_peaks_hold_back_a_partial_hop() {
+        let peaks = LivePeaks::with_capacity(8);
+        for _ in 0..LIVE_PEAK_FRAMES - 1 {
+            peaks.push_frame(0.2, 0.2);
+        }
+        assert_eq!(peaks.len(), 0);
+    }
+
+    #[test]
+    fn live_peaks_reset_for_a_new_take() {
+        let peaks = LivePeaks::with_capacity(8);
+        for _ in 0..LIVE_PEAK_FRAMES * 3 {
+            peaks.push_frame(0.2, 0.2);
+        }
+        peaks.reset();
+        assert_eq!(peaks.len(), 0);
+    }
+
+    #[test]
+    fn live_peaks_stop_growing_at_capacity() {
+        let peaks = LivePeaks::with_capacity(2);
+        for _ in 0..LIVE_PEAK_FRAMES * 5 {
+            peaks.push_frame(0.2, 0.2);
+        }
+        assert_eq!(peaks.len(), 2);
+    }
+
+    #[test]
+    fn recording_fills_live_peaks_and_a_new_take_clears_them() {
+        let recorder = Recorder::new();
+        recorder.set_count_in_bars(0);
+        recorder.start_recording().unwrap();
+        let refs = recorder.get_callback_refs();
+        for _ in 0..LIVE_PEAK_FRAMES * 4 {
+            refs.process_frame(0.3, 0.1, true, 0.0);
+        }
+        assert_eq!(recorder.live_peaks().len(), 4);
+
+        recorder.stop_recording(TARGET_SAMPLE_RATE).unwrap();
+        recorder.start_recording().unwrap();
+        assert_eq!(recorder.live_peaks().len(), 0);
     }
 }

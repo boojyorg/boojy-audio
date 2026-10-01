@@ -46,7 +46,7 @@ class _AudioEngineBase {
   late final _StopRecordingFfi _stopRecording;
   late final _GetRecordingStateFfi _getRecordingState;
   late final _GetRecordedDurationFfi _getRecordedDuration;
-  late final _GetRecordingWaveformFfi _getRecordingWaveform;
+  late final _GetLiveRecordingPeaksFfi _getLiveRecordingPeaks;
   late final _SetCountInBarsFfi _setCountInBars;
   late final _GetCountInBarsFfi _getCountInBars;
   late final _GetCountInBeatFfi _getCountInBeat;
@@ -539,9 +539,9 @@ class _AudioEngineBase {
           )
           .asFunction();
 
-      _getRecordingWaveform = _lib
-          .lookup<ffi.NativeFunction<_GetRecordingWaveformFfiNative>>(
-            'get_recording_waveform_ffi',
+      _getLiveRecordingPeaks = _lib
+          .lookup<ffi.NativeFunction<_GetLiveRecordingPeaksFfiNative>>(
+            'get_live_recording_peaks_ffi',
           )
           .asFunction();
 

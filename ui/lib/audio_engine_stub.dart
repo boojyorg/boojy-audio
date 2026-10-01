@@ -4,6 +4,7 @@
 
 import 'models/audio_input_status.dart';
 import 'models/drum_kit_info.dart';
+import 'models/live_peaks.dart';
 import 'models/sampler_info.dart';
 import 'services/commands/audio_engine_interface.dart';
 
@@ -400,7 +401,7 @@ class AudioEngine implements AudioEngineInterface {
   int getRecordingState() => throw UnsupportedError('stub');
   int getMidiRecordingState() => throw UnsupportedError('stub');
   double getRecordedDuration() => throw UnsupportedError('stub');
-  List<double> getRecordingWaveform(int numPeaks) =>
+  LivePeaksChunk getLiveRecordingPeaks(int from) =>
       throw UnsupportedError('stub');
 
   // ========================================================================
