@@ -2,13 +2,11 @@ import 'dart:async';
 import 'dart:io' show File;
 import 'package:flutter/material.dart';
 import 'package:cross_file/cross_file.dart';
-import '../../models/clip_data.dart';
 import '../../services/midi_file_service.dart';
-import '../../utils/clip_overlap_handler.dart';
-import '../../theme/theme_extension.dart';
 import 'timeline_state.dart';
 import '../timeline_view.dart';
 import '../../utils/logger.dart';
+import '../shared/boojy_notice.dart';
 
 /// Mixin containing file drop and preview loading methods for TimelineView.
 /// Separates file handling logic from main timeline code.
@@ -24,10 +22,28 @@ mixin TimelineFileHandlersMixin on State<TimelineView>, TimelineViewStateMixin {
     final file = files.first;
     final filePath = file.path;
     final ext = filePath.split('.').last.toLowerCase();
+    final isMidiFile = ext == 'mid' || ext == 'midi';
+    final isAudioFile = ['wav', 'mp3', 'aif', 'aiff', 'flac'].contains(ext);
+    final startBeats = finderDropBeats(localPosition);
+
+    // Finder only reveals the file on drop, so a mismatch can't be shown
+    // while hovering; say so instead of silently ignoring the drop.
+    final trackType = tracks
+        .where((t) => t.id == trackId)
+        .firstOrNull
+        ?.type
+        .toLowerCase();
+    if (isMidiFile && trackType != 'midi') {
+      Notices.info('MIDI files go on a MIDI track or empty space');
+      return;
+    }
+    if (isAudioFile && trackType != 'audio') {
+      Notices.info('Audio files go on an audio track or empty space');
+      return;
+    }
 
     // Handle MIDI files via callback
-    if (ext == 'mid' || ext == 'midi') {
-      final startBeats = calculateBeatPosition(localPosition);
+    if (isMidiFile) {
       widget.dragDropCallbacks.onMidiFileDroppedOnTrack?.call(
         trackId,
         filePath,
@@ -37,79 +53,17 @@ mixin TimelineFileHandlersMixin on State<TimelineView>, TimelineViewStateMixin {
     }
 
     // Only accept audio files
-    if (!['wav', 'mp3', 'aif', 'aiff', 'flac'].contains(ext)) {
+    if (!isAudioFile) {
       return;
     }
 
-    try {
-      // Calculate drop position first (needed for loadAudioFileToTrack)
-      final startTime = calculateTimelinePosition(localPosition);
-
-      // Load audio file onto the correct track at the correct position
-      final clipId = widget.audioEngine!.loadAudioFileToTrack(
-        filePath,
-        trackId,
-        startTime: startTime,
-      );
-      if (clipId < 0) {
-        return;
-      }
-
-      // Get duration + a quick low-res waveform for immediate display. The
-      // full-resolution waveform is computed a frame later via
-      // scheduleWaveformUpgrade so the heavy peak pass doesn't block the drop.
-      final duration = widget.audioEngine!.getClipDuration(clipId);
-      final peaks = widget.audioEngine!.getWaveformPeaks(clipId, 1000);
-
-      // Create clip
-      final clip = ClipData(
-        clipId: clipId,
-        trackId: trackId,
-        filePath: filePath,
-        startTime: startTime,
-        duration: duration,
-        waveformPeaks: peaks,
-        color: context.colors.success,
-      );
-
-      // Resolve overlaps before adding the new clip
-      final overlapResult = ClipOverlapHandler.resolveAudioOverlaps(
-        newStart: startTime,
-        newEnd: startTime + duration,
-        existingClips: List<ClipData>.from(clips),
-        trackId: trackId,
-      );
-      ClipOverlapHandler.applyAudioResult(
-        result: overlapResult,
-        engineRemoveClip: (tId, cId) =>
-            widget.audioEngine?.removeAudioClip(tId, cId),
-        engineSetStartTime: (tId, cId, s) =>
-            widget.audioEngine?.setClipStartTime(tId, cId, s),
-        engineSetOffset: (tId, cId, o) =>
-            widget.audioEngine?.setClipOffset(tId, cId, o),
-        engineSetDuration: (tId, cId, d) =>
-            widget.audioEngine?.setClipDuration(tId, cId, d),
-        engineDuplicateClip: (tId, cId, s) =>
-            widget.audioEngine?.duplicateAudioClip(tId, cId, s) ?? -1,
-        uiRemoveClip: (cId) => clips.removeWhere((c) => c.clipId == cId),
-        uiUpdateClip: (c) {
-          final idx = clips.indexWhere((cl) => cl.clipId == c.clipId);
-          if (idx >= 0) clips[idx] = c;
-        },
-        uiAddClip: (c) => clips.add(c),
-      );
-
-      setState(() {
-        clips.add(clip);
-        previewClip = null;
-        dragHoveredTrackId = null;
-      });
-
-      // Sharpen to the full-resolution waveform once the clip is on screen.
-      scheduleWaveformUpgrade(clipId);
-    } catch (e) {
-      Log.e('TimelineView: Error loading audio file: $e');
-    }
+    // Same undoable path as a library drop (copies into the project, resolves
+    // overlaps, one undo step). The drop target's exit clears the preview.
+    widget.dragDropCallbacks.onAudioFileDroppedOnTrack?.call(
+      trackId,
+      filePath,
+      startBeats,
+    );
   }
 
   /// Replace a freshly-dropped clip's quick low-res waveform with the

@@ -140,6 +140,9 @@ class PreviewClip {
   final List<MidiNoteData>? midiNotes;
   final bool isMidi;
 
+  /// A Finder drag: position known, file unknown until drop.
+  final bool isPlaceholder;
+
   const PreviewClip({
     required this.fileName,
     required this.filePath,
@@ -150,6 +153,7 @@ class PreviewClip {
     this.waveformPeaks,
     this.midiNotes,
     this.isMidi = false,
+    this.isPlaceholder = false,
   });
 
   PreviewClip copyWith({
@@ -173,6 +177,7 @@ class PreviewClip {
       waveformPeaks: waveformPeaks ?? this.waveformPeaks,
       midiNotes: midiNotes ?? this.midiNotes,
       isMidi: isMidi ?? this.isMidi,
+      isPlaceholder: isPlaceholder,
     );
   }
 }

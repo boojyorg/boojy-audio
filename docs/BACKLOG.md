@@ -131,6 +131,9 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
 - **v1.0, unscheduled:** clip normalize; pan automation end to end; swing; LUFS platform targets
   in the export dialog (the engine supports them); localisation; loop recording and take
   comping. Platform prep for web, iPad and Linux is in [PLATFORMS.md](PLATFORMS.md).
+- **Real preview for Finder drags:** files dragged from Finder show a one-bar placeholder, not
+  their length or notes, because `desktop_drop` only hands over the file on drop. Needs the
+  plugin patched (macOS + Windows) or a different package.
 
 ## Decisions: don't re-raise
 
