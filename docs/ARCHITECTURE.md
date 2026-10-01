@@ -23,8 +23,9 @@ ui/lib/
   models/                     immutable data classes with JSON (ClipData, MidiNoteData, TrackData…)
   services/                   ProjectManager, ProjectPersistence, UndoRedoManager + commands/, library, auto-save, MIDI playback/capture, VST3, updater, settings
   controllers/                playback, recording, track, MIDI-clip, automation (ChangeNotifiers)
-  screens/daw/                DAWScreen + mixins/ (clip, track, playback, recording, project, library, VST3, UI)
-  widgets/                    transport_bar, timeline, piano_roll, mixer, device_chain, editors, library, start_screen, dialogs, shared/, painters/
+  screens/                    daw_screen.dart (DAWScreen), daw_screen_io.dart
+  screens/daw/                mixins/ (clip, track, playback, recording, project, library, VST3, UI) + daw_menu_bar.dart
+  widgets/                    transport_bar, timeline_view.dart + timeline/ (part files, painters, gestures), piano_roll, mixer, device_chain, editors, library, start_screen, dialogs, shared/, painters/
   theme/                      colours, BI icon facade, theme provider
   state/                      UI layout state
 ui/test/native/               engine golden-path tests over dart:ffi (plain flutter test, needs ./build.sh)
@@ -93,8 +94,8 @@ AudioEngine (dart:ffi)
   playback, recording, project, library, VST3, UI). Recording: the engine's `stop_recording`
   returns the new clip id, and `daw_recording_mixin.dart` builds the clip and captured notes.
 - **Large editors are mixin-composed too.** `PianoRoll` and `TimelineView` split behaviour into
-  state, gesture, selection and operation mixins; `timeline_view.dart` additionally uses `part`
-  files, so it is one library. Import the entry file only.
+  state, gesture, selection and operation mixins; `widgets/timeline_view.dart` additionally uses `part`
+  files in `widgets/timeline/`, so it is one library. Import the entry file only.
 - **`LibraryPanel` is one tree.** Every frame it flattens the expansion set and the lazily
   scanned folder cache into a list of visible rows; that one list drives rendering, keyboard
   navigation and search results, so the widget never keeps a second model in sync. Row widget
