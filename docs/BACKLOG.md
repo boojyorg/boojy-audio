@@ -110,7 +110,6 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
 
 - **Scale highlight** (hidden while fixed to C major): bring it back with root and type pickers
   in the piano-roll controls bar.
-- **Start-screen thumbnails are read synchronously in `build()`** (`project_card.dart`).
 - **Tooltip coverage is uneven**: piano-roll Quantize/Legato/Snap use the plain tooltip;
   track-header Mute/Solo have none.
 - **Two `showMenu` calls remain** in `track_mixer_strip.dart`; migrate to `showBoojyMenu`.
