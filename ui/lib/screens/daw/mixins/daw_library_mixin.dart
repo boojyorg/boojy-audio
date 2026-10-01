@@ -287,8 +287,7 @@ mixin DAWLibraryMixin
         filePath: finalPath,
         startTime: startTimeSeconds,
         clipName: fileName,
-        onClipAdded: (clipId, duration, peaks) {
-          // Resolve overlaps before adding the new clip
+        resolveOverlaps: (clipId, duration) {
           final result = ClipOverlapHandler.resolveAudioOverlaps(
             newStart: startTimeSeconds,
             newEnd: startTimeSeconds + duration,
@@ -296,23 +295,17 @@ mixin DAWLibraryMixin
               timelineKey.currentState?.clips ?? [],
             ),
             trackId: trackId,
+            excludeClipId: clipId,
           );
-          ClipOverlapHandler.applyAudioResult(
+          if (!result.hasChanges) return null;
+          return ResolveAudioOverlapCommand(
             result: result,
-            engineRemoveClip: (tId, cId) =>
-                audioEngine?.removeAudioClip(tId, cId),
-            engineSetStartTime: (tId, cId, s) =>
-                audioEngine?.setClipStartTime(tId, cId, s),
-            engineSetOffset: (tId, cId, o) =>
-                audioEngine?.setClipOffset(tId, cId, o),
-            engineSetDuration: (tId, cId, d) =>
-                audioEngine?.setClipDuration(tId, cId, d),
-            engineDuplicateClip: (tId, cId, s) =>
-                audioEngine?.duplicateAudioClip(tId, cId, s) ?? -1,
             uiRemoveClip: (cId) => timelineKey.currentState?.removeClip(cId),
             uiUpdateClip: (clip) => timelineKey.currentState?.updateClip(clip),
             uiAddClip: (clip) => timelineKey.currentState?.addClip(clip),
           );
+        },
+        onClipAdded: (clipId, duration, peaks) {
           // Add the new clip to timeline
           timelineKey.currentState?.addClip(
             ClipData(

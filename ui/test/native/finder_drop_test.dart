@@ -3,6 +3,7 @@ import 'package:boojy_audio/models/tool_mode.dart';
 import 'package:boojy_audio/services/undo_redo_manager.dart';
 import 'package:boojy_audio/theme/boojy_icons.dart';
 import 'package:boojy_audio/theme/theme_provider.dart';
+import 'package:boojy_audio/widgets/shared/boojy_notice.dart';
 import 'package:boojy_audio/widgets/timeline/timeline_models.dart';
 import 'package:boojy_audio/widgets/timeline_view.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +22,7 @@ import 'support/native_engine_harness.dart';
 const _library = 240.0; // arrangement starts this far from the window edge
 const _pxPerBeat = 25.0; // 120 bpm, default zoom
 const _trackY = 74.0; // inside the first (MIDI) track row
+const _audioTrackY = 174.0; // inside the second (audio) track row
 const _emptyY = 700.0; // inside the empty area below the tracks
 
 Future<void> _send(WidgetTester tester, String method, Object? args) async {
@@ -48,20 +50,27 @@ void main() {
   group('Finder drops onto the timeline', () {
     late AudioEngine engine;
     late int midiTrack;
+    late int audioTrack;
     late List<double> emptyDrops;
     late List<double> trackDrops;
+    late List<double> audioTrackDrops;
     late GlobalKey<TimelineViewState> key;
 
     setUp(() async {
       engine = await createInitializedEngine();
       UndoRedoManager().initialize(engine);
       midiTrack = engine.createTrack('midi', 'Finder test');
+      audioTrack = engine.createTrack('audio', 'Finder audio');
       emptyDrops = [];
       trackDrops = [];
+      audioTrackDrops = [];
       key = GlobalKey<TimelineViewState>();
     });
 
-    tearDown(() => engine.deleteTrack(midiTrack));
+    tearDown(() {
+      engine.deleteTrack(midiTrack);
+      engine.deleteTrack(audioTrack);
+    });
 
     Future<void> pumpTimeline(WidgetTester tester) async {
       tester.view.physicalSize = const Size(1400, 800);
@@ -82,12 +91,14 @@ void main() {
                       audioEngine: engine,
                       tempo: 120.0,
                       toolMode: ToolMode.select,
-                      trackOrder: [midiTrack],
+                      trackOrder: [midiTrack, audioTrack],
                       dragDropCallbacks: DragDropCallbacks(
                         onMidiFileDroppedOnEmpty: (_, beats) =>
                             emptyDrops.add(beats),
                         onMidiFileDroppedOnTrack: (_, _, beats) =>
                             trackDrops.add(beats),
+                        onAudioFileDroppedOnTrack: (_, _, beats) =>
+                            audioTrackDrops.add(beats),
                       ),
                     ),
                   ),
@@ -147,6 +158,30 @@ void main() {
         await tester.pumpWidget(const SizedBox());
       });
     }
+
+    testWidgets('audio on an audio track goes through the undoable drop; '
+        'audio on a MIDI track is refused', (tester) async {
+      await pumpTimeline(tester);
+      key.currentState!.scrollController.jumpTo(100);
+      await tester.pump();
+
+      const x = _library + 6 * _pxPerBeat;
+      await hover(tester, x, _audioTrackY);
+      expect(tester.getRect(placeholder).left, closeTo(x, 0.5));
+      await _send(tester, 'performOperation', ['/tmp/loop.wav']);
+      expect(audioTrackDrops, [6 + 100 / _pxPerBeat]);
+
+      await hover(tester, x, _trackY);
+      await _send(tester, 'performOperation', ['/tmp/loop.wav']);
+      expect(audioTrackDrops, hasLength(1));
+      expect(key.currentState!.clips, isEmpty);
+      expect(
+        Notices.instance.currentInfo?.text,
+        'Audio files go on an audio track or empty space',
+      );
+      Notices.instance.reset();
+      await tester.pumpWidget(const SizedBox());
+    });
 
     testWidgets('leaving the timeline removes the placeholder', (tester) async {
       await pumpTimeline(tester);

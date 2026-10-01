@@ -321,13 +321,11 @@ mixin TimelineTrackListMixin
 
                         return PlatformDropTarget(
                           onDragDone: (details) {
+                            // (desktop_drop fires onDragExited on drop, which
+                            // clears the placeholder.)
                             final snappedBeats = finderDropBeats(
                               details.localPosition,
                             );
-                            setState(() {
-                              isFinderDraggingOverEmpty = false;
-                              previewClip = null;
-                            });
 
                             // Handle file drops from Finder
                             for (final file in details.files) {

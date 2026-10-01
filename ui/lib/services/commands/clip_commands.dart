@@ -675,6 +675,14 @@ class AddAudioClipCommand extends Command {
   /// Callback to remove clip from UI state (undo)
   final void Function(int clipId)? onClipRemoved;
 
+  /// Builds the trim/split/delete of neighbours the new clip lands on. It runs
+  /// once the clip's length is known (first execute) and is part of this
+  /// command, so one undo restores both the neighbours and the empty space.
+  final ResolveAudioOverlapCommand? Function(int clipId, double duration)?
+  resolveOverlaps;
+
+  ResolveAudioOverlapCommand? _overlap;
+
   AddAudioClipCommand({
     required this.trackId,
     required this.filePath,
@@ -682,6 +690,7 @@ class AddAudioClipCommand extends Command {
     required this.clipName,
     this.onClipAdded,
     this.onClipRemoved,
+    this.resolveOverlaps,
   });
 
   /// Get the created clip ID (available after execute)
@@ -696,6 +705,8 @@ class AddAudioClipCommand extends Command {
       // to full resolution a frame later (see scheduleWaveformUpgrade).
       final peaks = engine.getWaveformPeaks(_createdClipId!, 1000);
       engine.setClipStartTime(trackId, _createdClipId!, startTime);
+      _overlap ??= resolveOverlaps?.call(_createdClipId!, duration);
+      await _overlap?.execute(engine);
       onClipAdded?.call(_createdClipId!, duration, peaks);
     }
   }
@@ -705,6 +716,7 @@ class AddAudioClipCommand extends Command {
     if (_createdClipId != null && _createdClipId! >= 0) {
       engine.removeAudioClip(trackId, _createdClipId!);
       onClipRemoved?.call(_createdClipId!);
+      await _overlap?.undo(engine);
     }
   }
 
