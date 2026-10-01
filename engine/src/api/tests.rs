@@ -934,7 +934,7 @@ fn single_track_stem_matches_the_full_mix() {
     let mix_peak = mix.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
     assert!(mix_peak > 0.005, "the mix is not silent");
 
-    // The full mix routes through the master bus (volume + constant-power
+    // The full mix routes through the master bus (volume + balance
     // pan + transparent-below-threshold limiter); a solo stem deliberately
     // does not. Factor the master stage out and the two paths must agree
     // sample-for-sample — if stems applied fader/pan before the FX chain

@@ -294,11 +294,21 @@ impl Track {
     /// Get pan coefficients for stereo panning
     /// Returns (`left_gain`, `right_gain`)
     ///
-    /// Uses equal-power panning law:
+    /// Tracks use the equal-power panning law:
     /// - pan = -1.0 → (1.0, 0.0) = full left
     /// - pan =  0.0 → (0.707, 0.707) = center (-3 dB each)
     /// - pan = +1.0 → (0.0, 1.0) = full right
+    ///
+    /// The master is a balance control: unity at centre, turning one side
+    /// down as it moves. Constant power on the master too cut every mix by
+    /// a second 3 dB (a centred track played 6 dB under its source).
     pub fn get_pan_gains(&self) -> (f32, f32) {
+        if self.track_type == TrackType::Master {
+            return (
+                (1.0 - self.pan).clamp(0.0, 1.0),
+                (1.0 + self.pan).clamp(0.0, 1.0),
+            );
+        }
         let pan_normalized = f32::midpoint(self.pan, 1.0); // Map -1..1 to 0..1
         let pan_radians = pan_normalized * std::f32::consts::FRAC_PI_2; // 0 to π/2
 
@@ -592,6 +602,17 @@ mod tests {
         let (left, right) = track.get_pan_gains();
         assert!(left < 0.01);
         assert!((right - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn master_pan_is_a_balance_with_unity_at_centre() {
+        let mut master = Track::new(0, TrackType::Master, "Master".to_string());
+        master.pan = 0.0;
+        assert_eq!(master.get_pan_gains(), (1.0, 1.0));
+        master.pan = 0.5;
+        assert_eq!(master.get_pan_gains(), (0.5, 1.0));
+        master.pan = -1.0;
+        assert_eq!(master.get_pan_gains(), (1.0, 0.0));
     }
 
     fn make_timeline_clip(start_time: f64, offset: f64, duration_seconds: f64) -> TimelineClip {
