@@ -38,6 +38,10 @@ class AudioEditor extends StatefulWidget {
   /// Project tempo (BPM) for warp calculations
   final double projectTempo;
 
+  /// Project time signature numerator (bar lines follow the project; the only
+  /// control for it is the toolbar's).
+  final int projectBeatsPerBar;
+
   /// Callback when project tempo changes from Audio Editor
   final Function(double)? onProjectTempoChanged;
 
@@ -53,6 +57,7 @@ class AudioEditor extends StatefulWidget {
     this.toolMode = ToolMode.draw,
     this.onToolModeChanged,
     this.projectTempo = 120.0,
+    this.projectBeatsPerBar = 4,
     this.onProjectTempoChanged,
     this.onCreateSamplerFromClip,
   });
@@ -67,6 +72,7 @@ class _AudioEditorState extends State<AudioEditor>
   void initState() {
     super.initState();
     initFromClip(widget.clipData, projectTempo: widget.projectTempo);
+    beatsPerBar = widget.projectBeatsPerBar;
     initScrollListeners();
 
     // Listen for undo/redo changes
@@ -90,7 +96,10 @@ class _AudioEditorState extends State<AudioEditor>
     if (widget.clipData != oldWidget.clipData) {
       setState(() {
         updateFromClip(widget.clipData, projectTempo: widget.projectTempo);
+        beatsPerBar = widget.projectBeatsPerBar;
       });
+    } else if (widget.projectBeatsPerBar != oldWidget.projectBeatsPerBar) {
+      setState(() => beatsPerBar = widget.projectBeatsPerBar);
     }
     // Recalculate when project tempo changes
     if (widget.projectTempo != oldWidget.projectTempo) {
@@ -144,10 +153,8 @@ class _AudioEditorState extends State<AudioEditor>
                   startOffsetBeats: loopStartBeats,
                   lengthBeats: loopEndBeats - loopStartBeats,
                   beatsPerBar: beatsPerBar,
-                  beatUnit: beatUnit,
                   onStartChanged: _onStartChanged,
                   onLengthChanged: _onLengthChanged,
-                  onSignatureChanged: _onSignatureChanged,
                   // Warp controls
                   warpEnabled: editData.syncEnabled,
                   onWarpToggle: _toggleWarp,
@@ -416,20 +423,6 @@ class _AudioEditorState extends State<AudioEditor>
       editData = editData.copyWith(loopEndBeats: loopStartBeats + beats);
     });
     notifyClipUpdated();
-  }
-
-  void _onSignatureChanged(int numerator, int denominator) {
-    saveToHistory();
-    setState(() {
-      beatsPerBar = numerator;
-      beatUnit = denominator;
-      editData = editData.copyWith(
-        beatsPerBar: numerator,
-        beatUnit: denominator,
-      );
-    });
-    notifyClipUpdated();
-    commitToHistory('Set time signature to $numerator/$denominator');
   }
 
   void _toggleWarp() {

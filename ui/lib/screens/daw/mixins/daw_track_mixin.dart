@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../models/clip_data.dart';
 import '../../../models/instrument_data.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../services/bundled_content_service.dart';
@@ -42,7 +41,6 @@ mixin DAWTrackMixin
 
     setState(() {
       selectTrack(trackId, isShiftHeld: isShiftHeld);
-      uiLayout.isEditorPanelVisible = true;
     });
 
     // Hide floating windows for other tracks, show for selected track
@@ -119,37 +117,6 @@ mixin DAWTrackMixin
       return decodeCsvField(parts[1]);
     }
     return null;
-  }
-
-  // ============================================
-  // AUDIO CLIP SELECTION
-  // ============================================
-
-  /// Handle audio clip selection from timeline
-  void onAudioClipSelected(int? clipId, ClipData? clip) {
-    setState(() {
-      selectedAudioClip = clip;
-      if (clip != null) {
-        // Also select the track that contains this clip
-        selectedTrackId = clip.trackId;
-        uiLayout.isEditorPanelVisible = true;
-        // Clear MIDI clip selection
-        midiPlaybackManager?.selectClip(null, null);
-      }
-    });
-  }
-
-  /// Handle audio clip updates from Audio Editor
-  void onAudioClipUpdated(ClipData clip) {
-    setState(() {
-      selectedAudioClip = clip;
-    });
-
-    // Update the clip in the timeline view so waveform reflects gain changes
-    timelineKey.currentState?.updateClip(clip);
-
-    // Auto-update arrangement loop region to follow content
-    updateArrangementLoopToContent();
   }
 
   // ============================================
@@ -288,8 +255,10 @@ mixin DAWTrackMixin
 
       refreshTrackWidgets();
       // autoSelectClip so the new 1-bar clip shows selected, matching the
-      // synth path below (also opens the editor panel).
+      // synth path below. Dropping an instrument is deliberate, so open the
+      // editor on it (selecting alone never does).
       onTrackSelected(trackId, autoSelectClip: true);
+      uiLayout.isEditorPanelVisible = true;
       return;
     }
 
@@ -367,8 +336,9 @@ mixin DAWTrackMixin
     createDefaultMidiClip(trackId);
     refreshTrackWidgets();
     // autoSelectClip so the new 1-bar clip shows selected, matching the synth
-    // drop path (also opens the editor panel on the new kit).
+    // drop path. Creating a kit is deliberate, so open the editor on it.
     onTrackSelected(trackId, autoSelectClip: true);
+    uiLayout.isEditorPanelVisible = true;
     if (!loadedAll) {
       Notices.problem(
         "Couldn't load the starter drum sounds. The kit's pads are empty.",

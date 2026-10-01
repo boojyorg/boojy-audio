@@ -24,30 +24,6 @@ mixin DAWClipMixin
         DAWUIMixin,
         DAWTrackMixin {
   // ============================================
-  // MIDI CLIP SELECTION
-  // ============================================
-
-  /// Handle MIDI clip selection
-  void onMidiClipSelected(int? clipId, MidiClipData? clipData) {
-    final trackId = midiClipController.selectClip(clipId, clipData);
-    if (clipId != null && clipData != null) {
-      // Don't auto-open editor panel - let user control visibility via View menu or double-click
-      selectedTrackId = trackId ?? clipData.trackId;
-    }
-  }
-
-  /// Handle MIDI clip update
-  void onMidiClipUpdated(MidiClipData updatedClip) {
-    midiClipController.updateClip(updatedClip, playheadPosition);
-
-    // Propagate changes to all linked clips (same patternId)
-    midiPlaybackManager?.updateLinkedClips(updatedClip, tempo);
-
-    // Auto-update arrangement loop region to follow content
-    updateArrangementLoopToContent();
-  }
-
-  // ============================================
   // CLIP COPY/DUPLICATE
   // ============================================
 
@@ -60,15 +36,7 @@ mixin DAWClipMixin
     final command = DuplicateMidiClipCommand(
       originalClip: sourceClip,
       newStartTime: newStartTime,
-      onClipDuplicated: (newClip, sharedPatternId) {
-        // Update original clip's patternId if it was null (first duplication)
-        if (sourceClip.patternId == null) {
-          final updatedOriginal = sourceClip.copyWith(
-            patternId: sharedPatternId,
-          );
-          midiPlaybackManager?.updateClipInPlace(updatedOriginal);
-        }
-
+      onClipDuplicated: (newClip) {
         // Resolve overlaps at the copy's position
         // Note: source clip is NOT excluded — if the copy overlaps the source,
         // the source should be trimmed (standard DAW behavior).
@@ -571,6 +539,9 @@ mixin DAWClipMixin
     // selection and raced the create command (visible flicker, bug-hunt #21).
     await createMidiClipWithParams(trackId, startBeats, durationBeats);
     onTrackSelected(trackId, autoSelectClip: true);
+    // Creating a clip is deliberate (double-click / drag on empty track
+    // space): open the editor on it. Selecting alone never does.
+    if (mounted) setState(() => uiLayout.isEditorPanelVisible = true);
   }
 
   /// Create a MIDI clip with custom start position and duration

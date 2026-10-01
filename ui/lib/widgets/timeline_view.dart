@@ -124,9 +124,6 @@ class TimelineView extends StatefulWidget {
   // Recording state (for auto-scroll and visual indicators)
   final bool isRecording;
 
-  /// When false, the master timeline row is hidden (v0.3).
-  final bool masterTimelineVisible;
-
   // Tracks whose automation lane is shown (per-track, from the track menu)
   final Set<int> automationVisibleTrackIds;
   final ScrollController?
@@ -169,7 +166,6 @@ class TimelineView extends StatefulWidget {
     this.onAddMidiTrack,
     this.onAddAudioTrack,
     this.isRecording = false,
-    this.masterTimelineVisible = false,
     this.beatsPerBar = 4,
   });
 
@@ -981,17 +977,14 @@ class TimelineViewState extends State<TimelineView>
                                             height: 2,
                                             color: context.colors.hover,
                                           ),
-                                          if (widget.masterTimelineVisible)
-                                            _buildMasterTrack(
-                                              totalWidth,
-                                              masterTrack,
-                                            )
-                                          else
-                                            SizedBox(
-                                              height: widget
-                                                  .trackHeightState
-                                                  .masterTrackHeight,
-                                            ),
+                                          // The master row is never shown;
+                                          // its slot stays empty so the
+                                          // mixer strip keeps lining up.
+                                          SizedBox(
+                                            height: widget
+                                                .trackHeightState
+                                                .masterTrackHeight,
+                                          ),
                                         ],
                                       ],
                                     ),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/material.dart';
 import '../../constants/ui_constants.dart';
 import '../../models/clip_data.dart';
@@ -166,6 +167,30 @@ mixin TimelineViewStateMixin on State<TimelineView>
 
   /// Modifier state captured at pointer down (for audio clips).
   bool audioPointerDownWasCopyModifier = false;
+
+  // Double-click on a clip is detected manually from tap-ups: a real
+  // onDoubleTap recognizer would hold the gesture arena for ~300 ms after
+  // every tap-up and delay single-tap selection.
+  DateTime? _lastClipTapAt;
+  String? _lastClipTapKey;
+
+  /// Records a tap on the clip identified by [clipKey] and returns true when
+  /// it completes a double-click (second tap on the same clip within
+  /// [kDoubleTapTimeout]).
+  bool registerClipTap(String clipKey) {
+    final now = DateTime.now();
+    final last = _lastClipTapAt;
+    if (last != null &&
+        _lastClipTapKey == clipKey &&
+        now.difference(last) < kDoubleTapTimeout) {
+      _lastClipTapAt = null;
+      _lastClipTapKey = null;
+      return true;
+    }
+    _lastClipTapAt = now;
+    _lastClipTapKey = clipKey;
+    return false;
+  }
 
   /// Number of stamp copies to create during Alt+drag.
   int stampCopyCount = 0;

@@ -369,7 +369,7 @@ class MidiPlaybackManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Update a clip in place (for setting patternId on original during duplication)
+  /// Update a clip in place (used when overlap handling trims or moves a clip)
   void updateClipInPlace(MidiClipData updatedClip) {
     final index = _midiClips.indexWhere((c) => c.clipId == updatedClip.clipId);
     if (index >= 0) {
@@ -390,27 +390,6 @@ class MidiPlaybackManager extends ChangeNotifier {
     // _scheduleMidiClipPlayback syncs notes AND start time for both new and
     // existing clips, so no extra start-time patch is needed here.
     _scheduleMidiClipPlayback(clip, tempo);
-  }
-
-  /// Update all clips that share the same patternId with new notes and name
-  /// This propagates edits from one linked clip to all its siblings
-  void updateLinkedClips(MidiClipData updatedClip, double tempo) {
-    if (updatedClip.patternId == null) return;
-
-    // Update each linked clip's notes and name (preserving their own position/duration)
-    for (int i = 0; i < _midiClips.length; i++) {
-      if (_midiClips[i].patternId == updatedClip.patternId &&
-          _midiClips[i].clipId != updatedClip.clipId) {
-        _midiClips[i] = _midiClips[i].copyWith(
-          notes: updatedClip.notes,
-          name: updatedClip.name,
-        );
-        // Reschedule for playback
-        _scheduleMidiClipPlayback(_midiClips[i], tempo);
-      }
-    }
-
-    notifyListeners();
   }
 
   /// Remove all clips for a specific track
@@ -615,7 +594,6 @@ class MidiPlaybackManager extends ChangeNotifier {
           isMuted: meta.isMuted,
           canRepeat: meta.canRepeat,
           contentStartOffset: meta.contentStartOffset,
-          patternId: meta.patternId,
           // Preserve the saved loop length only when it was explicitly set
           // (non-zero); otherwise keep the engine-derived duration above.
           loopLength: meta.loopLength > 0 ? meta.loopLength : null,

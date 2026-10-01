@@ -40,12 +40,10 @@ class DawMenuConfig {
 
   // View menu callbacks and state
   final UILayoutState uiLayout;
-  final bool masterTimelineVisible;
   final VoidCallback onToggleLibrary;
   final VoidCallback onToggleMixer;
   final VoidCallback onToggleEditor;
   final VoidCallback onTogglePiano;
-  final VoidCallback onToggleMasterRow;
   final VoidCallback onResetPanelLayout;
   final VoidCallback onAppSettings;
 
@@ -77,12 +75,10 @@ class DawMenuConfig {
     required this.hasSelectedAudioClip,
     required this.selectedMidiClipCount,
     required this.uiLayout,
-    required this.masterTimelineVisible,
     required this.onToggleLibrary,
     required this.onToggleMixer,
     required this.onToggleEditor,
     required this.onTogglePiano,
-    required this.onToggleMasterRow,
     required this.onResetPanelLayout,
     required this.onAppSettings,
     this.onUndo,
@@ -285,12 +281,6 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
               : 'Show Virtual Piano',
           shortcut: const SingleActivator(LogicalKeyboardKey.keyP, meta: true),
           onSelected: config.onTogglePiano,
-        ),
-        PlatformMenuItem(
-          label: config.masterTimelineVisible
-              ? '✓ Show Master Row'
-              : 'Show Master Row',
-          onSelected: config.onToggleMasterRow,
         ),
         PlatformMenuItem(
           label: 'Reset Panel Layout',

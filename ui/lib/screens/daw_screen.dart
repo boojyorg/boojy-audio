@@ -365,7 +365,6 @@ class _DAWScreenState extends State<DAWScreen>
       if (mounted) {
         setState(() {
           isAudioGraphInitialized = true;
-          masterTimelineVisible = audioEngine!.getMasterTimelineVisible();
         });
       }
 
@@ -936,7 +935,6 @@ class _DAWScreenState extends State<DAWScreen>
       if (clip != null) {
         // Also select the track that contains this clip
         selectedTrackId = clip.trackId;
-        uiLayout.isEditorPanelVisible = true;
         // Clear MIDI clip selection
         midiPlaybackManager?.selectClip(null, null);
       }
@@ -951,9 +949,6 @@ class _DAWScreenState extends State<DAWScreen>
 
     // Update the clip in the timeline view so waveform reflects gain changes
     timelineKey.currentState?.updateClip(clip);
-
-    // Auto-update arrangement loop region to follow content
-    _updateArrangementLoopToContent();
   }
 
   // M9: Instrument selection/swap lives in DAWTrackMixin.onInstrumentSelected
@@ -1213,6 +1208,8 @@ class _DAWScreenState extends State<DAWScreen>
 
       // Select track and highlight the clip (editor stays on Instrument tab)
       _onTrackSelected(trackId, autoSelectClip: true);
+      // Adding an instrument plugin is deliberate: show its editor.
+      uiLayout.isEditorPanelVisible = true;
 
       // Immediately refresh track widgets so the new track appears instantly
       refreshTrackWidgets();
@@ -1653,13 +1650,6 @@ class _DAWScreenState extends State<DAWScreen>
     }
   }
 
-  void _toggleMasterTimelineRow() {
-    if (audioEngine == null) return;
-    final next = !masterTimelineVisible;
-    audioEngine!.setMasterTimelineVisible(visible: next);
-    setState(() => masterTimelineVisible = next);
-  }
-
   void _onInstrumentParameterChanged(InstrumentData instrumentData) {
     trackController.setTrackInstrument(instrumentData.trackId, instrumentData);
   }
@@ -1923,6 +1913,16 @@ class _DAWScreenState extends State<DAWScreen>
     });
   }
 
+  /// Open the editor panel (double-click on a clip). Leaves it open if it
+  /// already is; never closes it.
+  void _openEditorPanel() {
+    if (uiLayout.isEditorPanelVisible) return;
+    setState(() {
+      uiLayout.isEditorPanelVisible = true;
+      userSettings.editorVisible = true;
+    });
+  }
+
   void _toggleEditor() {
     setState(() {
       uiLayout.isEditorPanelVisible = !uiLayout.isEditorPanelVisible;
@@ -1950,59 +1950,14 @@ class _DAWScreenState extends State<DAWScreen>
   void _onMidiClipSelected(int? clipId, MidiClipData? clipData) {
     final trackId = midiClipController.selectClip(clipId, clipData);
     if (clipId != null && clipData != null) {
-      // Don't auto-open editor panel - let user control visibility via View menu or double-click
+      // Selecting never opens the editor panel: it opens on a double-click
+      // of the clip, the editor chevron, or the View menu.
       selectedTrackId = trackId ?? clipData.trackId;
     }
   }
 
   void _onMidiClipUpdated(MidiClipData updatedClip) {
     midiClipController.updateClip(updatedClip, playheadPosition);
-
-    // Propagate changes to all linked clips (same patternId)
-    midiPlaybackManager?.updateLinkedClips(updatedClip, tempo);
-
-    // Auto-update arrangement loop region to follow content
-    _updateArrangementLoopToContent();
-  }
-
-  /// Auto-update arrangement loop region to follow the longest clip.
-  /// Only active when loopAutoFollow is true (disabled when user manually drags loop).
-  void _updateArrangementLoopToContent() {
-    if (!uiLayout.loopAutoFollow) return;
-
-    double longestEnd = 4.0; // Minimum 1 bar (4 beats)
-
-    // Check all MIDI clips
-    final midiClips = midiPlaybackManager?.midiClips ?? [];
-    for (final clip in midiClips) {
-      final clipEnd = clip.startTime + clip.duration;
-      if (clipEnd > longestEnd) longestEnd = clipEnd;
-    }
-
-    // Check all audio clips (stored in timeline state)
-    final audioClips = timelineKey.currentState?.clips ?? [];
-    for (final clip in audioClips) {
-      // Audio clips use seconds, convert to beats
-      final beatsPerSecond = tempo / 60.0;
-      final clipEndBeats = (clip.startTime + clip.duration) * beatsPerSecond;
-      if (clipEndBeats > longestEnd) longestEnd = clipEndBeats;
-    }
-
-    // Round to next bar (4 beats)
-    final newLoopEnd = (longestEnd / 4).ceil() * 4.0;
-
-    // Only update if changed (avoids unnecessary rebuilds)
-    if (newLoopEnd != uiLayout.loopEndBeats) {
-      uiLayout.setLoopRegion(uiLayout.loopStartBeats, newLoopEnd);
-      // Keep playback's cached loop bounds in sync. Without this, extending a
-      // clip while loop-cycling grew the *displayed* loop region but playback
-      // kept wrapping at the old end. updateLoopBounds self-guards on
-      // is-playing/is-cycling, so it's a no-op when stopped.
-      playbackController.updateLoopBounds(
-        loopStartBeats: uiLayout.loopStartBeats,
-        loopEndBeats: newLoopEnd,
-      );
-    }
   }
 
   void _duplicateSelectedClip() {
@@ -2589,6 +2544,8 @@ class _DAWScreenState extends State<DAWScreen>
 
     createDefaultMidiClip(trackId);
     _onTrackSelected(trackId, autoSelectClip: true);
+    // Adding a track from the empty-timeline button is deliberate: open its editor.
+    uiLayout.isEditorPanelVisible = true;
     refreshTrackWidgets();
   }
 
@@ -2730,6 +2687,7 @@ class _DAWScreenState extends State<DAWScreen>
                 dartClipId,
             midiClipCallbacks: MidiClipCallbacks(
               onSelected: _onMidiClipSelected,
+              onOpenEditor: _openEditorPanel,
               onUpdated: _onMidiClipUpdated,
               onCopied: onMidiClipCopied,
               onDeleted: _deleteMidiClip,
@@ -2751,6 +2709,7 @@ class _DAWScreenState extends State<DAWScreen>
             ),
             audioClipCallbacks: AudioClipCallbacks(
               onSelected: _onAudioClipSelected,
+              onOpenEditor: _openEditorPanel,
               onCopied: onAudioClipCopied,
               onBatchDeleted: _deleteAudioClipsBatch,
               onJoinSelected: joinSelectedClips,
@@ -2799,8 +2758,7 @@ class _DAWScreenState extends State<DAWScreen>
             loopStartBeats: uiLayout.loopStartBeats,
             loopEndBeats: uiLayout.loopEndBeats,
             onLoopRegionChanged: (start, end) {
-              // Mark as manual adjustment - disables auto-follow
-              uiLayout.setLoopRegion(start, end, manual: true);
+              uiLayout.setLoopRegion(start, end);
               // Update playback controller in real-time during playback
               playbackController.updateLoopBounds(
                 loopStartBeats: start,
@@ -2819,7 +2777,6 @@ class _DAWScreenState extends State<DAWScreen>
             onAddAudioTrack: _addAudioTrack,
             // Recording state (for auto-scroll)
             isRecording: isRecording,
-            masterTimelineVisible: masterTimelineVisible,
             // Automation state
             automationVisibleTrackIds: automationController.visibleTrackIds,
             automationScrollController:
@@ -3063,12 +3020,10 @@ class _DAWScreenState extends State<DAWScreen>
               timelineKey.currentState?.selectedMidiClipIds.length ?? 0,
           // View menu state and callbacks
           uiLayout: uiLayout,
-          masterTimelineVisible: masterTimelineVisible,
           onToggleLibrary: _toggleLibraryPanel,
           onToggleMixer: _toggleMixer,
           onToggleEditor: _toggleEditor,
           onTogglePiano: _toggleVirtualPiano,
-          onToggleMasterRow: _toggleMasterTimelineRow,
           onResetPanelLayout: _resetPanelLayout,
           onAppSettings: _appSettings,
           // Undo/redo callbacks
@@ -3308,10 +3263,6 @@ class _DAWScreenState extends State<DAWScreen>
                                   projectMetadata.timeSignatureNumerator,
                               beatUnit:
                                   projectMetadata.timeSignatureDenominator,
-                              onTimeSignatureChanged: _onTimeSignatureChanged,
-                              onTimeSignatureDragStart:
-                                  _onTimeSignatureDragStart,
-                              onTimeSignatureDragEnd: _onTimeSignatureDragEnd,
                               projectTempo: projectMetadata.bpm,
                               onProjectTempoChanged: _onTempoChanged,
                               isRecording: isRecording,

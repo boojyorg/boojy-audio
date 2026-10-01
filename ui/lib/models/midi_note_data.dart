@@ -201,10 +201,6 @@ class MidiClipData {
   /// This is the Piano Roll "Start" field value.
   final double contentStartOffset;
 
-  /// Pattern ID for linked clips. Clips with same patternId share note content.
-  /// Null means this is a standalone clip (not linked to others).
-  final String? patternId;
-
   MidiClipData({
     required this.clipId,
     required this.trackId,
@@ -218,7 +214,6 @@ class MidiClipData {
     this.isMuted = false,
     this.canRepeat = true,
     this.contentStartOffset = 0.0,
-    this.patternId,
   }) : loopLength =
            loopLength ??
            duration; // Default loopLength to duration if not specified
@@ -244,7 +239,6 @@ class MidiClipData {
       isMuted: isMuted,
       canRepeat: canRepeat,
       contentStartOffset: contentStartOffset,
-      patternId: patternId,
     );
   }
 
@@ -263,7 +257,6 @@ class MidiClipData {
       isMuted: isMuted,
       canRepeat: canRepeat,
       contentStartOffset: contentStartOffset,
-      patternId: patternId,
     );
   }
 
@@ -282,7 +275,6 @@ class MidiClipData {
       isMuted: isMuted,
       canRepeat: canRepeat,
       contentStartOffset: contentStartOffset,
-      patternId: patternId,
     );
   }
 
@@ -370,7 +362,6 @@ class MidiClipData {
       isMuted: isMuted,
       canRepeat: canRepeat,
       contentStartOffset: contentStartOffset,
-      patternId: patternId,
     );
   }
 
@@ -389,7 +380,6 @@ class MidiClipData {
       isMuted: isMuted,
       canRepeat: canRepeat,
       contentStartOffset: contentStartOffset,
-      patternId: patternId,
     );
   }
 
@@ -407,7 +397,6 @@ class MidiClipData {
     bool? isMuted,
     bool? canRepeat,
     double? contentStartOffset,
-    String? patternId,
   }) {
     return MidiClipData(
       clipId: clipId ?? this.clipId,
@@ -422,7 +411,6 @@ class MidiClipData {
       isMuted: isMuted ?? this.isMuted,
       canRepeat: canRepeat ?? this.canRepeat,
       contentStartOffset: contentStartOffset ?? this.contentStartOffset,
-      patternId: patternId ?? this.patternId,
     );
   }
 
@@ -443,10 +431,11 @@ class MidiClipData {
     'canRepeat': canRepeat,
     'contentStartOffset': contentStartOffset,
     'loopLength': loopLength,
-    if (patternId != null) 'patternId': patternId,
   };
 
-  /// Rebuild a metadata-only clip from `ui_layout.json`. `clipId`/`duration`
+  /// Rebuild a metadata-only clip from `ui_layout.json`. Unknown keys (e.g. the
+  /// removed `patternId` from files saved by older versions) are ignored.
+  /// `clipId`/`duration`
   /// are placeholders — the engine owns those and the real values come from the
   /// reloaded clip; only the cosmetic fields and the `(trackId, startTime)`
   /// match key are authoritative here.
@@ -465,7 +454,6 @@ class MidiClipData {
       canRepeat: json['canRepeat'] as bool? ?? true,
       contentStartOffset:
           (json['contentStartOffset'] as num?)?.toDouble() ?? 0.0,
-      patternId: json['patternId'] as String?,
     );
   }
 }

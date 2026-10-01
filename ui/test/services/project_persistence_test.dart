@@ -77,7 +77,6 @@ void main() {
         isMuted: true,
         canRepeat: false,
         contentStartOffset: 2.0,
-        patternId: 'pattern-7',
         notes: [
           MidiNoteData(note: 36, velocity: 100, startTime: 0, duration: 1),
         ],
@@ -96,10 +95,23 @@ void main() {
       expect(m.isMuted, isTrue);
       expect(m.canRepeat, isFalse);
       expect(m.contentStartOffset, 2.0);
-      expect(m.patternId, 'pattern-7');
       expect(m.loopLength, 8.0);
       // Notes are engine-owned and intentionally NOT persisted in ui_layout.
       expect(m.notes, isEmpty);
+    });
+
+    test('MidiClipData.fromUiLayoutJson tolerates a legacy patternId key', () {
+      final m = MidiClipData.fromUiLayoutJson({
+        'trackId': 2,
+        'startTime': 4.0,
+        'name': 'Old clip',
+        'patternId': 'pattern_12', // written by older versions; now ignored
+      });
+
+      expect(m.trackId, 2);
+      expect(m.startTime, 4.0);
+      expect(m.name, 'Old clip');
+      expect(m.toUiLayoutJson().containsKey('patternId'), isFalse);
     });
 
     test(

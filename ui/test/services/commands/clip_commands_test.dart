@@ -48,27 +48,16 @@ void main() {
       expect(command.duplicatedClipId, isNull);
     });
 
-    test('sharedPatternId is null before execute', () {
-      final command = DuplicateMidiClipCommand(
-        originalClip: testClip,
-        newStartTime: 4.0,
-      );
-
-      expect(command.sharedPatternId, isNull);
-    });
-
     test(
       'callback receives duplicated clip with new clipId and startTime',
       () async {
         MidiClipData? duplicatedClip;
-        String? receivedPatternId;
 
         final command = DuplicateMidiClipCommand(
           originalClip: testClip,
           newStartTime: 4.0,
-          onClipDuplicated: (clip, patternId) {
+          onClipDuplicated: (clip) {
             duplicatedClip = clip;
-            receivedPatternId = patternId;
           },
         );
 
@@ -80,59 +69,43 @@ void main() {
         expect(duplicatedClip!.trackId, testClip.trackId);
         expect(duplicatedClip!.duration, testClip.duration);
         expect(duplicatedClip!.notes.length, testClip.notes.length);
-        expect(receivedPatternId, isNotNull);
       },
     );
 
-    test('generates patternId if original has none', () async {
-      String? receivedPatternId;
-
-      final command = DuplicateMidiClipCommand(
-        originalClip: testClip,
-        newStartTime: 4.0,
-        onClipDuplicated: (clip, patternId) {
-          receivedPatternId = patternId;
-        },
-      );
-
-      await command.execute(mockEngine);
-
-      expect(receivedPatternId, isNotNull);
-      expect(receivedPatternId, startsWith('pattern_'));
-      expect(receivedPatternId, contains('${testClip.clipId}'));
-    });
-
-    test('preserves existing patternId', () async {
-      final clipWithPattern = testClip.copyWith(patternId: 'existing_pattern');
-      String? receivedPatternId;
-
-      final command = DuplicateMidiClipCommand(
-        originalClip: clipWithPattern,
-        newStartTime: 4.0,
-        onClipDuplicated: (clip, patternId) {
-          receivedPatternId = patternId;
-        },
-      );
-
-      await command.execute(mockEngine);
-
-      expect(receivedPatternId, 'existing_pattern');
-    });
-
-    test('sets patternId on duplicated clip', () async {
+    test('duplicate is an independent copy: own notes, no shared ids, '
+        'editing it leaves the original untouched', () async {
       MidiClipData? duplicatedClip;
 
       final command = DuplicateMidiClipCommand(
         originalClip: testClip,
         newStartTime: 4.0,
-        onClipDuplicated: (clip, patternId) {
+        onClipDuplicated: (clip) {
           duplicatedClip = clip;
         },
       );
 
       await command.execute(mockEngine);
 
-      expect(duplicatedClip!.patternId, isNotNull);
+      final copy = duplicatedClip!;
+      // Same musical content...
+      expect(
+        copy.notes.map((n) => (n.note, n.velocity, n.startTime, n.duration)),
+        testClip.notes.map(
+          (n) => (n.note, n.velocity, n.startTime, n.duration),
+        ),
+      );
+      // ...but no shared note instances or ids.
+      final originalIds = testClip.notes.map((n) => n.id).toSet();
+      expect(copy.notes.any((n) => originalIds.contains(n.id)), isFalse);
+      expect(identical(copy.notes, testClip.notes), isFalse);
+
+      // Editing the copy (what the piano roll does) never touches the original.
+      final edited = copy.addNote(
+        MidiNoteData(note: 72, velocity: 90, startTime: 2.0, duration: 1.0),
+      );
+      expect(edited.notes.length, testClip.notes.length + 1);
+      expect(testClip.notes.length, 2);
+      expect(copy.notes.length, 2);
     });
 
     test('undo calls onClipRemoved with duplicated clipId', () async {
@@ -141,7 +114,7 @@ void main() {
       final command = DuplicateMidiClipCommand(
         originalClip: testClip,
         newStartTime: 4.0,
-        onClipDuplicated: (clip, patternId) {},
+        onClipDuplicated: (clip) {},
         onClipRemoved: (clipId) {
           removedClipId = clipId;
         },
@@ -159,7 +132,7 @@ void main() {
       final command = DuplicateMidiClipCommand(
         originalClip: testClip,
         newStartTime: 4.0,
-        onClipDuplicated: (clip, patternId) {},
+        onClipDuplicated: (clip) {},
       );
 
       expect(command.duplicatedClipId, isNull);
@@ -168,20 +141,6 @@ void main() {
 
       expect(command.duplicatedClipId, isNotNull);
       expect(command.duplicatedClipId, isNot(testClip.clipId));
-    });
-
-    test('sharedPatternId is available after execute', () async {
-      final command = DuplicateMidiClipCommand(
-        originalClip: testClip,
-        newStartTime: 4.0,
-        onClipDuplicated: (clip, patternId) {},
-      );
-
-      expect(command.sharedPatternId, isNull);
-
-      await command.execute(mockEngine);
-
-      expect(command.sharedPatternId, isNotNull);
     });
   });
 
@@ -384,7 +343,7 @@ void main() {
       final command = DuplicateMidiClipCommand(
         originalClip: originalClip,
         newStartTime: 4.0,
-        onClipDuplicated: (clip, patternId) {
+        onClipDuplicated: (clip) {
           clips[clip.clipId] = clip;
         },
         onClipRemoved: (clipId) {

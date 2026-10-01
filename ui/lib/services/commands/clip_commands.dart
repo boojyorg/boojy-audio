@@ -1077,19 +1077,19 @@ class RenameClipCommand extends Command {
   String get description => 'Rename Clip: $oldName → $newName';
 }
 
-/// Command to duplicate a MIDI clip in the arrangement view
-/// Creates a linked instance that shares the same patternId
+/// Command to duplicate a MIDI clip in the arrangement view.
+///
+/// The copy is fully independent: its own clip id and its own fresh note
+/// instances, with no link back to the original. Editing either clip never
+/// changes the other.
 class DuplicateMidiClipCommand extends Command {
   final MidiClipData originalClip;
   final double newStartTime;
 
   int? _duplicatedClipId;
-  String? _sharedPatternId;
 
-  /// Callback to add duplicated clip AND update original's patternId if needed
-  /// Parameters: (newClip, sharedPatternId)
-  final void Function(MidiClipData newClip, String sharedPatternId)?
-  onClipDuplicated;
+  /// Callback to add the duplicated clip
+  final void Function(MidiClipData newClip)? onClipDuplicated;
 
   /// Callback to remove duplicated clip (undo)
   final void Function(int clipId)? onClipRemoved;
@@ -1104,24 +1104,25 @@ class DuplicateMidiClipCommand extends Command {
   /// Get the duplicated clip ID (available after execute)
   int? get duplicatedClipId => _duplicatedClipId;
 
-  /// Get the shared pattern ID (available after execute)
-  String? get sharedPatternId => _sharedPatternId;
-
   @override
   Future<void> execute(AudioEngineInterface engine) async {
     _duplicatedClipId = _generateUniqueClipId();
 
-    // Generate patternId if original doesn't have one
-    // This creates a shared pattern ID for linking clips together
-    _sharedPatternId =
-        originalClip.patternId ?? 'pattern_${originalClip.clipId}';
-
     final newClip = originalClip.copyWith(
       clipId: _duplicatedClipId,
       startTime: newStartTime,
-      patternId: _sharedPatternId,
+      // Fresh note instances (new ids), so nothing is shared with the original.
+      notes: [
+        for (final n in originalClip.notes)
+          MidiNoteData(
+            note: n.note,
+            velocity: n.velocity,
+            startTime: n.startTime,
+            duration: n.duration,
+          ),
+      ],
     );
-    onClipDuplicated?.call(newClip, _sharedPatternId!);
+    onClipDuplicated?.call(newClip);
   }
 
   @override
