@@ -120,7 +120,7 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
   Windows until it exists.
 - **Engineering gaps**: `eprintln!` in `audio_graph/` with no CI gate; macOS CI links the
   committed VST3 `.a` instead of rebuilding it; no test loads a real VST3; `daw_screen.dart`
-  (~3,800 lines) is the next file to split.
+  (~2,300 lines, no more mixin duplicates) is the next file to split.
 
 ## Later
 

@@ -188,8 +188,12 @@ mixin DAWLibraryMixin
   // AUDIO FILE DROP HANDLERS
   // ============================================
 
-  /// Handle audio file dropped on empty area - creates new audio track
-  Future<void> onAudioFileDroppedOnEmpty(String filePath) async {
+  /// Handle audio file dropped on empty area - creates new audio track with
+  /// the clip at [startTimeBeats]
+  Future<void> onAudioFileDroppedOnEmpty(
+    String filePath, [
+    double startTimeBeats = 0.0,
+  ]) async {
     if (audioEngine == null) return;
 
     try {
@@ -220,13 +224,18 @@ mixin DAWLibraryMixin
       final duration = audioEngine!.getClipDuration(clipId);
       final peaks = audioEngine!.getWaveformPeaks(clipId, 1000);
 
-      // 5. Add to timeline view's clip list
+      // 5. Place the clip where it was dropped (audio clips are in seconds)
+      final startTimeSeconds = startTimeBeats * 60.0 / tempo;
+      if (startTimeSeconds > 0) {
+        audioEngine!.setClipStartTime(trackId, clipId, startTimeSeconds);
+      }
+
       timelineKey.currentState?.addClip(
         ClipData(
           clipId: clipId,
           trackId: trackId,
           filePath: finalPath, // Use the copied path
-          startTime: 0.0,
+          startTime: startTimeSeconds,
           duration: duration,
           waveformPeaks: peaks,
         ),
@@ -387,8 +396,12 @@ mixin DAWLibraryMixin
   // MIDI FILE DROP HANDLERS
   // ============================================
 
-  /// Handle MIDI file dropped on empty area - creates new MIDI track
-  Future<void> onMidiFileDroppedOnEmpty(String filePath) async {
+  /// Handle MIDI file dropped on empty area - creates new MIDI track with the
+  /// clip at [startTimeBeats]
+  Future<void> onMidiFileDroppedOnEmpty(
+    String filePath,
+    double startTimeBeats,
+  ) async {
     if (audioEngine == null) return;
 
     try {
@@ -403,7 +416,7 @@ mixin DAWLibraryMixin
       final trackId = command.createdTrackId;
       if (trackId == null || trackId < 0) return;
 
-      _importMidiNotesToTrack(trackId, filePath, 0.0, result);
+      _importMidiNotesToTrack(trackId, filePath, startTimeBeats, result);
     } catch (e) {
       Log.e('Failed to import MIDI file to new track: $e');
     }
@@ -433,7 +446,6 @@ mixin DAWLibraryMixin
   }
 
   /// Import decoded MIDI notes as a clip on a track
-  // ignore: unused_element
   void _importMidiNotesToTrack(
     int trackId,
     String filePath,

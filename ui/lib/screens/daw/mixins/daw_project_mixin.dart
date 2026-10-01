@@ -353,9 +353,8 @@ mixin DAWProjectMixin
       return;
     }
 
-    final nameController = TextEditingController(
-      text: projectManager!.currentName,
-    );
+    final currentName = projectManager!.currentName;
+    final nameController = TextEditingController(text: currentName);
 
     final newName = await showDialog<String>(
       context: context,
@@ -363,8 +362,12 @@ mixin DAWProjectMixin
         title: const Text('Rename Project'),
         content: TextField(
           controller: nameController,
-          decoration: const InputDecoration(labelText: 'New Name'),
           autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Project Name',
+            hintText: 'Enter new project name',
+          ),
+          onSubmitted: (value) => Navigator.pop(context, value),
         ),
         actions: [
           TextButton(
@@ -379,41 +382,50 @@ mixin DAWProjectMixin
       ),
     );
 
-    if (newName == null ||
-        newName.isEmpty ||
-        newName == projectManager!.currentName) {
-      return;
-    }
+    if (newName == null || newName.isEmpty || newName == currentName) return;
 
     try {
       final currentPath = projectManager!.currentPath!;
-      final parentDir = Directory(currentPath).parent.path;
-      final newPath = '$parentDir/$newName.audio';
 
-      // Rename the folder
+      // Rename the .audio folder on disk
       final currentDir = Directory(currentPath);
-      await currentDir.rename(newPath);
+      if (await currentDir.exists()) {
+        final parentDir = currentDir.parent.path;
+        final newPath = '$parentDir/$newName.audio';
 
-      // Save project to new path (this updates the internal path)
-      await projectManager!.saveProjectToPath(newPath, getCurrentUILayout());
-      projectManager!.setProjectName(newName);
-      WindowTitleService.setProjectName(newName);
+        // Check if target already exists
+        if (await Directory(newPath).exists()) {
+          Notices.info(
+            'A project called "$newName" is already there. '
+            'Pick another name.',
+          );
+          return;
+        }
 
-      // Update recent projects
-      userSettings.removeRecentProject(currentPath);
-      userSettings.addRecentProject(newPath, newName);
+        // Rename the directory
+        await currentDir.rename(newPath);
 
-      setState(() {
-        projectMetadata = projectMetadata.copyWith(name: newName);
-      });
+        // Update project manager state
+        projectManager!.setProjectName(newName);
+
+        // Save project to update internal metadata with new name
+        await projectManager!.saveProjectToPath(newPath, getCurrentUILayout());
+
+        // Update UI
+        setState(() {
+          projectMetadata = projectMetadata.copyWith(name: newName);
+        });
+
+        // Update window title
+        WindowTitleService.setProjectName(newName);
+
+        // Update recent projects: remove old path, add new path
+        await userSettings.removeRecentProject(currentPath);
+        await userSettings.addRecentProject(newPath, newName);
+      }
     } catch (e) {
       Notices.problem("Couldn't rename the project", error: e);
     }
-  }
-
-  /// Close current project
-  void closeProject() {
-    newProject(); // Same as creating a new project
   }
 
   // ============================================

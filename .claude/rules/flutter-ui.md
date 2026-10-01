@@ -68,10 +68,10 @@ iOS); check it applies to this macOS/Windows desktop app before acting on it.
   offset to its local x. Check which render box a position is relative to before adjusting.
 - **`timeline_view.dart` uses part files** (`timeline_gesture_layer.dart`,
   `timeline_track_list.dart`): import `timeline_view.dart` only.
-- **`daw_screen.dart` mixin trap:** `_DAWScreenState` mixes in `DAWClipMixin` etc., and some
-  mixin methods have private `_` duplicates in `daw_screen.dart` that the call sites actually use
-  (e.g. `_bounceMidiToAudio`, `_quantizeSelectedClip`). Before editing either copy, check which
-  one the shortcuts, menus and callbacks reference; delete the dead one when you can.
+- **`daw_screen.dart` and its mixins: one copy per method.** `_DAWScreenState` mixes in
+  `DAWClipMixin` etc. Logic goes in the mixin under a public name and the screen calls that; the
+  screen keeps only what needs screen-only state (build, lifecycle, start screen, Close Project).
+  Never add a private `_` copy of a mixin method: the copies drifted apart (54 were removed in October 2026).
 - **Transport bar layout:** `_SingleRowLayout` (`transport_bar.dart`) sizes everything from the
   window width, never the project name, and the centre never scales. If a centre button's width
   changes, `test/widgets/transport_bar_density_test.dart` fails: re-measure `_kWellWidths` with
