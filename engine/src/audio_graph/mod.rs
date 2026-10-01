@@ -15,7 +15,7 @@ use crate::effects::{EffectManager, Limiter}; // Import from effects module
 use crate::midi::MidiClip;
 use crate::synth::TrackSynthManager;
 use crate::track::{
-    AutomationPoint, ClipId, TimelineClip, TimelineMidiClip, TrackId, TrackManager,
+    AutomationPoint, ClipId, TimelineClip, TimelineMidiClip, TrackId, TrackManager, TrackType,
 }; // Import from track module
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
@@ -225,6 +225,10 @@ impl AudioGraph {
         // CI runner (notably Windows WASAPI) enumerating absent devices segfaults.
         #[cfg(not(test))]
         let _ = input_manager.enumerate_devices();
+        // Same reason: tests create armed audio tracks, which would open a
+        // real input. Keep it off; tests that want it turn it on.
+        #[cfg(test)]
+        input_manager.set_choice(crate::audio_input::InputChoice::Off);
 
         // Create MIDI input manager
         let midi_input_manager = MidiInputManager::new()?;
@@ -771,6 +775,41 @@ impl AudioGraph {
     pub fn take_stream_error(&self) -> Option<String> {
         self.stream_error.lock().take()
     }
+
+    /// True while any audio track is armed.
+    pub fn has_armed_audio_track(&self) -> bool {
+        let tracks = self.track_manager.lock().get_all_tracks();
+        tracks.iter().any(|t| {
+            let track = t.lock();
+            track.armed && track.track_type == TrackType::Audio
+        })
+    }
+
+    /// Keep the audio input open exactly while an audio track is armed or a
+    /// take is running, so the meter moves and you hear yourself before
+    /// recording. Call after anything that can change the armed set. Takes
+    /// the track locks first and drops them before touching the input.
+    pub fn sync_input_to_armed_tracks(&self) {
+        let armed = self.has_armed_audio_track();
+        let taking = self.recorder.get_state() != crate::recorder::RecordingState::Idle;
+        // The audio callback only try_locks the input manager, so opening the
+        // stream while holding it can't deadlock against the callback.
+        let mut input_manager = self.input_manager.lock();
+        // A running audio take keeps its input; a MIDI-only take never opens one.
+        let want_open = armed || (taking && input_manager.is_capturing());
+        input_manager.sync_open(want_open, self.current_stream_sample_rate());
+    }
+
+    /// Name of the output device in use: the one picked in Settings, else
+    /// the system default. A guess when the picked device has vanished.
+    pub fn output_device_name(&self) -> Option<String> {
+        use cpal::traits::{DeviceTrait, HostTrait};
+        self.selected_output_device.lock().clone().or_else(|| {
+            cpal::default_host()
+                .default_output_device()
+                .and_then(|d| d.name().ok())
+        })
+    }
 }
 
 #[cfg(test)]
@@ -847,8 +886,8 @@ mod tests {
 
         let audio_id = {
             let mut tm = graph.track_manager.lock();
-            let audio_id = tm.create_track(crate::track::TrackType::Audio, "Audio".to_string());
-            let return_id = tm.create_track(crate::track::TrackType::Return, "Reverb".to_string());
+            let audio_id = tm.create_track(TrackType::Audio, "Audio".to_string());
+            let return_id = tm.create_track(TrackType::Return, "Reverb".to_string());
             // Route a full send from the audio track to the return so the render
             // exercises the return-bus accumulation path.
             if let Some(track_arc) = tm.get_track(audio_id) {
@@ -897,7 +936,7 @@ mod tests {
 
         let midi_id = {
             let mut tm = graph.track_manager.lock();
-            tm.create_track(crate::track::TrackType::Midi, "Synth".to_string())
+            tm.create_track(TrackType::Midi, "Synth".to_string())
         };
         // Give the track a built-in synth voice (a real MIDI track gets one on
         // creation); without an instrument the synth path is silent regardless.
@@ -955,7 +994,7 @@ mod tests {
 
         let midi_id = {
             let mut tm = graph.track_manager.lock();
-            tm.create_track(crate::track::TrackType::Midi, "Synth".to_string())
+            tm.create_track(TrackType::Midi, "Synth".to_string())
         };
         graph.track_synth_manager.lock().create_synth(midi_id);
 

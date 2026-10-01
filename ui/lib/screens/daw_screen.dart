@@ -43,6 +43,7 @@ import '../services/vst3_plugin_manager.dart';
 import '../services/project_manager.dart';
 import '../services/midi_playback_manager.dart';
 import '../services/vst3_editor_service.dart';
+import '../services/input_health_watcher.dart';
 import '../services/plugin_preferences_service.dart';
 import '../services/midi_file_service.dart';
 import '../widgets/start_screen/start_screen_modal.dart';
@@ -232,10 +233,13 @@ class _DAWScreenState extends State<DAWScreen>
     }
   }
 
+  InputHealthWatcher? _inputHealthWatcher;
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     HardwareKeyboard.instance.removeHandler(_handleGlobalTransportKey);
+    _inputHealthWatcher?.dispose();
 
     // Remove undo/redo listener
     undoRedoManager.removeListener(_onUndoRedoChanged);
@@ -394,6 +398,15 @@ class _DAWScreenState extends State<DAWScreen>
         final tracks = mixerKey.currentState?.tracks ?? [];
         return tracks.any((t) => t.isAudio && t.armed);
       };
+
+      // Arming an audio track opens the input (engine); say so when Boojy
+      // can't hear it.
+      _inputHealthWatcher = InputHealthWatcher(
+        readHealth: audioEngine!.getAudioInputHealth,
+        hasArmedAudioTrack: () =>
+            recordingController.hasArmedAudioTracks?.call() ?? false,
+        settingsAction: NoticeAction('Open Settings', appSettings),
+      )..start();
 
       // Initialize VST3 editor service (for platform channel communication)
       VST3EditorService.initialize(audioEngine!);
@@ -1503,7 +1516,7 @@ class _DAWScreenState extends State<DAWScreen>
           isCountingIn: isCountingIn,
           countInBeat: recordingController.countInBeat,
           countInProgress: recordingController.countInProgress,
-          hasArmedTracks:
+          hasArmedTracks: () =>
               mixerKey.currentState?.tracks.any((t) => t.armed) ?? false,
           metronomeEnabled: isMetronomeEnabled,
           virtualPianoEnabled: uiLayout.isVirtualPianoEnabled,

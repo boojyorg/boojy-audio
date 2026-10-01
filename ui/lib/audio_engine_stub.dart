@@ -435,6 +435,7 @@ class AudioEngine implements AudioEngineInterface {
   String setAudioInputChoice(String deviceName) =>
       throw UnsupportedError('stub');
   AudioInputStatus getAudioInputStatus() => throw UnsupportedError('stub');
+  AudioInputHealth getAudioInputHealth() => throw UnsupportedError('stub');
   String setAudioOutputDevice(String deviceName) =>
       throw UnsupportedError('stub');
   String getSelectedAudioOutputDevice() => throw UnsupportedError('stub');

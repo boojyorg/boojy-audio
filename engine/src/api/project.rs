@@ -131,6 +131,8 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
     let id_map = graph
         .restore_from_project_data(project_data.clone())
         .map_err(|e| e.to_string())?;
+    // A project saved with an armed audio track opens the input again.
+    graph.sync_input_to_armed_tracks();
 
     // Clip ids that can be kept as saved (unique across the project). Audio
     // and MIDI clips share one id space; MIDI clips already took theirs.

@@ -84,6 +84,13 @@ pub extern "C" fn get_audio_input_status_ffi() -> *mut c_char {
     })
 }
 
+/// The input's health code, plus 256 when monitoring was held back to avoid
+/// feedback (see `api::get_audio_input_health`). -1 on error.
+#[no_mangle]
+pub extern "C" fn get_audio_input_health_ffi() -> i32 {
+    ffi_catch(-1, || api::get_audio_input_health().unwrap_or(-1))
+}
+
 /// Get current sample rate
 #[no_mangle]
 pub extern "C" fn get_sample_rate_ffi() -> u32 {

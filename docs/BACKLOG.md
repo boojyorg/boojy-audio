@@ -51,10 +51,6 @@ reproduces them.
 
 **Blocks release**
 
-- **You can't hear or see your input before recording** (row 2). Open the audio input when an
-  audio track is armed, so the meter moves and you hear yourself; warn "Boojy can't hear your
-  input" on a failed capture start or all-zero input (a closed-lid Mac mic or a denied
-  microphone permission gives exact digital silence). Next PR; uses `Notices.problem(id:)`.
 - *If reproduced:* **VST3 effects may drop out of the device chain** (U4). The engine reports
   `name:` and `path:` as text; the Dart parser reads every value as a number. Windows `C:` paths
   break the split too.
@@ -131,6 +127,9 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
 - **v1.0, unscheduled:** clip normalize; pan automation end to end; swing; LUFS platform targets
   in the export dialog (the engine supports them); localisation; loop recording and take
   comping. Platform prep for web, iPad and Linux is in [PLATFORMS.md](PLATFORMS.md).
+- **Input sample-rate conversion.** The input now opens at the engine's rate (48 kHz), which
+  most devices offer; one that can't would still crackle. The first open may switch the device's
+  rate (a Scarlett left at 44.1 kHz), a short hiccup once.
 - **Real preview for Finder drags:** files dragged from Finder show a one-bar placeholder, not
   their length or notes, because `desktop_drop` only hands over the file on drop. Needs the
   plugin patched (macOS + Windows) or a different package.

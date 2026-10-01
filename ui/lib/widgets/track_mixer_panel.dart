@@ -529,10 +529,13 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     });
     // Defer FFI calls so the frame paints first
     Future.microtask(() {
+      // Arm before disarming the others, so moving the arm between audio
+      // tracks keeps the input open instead of closing and reopening it.
+      widget.audioEngine?.setTrackArmed(track.id, armed: track.armed);
       for (final id in disarmedIds) {
         widget.audioEngine?.setTrackArmed(id, armed: false);
       }
-      widget.audioEngine?.setTrackArmed(track.id, armed: track.armed);
+      _readBackMonitoring(track);
       // Arming an instrument track is the moment the user is about to play —
       // a good time to catch a keyboard that was hot-plugged while Boojy
       // stayed focused. (Audio-track arming doesn't need a MIDI rescan.)
@@ -549,9 +552,23 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       track.armed = !track.armed;
       track.inputMonitoring = track.armed; // engine auto-mode mirrors arm
     });
-    Future.microtask(
-      () => widget.audioEngine?.setTrackArmed(track.id, armed: track.armed),
-    );
+    Future.microtask(() {
+      widget.audioEngine?.setTrackArmed(track.id, armed: track.armed);
+      _readBackMonitoring(track);
+    });
+  }
+
+  /// Arming decides monitoring in the engine: on, except with the computer's
+  /// own mic and speakers (feedback). Show what it chose on the I button.
+  void _readBackMonitoring(TrackData track) {
+    final info = widget.audioEngine?.getTrackInfo(track.id);
+    final monitoring = info == null
+        ? null
+        : TrackData.fromCSV(info)?.inputMonitoring;
+    if (!mounted || monitoring == null) return;
+    if (monitoring != track.inputMonitoring) {
+      setState(() => track.inputMonitoring = monitoring);
+    }
   }
 
   /// Toggle input monitoring for an audio track (hear live input while

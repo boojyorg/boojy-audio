@@ -39,6 +39,9 @@ pub fn create_track(track_type_str: &str, name: String) -> Result<TrackId, Strin
     // Note: MIDI tracks are silent by default until an instrument is added
     // (either VST3 plugin or "Boojy's Synthesizer" from the instrument menu)
 
+    // New audio tracks start armed, so this opens the input.
+    graph.sync_input_to_armed_tracks();
+
     Ok(track_id)
 }
 
@@ -115,15 +118,39 @@ pub fn set_track_armed(track_id: TrackId, armed: bool) -> Result<String, String>
     let graph = graph_mutex.lock();
     let track_manager = graph.track_manager.lock();
 
-    if let Some(track_arc) = track_manager.get_track(track_id) {
+    let track_arc = track_manager
+        .get_track(track_id)
+        .ok_or_else(|| format!("Track {track_id} not found"))?;
+    drop(track_manager);
+    let is_audio = track_arc.lock().track_type == TrackType::Audio;
+
+    // Arming an audio track opens the input first, so we know which mic it
+    // is before deciding whether hearing it is safe.
+    let feedback_risk = if armed && is_audio {
+        let mut input_manager = graph.input_manager.lock();
+        input_manager.sync_open(true, graph.current_stream_sample_rate());
+        let risk = match (input_manager.active(), graph.output_device_name()) {
+            (Some(input), Some(output)) => {
+                crate::audio_input::is_builtin_mic_and_speakers(&input.name, &output)
+            }
+            _ => false,
+        };
+        input_manager.set_feedback_guarded(risk);
+        risk
+    } else {
+        false
+    };
+
+    {
         let mut track = track_arc.lock();
         track.armed = armed;
-        // Auto-mode: armed = monitoring (hear input when armed)
-        track.input_monitoring = armed;
-        Ok(format!("Track {track_id} armed: {armed}"))
-    } else {
-        Err(format!("Track {track_id} not found"))
+        // Auto-mode: armed = monitoring (hear input when armed), except with a
+        // built-in mic and speakers, where it would howl. The I button still
+        // turns it on deliberately.
+        track.input_monitoring = armed && !feedback_risk;
     }
+    graph.sync_input_to_armed_tracks();
+    Ok(format!("Track {track_id} armed: {armed}"))
 }
 
 /// Set track solo state

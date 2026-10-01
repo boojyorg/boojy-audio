@@ -5,9 +5,18 @@ import 'command.dart';
 class CreateTrackCommand extends Command {
   final String trackType;
   final String trackName;
+
+  /// False to create the track unarmed. New audio and MIDI tracks start armed
+  /// in the engine, and an armed audio track opens the microphone, so a track
+  /// made to hold a dropped file shouldn't be.
+  final bool armed;
   int? _createdTrackId;
 
-  CreateTrackCommand({required this.trackType, required this.trackName});
+  CreateTrackCommand({
+    required this.trackType,
+    required this.trackName,
+    this.armed = true,
+  });
 
   /// Get the ID of the created track (after execute)
   int? get createdTrackId => _createdTrackId;
@@ -15,6 +24,10 @@ class CreateTrackCommand extends Command {
   @override
   Future<void> execute(AudioEngineInterface engine) async {
     _createdTrackId = engine.createTrack(trackType, trackName);
+    final id = _createdTrackId;
+    if (!armed && id != null && id >= 0) {
+      engine.setTrackArmed(id, armed: false);
+    }
   }
 
   @override

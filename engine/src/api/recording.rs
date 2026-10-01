@@ -47,18 +47,16 @@ pub fn set_audio_input_choice(name: &str) -> Result<String, String> {
     let graph = graph_mutex.lock();
     // The audio callback only ever try_locks the input manager, so holding it
     // while the input stream restarts can't deadlock against it.
-    let mut input_manager = graph.input_manager.lock();
-    input_manager.set_choice(choice);
-
-    if input_manager.is_capturing() {
-        input_manager.stop_capture().map_err(|e| e.to_string())?;
-        if *input_manager.choice() != InputChoice::Off {
-            input_manager
-                .start_capture(10.0)
-                .map_err(|e| format!("Failed to reopen input: {e}"))?;
+    {
+        let mut input_manager = graph.input_manager.lock();
+        input_manager.set_choice(choice.clone());
+        // Close so the sync below reopens on the new device.
+        if input_manager.is_capturing() {
+            input_manager.stop_capture().map_err(|e| e.to_string())?;
         }
     }
-    Ok(format!("Input set to {:?}", input_manager.choice()))
+    graph.sync_input_to_armed_tracks();
+    Ok(format!("Input set to {choice:?}"))
 }
 
 /// The input as it resolves right now, without opening it:
@@ -104,6 +102,8 @@ pub fn set_audio_output_device(device_name: &str) -> Result<String, String> {
     };
 
     graph.set_output_device(name).map_err(|e| e.to_string())?;
+    // A new output may run at another rate; the input must match it.
+    graph.sync_input_to_armed_tracks();
 
     Ok(format!(
         "Output device set to: {}",
@@ -153,6 +153,22 @@ pub fn get_input_channel_level(channel: u32) -> Result<f32, String> {
     Ok(input_manager.get_channel_peak(channel))
 }
 
+/// The input's state for the "can't hear your input" notice: the
+/// [`InputHealth`](crate::audio_input::InputHealth) code in the low byte, plus
+/// 256 when arming held monitoring back because the input and output look
+/// like the computer's own mic and speakers. Cheap; the UI polls it.
+pub fn get_audio_input_health() -> Result<i32, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let input_manager = graph.input_manager.lock();
+    let guarded = if input_manager.feedback_guarded() {
+        256
+    } else {
+        0
+    };
+    Ok(input_manager.health().code() | guarded)
+}
+
 /// Get number of input channels for the current device
 pub fn get_input_channel_count() -> Result<u32, String> {
     let graph_mutex = get_audio_graph()?;
@@ -160,36 +176,6 @@ pub fn get_input_channel_count() -> Result<u32, String> {
 
     let input_manager = graph.input_manager.lock();
     Ok(u32::from(input_manager.get_input_channels()))
-}
-
-// ============================================================================
-// AUDIO INPUT CAPTURE
-// ============================================================================
-
-/// Start capturing audio from the selected input device
-pub fn start_audio_input() -> Result<String, String> {
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-
-    let mut input_manager = graph.input_manager.lock();
-
-    // Start capturing with 10 seconds of buffer
-    input_manager
-        .start_capture(10.0)
-        .map_err(|e| e.to_string())?;
-
-    Ok("Audio input started".to_string())
-}
-
-/// Stop capturing audio
-pub fn stop_audio_input() -> Result<String, String> {
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-
-    let mut input_manager = graph.input_manager.lock();
-    input_manager.stop_capture().map_err(|e| e.to_string())?;
-
-    Ok("Audio input stopped".to_string())
 }
 
 // ============================================================================
@@ -258,6 +244,11 @@ pub fn start_recording() -> Result<String, String> {
     graph.recorder.start_recording()?;
     let state = graph.recorder.get_state();
 
+    // Only an armed audio track needs the input; a MIDI-only take leaves it shut.
+    if !graph.has_armed_audio_track() {
+        return Ok(format!("Recording started (MIDI only): {state:?}"));
+    }
+
     // NOW try to start audio input (non-fatal if it fails - MIDI recording can still work)
     // We do this AFTER play() to avoid deadlock: the audio callback tries to lock input_manager,
     // and start_capture() calls stream.play() which may wait for the audio callback.
@@ -273,19 +264,11 @@ pub fn start_recording() -> Result<String, String> {
         if *input_manager.choice() == InputChoice::Off {
             eprintln!("🎙️  [API] Input is off (MIDI recording will still work)");
             false
-        } else if !input_manager.is_capturing() {
-            match input_manager.start_capture(10.0) {
-                Ok(()) => {
-                    eprintln!("🎙️  [API] Audio input capture started");
-                    true
-                }
-                Err(e) => {
-                    eprintln!("⚠️  [API] Audio input capture failed (MIDI recording will still work): {e}");
-                    false
-                }
-            }
         } else {
-            true
+            // Usually already open because an audio track is armed. A failed
+            // open is kept for get_audio_input_health (MIDI still records).
+            input_manager.sync_open(true, graph.current_stream_sample_rate());
+            input_manager.is_capturing()
         }
     };
 
@@ -308,16 +291,10 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
         .recorder
         .stop_recording(graph.current_stream_sample_rate())?;
 
-    // Stop audio input to prevent buffer overflow
-    let audio_was_captured = {
-        let mut input_manager = graph.input_manager.lock();
-        let capturing = input_manager.is_capturing();
-        if capturing {
-            eprintln!("🛑 [API] Stopping audio input after recording...");
-            input_manager.stop_capture().map_err(|e| e.to_string())?;
-        }
-        capturing
-    };
+    // Close the input unless an audio track is still armed: then it stays
+    // open so the meter keeps moving and you keep hearing yourself.
+    let audio_was_captured = graph.input_manager.lock().is_capturing();
+    graph.sync_input_to_armed_tracks();
 
     // No input was open (off, or it failed to start): the take holds no audio,
     // so don't leave an empty clip on the armed tracks.
@@ -371,27 +348,10 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
         let mut clips_map = clips_mutex.lock();
 
         for (track_id, input_channel) in &armed_tracks {
-            // Extract this track's assigned input channel from the stereo recording
-            // Channel 0 = left (even indices), Channel 1 = right (odd indices)
-            // Create a stereo clip where both channels contain the mono source
-            let track_samples: Vec<f32> = if armed_tracks.len() == 1 {
-                // Single track: use the full stereo recording as-is
-                stereo_samples.clone()
-            } else {
-                // Multi-track: extract assigned channel and duplicate to stereo
-                let channel_offset = *input_channel as usize;
-                let frame_count = stereo_samples.len() / 2;
-                let mut samples = Vec::with_capacity(frame_count * 2);
-                for frame in 0..frame_count {
-                    let sample = stereo_samples
-                        .get(frame * 2 + channel_offset.min(1))
-                        .copied()
-                        .unwrap_or(0.0);
-                    samples.push(sample); // Left
-                    samples.push(sample); // Right (same mono source)
-                }
-                samples
-            };
+            // Tracks record one input channel ("In 1", "In 2"), centred: a
+            // mic in input 1 of a stereo interface used to land on the left
+            // side only when a single track was armed.
+            let track_samples = take_channel_centred(stereo_samples, *input_channel);
 
             let track_clip = crate::audio_file::AudioClip {
                 samples: track_samples,
@@ -565,4 +525,34 @@ pub fn is_punch_complete() -> Result<bool, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
     Ok(graph.recorder.is_punch_complete())
+}
+
+/// One channel of an interleaved stereo take, copied to both sides. Even
+/// channels are the left of the captured pair, odd the right (only a stereo
+/// pair is captured).
+pub(crate) fn take_channel_centred(stereo: &[f32], channel: u32) -> Vec<f32> {
+    let side = (channel % 2) as usize;
+    stereo
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .flat_map(|frame| [frame[side], frame[side]])
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::take_channel_centred;
+
+    #[test]
+    fn input_one_is_centred_not_left_only() {
+        let take = [0.5, 0.0, 0.25, 0.0];
+        assert_eq!(take_channel_centred(&take, 0), vec![0.5, 0.5, 0.25, 0.25]);
+    }
+
+    #[test]
+    fn input_two_takes_the_right_side() {
+        let take = [0.0, 0.5, 0.0, 0.25];
+        assert_eq!(take_channel_centred(&take, 1), vec![0.5, 0.5, 0.25, 0.25]);
+    }
 }

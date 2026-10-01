@@ -28,8 +28,8 @@ void main() {
     });
 
     tearDown(() {
-      // The engine is shared across tests: back to the default choice.
-      engine.setAudioInputChoice('');
+      // The engine is shared across tests: back to the harness default (off).
+      engine.setAudioInputChoice(kAudioInputOff);
     });
 
     test('Off reports off and opens nothing', () {

@@ -143,34 +143,6 @@ struct StoppedTrackSnapshot {
 // ── Helper functions for the audio callback ─────────────────────────────
 // These are called from the hot path — no allocations, no panics.
 
-/// Read stereo input samples from the input manager.
-/// Uses try_lock to avoid blocking the audio thread.
-#[inline]
-fn read_input_samples(
-    input_manager: &parking_lot::Mutex<crate::audio_input::AudioInputManager>,
-) -> (f32, f32) {
-    if let Some(input_mgr) = input_manager.try_lock() {
-        let channels = input_mgr.get_input_channels();
-        if channels == 1 {
-            if let Some(samples) = input_mgr.read_samples(1) {
-                let s = samples.first().copied().unwrap_or(0.0);
-                (s, s)
-            } else {
-                (0.0, 0.0)
-            }
-        } else if let Some(samples) = input_mgr.read_samples(2) {
-            (
-                samples.first().copied().unwrap_or(0.0),
-                samples.get(1).copied().unwrap_or(0.0),
-            )
-        } else {
-            (0.0, 0.0)
-        }
-    } else {
-        (0.0, 0.0)
-    }
-}
-
 /// Update monitoring fade gain with a 20ms ramp to avoid clicks.
 /// Modifies `fade_gain` in place toward 0.0 or 1.0.
 /// `sample_rate` is the rate the stream actually runs at — the ramp is one
@@ -515,7 +487,9 @@ impl AudioGraph {
         // Clone Arcs for the audio callback
         let playhead_samples = self.playhead_samples.clone();
         let state = self.state.clone();
-        let input_manager = self.input_manager.clone();
+        // The audio thread's own end of the input: never waits on the input
+        // manager, which the UI locks for meters.
+        let input_tap = self.input_manager.lock().tap();
         let recorder_refs = self.recorder.get_callback_refs();
 
         // M4: Clone track and effect managers
@@ -664,7 +638,7 @@ impl AudioGraph {
                     let mut master_peak_right = 0.0f32;
 
                     for frame_idx in 0..frames {
-                        let (input_left, input_right) = read_input_samples(&input_manager);
+                        let (input_left, input_right) = input_tap.read_frame();
 
                         // Process recording and get metronome output
                         let (met_left, met_right) =
@@ -934,7 +908,7 @@ impl AudioGraph {
                     // ring, exactly as before) so monitoring, recording and the latency
                     // test all see the same per-frame samples.
                     for i in 0..sb_len {
-                        let (il, ir) = read_input_samples(&input_manager);
+                        let (il, ir) = input_tap.read_frame();
                         input_l[i] = il;
                         input_r[i] = ir;
                     }
