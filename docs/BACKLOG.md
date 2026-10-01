@@ -57,8 +57,9 @@ reproduces them.
 
 **Fix before release**
 
-- **No live waveform while recording audio.** `LiveRecordingNotifier` draws MIDI only; needs a
-  live peak feed from the engine (new FFI) and a painter. Row 2.
+- **Recording onto two armed audio tracks shows only the first take.** The engine records a
+  clip on every armed audio track, but the UI adds (and undoes) only the first, so the others
+  exist in the engine unseen. `RecordingCompleteCommand` needs to cover several tracks.
 - **Recording with loop on shows a negative playhead** (−0.9s, −1.9s after the loop wraps).
   *(Tyr)* decide what loop-on recording does (stop at loop end, or ignore the loop) first.
 - **The appcast commit can't reach `master`** (branch protection). Details and options in
@@ -130,6 +131,9 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
 - **Input sample-rate conversion.** The input now opens at the engine's rate (48 kHz), which
   most devices offer; one that can't would still crackle. The first open may switch the device's
   rate (a Scarlett left at 44.1 kHz), a short hiccup once.
+- **Takes grow a list on the audio thread** (recorder pushes into a `Vec` under a lock). Measured
+  on macOS: worst buffer 0.23 ms of 10.7 ms even on a 5-minute take, so not a crackle cause
+  today. Revisit with a writer thread if Windows or long takes show otherwise.
 - **Real preview for Finder drags:** files dragged from Finder show a one-bar placeholder, not
   their length or notes, because `desktop_drop` only hands over the file on drop. Needs the
   plugin patched (macOS + Windows) or a different package.

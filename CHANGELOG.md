@@ -6,6 +6,12 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- **You see your audio while you record it.** Each armed audio track shows a clip that grows
+  from the record point with its waveform drawing in as you play, under the same red recording
+  header as MIDI takes. Each track shows its own input ("In 1" / "In 2"), and the clips it
+  records over are hidden until you stop, as they are for MIDI. Audio takes no longer show an
+  empty MIDI box on the selected track.
+
 - **Arming an audio track opens your input.** The track's meter moves and you hear yourself
   straight away, before you press record, and the input stays open between takes while the
   track is armed. Disarming closes it. If Boojy gets no sound, a notice says "Boojy can't hear
@@ -81,6 +87,19 @@ All notable changes to Boojy Audio will be documented in this file.
   the velocity lane directly from the controls bar.
 
 ### Bug Fixes
+
+- **Audio clips play back clean.** Playback picked each sample's position by truncating a float,
+  so about 1 sample in 17 replayed its neighbour: a fine grit or crackle on every audio clip,
+  most audible on recordings. Playback and export now play every sample in order (a rendered
+  take matches the file sample for sample).
+
+- **A take recorded straight after Record → New Audio Track is kept.** The UI decided whether a
+  take had audio from its own track list, which hadn't yet seen the new track armed, and
+  discarded the clip. The finished clip is now placed where the engine recorded it.
+- **Waveforms no longer flicker, pump or throw while drawing.** On a growing clip the detail
+  level flipped every frame, and a half-filled last group respaced the whole waveform, so audio
+  already recorded looked like it changed volume. Clips under 100 waveform points raised an
+  error.
 
 - **Recorded audio no longer crackles, sits on the left, or drops clicks.** The input opened at
   the device's own rate (a Scarlett at 44.1 kHz) while Boojy runs at 48 kHz, leaving about 170

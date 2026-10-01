@@ -45,21 +45,16 @@ mixin _RecordingMixin on _AudioEngineBase {
     }
   }
 
-  /// Get recording waveform preview as list of peak values (0.0-1.0)
-  /// numPeaks: number of downsampled peaks to return
-  List<double> getRecordingWaveform(int numPeaks) {
+  /// The live waveform of the take in progress, from peak [from] on (one
+  /// left/right pair per 10 ms). Cheap; polled while recording.
+  LivePeaksChunk getLiveRecordingPeaks(int from) {
     try {
-      final resultPtr = _getRecordingWaveform(numPeaks);
-      final csv = resultPtr.toDartString();
+      final resultPtr = _getLiveRecordingPeaks(from);
+      final raw = resultPtr.toDartString();
       _freeRustString(resultPtr);
-
-      if (csv.isEmpty) {
-        return [];
-      }
-
-      return csv.split(',').map((s) => double.tryParse(s) ?? 0.0).toList();
+      return LivePeaksChunk.parse(raw);
     } catch (e) {
-      return [];
+      return LivePeaksChunk.empty;
     }
   }
 

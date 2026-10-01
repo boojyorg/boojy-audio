@@ -161,6 +161,15 @@ fn update_monitoring_fade(fade_gain: &mut f64, should_monitor: bool, sample_rate
     }
 }
 
+/// Source frame for a position already scaled to frames. Truncating
+/// `x as usize` turned a float result like 52909.9999999 (meant: 52910) into
+/// the previous frame on ~1 sample in 17, a repeated sample heard as grit.
+/// The nudge is far below one frame, so real fractions still floor.
+#[inline]
+pub(crate) fn frame_at(frames: f64) -> usize {
+    (frames + 1e-6) as usize
+}
+
 /// Render a single audio clip at the given playhead position.
 /// Returns (left, right) sample values, or (0, 0) if the playhead is outside the clip.
 #[inline]
@@ -190,14 +199,14 @@ pub(crate) fn render_audio_clip_sample(
         if timeline_clip.warp_mode == 0 {
             // Warp mode: use pre-stretched cached audio (pitch preserved)
             if let Some(ref stretched) = timeline_clip.stretched_cache {
-                let frame = (time_in_clip * pitch_ratio * f64::from(TARGET_SAMPLE_RATE)) as usize;
+                let frame = frame_at(time_in_clip * pitch_ratio * f64::from(TARGET_SAMPLE_RATE));
                 (frame, stretched.as_ref())
             } else {
                 // Fallback to Re-Pitch if cache not ready
                 let stretched_time =
                     time_in_clip * f64::from(timeline_clip.stretch_factor) * pitch_ratio;
                 (
-                    (stretched_time * f64::from(TARGET_SAMPLE_RATE)) as usize,
+                    frame_at(stretched_time * f64::from(TARGET_SAMPLE_RATE)),
                     &*timeline_clip.clip,
                 )
             }
@@ -206,14 +215,14 @@ pub(crate) fn render_audio_clip_sample(
             let stretched_time =
                 time_in_clip * f64::from(timeline_clip.stretch_factor) * pitch_ratio;
             (
-                (stretched_time * f64::from(TARGET_SAMPLE_RATE)) as usize,
+                frame_at(stretched_time * f64::from(TARGET_SAMPLE_RATE)),
                 &*timeline_clip.clip,
             )
         }
     } else {
         // No warp — apply pitch ratio for transpose
         (
-            (time_in_clip * pitch_ratio * f64::from(TARGET_SAMPLE_RATE)) as usize,
+            frame_at(time_in_clip * pitch_ratio * f64::from(TARGET_SAMPLE_RATE)),
             &*timeline_clip.clip,
         )
     };
@@ -1320,6 +1329,58 @@ mod tests {
     // deterministic sentinels produced by clamping/sanitizing (exactly 0.0 / ±1.0).
     #![allow(clippy::float_cmp)]
     use super::{pick_stereo_config_index, sanitize_sample, update_monitoring_fade, write_frame};
+
+    /// A mono clip whose sample values are their own index, placed at
+    /// `start_frame`, so the played value says which sample was picked.
+    fn ramp_clip(frames: usize, start_frame: u32) -> crate::track::TimelineClip {
+        use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
+        let clip = AudioClip {
+            samples: (0..frames).map(|i| i as f32).collect(),
+            channels: 1,
+            sample_rate: TARGET_SAMPLE_RATE,
+            duration_seconds: frames as f64 / f64::from(TARGET_SAMPLE_RATE),
+            file_path: "ramp.wav".into(),
+        };
+        crate::track::TimelineClip {
+            id: 0,
+            clip: std::sync::Arc::new(clip),
+            start_time: f64::from(start_frame) / f64::from(TARGET_SAMPLE_RATE),
+            offset: 0.0,
+            duration: None,
+            gain_db: 0.0,
+            warp_enabled: false,
+            stretch_factor: 1.0,
+            warp_mode: 0,
+            stretched_cache: None,
+            cached_stretch_factor: 1.0,
+            transpose_semitones: 0,
+            transpose_cents: 0,
+            reversed: false,
+        }
+    }
+
+    #[test]
+    fn clip_playback_plays_every_sample_in_order() {
+        // Truncating (playhead - start) * rate picked the previous sample
+        // whenever float error left the index at k - 0.0000001: ~0.6% of
+        // samples repeated, heard as grit/crackle on playback.
+        use crate::audio_file::TARGET_SAMPLE_RATE;
+        let frames = 8 * TARGET_SAMPLE_RATE as usize;
+        for start_frame in [0u32, 96_000, 59_253] {
+            let clip = ramp_clip(frames, start_frame);
+            let wrong = (0..frames)
+                .filter(|&i| {
+                    let playhead =
+                        f64::from(start_frame + i as u32) / f64::from(TARGET_SAMPLE_RATE);
+                    super::render_audio_clip_sample(&clip, playhead).0 != i as f32
+                })
+                .count();
+            assert_eq!(
+                wrong, 0,
+                "clip at frame {start_frame}: {wrong} samples out of order"
+            );
+        }
+    }
 
     #[test]
     fn sanitize_replaces_non_finite_with_silence() {

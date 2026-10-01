@@ -52,17 +52,17 @@ pub extern "C" fn get_recorded_duration_ffi() -> f64 {
     })
 }
 
-/// Get recording waveform preview as CSV of peak values
-/// `num_peaks`: number of downsampled peaks to return
-/// Returns CSV string of 0.0-1.0 peak values, or empty string on error
+/// Live waveform of the take in progress from peak `from`:
+/// `"total|l,r,l,r,…"` (see `api::get_live_recording_peaks`). Empty on error.
 #[no_mangle]
-pub extern "C" fn get_recording_waveform_ffi(num_peaks: u32) -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::get_recording_waveform(num_peaks as usize) {
+pub extern "C" fn get_live_recording_peaks_ffi(from: u32) -> *mut c_char {
+    ffi_catch(
+        std::ptr::null_mut(),
+        || match api::get_live_recording_peaks(from as usize) {
             Ok(csv) => safe_cstring(csv).into_raw(),
             Err(_) => safe_cstring(String::new()).into_raw(),
-        }
-    })
+        },
+    )
 }
 
 /// Set count-in duration in bars

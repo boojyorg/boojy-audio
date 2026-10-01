@@ -85,6 +85,10 @@ class TimelineView extends StatefulWidget {
   final int? selectedMidiClipId;
   final MidiClipData? currentEditingClip;
   final List<MidiClipData> midiClips; // All MIDI clips for visualization
+
+  /// Audio takes in progress, one growing clip per armed audio track
+  /// ([LiveRecordingNotifier.buildLiveAudioClips]).
+  final List<ClipData> liveAudioClips;
   final Function(int?)? onMidiTrackSelected;
   final int Function(int dartClipId)? getRustClipId;
 
@@ -144,6 +148,7 @@ class TimelineView extends StatefulWidget {
     this.selectedMidiClipId,
     this.currentEditingClip,
     this.midiClips = const [],
+    this.liveAudioClips = const [],
     this.onMidiTrackSelected,
     this.getRustClipId,
     this.midiClipCallbacks = const MidiClipCallbacks(),

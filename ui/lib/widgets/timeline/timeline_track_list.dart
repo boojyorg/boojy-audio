@@ -690,6 +690,10 @@ mixin TimelineTrackListMixin
         widget.trackHeightState.clipHeights[track.id] ??
         UIConstants.defaultClipHeight;
 
+    final liveAudioClips = widget.liveAudioClips
+        .where((c) => c.trackId == track.id)
+        .toList();
+
     // Detect active recording region on this track (for visual masking)
     double? recStartBeat;
     double? recEndBeat;
@@ -697,9 +701,15 @@ mixin TimelineTrackListMixin
       final liveClip = trackMidiClips
           .where((c) => c.clipId == LiveRecordingNotifier.liveClipId)
           .firstOrNull;
+      final liveAudio = liveAudioClips.firstOrNull;
       if (liveClip != null) {
         recStartBeat = liveClip.startTime;
         recEndBeat = liveClip.startTime + liveClip.duration;
+      } else if (liveAudio != null) {
+        final beatsPerSecond = widget.tempo / 60.0;
+        recStartBeat = liveAudio.startTime * beatsPerSecond;
+        recEndBeat =
+            (liveAudio.startTime + liveAudio.duration) * beatsPerSecond;
       }
     }
 
@@ -1315,6 +1325,16 @@ mixin TimelineTrackListMixin
                                       recEndBeat: recEndBeat,
                                     ),
                                   ),
+
+                              // Audio take in progress (live waveform)
+                              ...liveAudioClips.map(
+                                (clip) => _buildLiveAudioClip(
+                                  clip,
+                                  widget.trackHeightState.clipHeights[track
+                                          .id] ??
+                                      UIConstants.defaultClipHeight,
+                                ),
+                              ),
 
                               // Ghost preview for audio clip copy drag (all selected clips)
                               ...trackClips

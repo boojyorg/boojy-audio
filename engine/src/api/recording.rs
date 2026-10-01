@@ -4,6 +4,7 @@
 
 use super::helpers::{get_audio_clips, get_audio_graph};
 use crate::audio_input::InputChoice;
+use std::fmt::Write as _;
 use std::sync::Arc;
 
 // ============================================================================
@@ -415,20 +416,25 @@ pub fn get_recorded_duration() -> Result<f64, String> {
     Ok(graph.recorder.get_recorded_duration())
 }
 
-/// Get recording waveform preview (downsampled for display)
-/// Returns CSV of peak values (0.0-1.0) for UI display
-pub fn get_recording_waveform(num_peaks: usize) -> Result<String, String> {
+/// The live waveform of the take in progress, from peak `from` on:
+/// `"total|l,r,l,r,…"`, one left/right pair per 10 ms of recording. `total`
+/// is how many peaks the take has; less than `from` means a new take started,
+/// so the caller should start again from 0. Never touches the recorded
+/// samples, so polling it can't stall the audio thread.
+pub fn get_live_recording_peaks(from: usize) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
-
-    let peaks = graph.recorder.get_recording_waveform(num_peaks);
-    let csv = peaks
-        .iter()
-        .map(|p| format!("{p:.3}"))
-        .collect::<Vec<_>>()
-        .join(",");
-
-    Ok(csv)
+    let peaks = graph.recorder.live_peaks();
+    let total = peaks.len();
+    let mut out = format!("{total}|");
+    for i in from.min(total)..total {
+        let (l, r) = peaks.get(i);
+        if i > from {
+            out.push(',');
+        }
+        let _ = write!(out, "{l:.3},{r:.3}");
+    }
+    Ok(out)
 }
 
 /// Set count-in duration in bars

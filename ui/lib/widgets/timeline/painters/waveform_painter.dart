@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 /// Painter for audio waveform visualization with LOD (Level of Detail) support.
@@ -129,36 +131,18 @@ class WaveformPainter extends CustomPainter {
     final visiblePeakCount = visiblePeaks.length ~/ 2;
     if (visiblePeakCount == 0) return;
 
-    // LOD: Calculate optimal peak count for visible width
-    // Target ~1 pixel per peak for crisp detail (like Ableton)
-    final targetPeakCount = effectiveWidth
-        .clamp(100, visiblePeakCount.toDouble())
-        .toInt();
-
-    // Downsample if we have more peaks than needed (>2x threshold for smoother transitions)
-    List<double> renderPeaks;
-    if (visiblePeakCount > targetPeakCount * 2) {
-      final groupSize = visiblePeakCount ~/ targetPeakCount;
-      renderPeaks = _downsamplePeaks(visiblePeaks, groupSize);
-    } else {
-      renderPeaks = visiblePeaks;
-    }
+    // LOD: merge peaks once there are 2+ per pixel (never below 100 drawn).
+    final groupSize = lodGroupSize(visiblePeakCount, effectiveWidth);
+    final renderPeaks = _downsamplePeaks(visiblePeaks, groupSize);
 
     final peakCount = renderPeaks.length ~/ 2;
     if (peakCount == 0) return;
 
-    // Calculate step size - this determines how much horizontal space each peak gets
-    // For trimmed clips, we want consistent scale so waveform doesn't squeeze
-    double step;
-    if (contentDuration != null && contentDuration! > 0) {
-      // Calculate pixels per second based on full content
-      // size.width / visibleDuration gives pixelsPerSecond
-      // We want the same density regardless of trim
-      final pixelsPerPeak = effectiveWidth / peakCount;
-      step = pixelsPerPeak;
-    } else {
-      step = effectiveWidth / peakCount;
-    }
+    // Width of one drawn peak: the pixels its group of source peaks covers.
+    // From the source count, not the drawn count: a half-full last group
+    // (a live clip with an odd count) used to respace the whole waveform
+    // every frame, so recorded audio looked like it changed volume.
+    final step = effectiveWidth * groupSize / visiblePeakCount;
 
     // Create closed polygon path for continuous waveform shape
     final path = Path();
@@ -215,6 +199,20 @@ class WaveformPainter extends CustomPainter {
         ..blendMode = BlendMode.src;
       canvas.drawPath(path, strokePaint);
     }
+  }
+
+  /// Peaks merged into each drawn peak: whole peaks per pixel, with at least
+  /// 100 drawn for narrow clips, so 1 when there are fewer than 2 per pixel.
+  /// Taken straight from the ratio so a clip growing while you record keeps
+  /// the same group size frame to frame. (Comparing rounded counts flipped
+  /// between merged and unmerged every frame: a flickering live waveform. It
+  /// also threw for clips under 100 peaks.)
+  @visibleForTesting
+  static int lodGroupSize(int peakCount, double width) {
+    if (peakCount <= 0 || width <= 0) return 1;
+    // The epsilon keeps an exact 2.0 that float maths made 1.9999… at 2.
+    final perPixel = peakCount / math.max(width, 100.0);
+    return math.max(1, (perPixel + 1e-6).floor());
   }
 
   /// Downsample peaks by grouping and taking min/max of each group.

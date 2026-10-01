@@ -390,8 +390,30 @@ class _DAWScreenState extends State<DAWScreen>
           userSettings.preferredMidiInput;
       recordingController.initialize(audioEngine!);
       recordingController.setLiveRecordingNotifier(liveRecordingNotifier);
-      recordingController.getFirstArmedMidiTrackId = () =>
-          _midiInputTrackId() ?? 0;
+      // The live MIDI clip goes on the armed MIDI track, else the selected
+      // track if it's MIDI (where an unarmed MIDI take lands). Never on an
+      // audio track: it drew an empty box there during audio takes.
+      recordingController.getFirstArmedMidiTrackId = () {
+        final tracks = mixerKey.currentState?.tracks ?? [];
+        final armed = tracks.where((t) => t.isMidi && t.armed).firstOrNull;
+        if (armed != null) return armed.id;
+        final selected = tracks
+            .where((t) => t.id == selectedTrackId)
+            .firstOrNull;
+        return selected != null && selected.isMidi ? selected.id : null;
+      };
+      // Read from the engine: Record → New Audio Track arms the track a
+      // moment before the mixer's copy of it refreshes.
+      recordingController.getArmedAudioTracks = () => [
+        for (final id in audioEngine?.getAllTrackIds() ?? <int>[])
+          if (TrackData.fromCSV(audioEngine!.getTrackInfo(id)) case final t?
+              when t.isAudio && t.armed)
+            (
+              trackId: t.id,
+              channel: t.inputChannel,
+              name: generateClipName(t.id),
+            ),
+      ];
       recordingController.getRecordingClipName = (trackId) =>
           generateClipName(trackId);
       recordingController.hasArmedAudioTracks = () {
@@ -1694,6 +1716,7 @@ class _DAWScreenState extends State<DAWScreen>
             selectedMidiClipId: midiPlaybackManager?.selectedClipId,
             currentEditingClip: midiPlaybackManager?.currentEditingClip,
             midiClips: midiPlaybackManager?.midiClips ?? [],
+            liveAudioClips: liveRecordingNotifier.buildLiveAudioClips(),
             onMidiTrackSelected: onTrackSelected,
             getRustClipId: (dartClipId) =>
                 midiPlaybackManager?.dartToRustClipIds[dartClipId] ??
