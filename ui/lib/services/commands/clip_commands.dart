@@ -901,7 +901,6 @@ class JoinAudioClipsCommand extends Command {
           clip.clipId,
           edit.syncEnabled,
           edit.stretchFactor,
-          edit.warpMode.index,
         );
         engine.setAudioClipTranspose(
           trackId,

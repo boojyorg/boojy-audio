@@ -31,10 +31,6 @@ class _AudioEngineBase {
   late final _GetBufferSizePresetFfi _getBufferSizePreset;
   late final _GetActualBufferSizeFfi _getActualBufferSize;
   late final _GetLatencyInfoFfi _getLatencyInfo;
-  late final _StartLatencyTestFfi _startLatencyTest;
-  late final _StopLatencyTestFfi _stopLatencyTest;
-  late final _GetLatencyTestStatusFfi _getLatencyTestStatus;
-  late final _GetLatencyTestErrorFfi _getLatencyTestError;
   late final _SetClipStartTimeFfi _setClipStartTime;
   late final _SetClipOffsetFfi _setClipOffset;
   late final _SetClipDurationFfi _setClipDuration;
@@ -448,30 +444,6 @@ class _AudioEngineBase {
       _getLatencyInfo = _lib
           .lookup<ffi.NativeFunction<_GetLatencyInfoFfiNative>>(
             'get_latency_info_ffi',
-          )
-          .asFunction();
-
-      _startLatencyTest = _lib
-          .lookup<ffi.NativeFunction<_StartLatencyTestFfiNative>>(
-            'start_latency_test_ffi',
-          )
-          .asFunction();
-
-      _stopLatencyTest = _lib
-          .lookup<ffi.NativeFunction<_StopLatencyTestFfiNative>>(
-            'stop_latency_test_ffi',
-          )
-          .asFunction();
-
-      _getLatencyTestStatus = _lib
-          .lookup<ffi.NativeFunction<_GetLatencyTestStatusFfiNative>>(
-            'get_latency_test_status_ffi',
-          )
-          .asFunction();
-
-      _getLatencyTestError = _lib
-          .lookup<ffi.NativeFunction<_GetLatencyTestErrorFfiNative>>(
-            'get_latency_test_error_ffi',
           )
           .asFunction();
 

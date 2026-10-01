@@ -54,14 +54,6 @@ class AudioEngine implements AudioEngineInterface {
   int getBufferSizePreset() => throw UnsupportedError('stub');
   int getActualBufferSize() => throw UnsupportedError('stub');
   Map<String, double> getLatencyInfo() => throw UnsupportedError('stub');
-  String startLatencyTest() => throw UnsupportedError('stub');
-  String stopLatencyTest() => throw UnsupportedError('stub');
-  (int, double) getLatencyTestStatus() => throw UnsupportedError('stub');
-  String? getLatencyTestError() => throw UnsupportedError('stub');
-  Future<double?> runLatencyTest({
-    Duration timeout = const Duration(seconds: 5),
-    Duration pollInterval = const Duration(milliseconds: 100),
-  }) => throw UnsupportedError('stub');
 
   // ========================================================================
   // Audio File Operations
@@ -112,7 +104,6 @@ class AudioEngine implements AudioEngineInterface {
     int clipId,
     bool warpEnabled,
     double stretchFactor,
-    int warpMode,
   ) => throw UnsupportedError('stub');
 
   @override

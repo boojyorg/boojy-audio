@@ -1,15 +1,6 @@
 // ignore_for_file: avoid_positional_boolean_parameters
 part of 'audio_engine_native.dart';
 
-/// Latency test state constants
-const int latencyTestStateIdle = 0;
-const int latencyTestStateWaitingForSilence = 1;
-const int latencyTestStatePlaying = 2;
-const int latencyTestStateListening = 3;
-const int latencyTestStateAnalyzing = 4;
-const int latencyTestStateDone = 5;
-const int latencyTestStateError = 6;
-
 mixin _TransportMixin on _AudioEngineBase {
   // ========================================================================
   // M0 API
@@ -270,99 +261,6 @@ mixin _TransportMixin on _AudioEngineBase {
     }
   }
 
-  // ============================================================================
-  // LATENCY TEST
-  // ============================================================================
-
-  /// Start latency test to measure real round-trip audio latency
-  /// Requires audio input connected to output (loopback)
-  String startLatencyTest() {
-    final resultPtr = _startLatencyTest();
-    try {
-      return resultPtr.toDartString();
-    } finally {
-      _freeRustString(resultPtr);
-    }
-  }
-
-  /// Stop/cancel the latency test
-  String stopLatencyTest() {
-    final resultPtr = _stopLatencyTest();
-    try {
-      return resultPtr.toDartString();
-    } finally {
-      _freeRustString(resultPtr);
-    }
-  }
-
-  /// Get latency test status
-  /// Returns: (state, resultMs)
-  /// State: 0=Idle, 1=WaitingForSilence, 2=Playing, 3=Listening, 4=Analyzing, 5=Done, 6=Error
-  /// Result: latency in ms (or -1.0 if not available)
-  (int, double) getLatencyTestStatus() {
-    final statePtr = calloc<ffi.Int32>();
-    final resultPtr = calloc<ffi.Float>();
-
-    try {
-      _getLatencyTestStatus(statePtr, resultPtr);
-      return (statePtr.value, resultPtr.value);
-    } catch (e) {
-      return (0, -1.0);
-    } finally {
-      calloc.free(statePtr);
-      calloc.free(resultPtr);
-    }
-  }
-
-  /// Get latency test error message (if state is Error)
-  String? getLatencyTestError() {
-    final resultPtr = _getLatencyTestError();
-    if (resultPtr == ffi.nullptr) {
-      return null;
-    }
-    try {
-      return resultPtr.toDartString();
-    } finally {
-      _freeRustString(resultPtr);
-    }
-  }
-
-  /// Run a latency test asynchronously
-  /// Returns the measured latency in ms, or null if the test failed
-  Future<double?> runLatencyTest({
-    Duration timeout = const Duration(seconds: 5),
-    Duration pollInterval = const Duration(milliseconds: 100),
-  }) async {
-    // Start the test
-    startLatencyTest();
-
-    final endTime = DateTime.now().add(timeout);
-
-    // Poll for completion
-    while (DateTime.now().isBefore(endTime)) {
-      await Future.delayed(pollInterval);
-
-      final (state, result) = getLatencyTestStatus();
-
-      if (state == latencyTestStateDone) {
-        return result;
-      }
-
-      if (state == latencyTestStateError) {
-        return null;
-      }
-
-      if (state == latencyTestStateIdle) {
-        // Test was stopped
-        return null;
-      }
-    }
-
-    // Timeout - stop the test
-    stopLatencyTest();
-    return null;
-  }
-
   /// Get clip duration in seconds
   double getClipDuration(int clipId) {
     try {
@@ -446,13 +344,12 @@ mixin _TransportMixin on _AudioEngineBase {
 
   /// Set audio clip warp settings for tempo sync
   /// Used to enable/disable time-stretching in the Audio Editor
-  /// warpMode: 0 = warp (pitch preserved), 1 = repitch (pitch follows speed)
+  /// Always Stretch (pitch preserved): the engine's mode 0.
   String setAudioClipWarp(
     int trackId,
     int clipId,
     bool warpEnabled,
     double stretchFactor,
-    int warpMode,
   ) {
     try {
       final result = _setAudioClipWarp(
@@ -460,7 +357,7 @@ mixin _TransportMixin on _AudioEngineBase {
         clipId,
         warpEnabled,
         stretchFactor,
-        warpMode,
+        0,
       );
       final str = result.toDartString();
       _freeRustString(result);

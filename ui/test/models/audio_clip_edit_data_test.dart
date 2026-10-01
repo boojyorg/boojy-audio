@@ -15,7 +15,6 @@ void main() {
         expect(data.bpm, 120.0);
         expect(data.syncEnabled, false);
         expect(data.stretchFactor, 1.0);
-        expect(data.warpMode, WarpMode.warp);
         expect(data.transposeSemitones, 0);
         expect(data.fineCents, 0);
         expect(data.gainDb, 0.0);
@@ -100,7 +99,6 @@ void main() {
           bpm: 140.0,
           syncEnabled: true,
           stretchFactor: 0.5,
-          warpMode: WarpMode.repitch,
           transposeSemitones: 5,
           fineCents: 25,
           gainDb: -3.0,
@@ -161,12 +159,6 @@ void main() {
         const data = AudioClipEditData();
         final copy = data.copyWith(stretchFactor: 2.0);
         expect(copy.stretchFactor, 2.0);
-      });
-
-      test('updates warpMode', () {
-        const data = AudioClipEditData();
-        final copy = data.copyWith(warpMode: WarpMode.repitch);
-        expect(copy.warpMode, WarpMode.repitch);
       });
 
       test('updates transposeSemitones', () {
@@ -246,7 +238,6 @@ void main() {
         expect(copy.reversed, true);
         expect(copy.gainDb, -6.0);
         expect(copy.loopEnabled, true); // unchanged
-        expect(copy.warpMode, WarpMode.warp); // unchanged
       });
     });
 
@@ -269,7 +260,6 @@ void main() {
           bpm: 95.0,
           syncEnabled: true,
           stretchFactor: 0.75,
-          warpMode: WarpMode.repitch,
           transposeSemitones: -5,
           fineCents: 30,
           gainDb: -12.0,
@@ -293,39 +283,24 @@ void main() {
         expect(data.startOffsetBeats, 0.0);
         expect(data.lengthBeats, 4.0);
         expect(data.bpm, 120.0);
-        expect(data.warpMode, WarpMode.warp);
         expect(data.normalizeTargetDb, isNull);
       });
 
-      test('fromJson handles unknown warpMode with default', () {
-        final data = AudioClipEditData.fromJson(const {'warpMode': 'unknown'});
-        expect(data.warpMode, WarpMode.warp);
+      test('fromJson ignores a legacy warpMode key', () {
+        final data = AudioClipEditData.fromJson(const {
+          'warpMode': 'repitch',
+          'stretchFactor': 0.5,
+        });
+        expect(data, AudioClipEditData.fromJson(const {'stretchFactor': 0.5}));
       });
     });
 
-    group('WarpMode serialization', () {
-      test('warp mode serializes to "warp"', () {
-        const data = AudioClipEditData(warpMode: WarpMode.warp);
-        final json = data.toJson();
-        expect(json['warpMode'], 'warp');
-      });
-
-      test('repitch mode serializes to "repitch"', () {
-        const data = AudioClipEditData(warpMode: WarpMode.repitch);
-        final json = data.toJson();
-        expect(json['warpMode'], 'repitch');
-      });
-
-      test('warp mode roundtrips through JSON', () {
-        const original = AudioClipEditData(warpMode: WarpMode.warp);
-        final restored = AudioClipEditData.fromJson(original.toJson());
-        expect(restored.warpMode, WarpMode.warp);
-      });
-
-      test('repitch mode roundtrips through JSON', () {
-        const original = AudioClipEditData(warpMode: WarpMode.repitch);
-        final restored = AudioClipEditData.fromJson(original.toJson());
-        expect(restored.warpMode, WarpMode.repitch);
+    group('legacy warpMode', () {
+      test('toJson no longer writes warpMode', () {
+        expect(
+          const AudioClipEditData().toJson().containsKey('warpMode'),
+          false,
+        );
       });
     });
 
@@ -359,12 +334,6 @@ void main() {
       test('differs by normalizeTargetDb (null vs value)', () {
         const a = AudioClipEditData();
         const b = AudioClipEditData(normalizeTargetDb: -6.0);
-        expect(a, isNot(b));
-      });
-
-      test('differs by warpMode', () {
-        const a = AudioClipEditData(warpMode: WarpMode.warp);
-        const b = AudioClipEditData(warpMode: WarpMode.repitch);
         expect(a, isNot(b));
       });
     });

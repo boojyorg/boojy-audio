@@ -16,7 +16,6 @@ abstract class AudioEngineInterface {
     int clipId,
     bool warpEnabled,
     double stretchFactor,
-    int warpMode,
   );
   String setAudioClipTranspose(
     int trackId,

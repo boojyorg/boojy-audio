@@ -540,11 +540,9 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
   }
 
   /// Rescan for a hot-plugged MIDI keyboard (called on app focus / track arm).
-  /// Silent unless a newly-connected device was picked up, in which case it
-  /// says so with a brief info notice.
+  /// Always silent: a newly plugged-in keyboard is just picked up.
   void rescanMidiForHotPlug() {
-    final connectedName = recordingController.rescanMidiDevices();
-    if (connectedName != null) Notices.info('$connectedName connected');
+    recordingController.rescanMidiDevices();
   }
 
   // ============================================

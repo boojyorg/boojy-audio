@@ -67,7 +67,6 @@ mod track; // M4: Track system // Library audio preview
 mod api;
 mod audio_input;
 mod ffi;
-mod latency_test;
 mod midi_input;
 mod midi_recorder;
 mod recorder;
@@ -97,7 +96,6 @@ pub use track::*;
 #[allow(ambiguous_glob_reexports)]
 pub use api::*;
 pub use audio_input::*;
-pub use latency_test::*;
 pub use midi_input::*;
 pub use midi_recorder::*;
 pub use recorder::*;

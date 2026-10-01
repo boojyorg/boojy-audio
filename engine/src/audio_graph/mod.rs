@@ -206,9 +206,6 @@ pub struct AudioGraph {
     /// this, a yanked interface only logged to stderr while the playhead
     /// kept advancing in silence. Cleared when a stream is (re)built.
     pub(crate) stream_error: Arc<Mutex<Option<String>>>,
-
-    // --- Latency Testing --- (native only)
-    pub latency_test: Arc<crate::latency_test::LatencyTest>,
 }
 
 // SAFETY: AudioGraph is stored in a Mutex<Option<AudioGraph>> in the API layer.
@@ -268,7 +265,6 @@ impl AudioGraph {
             selected_output_device: Arc::new(Mutex::new(None)),
             stream_sample_rate: Arc::new(std::sync::atomic::AtomicU32::new(TARGET_SAMPLE_RATE)),
             stream_error: Arc::new(Mutex::new(None)),
-            latency_test: Arc::new(crate::latency_test::LatencyTest::new(TARGET_SAMPLE_RATE)),
         };
 
         // Create audio stream immediately (prevents deadlock on first play).

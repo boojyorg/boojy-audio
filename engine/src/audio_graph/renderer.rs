@@ -542,9 +542,6 @@ impl AudioGraph {
         // M6: Clone track synth manager
         let track_synth_manager = self.track_synth_manager.clone();
 
-        // Latency test
-        let latency_test = self.latency_test.clone();
-
         // Pre-allocate reusable buffers for the audio callback to avoid
         // per-callback allocations on the audio thread
         let mut snapshot_buf: Vec<TrackSnapshot> = Vec::with_capacity(16);
@@ -597,9 +594,6 @@ impl AudioGraph {
                     // Even when not playing, we might be recording or using virtual piano
                     // Process metronome, recording, AND synths (for real-time MIDI input)
                     // but DON'T advance playhead or trigger MIDI clips from timeline
-
-                    // Get current playhead for latency test sample counting
-                    let current_playhead = playhead_samples.load(Ordering::SeqCst);
 
                     // Lock the synth, effect, and track managers ONCE for the
                     // whole buffer, using the same try_lock-or-count-contention
@@ -764,13 +758,6 @@ impl AudioGraph {
                         // variable only ever recorded the final frame's level)
                         master_peak_left = master_peak_left.max(out_left.abs());
                         master_peak_right = master_peak_right.max(out_right.abs());
-
-                        // Process latency test (if running)
-                        let sample_idx = current_playhead.wrapping_add(frame_idx as u64);
-                        latency_test.process_input(input_left, sample_idx);
-                        let test_tone = latency_test.generate_output(sample_idx);
-                        out_left += test_tone;
-                        out_right += test_tone;
 
                         // Mix library preview audio (independent of transport)
                         let (preview_left, preview_right) =
@@ -1257,8 +1244,8 @@ impl AudioGraph {
                     }
 
                     // --- Per-sample tail: recording/metronome, limiter, metering,
-                    // latency test, preview, output write. These stay strictly per-frame
-                    // and in order (recorder + latency + preview advance per sample). ---
+                    // preview, output write. These stay strictly per-frame
+                    // and in order (recorder + preview advance per sample). ---
                     {
                         let mut limiter = master_limiter.lock();
                         for i in 0..sb_len {
@@ -1286,12 +1273,6 @@ impl AudioGraph {
                             // Add metronome AFTER metering so it doesn't affect the master meter
                             let mut output_left = limited_left + met_left;
                             let mut output_right = limited_right + met_right;
-
-                            // Process latency test (if running)
-                            latency_test.process_input(input_l[i], playhead_frame);
-                            let test_tone = latency_test.generate_output(playhead_frame);
-                            output_left += test_tone;
-                            output_right += test_tone;
 
                             // Mix library preview audio (independent of transport)
                             let (preview_left, preview_right) =

@@ -138,7 +138,7 @@ class RecordingController extends ChangeNotifier {
     // plugged in later the Rust auto-reconnect guard only fires if a connection
     // already exists. Polling every 2 s catches the cold-start case and keeps
     // cross-platform parity (Core MIDI notifications are macOS-only).
-    _midiHotplugTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+    _midiHotplugTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       _pollMidiHotplug();
     });
   }
@@ -610,8 +610,9 @@ class RecordingController extends ChangeNotifier {
   }
 
   /// Rescan for hot-plugged devices and auto-switch when appropriate.
-  /// Returns the name of a newly-connected device we switched onto (so the UI
-  /// can toast "🎹 … connected"), or null when nothing meaningful changed.
+  /// Returns the name of a newly-connected device we switched onto (the
+  /// hot-plug poll uses it to schedule the connect), or null when nothing
+  /// meaningful changed.
   String? rescanMidiDevices() {
     if (_audioEngine == null) return null;
 
