@@ -755,6 +755,8 @@ typedef _SetAudioInputChoiceFfi = ffi.Pointer<Utf8> Function(ffi.Pointer<Utf8>);
 
 typedef _GetAudioInputStatusFfiNative = ffi.Pointer<Utf8> Function();
 typedef _GetAudioInputStatusFfi = ffi.Pointer<Utf8> Function();
+typedef _GetAudioInputHealthFfiNative = ffi.Int32 Function();
+typedef _GetAudioInputHealthFfi = int Function();
 
 typedef _SetAudioOutputDeviceFfiNative =
     ffi.Pointer<Utf8> Function(ffi.Pointer<Utf8>);

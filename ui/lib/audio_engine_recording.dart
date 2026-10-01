@@ -468,6 +468,16 @@ mixin _RecordingMixin on _AudioEngineBase {
     }
   }
 
+  /// Whether the open input is delivering sound. Cheap; polled while an
+  /// audio track is armed.
+  AudioInputHealth getAudioInputHealth() {
+    try {
+      return AudioInputHealth.fromCode(_getAudioInputHealth());
+    } catch (e) {
+      return AudioInputHealth.unknown;
+    }
+  }
+
   /// Set audio output device by name
   /// Pass empty string to use system default
   /// Returns success message or error

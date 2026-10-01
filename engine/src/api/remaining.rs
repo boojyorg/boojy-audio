@@ -248,9 +248,11 @@ pub fn delete_track(track_id: TrackId) -> Result<String, String> {
         }
     }
 
-    let mut track_manager = graph.track_manager.lock();
+    let removed = graph.track_manager.lock().remove_track(track_id);
+    // Deleting the last armed audio track closes the input.
+    graph.sync_input_to_armed_tracks();
 
-    if track_manager.remove_track(track_id) {
+    if removed {
         Ok(format!("Track {track_id} deleted"))
     } else {
         Err(format!(
@@ -277,6 +279,7 @@ pub fn clear_all_tracks() -> Result<String, String> {
         track_manager.get_all_tracks().len().saturating_sub(1)
     };
     graph.teardown_project_state();
+    graph.sync_input_to_armed_tracks();
 
     // Clear all audio clips from global storage
     let clips_mutex = clips()?;
@@ -405,6 +408,7 @@ pub fn duplicate_track(track_id: TrackId) -> Result<TrackId, String> {
     eprintln!(
         "📋 [API] Duplicated track {track_id} → new track {new_track_id} created"
     );
+    graph.sync_input_to_armed_tracks();
 
     Ok(new_track_id)
 }

@@ -6,6 +6,15 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- **Arming an audio track opens your input.** The track's meter moves and you hear yourself
+  straight away, before you press record, and the input stays open between takes while the
+  track is armed. Disarming closes it. If Boojy gets no sound, a notice says "Boojy can't hear
+  your input" with *Open Settings*. This happens when the input is off, the device won't open,
+  or the input gives only digital silence (a closed laptop lid or a blocked microphone). The
+  notice clears itself once sound arrives. With the computer's own mic and speakers, arming
+  leaves monitoring off so it can't howl, and suggests headphones; the I button turns it on.
+  Tracks created by dropping a file start unarmed, so they don't open the microphone.
+
 - **Boojy notices replace the plain message bar.** Messages now appear as a small rounded pill
   at the bottom-centre of the arrangement, clear of the transport, ruler and panels. There are
   two kinds. A grey hint ("Select a clip to quantize") fades after three seconds, and hovering
@@ -72,6 +81,16 @@ All notable changes to Boojy Audio will be documented in this file.
   the velocity lane directly from the controls bar.
 
 ### Bug Fixes
+
+- **Recorded audio no longer crackles, sits on the left, or drops clicks.** The input opened at
+  the device's own rate (a Scarlett at 44.1 kHz) while Boojy runs at 48 kHz, leaving about 170
+  tiny gaps a second in the take and in what you hear; it now opens at Boojy's rate. With one
+  armed track the take kept the raw stereo pair, so a mic in input 1 played left only; takes
+  now record the track's input channel in the centre. And the audio thread no longer waits on
+  the input meters, which could drop a sample each time they were read.
+- **Record no longer offers "New MIDI Track / New Audio Track" with a track armed.** It checked
+  for armed tracks only when the toolbar last redrew, and arming in the mixer doesn't redraw it.
+  It now checks when you press Record.
 
 - **Reopening a project brings everything back.** Audio clips no longer vanish from the
   arrangement, tracks keep their colours, MIDI clips keep their names, mute and loop settings,

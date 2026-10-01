@@ -5,6 +5,7 @@ import '../../../models/clip_data.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../models/track_data.dart';
 import '../../../services/commands/clip_commands.dart';
+import '../../../services/input_health_watcher.dart';
 import '../../../services/live_recording_notifier.dart';
 import '../../../utils/clip_overlap_handler.dart';
 import '../../../utils/csv_field.dart';
@@ -86,7 +87,8 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
   }
 
   /// Say so before recording onto an armed audio track when the input is
-  /// off, missing, or not the device picked in Settings.
+  /// off, missing, or not the device picked in Settings. Shares its notice id
+  /// with [InputHealthWatcher], which raises off/missing as soon as you arm.
   void _warnIfAudioInputUnexpected() {
     if (recordingController.hasArmedAudioTracks?.call() != true) return;
     final notice = audioEngine?.getAudioInputStatus().notice(
@@ -95,7 +97,7 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
           : userSettings.preferredInputDevice,
     );
     if (notice == null) return;
-    Notices.problem(notice, id: 'audio-input');
+    Notices.problem(notice, id: InputHealthWatcher.noticeId);
   }
 
   /// Seconds the count-in plays "in place" because it couldn't seek back a full

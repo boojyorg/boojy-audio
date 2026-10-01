@@ -149,7 +149,7 @@ void main() {
       WidgetTester tester, {
       required TransportCallbacks transport,
       bool isPlaying = false,
-      bool hasArmedTracks = false,
+      bool Function()? hasArmedTracks,
     }) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
@@ -161,7 +161,7 @@ void main() {
             playheadPosition: 0.0,
             canPlay: true,
             isPlaying: isPlaying,
-            hasArmedTracks: hasArmedTracks,
+            hasArmedTracks: hasArmedTracks ?? () => false,
             transport: transport,
           ),
         ),
@@ -206,12 +206,33 @@ void main() {
       var records = 0;
       await pumpBar(
         tester,
-        hasArmedTracks: true,
+        hasArmedTracks: () => true,
         transport: TransportCallbacks(onRecord: () => records++),
       );
       await tester.tap(find.byType(RecordButton), warnIfMissed: false);
       await tester.pump(const Duration(milliseconds: 50));
       expect(records, 1);
+    });
+
+    // Arming in the mixer doesn't rebuild the transport bar. Record must
+    // still see the arm, not offer "New MIDI Track / New Audio Track".
+    testWidgets('record sees a track armed after the bar was built', (
+      tester,
+    ) async {
+      var armed = false;
+      var records = 0;
+      await pumpBar(
+        tester,
+        hasArmedTracks: () => armed,
+        transport: TransportCallbacks(onRecord: () => records++),
+      );
+
+      armed = true; // armed elsewhere, no rebuild
+      await tester.tap(find.byType(RecordButton), warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(records, 1);
+      expect(find.text('New Audio Track'), findsNothing);
     });
   });
 

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:boojy_audio/audio_engine.dart';
+import 'package:boojy_audio/models/audio_input_status.dart';
 import 'package:flutter/foundation.dart';
 
 /// Whether the native Rust engine dylib is available on this host.
@@ -81,6 +82,9 @@ Future<AudioEngine> createInitializedEngine() async {
   }
 
   engine.setTempo(120.0);
+  // New audio tracks start armed, and an armed audio track opens the input.
+  // Keep the microphone closed in tests; input tests turn it on themselves.
+  engine.setAudioInputChoice(kAudioInputOff);
   _initializedEngine = engine;
   return engine;
 }

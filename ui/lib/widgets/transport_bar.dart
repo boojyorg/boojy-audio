@@ -282,6 +282,8 @@ class _SingleRowLayout {
 /// Transport control bar for play/pause/stop/record controls
 /// Layout: LEFT GROUP | CENTRE GROUP (expanded) | RIGHT GROUP
 class TransportBar extends StatefulWidget {
+  static bool _assumeArmed() => true;
+
   // Grouped callback objects
   final FileMenuCallbacks fileMenu;
   final TransportCallbacks transport;
@@ -321,7 +323,11 @@ class TransportBar extends StatefulWidget {
   // Undo/Redo state
   final bool canUndo;
   final bool canRedo;
-  final bool hasArmedTracks;
+
+  /// Asked when Record is pressed, not at build: arming a track in the
+  /// mixer doesn't rebuild the transport bar, so a value captured at build
+  /// went stale and Record offered "New Track" with a track armed.
+  final bool Function() hasArmedTracks;
   final String? undoDescription;
   final String? redoDescription;
 
@@ -374,7 +380,7 @@ class TransportBar extends StatefulWidget {
     this.pianoVisible = false,
     this.canUndo = false,
     this.canRedo = false,
-    this.hasArmedTracks = true,
+    this.hasArmedTracks = _assumeArmed,
     this.undoDescription,
     this.redoDescription,
     this.loopPlaybackEnabled = false,
@@ -785,7 +791,7 @@ class _TransportBarState extends State<TransportBar> with WindowListener {
             onPressed: () {
               if (widget.isRecording ||
                   widget.isCountingIn ||
-                  widget.hasArmedTracks) {
+                  widget.hasArmedTracks()) {
                 widget.transport.onRecord?.call();
               } else {
                 _showRecordTrackMenu();

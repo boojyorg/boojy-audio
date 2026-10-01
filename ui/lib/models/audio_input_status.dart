@@ -55,3 +55,47 @@ class AudioInputStatus {
     );
   }
 }
+
+/// What the open input is doing (engine `InputHealth`).
+enum InputHealthState { closed, off, waiting, heard, silent, failed, unknown }
+
+/// The engine's input health: whether sound is arriving, and whether arming
+/// held monitoring back because the input and output look like the
+/// computer's own mic and speakers.
+class AudioInputHealth {
+  final InputHealthState state;
+  final bool feedbackGuarded;
+
+  const AudioInputHealth(this.state, {this.feedbackGuarded = false});
+
+  static const unknown = AudioInputHealth(InputHealthState.unknown);
+
+  /// Decode `get_audio_input_health_ffi`: the state code in the low byte,
+  /// +256 when monitoring was held back. Negative means the engine failed.
+  static AudioInputHealth fromCode(int code) {
+    if (code < 0) return unknown;
+    const states = [
+      InputHealthState.closed,
+      InputHealthState.off,
+      InputHealthState.waiting,
+      InputHealthState.heard,
+      InputHealthState.silent,
+      InputHealthState.failed,
+    ];
+    final index = code & 0xff;
+    return AudioInputHealth(
+      index < states.length ? states[index] : InputHealthState.unknown,
+      feedbackGuarded: code & 0x100 != 0,
+    );
+  }
+
+  /// The problem to show while an audio track is armed, or null when there
+  /// is none (or it's too early to tell).
+  String? get problem => switch (state) {
+    InputHealthState.off =>
+      'Audio input is off. Turn it on in Settings → Audio.',
+    InputHealthState.silent ||
+    InputHealthState.failed => "Boojy can't hear your input",
+    _ => null,
+  };
+}

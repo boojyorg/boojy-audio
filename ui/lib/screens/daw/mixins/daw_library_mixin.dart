@@ -200,10 +200,12 @@ mixin DAWLibraryMixin
       // 1. Copy sample to project folder if setting is enabled
       final finalPath = await prepareSamplePath(filePath);
 
-      // 2. Create new audio track
+      // 2. Create new audio track, unarmed: it holds the file, so it
+      // shouldn't open the microphone.
       final command = CreateTrackCommand(
         trackType: 'audio',
         trackName: 'Audio',
+        armed: false,
       );
 
       await undoRedoManager.execute(command);
@@ -247,11 +249,9 @@ mixin DAWLibraryMixin
       // 7. Upgrade to the full-resolution waveform once the clip is on screen
       timelineKey.currentState?.scheduleWaveformUpgrade(clipId);
 
-      // 8. Refresh track widgets
+      // 8. Refresh track widgets. The track was created unarmed, so other
+      // tracks keep their arm.
       refreshTrackWidgets();
-
-      // New tracks arm themselves — keep arming exclusive (audio included).
-      disarmOtherTracks(trackId);
     } catch (e) {
       Log.e('Failed to add audio file to new track: $e');
     }
