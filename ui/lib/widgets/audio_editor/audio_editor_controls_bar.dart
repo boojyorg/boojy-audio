@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../models/audio_clip_edit_data.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
@@ -28,8 +27,6 @@ class AudioEditorControlsBar extends StatefulWidget {
   // === Warp/Tempo ===
   final bool warpEnabled;
   final VoidCallback? onWarpToggle;
-  final WarpMode warpMode;
-  final Function(WarpMode)? onWarpModeChanged;
   final double originalBpm; // Clip's original tempo
   final Function(double)? onOriginalBpmChanged;
   final double projectBpm; // Project tempo (read-only display or editable)
@@ -63,8 +60,6 @@ class AudioEditorControlsBar extends StatefulWidget {
     this.onLengthChanged,
     this.warpEnabled = true,
     this.onWarpToggle,
-    this.warpMode = WarpMode.warp,
-    this.onWarpModeChanged,
     this.originalBpm = 120.0,
     this.onOriginalBpmChanged,
     this.projectBpm = 120.0,
@@ -87,22 +82,6 @@ class AudioEditorControlsBar extends StatefulWidget {
 class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
   // Hover states for warp split button
   bool _isHoveringWarpLabel = false;
-  bool _isHoveringWarpDropdown = false;
-
-  // Overlay for warp mode menu
-  OverlayEntry? _warpModeOverlay;
-  final GlobalKey _warpButtonKey = GlobalKey();
-
-  @override
-  void dispose() {
-    _removeWarpModeOverlay();
-    super.dispose();
-  }
-
-  void _removeWarpModeOverlay() {
-    _warpModeOverlay?.remove();
-    _warpModeOverlay = null;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -376,8 +355,6 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
   Widget _buildWarpGroup(BuildContext context) {
     final colors = context.colors;
     final isEnabled = widget.warpEnabled;
-    final mode = widget.warpMode;
-    final modeLabel = mode == WarpMode.warp ? 'Stretch' : 'Re-Pitch';
     final bgColor = isEnabled ? colors.selectionFill : colors.dark;
     final iconColor = isEnabled ? colors.accent : colors.textPrimary;
 
@@ -390,9 +367,8 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
           style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
         ),
         const SizedBox(width: 4),
-        // Split button: [icon + Stretch | ▼] - like Piano Roll's Snap button
+        // Toggle button: [icon + Stretch] (warp on/off)
         DecoratedBox(
-          key: _warpButtonKey,
           decoration: BoxDecoration(
             color: bgColor,
             borderRadius: BorderRadius.circular(2),
@@ -404,7 +380,6 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Left side: Icon + Label (clickable to toggle warp on/off)
               MouseRegion(
                 onEnter: (_) {
                   if (!_isHoveringWarpLabel) {
@@ -437,10 +412,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                                 ? colors.selectionFillHover
                                 : colors.textPrimary.withValues(alpha: 0.1))
                           : Colors.transparent,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(2),
-                        bottomLeft: Radius.circular(2),
-                      ),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -448,7 +420,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                         Icon(BI.sync, size: 13, color: iconColor),
                         const SizedBox(width: 4),
                         Text(
-                          modeLabel,
+                          'Stretch',
                           style: TextStyle(
                             color: colors.textPrimary,
                             fontSize: 10,
@@ -456,58 +428,6 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                         ),
                       ],
                     ),
-                  ),
-                ),
-              ),
-              // Divider line
-              Container(
-                width: 1,
-                height: 15,
-                color: isEnabled
-                    ? colors.selectionBorder
-                    : colors.textPrimary.withValues(alpha: 0.2),
-              ),
-              // Right side: Dropdown arrow (opens mode menu)
-              MouseRegion(
-                onEnter: (_) {
-                  if (!_isHoveringWarpDropdown) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) {
-                        setState(() => _isHoveringWarpDropdown = true);
-                      }
-                    });
-                  }
-                },
-                onExit: (_) {
-                  if (_isHoveringWarpDropdown) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) {
-                        setState(() => _isHoveringWarpDropdown = false);
-                      }
-                    });
-                  }
-                },
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: () => _showWarpModeMenu(context),
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _isHoveringWarpDropdown
-                          ? (isEnabled
-                                ? colors.selectionFillHover
-                                : colors.textPrimary.withValues(alpha: 0.1))
-                          : Colors.transparent,
-                      borderRadius: const BorderRadius.only(
-                        topRight: Radius.circular(2),
-                        bottomRight: Radius.circular(2),
-                      ),
-                    ),
-                    child: Icon(BI.caretDown, size: 14, color: iconColor),
                   ),
                 ),
               ),
@@ -623,160 +543,6 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  void _showWarpModeMenu(BuildContext context) {
-    if (_warpModeOverlay != null) {
-      _removeWarpModeOverlay();
-      return;
-    }
-
-    final RenderBox? renderBox =
-        _warpButtonKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
-
-    final position = renderBox.localToGlobal(Offset.zero);
-    final size = renderBox.size;
-
-    _warpModeOverlay = OverlayEntry(
-      builder: (ctx) => _WarpModeMenuOverlay(
-        position: Offset(position.dx, position.dy + size.height + 4),
-        currentMode: widget.warpMode,
-        onModeSelected: (mode) {
-          _removeWarpModeOverlay();
-          widget.onWarpModeChanged?.call(mode);
-        },
-        onDismiss: _removeWarpModeOverlay,
-      ),
-    );
-
-    Overlay.of(context).insert(_warpModeOverlay!);
-  }
-}
-
-/// Overlay menu for selecting warp mode.
-class _WarpModeMenuOverlay extends StatelessWidget {
-  final Offset position;
-  final WarpMode currentMode;
-  final Function(WarpMode) onModeSelected;
-  final VoidCallback onDismiss;
-
-  const _WarpModeMenuOverlay({
-    required this.position,
-    required this.currentMode,
-    required this.onModeSelected,
-    required this.onDismiss,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Stack(
-      children: [
-        // Dismiss layer
-        Positioned.fill(
-          child: GestureDetector(
-            onTap: onDismiss,
-            behavior: HitTestBehavior.opaque,
-            child: Container(color: Colors.transparent),
-          ),
-        ),
-        // Menu
-        Positioned(
-          left: position.dx,
-          top: position.dy,
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              constraints: const BoxConstraints(minWidth: 160),
-              decoration: BoxDecoration(
-                color: colors.dark,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: colors.surface, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildMenuItem(
-                    context,
-                    'Warp',
-                    'Time-stretch, pitch preserved',
-                    WarpMode.warp,
-                  ),
-                  _buildMenuItem(
-                    context,
-                    'Re-Pitch',
-                    'Speed changes pitch',
-                    WarpMode.repitch,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMenuItem(
-    BuildContext context,
-    String label,
-    String description,
-    WarpMode mode,
-  ) {
-    final colors = context.colors;
-    final isSelected = currentMode == mode;
-
-    return InkWell(
-      onTap: () => onModeSelected(mode),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 18,
-              child: isSelected
-                  ? Icon(BI.check, size: 14, color: colors.accent)
-                  : null,
-            ),
-            const SizedBox(width: 4),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: BT.fontLabel,
-                    color: isSelected ? colors.accent : colors.textPrimary,
-                    fontWeight: isSelected
-                        ? BT.weightSemiBold
-                        : FontWeight.normal,
-                  ),
-                ),
-                Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: BT.fontCaption,
-                    color: colors.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ],
         ),
       ),
     );

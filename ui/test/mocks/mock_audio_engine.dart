@@ -127,7 +127,6 @@ class MockAudioEngine implements AudioEngineInterface {
     int clipId,
     bool warpEnabled,
     double stretchFactor,
-    int warpMode,
   ) {
     _record('setAudioClipWarp');
     return 'OK';

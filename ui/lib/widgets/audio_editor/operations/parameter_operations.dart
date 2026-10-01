@@ -87,7 +87,6 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
       clip.clipId,
       editData.syncEnabled,
       editData.stretchFactor,
-      editData.warpMode.index,
     );
 
     // Send transpose/pitch shift to audio engine

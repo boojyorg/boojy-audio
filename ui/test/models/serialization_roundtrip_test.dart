@@ -24,7 +24,6 @@ void main() {
         bpm: 140.0,
         syncEnabled: true,
         stretchFactor: 1.5,
-        warpMode: WarpMode.repitch,
         transposeSemitones: -5,
         fineCents: 25,
         gainDb: -3.5,
@@ -482,7 +481,6 @@ void main() {
           bpm: 128.0,
           reversed: true,
           transposeSemitones: -12,
-          warpMode: WarpMode.repitch,
           syncEnabled: true,
           normalizeTargetDb: -3.0,
           loopStartBeats: 2.0,
@@ -512,7 +510,6 @@ void main() {
       expect(restored.editData!.bpm, equals(128.0));
       expect(restored.editData!.reversed, isTrue);
       expect(restored.editData!.transposeSemitones, equals(-12));
-      expect(restored.editData!.warpMode, equals(WarpMode.repitch));
       expect(restored.editData!.syncEnabled, isTrue);
       expect(restored.editData!.normalizeTargetDb, equals(-3.0));
       expect(restored.editData!.loopStartBeats, equals(2.0));

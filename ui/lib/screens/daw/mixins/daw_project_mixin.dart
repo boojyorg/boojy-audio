@@ -643,7 +643,6 @@ mixin DAWProjectMixin
         clip.clipId,
         edit.syncEnabled,
         edit.stretchFactor,
-        edit.warpMode.index,
       );
       engine.setAudioClipTranspose(
         clip.trackId,

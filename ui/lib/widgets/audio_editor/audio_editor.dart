@@ -4,7 +4,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/boojy_icons.dart';
-import '../../models/audio_clip_edit_data.dart';
 import '../../models/clip_data.dart';
 import '../../models/tool_mode.dart';
 import '../../audio_engine.dart';
@@ -158,8 +157,6 @@ class _AudioEditorState extends State<AudioEditor>
                   // Warp controls
                   warpEnabled: editData.syncEnabled,
                   onWarpToggle: _toggleWarp,
-                  warpMode: editData.warpMode,
-                  onWarpModeChanged: _onWarpModeChanged,
                   originalBpm: editData.bpm,
                   onOriginalBpmChanged: _onOriginalBpmChanged,
                   projectBpm: widget.projectTempo,
@@ -436,17 +433,6 @@ class _AudioEditorState extends State<AudioEditor>
     notifyClipUpdated();
     sendToAudioEngine();
     commitToHistory(newValue ? 'Enable warp' : 'Disable warp');
-  }
-
-  void _onWarpModeChanged(WarpMode mode) {
-    saveToHistory();
-    setState(() {
-      editData = editData.copyWith(warpMode: mode);
-    });
-    notifyClipUpdated();
-    sendToAudioEngine();
-    final modeName = mode == WarpMode.warp ? 'Warp' : 'Re-Pitch';
-    commitToHistory('Set warp mode to $modeName');
   }
 
   void _onOriginalBpmChanged(double value) {

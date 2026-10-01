@@ -47,8 +47,7 @@ pub use helpers::{get_audio_clips, get_audio_graph, AUDIO_CLIPS, AUDIO_GRAPH};
 pub use init::{init_audio_engine, init_audio_graph, play_sine_wave};
 pub use latency::{
     get_actual_buffer_size, get_buffer_size_preset, get_clip_duration, get_latency_info,
-    get_latency_test_error, get_latency_test_status, get_waveform_peaks, set_buffer_size,
-    start_latency_test, stop_latency_test,
+    get_waveform_peaks, set_buffer_size,
 };
 pub use midi_clips::{
     add_midi_clip_to_track_api, add_midi_clip_to_track_api as add_midi_clip_to_track,

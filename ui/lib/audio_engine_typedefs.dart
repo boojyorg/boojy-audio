@@ -90,21 +90,6 @@ typedef _GetLatencyInfoFfi =
       ffi.Pointer<ffi.Float>,
     );
 
-// Latency Test types
-typedef _StartLatencyTestFfiNative = ffi.Pointer<Utf8> Function();
-typedef _StartLatencyTestFfi = ffi.Pointer<Utf8> Function();
-
-typedef _StopLatencyTestFfiNative = ffi.Pointer<Utf8> Function();
-typedef _StopLatencyTestFfi = ffi.Pointer<Utf8> Function();
-
-typedef _GetLatencyTestStatusFfiNative =
-    ffi.Void Function(ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Float>);
-typedef _GetLatencyTestStatusFfi =
-    void Function(ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Float>);
-
-typedef _GetLatencyTestErrorFfiNative = ffi.Pointer<Utf8> Function();
-typedef _GetLatencyTestErrorFfi = ffi.Pointer<Utf8> Function();
-
 typedef _GetClipDurationFfiNative = ffi.Double Function(ffi.Uint64);
 typedef _GetClipDurationFfi = double Function(int);
 
