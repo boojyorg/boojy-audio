@@ -22,10 +22,8 @@ class AudioEditorControlsBar extends StatefulWidget {
   final double startOffsetBeats;
   final double lengthBeats;
   final int beatsPerBar; // Needed for LoopTimeDisplay formatting
-  final int beatUnit; // Time signature denominator (e.g., 4 for 4/4)
   final Function(double)? onStartChanged;
   final Function(double)? onLengthChanged;
-  final Function(int, int)? onSignatureChanged; // (numerator, denominator)
 
   // === Warp/Tempo ===
   final bool warpEnabled;
@@ -61,10 +59,8 @@ class AudioEditorControlsBar extends StatefulWidget {
     this.startOffsetBeats = 0.0,
     this.lengthBeats = 4.0,
     this.beatsPerBar = 4,
-    this.beatUnit = 4,
     this.onStartChanged,
     this.onLengthChanged,
-    this.onSignatureChanged,
     this.warpEnabled = true,
     this.onWarpToggle,
     this.warpMode = WarpMode.warp,
@@ -255,103 +251,8 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
             isPosition: false, // 0-indexed length (1.0.0 = 1 bar)
           ),
         ),
-        const SizedBox(width: 8),
-
-        // Signature label + dropdown
-        Text(
-          'Signature',
-          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
-        ),
-        const SizedBox(width: 4),
-        _buildSignatureDropdown(context),
       ],
     );
-  }
-
-  // ============ SIGNATURE DROPDOWN ============
-  Widget _buildSignatureDropdown(BuildContext context) {
-    final colors = context.colors;
-    final signature = '${widget.beatsPerBar}/${widget.beatUnit}';
-
-    return GestureDetector(
-      onTap: () => _showSignatureMenu(context),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          decoration: BoxDecoration(
-            color: colors.dark,
-            borderRadius: BorderRadius.circular(2),
-            border: Border.all(color: colors.surface, width: 1),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                signature,
-                style: TextStyle(
-                  color: colors.textPrimary,
-                  fontSize: 10,
-                  fontFamily: BT.fontFamilyMono,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-              const SizedBox(width: 2),
-              Icon(BI.caretDown, size: 14, color: colors.textMuted),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showSignatureMenu(BuildContext context) {
-    // listen:false — a listening read inside a tap handler asserts in debug.
-    final colors = context.themeProvider.colors;
-    final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
-
-    final signatures = [(2, 4), (3, 4), (4, 4), (5, 4), (6, 8), (7, 8)];
-
-    showMenu<(int, int)>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        renderBox.localToGlobal(Offset.zero).dx,
-        renderBox.localToGlobal(Offset.zero).dy + renderBox.size.height,
-        0,
-        0,
-      ),
-      items: signatures.map((sig) {
-        final isSelected =
-            sig.$1 == widget.beatsPerBar && sig.$2 == widget.beatUnit;
-        return PopupMenuItem<(int, int)>(
-          value: sig,
-          child: Row(
-            children: [
-              SizedBox(
-                width: 18,
-                child: isSelected
-                    ? Icon(BI.check, size: 14, color: colors.accent)
-                    : null,
-              ),
-              Text(
-                '${sig.$1}/${sig.$2}',
-                style: TextStyle(
-                  color: isSelected ? colors.accent : colors.textPrimary,
-                  fontWeight: isSelected
-                      ? BT.weightSemiBold
-                      : FontWeight.normal,
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    ).then((value) {
-      if (value != null) {
-        widget.onSignatureChanged?.call(value.$1, value.$2);
-      }
-    });
   }
 
   // ============ PITCH CONTROL ============

@@ -7,6 +7,21 @@ mixin TimelineGestureLayerMixin
         TimelineViewStateMixin,
         TimelineSelectionMixin,
         TimelineContextMenusMixin {
+  /// Manual double-click detection for a clip tap-up. Opens the editor (via
+  /// [openEditor]) on the second plain tap on the same clip; ignored while
+  /// Shift/Cmd/Ctrl is held (multi-select / copy gestures) or when the slice
+  /// tool is active (a click there cuts the clip).
+  void _handleClipTapForEditor(
+    String clipKey,
+    bool shiftHeld,
+    VoidCallback openEditor,
+  ) {
+    final modifiers = ModifierKeyState.current();
+    final tool = modifiers.getOverrideToolMode() ?? widget.toolMode;
+    if (shiftHeld || modifiers.isCtrlOrCmd || tool == ToolMode.slice) return;
+    if (registerClipTap(clipKey)) openEditor();
+  }
+
   /// Build a MIDI clip move command, or null if the move is a no-op.
   /// Multi-clip drags collect these and submit them as a single
   /// [CompositeCommand] via [_executeGroupedMoves] (one undo step).
@@ -605,6 +620,11 @@ mixin TimelineGestureLayerMixin
             }
             pendingAudioClipTapSelection = null;
             audioSelectionBeforeReplace = null;
+
+            // Double-click opens the editor for this clip.
+            _handleClipTapForEditor('audio_${clip.clipId}', shiftAtTapUp, () {
+              widget.audioClipCallbacks.onOpenEditor?.call();
+            });
           },
           onSecondaryTapDown: (details) {
             // Right-click: show context menu
@@ -1612,6 +1632,13 @@ mixin TimelineGestureLayerMixin
                     }
                     pendingMidiClipTapSelection = null;
                     midiSelectionBeforeReplace = null;
+
+                    // Double-click opens the editor for this clip.
+                    _handleClipTapForEditor(
+                      'midi_${midiClip.clipId}',
+                      shiftAtTapUp,
+                      () => widget.midiClipCallbacks.onOpenEditor?.call(),
+                    );
                   },
             onHorizontalDragStart: isLiveRecording
                 ? null

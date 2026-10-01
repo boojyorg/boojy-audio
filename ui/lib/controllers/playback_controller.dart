@@ -38,7 +38,7 @@ class PlaybackController extends ChangeNotifier {
   // Loop cycling state
   bool _isLoopCycling = false;
   double _loopStartBeats = 0.0;
-  double _loopEndBeats = 4.0;
+  double _loopEndBeats = 16.0; // bars 1-4, matches UILayoutState default
   double _loopTempo = 120.0;
 
   /// Update loop bounds in real-time during playback.

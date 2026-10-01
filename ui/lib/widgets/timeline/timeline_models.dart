@@ -12,6 +12,10 @@ import '../instrument_browser.dart';
 /// Grouped callbacks for MIDI clip operations
 class MidiClipCallbacks {
   final Function(int?, MidiClipData?)? onSelected;
+
+  /// A clip was double-clicked: open the editor panel for it (it is already
+  /// selected by the first click).
+  final VoidCallback? onOpenEditor;
   final Function(MidiClipData)? onUpdated;
   final Function(MidiClipData sourceClip, double newStartTime)? onCopied;
   final Function(int clipId, int trackId)? onDeleted;
@@ -38,6 +42,7 @@ class MidiClipCallbacks {
 
   const MidiClipCallbacks({
     this.onSelected,
+    this.onOpenEditor,
     this.onUpdated,
     this.onCopied,
     this.onDeleted,
@@ -52,6 +57,10 @@ class MidiClipCallbacks {
 /// Grouped callbacks for audio clip operations
 class AudioClipCallbacks {
   final Function(int?, ClipData?)? onSelected;
+
+  /// A clip was double-clicked: open the editor panel for it (it is already
+  /// selected by the first click).
+  final VoidCallback? onOpenEditor;
   final Function(ClipData sourceClip, double newStartTime)? onCopied;
   final Function(List<ClipData>)? onBatchDeleted;
 
@@ -62,6 +71,7 @@ class AudioClipCallbacks {
 
   const AudioClipCallbacks({
     this.onSelected,
+    this.onOpenEditor,
     this.onCopied,
     this.onBatchDeleted,
     this.onJoinSelected,

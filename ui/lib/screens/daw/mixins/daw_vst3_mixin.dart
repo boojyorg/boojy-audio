@@ -338,6 +338,8 @@ mixin DAWVst3Mixin
 
       // Select track and highlight the clip (editor stays on Instrument tab)
       onTrackSelected(trackId, autoSelectClip: true);
+      // Adding an instrument plugin is deliberate: show its editor.
+      uiLayout.isEditorPanelVisible = true;
 
       // Immediately refresh track widgets so the new track appears instantly
       refreshTrackWidgets();

@@ -89,13 +89,13 @@ class UILayoutState extends ChangeNotifier {
   bool _isVirtualPianoEnabled = false;
 
   // Loop playback state (controls if arrangement playback loops)
-  bool _loopPlaybackEnabled = true; // Loop ON by default
-  double _loopStartBeats = 0.0;
-  double _loopEndBeats = 4.0; // Default 1 bar (4 beats)
-
-  // Auto-follow: loop region automatically tracks longest clip
-  // Set to false when user manually adjusts loop region
-  bool _loopAutoFollow = true;
+  // Off by default; the region is bars 1-4 and only moves when the user
+  // drags it (no auto-follow of clip content).
+  static const double defaultLoopStartBeats = 0.0;
+  static const double defaultLoopEndBeats = 16.0; // bars 1-4 (4/4)
+  bool _loopPlaybackEnabled = false;
+  double _loopStartBeats = defaultLoopStartBeats;
+  double _loopEndBeats = defaultLoopEndBeats;
 
   // Fixed minimums (usability floor)
   static const double libraryMinWidth = 160.0; // left min + divider + right min
@@ -458,28 +458,17 @@ class UILayoutState extends ChangeNotifier {
   }
 
   /// Set loop region (start and end in beats)
-  /// If manual is true, disables auto-follow (user explicitly set the loop)
-  void setLoopRegion(
-    double startBeats,
-    double endBeats, {
-    bool manual = false,
-  }) {
-    if (manual) {
-      _loopAutoFollow = false; // User override - disable auto-follow
-    }
+  void setLoopRegion(double startBeats, double endBeats) {
     _loopStartBeats = startBeats;
     _loopEndBeats = endBeats;
     notifyListeners();
   }
 
-  /// Whether the loop region auto-follows the longest clip
-  bool get loopAutoFollow => _loopAutoFollow;
-
-  /// Reset loop auto-follow (called on new project)
-  void resetLoopAutoFollow() {
-    _loopAutoFollow = true;
-    _loopStartBeats = 0.0;
-    _loopEndBeats = 4.0;
+  /// Reset the loop to its defaults: off, bars 1-4 (called on new project)
+  void resetLoop() {
+    _loopPlaybackEnabled = false;
+    _loopStartBeats = defaultLoopStartBeats;
+    _loopEndBeats = defaultLoopEndBeats;
     notifyListeners();
   }
 

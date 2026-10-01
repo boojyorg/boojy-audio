@@ -95,7 +95,6 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
 
   bool isLoading = false;
   bool hasInitializedPanelSizes = false;
-  bool masterTimelineVisible = false;
 
   /// Audio clip selection for Audio Editor
   ClipData? selectedAudioClip;

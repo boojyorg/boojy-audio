@@ -48,7 +48,7 @@ click = whatever the tool says                click = select, double-click = cre
 | Drag | move | move | move | |
 | Drag an edge | resize | resize | — | |
 | Double-click empty space | new clip (MIDI tracks; 1 bar, as today) | new note | new point | |
-| Double-click a thing | nothing (see Deleting) | remove it | remove it | |
+| Double-click a thing | open it in the editor (see Deleting) | remove it | remove it | |
 | Box select | drag on empty space | same | same | |
 | **B** | Draw on/off | Draw on/off | Draw on/off | hidden |
 | Delete / ⌫ | delete selection | same | same | |
@@ -98,8 +98,9 @@ Turning it on and off:
 | Undo a mistake | Cmd+Z | Edit menu or undo button | undo button |
 
 **Clips are not deleted by double-click.** A clip can hold minutes of work and a note is one click
-to redo, and people often double-click a clip expecting it to open. Clips are deleted from the
-action bar, the Delete key or the menu.
+to redo, and people double-click a clip expecting it to open, so that is what it does. Selecting
+a clip doesn't open the editor by itself. Clips are deleted from the action bar, the Delete key or
+the menu.
 
 Considered and rejected: **long-press to delete** (on touch, long-press has to open the menu,
 since there is no right-click) and **right-click to delete** (right-click means "menu" everywhere,

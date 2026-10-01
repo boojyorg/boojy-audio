@@ -66,12 +66,11 @@ void main() {
         expect(layout.isVirtualPianoEnabled, isFalse);
       });
 
-      test('loop playback enabled by default', () {
-        expect(layout.loopPlaybackEnabled, isTrue);
+      test('loop is off by default with bars 1-4 ready', () {
+        expect(layout.loopPlaybackEnabled, isFalse);
         expect(layout.loopStartBeats, 0.0);
-        expect(layout.loopEndBeats, 4.0);
-        expect(layout.loopDurationBeats, 4.0);
-        expect(layout.loopAutoFollow, isTrue);
+        expect(layout.loopEndBeats, 16.0);
+        expect(layout.loopDurationBeats, 16.0);
       });
     });
 
@@ -460,11 +459,11 @@ void main() {
 
     group('loop and punch state', () {
       test('toggleLoopPlayback toggles state', () {
-        expect(layout.loopPlaybackEnabled, isTrue);
-        layout.toggleLoopPlayback();
         expect(layout.loopPlaybackEnabled, isFalse);
         layout.toggleLoopPlayback();
         expect(layout.loopPlaybackEnabled, isTrue);
+        layout.toggleLoopPlayback();
+        expect(layout.loopPlaybackEnabled, isFalse);
       });
 
       test('setLoopRegion updates start and end', () {
@@ -474,25 +473,20 @@ void main() {
         expect(layout.loopDurationBeats, 8.0);
       });
 
-      test('setLoopRegion with manual disables auto-follow', () {
-        expect(layout.loopAutoFollow, isTrue);
-        layout.setLoopRegion(4.0, 12.0, manual: true);
-        expect(layout.loopAutoFollow, isFalse);
-        expect(layout.loopStartBeats, 4.0);
-        expect(layout.loopEndBeats, 12.0);
-      });
-
-      test('setLoopRegion without manual keeps auto-follow', () {
-        layout.setLoopRegion(4.0, 12.0);
-        expect(layout.loopAutoFollow, isTrue);
-      });
-
-      test('resetLoopAutoFollow restores defaults', () {
-        layout.setLoopRegion(10.0, 20.0, manual: true);
-        layout.resetLoopAutoFollow();
-        expect(layout.loopAutoFollow, isTrue);
+      test('turning loop on keeps the default region (bars 1-4)', () {
+        layout.toggleLoopPlayback();
+        expect(layout.loopPlaybackEnabled, isTrue);
         expect(layout.loopStartBeats, 0.0);
-        expect(layout.loopEndBeats, 4.0);
+        expect(layout.loopEndBeats, 16.0);
+      });
+
+      test('resetLoop restores defaults: off, bars 1-4', () {
+        layout.setLoopRegion(10.0, 20.0);
+        layout.loopPlaybackEnabled = true;
+        layout.resetLoop();
+        expect(layout.loopPlaybackEnabled, isFalse);
+        expect(layout.loopStartBeats, 0.0);
+        expect(layout.loopEndBeats, 16.0);
       });
     });
 

@@ -103,40 +103,4 @@ mixin DAWUIMixin
       audioEngine: audioEngine,
     );
   }
-
-  // ============================================
-  // LOOP REGION METHODS
-  // ============================================
-
-  /// Auto-update arrangement loop region to follow the longest clip.
-  /// Only active when loopAutoFollow is true (disabled when user manually drags loop).
-  void updateArrangementLoopToContent() {
-    if (!uiLayout.loopAutoFollow) return;
-
-    double longestEnd = 4.0; // Minimum 1 bar (4 beats)
-
-    // Check all MIDI clips
-    final midiClips = midiPlaybackManager?.midiClips ?? [];
-    for (final clip in midiClips) {
-      final clipEnd = clip.startTime + clip.duration;
-      if (clipEnd > longestEnd) longestEnd = clipEnd;
-    }
-
-    // Check all audio clips (stored in timeline state)
-    final audioClips = timelineKey.currentState?.clips ?? [];
-    for (final clip in audioClips) {
-      // Audio clips use seconds, convert to beats
-      final beatsPerSecond = tempo / 60.0;
-      final clipEndBeats = (clip.startTime + clip.duration) * beatsPerSecond;
-      if (clipEndBeats > longestEnd) longestEnd = clipEndBeats;
-    }
-
-    // Round to next bar (4 beats)
-    final newLoopEnd = (longestEnd / 4).ceil() * 4.0;
-
-    // Only update if changed (avoids unnecessary rebuilds)
-    if (newLoopEnd != uiLayout.loopEndBeats) {
-      uiLayout.setLoopRegion(uiLayout.loopStartBeats, newLoopEnd);
-    }
-  }
 }

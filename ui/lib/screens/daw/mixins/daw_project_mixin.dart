@@ -95,8 +95,12 @@ mixin DAWProjectMixin
     // project would attach to the new project's tracks.
     resetPerTrackUiState();
 
-    // Reset loop auto-follow for new project
-    uiLayout.resetLoopAutoFollow();
+    // Loop back to its defaults (off, bars 1-4) for the new project
+    uiLayout.resetLoop();
+    playbackController.updateLoopBounds(
+      loopStartBeats: uiLayout.loopStartBeats,
+      loopEndBeats: uiLayout.loopEndBeats,
+    );
 
     // Reset panel sizes to a consistent proportional baseline so a new project
     // doesn't inherit the last drag. Per-project sizes are still restored from
@@ -196,6 +200,11 @@ mixin DAWProjectMixin
     // Update window title and metadata with project name
     WindowTitleService.setProjectName(projectManager!.currentName);
 
+    // The master timeline row is gone from the UI. A project saved while it
+    // was visible (or one the engine flags visible because the master has
+    // volume automation) is forced hidden so the engine flag can't disagree.
+    audioEngine?.setMasterTimelineVisible(visible: false);
+
     setState(() {
       projectMetadata = projectMetadata.copyWith(
         name: projectManager!.currentName,
@@ -204,7 +213,6 @@ mixin DAWProjectMixin
         bpm: tempo,
       );
       isLoading = false;
-      masterTimelineVisible = audioEngine?.getMasterTimelineVisible() ?? false;
     });
   }
 
@@ -602,17 +610,20 @@ mixin DAWProjectMixin
       }
     }
 
-    // Restore loop region (overrides the default reset)
+    // Restore the saved loop. A project saved without one (older files) gets
+    // the defaults rather than inheriting the previously open project's loop.
+    uiLayout.resetLoop();
     if (layout.loopEnabled != null) {
       uiLayout.loopPlaybackEnabled = layout.loopEnabled!;
     }
     if (layout.loopStartBeats != null && layout.loopEndBeats != null) {
-      uiLayout.setLoopRegion(
-        layout.loopStartBeats!,
-        layout.loopEndBeats!,
-        manual: true,
-      );
+      uiLayout.setLoopRegion(layout.loopStartBeats!, layout.loopEndBeats!);
     }
+    // Keep playback's cached loop bounds in step (no-op unless loop-cycling).
+    playbackController.updateLoopBounds(
+      loopStartBeats: uiLayout.loopStartBeats,
+      loopEndBeats: uiLayout.loopEndBeats,
+    );
   }
 
   /// Re-push per-clip edit parameters (gain/warp/transpose/reverse) to the

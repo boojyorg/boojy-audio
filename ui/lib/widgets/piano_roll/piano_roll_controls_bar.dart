@@ -5,7 +5,6 @@ import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 import '../../utils/grid_utils.dart';
 import '../shared/boojy_dropdown.dart';
-import '../transport_bar/signature_dropdown.dart';
 import 'loop_time_display.dart';
 
 /// Display mode for responsive icon/label buttons
@@ -18,7 +17,7 @@ enum _ButtonDisplayMode {
 /// Replaces the left sidebar with a compact, wrappable toolbar.
 ///
 /// Layout format:
-/// [Loop] Start [1.1.1] Length [5.1.1] Signature [4/4] | [Snap 1/16▼] [Quantize 1/16▼] ...
+/// [Loop] Start [1.1.1] Length [5.1.1] | [Snap 1/16▼] [Quantize 1/16▼] ...
 class PianoRollControlsBar extends StatefulWidget {
   // Clip section
   final bool loopEnabled;
@@ -28,9 +27,6 @@ class PianoRollControlsBar extends StatefulWidget {
   final VoidCallback? onLoopToggle;
   final Function(double)? onLoopStartChanged;
   final Function(double)? onLoopLengthChanged;
-  final Function(int)? onBeatsPerBarChanged;
-  final VoidCallback? onSignatureDragStart;
-  final VoidCallback? onSignatureDragEnd;
 
   // Grid section
   final bool snapEnabled;
@@ -74,9 +70,6 @@ class PianoRollControlsBar extends StatefulWidget {
     this.onLoopToggle,
     this.onLoopStartChanged,
     this.onLoopLengthChanged,
-    this.onBeatsPerBarChanged,
-    this.onSignatureDragStart,
-    this.onSignatureDragEnd,
     // Grid section
     this.snapEnabled = true,
     this.gridDivision = 0.25,
@@ -94,7 +87,6 @@ class PianoRollControlsBar extends StatefulWidget {
     // View section
     this.foldEnabled = false,
     this.onFoldToggle,
-    // Scale section
     // Transform section
     this.onLegato,
     // Lane visibility toggles
@@ -303,23 +295,6 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
             beatsPerBar: widget.beatsPerBar,
             isPosition: false, // 0-indexed length (1.0.0 = 1 bar)
           ),
-        ),
-        const SizedBox(width: 8),
-        // Signature label + input
-        Text(
-          'Signature',
-          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
-        ),
-        const SizedBox(width: 4),
-        // Same control as the transport bar: click anywhere on the box for
-        // the n/4 menu, drag up/down to scrub. The old numerator-only
-        // click-to-type target was ~10px wide and read as "not editable".
-        SignatureDropdown(
-          beatsPerBar: widget.beatsPerBar,
-          onChanged: (numerator, _) =>
-              widget.onBeatsPerBarChanged?.call(numerator),
-          onDragStart: widget.onSignatureDragStart,
-          onDragEnd: widget.onSignatureDragEnd,
         ),
       ],
     );

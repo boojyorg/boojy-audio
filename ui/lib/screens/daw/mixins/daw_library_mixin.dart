@@ -81,6 +81,8 @@ mixin DAWLibraryMixin
     // so the fresh 1-bar clip shows selected, matching the synth drop path)
     refreshTrackWidgets();
     onTrackSelected(trackId, autoSelectClip: true);
+    // Loading a sample into a new track is deliberate: show its editor.
+    uiLayout.isEditorPanelVisible = true;
   }
 
   /// Convert an Audio track to a Sampler track
@@ -176,6 +178,7 @@ mixin DAWLibraryMixin
     // Refresh tracks and select the new sampler track + its first clip
     refreshTrackWidgets();
     onTrackSelected(samplerTrackId, autoSelectClip: true);
+    uiLayout.isEditorPanelVisible = true;
 
     // Optionally delete the original audio track (ask user?)
     // For now, keep both tracks so user can compare
@@ -365,6 +368,8 @@ mixin DAWLibraryMixin
 
       // Select the newly created track (keeping its fresh clip selected)
       onTrackSelected(trackId, autoSelectClip: trackType == 'midi');
+      // Drag-creating a clip on empty space is deliberate: open the editor.
+      if (trackType == 'midi') uiLayout.isEditorPanelVisible = true;
 
       // Refresh track widgets
       refreshTrackWidgets();
