@@ -133,12 +133,23 @@ mixin DAWClipMixin
 
   /// Duplicate currently selected clip
   void duplicateSelectedClip() {
-    final clip = midiPlaybackManager?.currentEditingClip;
-    if (clip == null) return;
+    // Try the currently-editing MIDI clip first.
+    final midiClip = midiPlaybackManager?.currentEditingClip;
+    if (midiClip != null) {
+      final newStartTime = midiClip.startTime + midiClip.duration;
+      onMidiClipCopied(midiClip, newStartTime);
+      return;
+    }
 
-    // Place duplicate immediately after original
-    final newStartTime = clip.startTime + clip.duration;
-    onMidiClipCopied(clip, newStartTime);
+    // Fall back to the selected audio clip in the arrangement (mirrors
+    // quantizeSelectedClip's fallback pattern).
+    final audioClip = timelineKey.currentState?.selectedAudioClip;
+    if (audioClip != null) {
+      timelineKey.currentState?.duplicateAudioClip(audioClip);
+      return;
+    }
+
+    Notices.info('Select a clip to duplicate');
   }
 
   // ============================================

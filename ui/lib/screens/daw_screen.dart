@@ -8,7 +8,6 @@ import 'daw_screen_io.dart';
 import '../audio_engine.dart';
 import '../theme/animation_constants.dart';
 import '../theme/theme_extension.dart';
-import '../theme/tokens.dart';
 import '../widgets/shared/boojy_notice.dart';
 import '../widgets/shared/stable_menu_bar.dart';
 import '../widgets/transport_bar.dart';
@@ -22,7 +21,6 @@ import '../widgets/editor/editor_models.dart';
 import '../widgets/virtual_piano.dart';
 import '../widgets/resizable_divider.dart';
 import '../widgets/instrument_browser.dart';
-import '../widgets/keyboard_shortcuts_overlay.dart';
 import '../widgets/tour/tour_step.dart';
 import '../widgets/tour/tour_controller.dart';
 import '../widgets/tour/tour_overlay.dart';
@@ -46,15 +44,11 @@ import '../services/project_manager.dart';
 import '../services/midi_playback_manager.dart';
 import '../services/vst3_editor_service.dart';
 import '../services/plugin_preferences_service.dart';
-import '../widgets/app_settings_dialog.dart';
-import '../widgets/export_dialog.dart';
 import '../services/midi_file_service.dart';
 import '../widgets/start_screen/start_screen_modal.dart';
 import '../state/ui_layout_state.dart';
-import '../services/window_title_service.dart';
 import 'daw/daw_menu_bar.dart';
 import 'daw/mixins/daw_mixins.dart';
-import '../utils/csv_field.dart';
 import '../utils/logger.dart';
 import '../utils/text_focus.dart';
 
@@ -293,7 +287,7 @@ class _DAWScreenState extends State<DAWScreen>
     userSettings.recordCleanExit();
 
     // Stop playback
-    _stopPlayback();
+    stopPlayback();
 
     super.dispose();
   }
@@ -336,7 +330,7 @@ class _DAWScreenState extends State<DAWScreen>
 
       // Initialize buffer size from user settings
       try {
-        final bufferPreset = _bufferSizeToPreset(userSettings.bufferSize);
+        final bufferPreset = bufferSizeToPreset(userSettings.bufferSize);
         audioEngine!.setBufferSize(bufferPreset);
       } catch (e) {
         Log.e('Buffer size setting failed: $e');
@@ -375,7 +369,7 @@ class _DAWScreenState extends State<DAWScreen>
           'Audio device lost, so playback stopped. Pick an output in Settings.',
           id: 'audio-device-lost',
           error: message,
-          action: NoticeAction('Open Settings', _appSettings),
+          action: NoticeAction('Open Settings', appSettings),
         );
       };
 
@@ -425,11 +419,11 @@ class _DAWScreenState extends State<DAWScreen>
 
       // Scan VST3 plugins after audio graph is ready
       if (!vst3PluginManager!.isScanned && mounted) {
-        _scanVst3Plugins();
+        scanVst3Plugins();
       }
 
       // Load MIDI devices
-      _loadMidiDevices();
+      loadMidiDevices();
 
       // Initialize auto-save service
       autoSaveService.initialize(
@@ -472,43 +466,6 @@ class _DAWScreenState extends State<DAWScreen>
     );
   }
 
-  void _play() {
-    // Clear automation preview values so display shows actual playback values
-    if (automationPreviewNotifier.value.isNotEmpty) {
-      automationPreviewNotifier.value = {};
-    }
-    playbackController.play(loadedClipId: loadedClipId);
-  }
-
-  /// Play with loop check - used by transport bar play button
-  void _playWithLoopCheck() {
-    // Clear automation preview values so display shows actual playback values
-    if (automationPreviewNotifier.value.isNotEmpty) {
-      automationPreviewNotifier.value = {};
-    }
-    if (uiLayout.loopPlaybackEnabled) {
-      _playLoopRegion();
-    } else {
-      _play();
-    }
-  }
-
-  void _pause() {
-    playbackController.pause();
-  }
-
-  void _stopPlayback() {
-    Log.d('🛑 [DAW] _stopPlayback() called');
-    Log.d('🛑 [DAW]   isPlaying=${playbackController.isPlaying}');
-    Log.d('🛑 [DAW]   isRecording=${recordingController.isRecording}');
-    Log.d(
-      '🛑 [DAW]   playheadPosition=${playbackController.playheadPosition.toStringAsFixed(3)}s',
-    );
-    stopPlayback(); // Use mixin method which handles idle vs playing state
-    // Reset mixer meters when playback stops
-    mixerKey.currentState?.resetMeters();
-  }
-
   /// The track that MIDI input (recording and the computer-keyboard piano)
   /// goes to: the first armed MIDI track, else the selected track.
   int? _midiInputTrackId() {
@@ -546,7 +503,7 @@ class _DAWScreenState extends State<DAWScreen>
 
     switch (event.logicalKey) {
       case LogicalKeyboardKey.space:
-        _togglePlayPause();
+        togglePlayPause();
         return true;
       case LogicalKeyboardKey.keyL:
         // L is also a note on the computer-keyboard piano; the piano wins
@@ -555,7 +512,7 @@ class _DAWScreenState extends State<DAWScreen>
         uiLayout.toggleLoopPlayback();
         return true;
       case LogicalKeyboardKey.keyM:
-        _toggleMetronome();
+        toggleMetronome();
         return true;
       default:
         return false;
@@ -587,7 +544,7 @@ class _DAWScreenState extends State<DAWScreen>
     // only the timeline-contextual keys remain here.
     switch (event.logicalKey) {
       case LogicalKeyboardKey.keyQ:
-        _quantizeSelectedClip();
+        quantizeSelectedClip();
         return KeyEventResult.handled;
       case LogicalKeyboardKey.delete:
       case LogicalKeyboardKey.backspace:
@@ -602,68 +559,12 @@ class _DAWScreenState extends State<DAWScreen>
     }
   }
 
-  /// Context-aware play/pause toggle (Space bar)
-  /// - When loop is enabled: plays the loop region (cycling)
-  /// - Otherwise: plays full arrangement
-  void _togglePlayPause() {
-    if (isPlaying) {
-      _pause();
-    } else {
-      _playWithLoopCheck();
-    }
-  }
-
-  /// Play the loop region, cycling forever until stopped
-  void _playLoopRegion() {
-    // Get loop bounds from UI layout state
-    final loopStart = uiLayout.loopStartBeats;
-    final loopEnd = uiLayout.loopEndBeats;
-
-    // Play with loop cycling enabled
-    playbackController.playLoop(
-      loadedClipId: loadedClipId,
-      loopStartBeats: loopStart,
-      loopEndBeats: loopEnd,
-      tempo: tempo,
-    );
-  }
-
   // M2: Recording methods - handled by DAWRecordingMixin
   // (toggleRecording, startRecording, stopRecording, handleRecordingComplete)
 
-  void _toggleMetronome() {
-    recordingController.toggleMetronome();
-  }
-
-  void _setCountInBars(int bars) {
-    userSettings.countInBars = bars;
-    // Read back: the setting clamps to Off / 1 bar.
-    final applied = userSettings.countInBars;
-    audioEngine?.setCountInBars(applied);
-  }
-
   /// Toolbar Count-in toggle: Off ↔ one bar.
   void _toggleCountIn() {
-    _setCountInBars(userSettings.countInBars > 0 ? 0 : 1);
-  }
-
-  /// Convert buffer size in samples to preset index
-  /// 64=0 (Lowest), 128=1 (Low), 256=2 (Balanced), 512=3 (Safe), 1024=4 (HighStability)
-  int _bufferSizeToPreset(int bufferSize) {
-    switch (bufferSize) {
-      case 64:
-        return 0;
-      case 128:
-        return 1;
-      case 256:
-        return 2;
-      case 512:
-        return 3;
-      case 1024:
-        return 4;
-      default:
-        return 2; // Default to Balanced (256)
-    }
+    setCountInBars(userSettings.countInBars > 0 ? 0 : 1);
   }
 
   // Tempo drag coalescing: live updates during a vertical drag, one undo
@@ -848,86 +749,6 @@ class _DAWScreenState extends State<DAWScreen>
     );
   }
 
-  // M3: Virtual piano methods
-  void _toggleVirtualPiano() {
-    final success = recordingController.toggleVirtualPiano();
-    if (success) {
-      uiLayout.setVirtualPianoEnabled(
-        enabled: recordingController.isVirtualPianoEnabled,
-      );
-    } else {
-      Notices.problem("Couldn't start the virtual piano");
-    }
-  }
-
-  // MIDI Device methods - delegate to RecordingController
-  void _loadMidiDevices() {
-    recordingController.loadMidiDevices();
-  }
-
-  // M4: Mixer methods
-  void _toggleMixer() {
-    final windowWidth = MediaQuery.of(context).size.width;
-
-    // If trying to show mixer, check if there's room
-    if (!uiLayout.isMixerVisible) {
-      if (!uiLayout.canShowMixer(windowWidth)) {
-        return; // Not enough room - do nothing
-      }
-    }
-
-    setState(() {
-      uiLayout.isMixerVisible = !uiLayout.isMixerVisible;
-      userSettings.mixerVisible = uiLayout.isMixerVisible;
-    });
-  }
-
-  // Unified track selection method - handles both timeline and mixer clicks
-  // Forwards to DAWTrackMixin.onTrackSelected — the single, correct impl. The
-  // mixin version also hides/shows floating plugin windows for the selected
-  // track (fixes M-3); the previous divergent private body skipped that, so
-  // windows stayed visible across track switches depending on entry point.
-  void _onTrackSelected(
-    int? trackId, {
-    bool isShiftHeld = false,
-    bool autoSelectClip = false,
-  }) => onTrackSelected(
-    trackId,
-    isShiftHeld: isShiftHeld,
-    autoSelectClip: autoSelectClip,
-  );
-
-  /// Get the type of the currently selected track ("MIDI", "Audio", or "Master")
-  String? _getSelectedTrackType() {
-    if (selectedTrackId == null || audioEngine == null) return null;
-    final info = audioEngine!.getTrackInfo(selectedTrackId!);
-    if (info.isEmpty) return null;
-    final parts = info.split(',');
-    if (parts.length >= 3) {
-      // Track type is at index 2: "track_id,name,type,..."
-      final type = parts[2].toLowerCase();
-      if (type == 'midi') return 'MIDI';
-      if (type == 'audio') return 'Audio';
-      if (type == 'master') return 'Master';
-      return type;
-    }
-    return null;
-  }
-
-  /// Get the name of the currently selected track
-  String? _getSelectedTrackName() {
-    if (selectedTrackId == null || audioEngine == null) return null;
-    final info = audioEngine!.getTrackInfo(selectedTrackId!);
-    if (info.isEmpty) return null;
-    final parts = info.split(',');
-    if (parts.length >= 2) {
-      // Track name is at index 1: "track_id,name,type,..." —
-      // percent-encoded by the engine (C34).
-      return decodeCsvField(parts[1]);
-    }
-    return null;
-  }
-
   /// Handle audio clip selection from timeline
   void _onAudioClipSelected(int? clipId, ClipData? clip) {
     setState(() {
@@ -950,17 +771,6 @@ class _DAWScreenState extends State<DAWScreen>
     // Update the clip in the timeline view so waveform reflects gain changes
     timelineKey.currentState?.updateClip(clip);
   }
-
-  // M9: Instrument selection/swap lives in DAWTrackMixin.onInstrumentSelected
-  // (with the sampler-swap and drum-kit branches). A private duplicate here
-  // diverged from a stale mixin copy that lacked both branches (the daw_screen
-  // mixin trap — see .claude/rules/flutter-ui.md).
-
-  // Forwards to DAWTrackMixin.onTrackDeleted — the single, correct impl. The
-  // mixin version also closes this track's floating plugin windows (fixes H-9);
-  // the previous divergent private body leaked them (native-window resource leak
-  // + dangling editor id).
-  void _onTrackDeleted(int trackId) => onTrackDeleted(trackId);
 
   /// Undoable track deletion that snapshots and restores the track's content.
   ///
@@ -1061,7 +871,7 @@ class _DAWScreenState extends State<DAWScreen>
           }
         }
         refreshTrackWidgets();
-        _onTrackSelected(newTrackId);
+        onTrackSelected(newTrackId);
       },
       onNotice: Notices.problem,
     );
@@ -1069,40 +879,13 @@ class _DAWScreenState extends State<DAWScreen>
     await undoRedoManager.execute(command);
   }
 
-  void _onTrackDuplicated(int sourceTrackId, int newTrackId) {
-    // Copy track state via controller
-    trackController.onTrackDuplicated(sourceTrackId, newTrackId);
-  }
-
-  // Instrument drop on an existing track lives in
-  // DAWTrackMixin.onInstrumentDropped (forwards to onInstrumentSelected).
-
-  // Default-clip creation lives in DAWTrackMixin.createDefaultMidiClip. A
-  // private duplicate here predated the mixin and missed the engine
-  // rescheduleClip call, so tracks created via the toolbar/mixer/quick-record
-  // paths played silence until their first piano-roll edit (the daw_screen
-  // mixin trap — see .claude/rules/flutter-ui.md).
-
   /// Called when a track is created from the mixer panel - refresh timeline immediately
   void _onTrackCreatedFromMixer(int trackId, String trackType) {
-    _onTrackSelected(trackId);
+    onTrackSelected(trackId);
     refreshTrackWidgets();
     // New tracks arm themselves — keep arming exclusive (audio included).
     disarmOtherTracks(trackId);
   }
-
-  /// Called when tracks are reordered via drag-and-drop in the mixer panel
-  void _onTrackReordered(int oldIndex, int newIndex) {
-    // Update shared track order in TrackController
-    trackController.reorderTrack(oldIndex, newIndex);
-    // Refresh timeline to match new track order
-    refreshTrackWidgets();
-  }
-
-  // Instrument drop on the empty area lives in
-  // DAWTrackMixin.onInstrumentDroppedOnEmpty (sampler / drum-kit / synth
-  // branches, all with autoSelectClip). A private duplicate here had drifted
-  // ahead of a stale mixin copy that was missing the drum-kit branch.
 
   // VST3 Instrument drop handlers
   Future<void> _onVst3InstrumentDropped(int trackId, Vst3Plugin plugin) async {
@@ -1150,222 +933,14 @@ class _DAWScreenState extends State<DAWScreen>
     }
   }
 
-  Future<void> _onVst3InstrumentDroppedOnEmpty(Vst3Plugin plugin) async {
-    if (audioEngine == null) return;
-
-    try {
-      // Create a new MIDI track using UndoRedoManager
-      final command = CreateTrackCommand(
-        trackType: 'midi',
-        trackName: 'MIDI 1',
-      );
-
-      await undoRedoManager.execute(command);
-
-      final trackId = command.createdTrackId;
-      if (trackId == null || trackId < 0) {
-        return;
-      }
-
-      // Load the VST3 plugin as a track instrument
-      final effectId = audioEngine!.addVst3EffectToTrack(trackId, plugin.path);
-      if (effectId < 0) {
-        return;
-      }
-
-      // Create and store InstrumentData for this VST3 instrument
-      trackController.setTrackInstrument(
-        trackId,
-        InstrumentData.vst3Instrument(
-          trackId: trackId,
-          pluginPath: plugin.path,
-          pluginName: plugin.name,
-          effectId: effectId,
-        ),
-      );
-
-      // Auto-populate track name with plugin name (new track, so not user-edited)
-      audioEngine?.setTrackName(trackId, plugin.name);
-
-      // Create default 1-bar clip AFTER instrument so clip name = plugin name
-      createDefaultMidiClip(trackId);
-
-      // Send a test note to trigger audio processing (some VST3 instruments
-      // like Serum show "Audio Processing disabled" until they receive MIDI)
-      final noteOnResult = audioEngine!.vst3SendMidiNote(
-        effectId,
-        0,
-        0,
-        60,
-        100,
-      ); // C4, velocity 100
-      if (noteOnResult.isNotEmpty) {}
-      // Send note off after a short delay
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (!mounted || audioEngine == null) return;
-        audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0); // Note off
-      });
-
-      // Select track and highlight the clip (editor stays on Instrument tab)
-      _onTrackSelected(trackId, autoSelectClip: true);
-      // Adding an instrument plugin is deliberate: show its editor.
-      uiLayout.isEditorPanelVisible = true;
-
-      // Immediately refresh track widgets so the new track appears instantly
-      refreshTrackWidgets();
-
-      // Disarm other MIDI tracks (exclusive arm for new track)
-      disarmOtherTracks(trackId);
-    } catch (e) {
-      Log.e('Failed to create VST3 instrument track: $e');
-    }
-  }
-
-  // Audio file drop handler - creates new audio track with clip
-  Future<void> _onAudioFileDroppedOnEmpty(
-    String filePath, [
-    double startTimeBeats = 0.0,
-  ]) async {
-    if (audioEngine == null) return;
-
-    try {
-      // 1. Copy sample to project folder if setting is enabled
-      final finalPath = await _prepareSamplePath(filePath);
-
-      // 2. Create new audio track
-      final command = CreateTrackCommand(
-        trackType: 'audio',
-        trackName: 'Audio',
-      );
-
-      await undoRedoManager.execute(command);
-
-      final trackId = command.createdTrackId;
-      if (trackId == null || trackId < 0) {
-        return;
-      }
-
-      // 3. Load audio file to the newly created track
-      final clipId = audioEngine!.loadAudioFileToTrack(finalPath, trackId);
-      if (clipId < 0) {
-        return;
-      }
-
-      // 4. Get clip info
-      final duration = audioEngine!.getClipDuration(clipId);
-      // Store high-resolution peaks (8000/sec) - LOD downsampling happens at render time
-      final peakResolution = (duration * 8000).clamp(8000, 240000).toInt();
-      final peaks = audioEngine!.getWaveformPeaks(clipId, peakResolution);
-
-      // 5. Convert start position from beats to seconds for audio clips
-      final beatsPerSecond = tempo / 60.0;
-      final startTimeSeconds = startTimeBeats / beatsPerSecond;
-
-      // Set clip start time in engine if not at position 0
-      if (startTimeSeconds > 0) {
-        audioEngine!.setClipStartTime(trackId, clipId, startTimeSeconds);
-      }
-
-      // 6. Add to timeline view's clip list
-      timelineKey.currentState?.addClip(
-        ClipData(
-          clipId: clipId,
-          trackId: trackId,
-          filePath: finalPath, // Use the copied path
-          startTime: startTimeSeconds,
-          duration: duration,
-          waveformPeaks: peaks,
-        ),
-      );
-
-      // 7. Select the newly created clip (opens Audio Editor)
-      timelineKey.currentState?.selectAudioClip(clipId);
-
-      // 8. Refresh track widgets
-      refreshTrackWidgets();
-
-      // New tracks arm themselves — keep arming exclusive (audio included).
-      disarmOtherTracks(trackId);
-    } catch (e) {
-      Log.e('Failed to add audio file to new track: $e');
-    }
-  }
-
-  /// Import a MIDI file onto a new track (dropped on empty space)
-  Future<void> _onMidiFileDroppedOnEmpty(
-    String filePath,
-    double startTimeBeats,
-  ) async {
-    if (audioEngine == null) return;
-
-    try {
-      final bytes = await File(filePath).readAsBytes();
-      final result = MidiFileService.decode(bytes);
-      if (result.notes.isEmpty) return;
-
-      // Create new MIDI track
-      final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI');
-      await undoRedoManager.execute(command);
-
-      final trackId = command.createdTrackId;
-      if (trackId == null || trackId < 0) return;
-
-      // Find the max note end to determine clip duration
-      double maxEnd = 0;
-      for (final note in result.notes) {
-        final end = note.startTime + note.duration;
-        if (end > maxEnd) maxEnd = end;
-      }
-      final durationBeats = maxEnd > 0 ? maxEnd : 4.0;
-
-      final clipId = DateTime.now().microsecondsSinceEpoch;
-      final clipName =
-          result.trackName ?? filePath.split('/').last.split('.').first;
-
-      final clipData = MidiClipData(
-        clipId: clipId,
-        trackId: trackId,
-        startTime: startTimeBeats,
-        duration: durationBeats,
-        notes: result.notes,
-        name: clipName,
-      );
-
-      midiPlaybackManager?.addRecordedClip(clipData);
-      midiPlaybackManager?.rescheduleClip(clipData, tempo);
-
-      refreshTrackWidgets();
-    } catch (e) {
-      Log.e('Failed to import MIDI file to new track: $e');
-    }
-  }
-
-  // Drag-to-create handlers — forward to the mixin impls (DAWLibraryMixin /
-  // DAWClipMixin), the single, correct copies. The previous divergent private
-  // bodies selected the track *before* the clip-create command ran, so the
-  // selectClip(null) inside the track selection raced the command callback
-  // that selects the new clip — the dropped clip's selection flickered off
-  // then on (bug-hunt #21). The mixin versions await the clip command first.
-  Future<void> _onCreateTrackWithClip(
-    String trackType,
-    double startBeats,
-    double durationBeats,
-  ) => onCreateTrackWithClip(trackType, startBeats, durationBeats);
-
-  Future<void> _onCreateClipOnTrack(
-    int trackId,
-    double startBeats,
-    double durationBeats,
-  ) => onCreateClipOnTrack(trackId, startBeats, durationBeats);
-
   // Library double-click handlers
   void _handleLibraryItemDoubleClick(LibraryItem item) {
     if (audioEngine == null) return;
 
     final selectedTrack = selectedTrackId;
-    final isMidi = selectedTrack != null && _isMidiTrack(selectedTrack);
+    final isMidi = selectedTrack != null && isMidiTrack(selectedTrack);
     final isEmptyAudio =
-        selectedTrack != null && _isEmptyAudioTrack(selectedTrack);
+        selectedTrack != null && isEmptyAudioTrack(selectedTrack);
 
     switch (item.type) {
       case LibraryItemType.instrument:
@@ -1407,7 +982,7 @@ class _DAWScreenState extends State<DAWScreen>
             _addAudioClipToTrack(selectedTrack, item.filePath);
           } else {
             // Create new audio track with clip
-            _onAudioFileDroppedOnEmpty(item.filePath);
+            onAudioFileDroppedOnEmpty(item.filePath);
           }
         } else {
           Notices.info("That sample isn't available yet");
@@ -1421,7 +996,7 @@ class _DAWScreenState extends State<DAWScreen>
             _addAudioClipToTrack(selectedTrack, item.filePath);
           } else {
             // Create new audio track with clip
-            _onAudioFileDroppedOnEmpty(item.filePath);
+            onAudioFileDroppedOnEmpty(item.filePath);
           }
         }
         break;
@@ -1447,7 +1022,7 @@ class _DAWScreenState extends State<DAWScreen>
           if (isMidi) {
             onMidiFileDroppedOnTrack(selectedTrack, item.filePath, 0.0);
           } else {
-            _onMidiFileDroppedOnEmpty(item.filePath, 0.0);
+            onMidiFileDroppedOnEmpty(item.filePath, 0.0);
           }
         }
         break;
@@ -1462,7 +1037,7 @@ class _DAWScreenState extends State<DAWScreen>
     if (audioEngine == null) return;
 
     final selectedTrack = selectedTrackId;
-    final isMidi = selectedTrack != null && _isMidiTrack(selectedTrack);
+    final isMidi = selectedTrack != null && isMidiTrack(selectedTrack);
 
     if (plugin.isInstrument) {
       if (isMidi) {
@@ -1470,12 +1045,12 @@ class _DAWScreenState extends State<DAWScreen>
         _onVst3InstrumentDropped(selectedTrack, plugin);
       } else {
         // Create new MIDI track with VST3 instrument
-        _onVst3InstrumentDroppedOnEmpty(plugin);
+        onVst3InstrumentDroppedOnEmpty(plugin);
       }
     } else {
       // VST3 effect
       if (selectedTrack != null) {
-        _onVst3PluginDropped(selectedTrack, plugin);
+        onVst3PluginDropped(selectedTrack, plugin);
       } else {
         Notices.info('Select a track first to add effects');
       }
@@ -1503,46 +1078,6 @@ class _DAWScreenState extends State<DAWScreen>
     createSamplerTrackWithSample(filePath, item.name);
   }
 
-  // Sampler-track creation, drum-kit creation, and audio→sampler conversion
-  // live in the mixins (DAWLibraryMixin.createSamplerTrackWithSample /
-  // DAWTrackMixin.createDrumKitTrack / DAWLibraryMixin
-  // .convertAudioTrackToSampler). Private duplicates here had drifted ahead
-  // of stale mixin copies — the mixin convert path still had the direct-FFI
-  // loop whose clips were engine-only/invisible (bug-hunt #20) and a
-  // selectTrack without autoSelectClip; the consolidated copies keep the
-  // corrected behaviour (the daw_screen mixin trap — see
-  // .claude/rules/flutter-ui.md).
-
-  // Helper: Check if track is a MIDI track
-  bool _isMidiTrack(int trackId) {
-    final info = audioEngine?.getTrackInfo(trackId) ?? '';
-    if (info.isEmpty) return false;
-
-    final parts = info.split(',');
-    if (parts.length < 3) return false;
-
-    // Engine returns 'MIDI' (uppercase)
-    return parts[2].toLowerCase() == 'midi';
-  }
-
-  // Helper: Check if track is an empty Audio track (no clips)
-  bool _isEmptyAudioTrack(int trackId) {
-    final info = audioEngine?.getTrackInfo(trackId) ?? '';
-    if (info.isEmpty) return false;
-
-    final parts = info.split(',');
-    if (parts.length < 3) return false;
-
-    // Engine returns 'Audio' (capitalized)
-    final trackType = parts[2].toLowerCase();
-    if (trackType != 'audio') return false;
-
-    // Check if any clips are on this track
-    final hasClips =
-        timelineKey.currentState?.hasClipsOnTrack(trackId) ?? false;
-    return !hasClips;
-  }
-
   // Helper: Find instrument by name
   Instrument? _findInstrumentByName(String name) {
     try {
@@ -1563,53 +1098,13 @@ class _DAWScreenState extends State<DAWScreen>
     }
   }
 
-  /// Copy audio file to project's Samples folder
-  ///
-  /// Returns the path to use (either copied path or original path)
-  Future<String> _prepareSamplePath(String originalPath) async {
-    // No project open: use the original path
-    if (projectManager?.currentPath == null) {
-      return originalPath;
-    }
-
-    try {
-      final projectPath = projectManager!.currentPath!;
-      final samplesDir = Directory('$projectPath/Samples');
-
-      // Create Samples folder if it doesn't exist
-      if (!await samplesDir.exists()) {
-        await samplesDir.create(recursive: true);
-      }
-
-      // Get the file name from the original path
-      final fileName = originalPath.split(Platform.pathSeparator).last;
-      final destinationPath = '$projectPath/Samples/$fileName';
-
-      // Check if file already exists in Samples folder
-      final destinationFile = File(destinationPath);
-      if (await destinationFile.exists()) {
-        // File already exists, use it
-        return destinationPath;
-      }
-
-      // Copy the file to Samples folder
-      final sourceFile = File(originalPath);
-      await sourceFile.copy(destinationPath);
-
-      return destinationPath;
-    } catch (e) {
-      // Fall back to original path if copy fails
-      return originalPath;
-    }
-  }
-
   // Helper: Add audio clip to existing track
   Future<void> _addAudioClipToTrack(int trackId, String filePath) async {
     if (audioEngine == null) return;
 
     try {
       // Copy sample to project folder if setting is enabled
-      final finalPath = await _prepareSamplePath(filePath);
+      final finalPath = await prepareSamplePath(filePath);
 
       final clipId = audioEngine!.loadAudioFileToTrack(finalPath, trackId);
       if (clipId < 0) {
@@ -1650,26 +1145,7 @@ class _DAWScreenState extends State<DAWScreen>
     }
   }
 
-  void _onInstrumentParameterChanged(InstrumentData instrumentData) {
-    trackController.setTrackInstrument(instrumentData.trackId, instrumentData);
-  }
-
   // M10: VST3 Plugin methods - delegating to Vst3PluginManager
-
-  Future<void> _scanVst3Plugins({bool forceRescan = false}) async {
-    if (vst3PluginManager == null) return;
-
-    await vst3PluginManager!.scanPlugins(forceRescan: forceRescan);
-  }
-
-  void _removeVst3Plugin(int effectId) {
-    if (vst3PluginManager == null) return;
-
-    final result = vst3PluginManager!.removeFromTrack(effectId);
-    if (!result.success) {
-      Notices.problem("Couldn't remove the plugin", error: result.message);
-    }
-  }
 
   void _showVst3PluginBrowser(int trackId) {
     _showFxPicker(trackId);
@@ -1729,188 +1205,8 @@ class _DAWScreenState extends State<DAWScreen>
     if (mounted) setState(() {});
   }
 
-  void _onVst3PluginDropped(int trackId, Vst3Plugin plugin) {
-    if (vst3PluginManager == null) return;
-    vst3PluginManager!.addPluginToTrack(trackId, plugin);
-  }
-
-  Map<int, int> _getTrackVst3PluginCounts() {
-    return vst3PluginManager?.getTrackPluginCounts() ?? {};
-  }
-
   List<Vst3PluginInstance> _getTrackVst3Plugins(int trackId) {
     return vst3PluginManager?.getTrackPlugins(trackId) ?? [];
-  }
-
-  void _onVst3ParameterChanged(int effectId, int paramIndex, double value) {
-    vst3PluginManager?.updateParameter(effectId, paramIndex, value);
-  }
-
-  void _showVst3PluginEditor(int trackId) {
-    if (vst3PluginManager == null) return;
-
-    final effectIds = vst3PluginManager!.getTrackEffectIds(trackId);
-    if (effectIds.isEmpty) return;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Plugins - Track $trackId'),
-        content: SizedBox(
-          width: 400,
-          child: ListView.builder(
-            itemCount: effectIds.length,
-            itemBuilder: (context, index) {
-              final effectId = effectIds[index];
-              final pluginInfo = vst3PluginManager!.getPluginInfo(effectId);
-              final pluginName = pluginInfo?['name'] ?? 'Unknown Plugin';
-
-              return ListTile(
-                title: Text(pluginName),
-                trailing: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _showPluginParameterEditor(effectId, pluginName);
-                  },
-                  child: const Text('Edit'),
-                ),
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showPluginParameterEditor(int effectId, String pluginName) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('$pluginName - Parameters'),
-        content: SizedBox(
-          width: 500,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Parameter editing',
-                                  style: Theme.of(context).textTheme.bodyLarge,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Drag the sliders to adjust plugin parameters.',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: context.colors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      // Show a few example parameters
-                      ..._buildParameterSliders(effectId),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildParameterSliders(int effectId) {
-    final List<Widget> sliders = [];
-
-    for (int i = 0; i < 8; i++) {
-      sliders.add(
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Parameter ${i + 1}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: BT.weightMedium,
-                    ),
-                  ),
-                  Text(
-                    '0.50',
-                    style: TextStyle(
-                      fontSize: BT.fontLabel,
-                      color: context.colors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Slider(
-                value: 0.5,
-                min: 0.0,
-                max: 1.0,
-                divisions: 100,
-                onChanged: (value) {
-                  _onVst3ParameterChanged(effectId, i, value);
-                },
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return sliders;
-  }
-
-  // M6: Panel toggle methods
-  void _toggleLibraryPanel() {
-    final windowWidth = MediaQuery.of(context).size.width;
-
-    // If trying to expand library, check if there's room
-    if (uiLayout.isLibraryPanelCollapsed) {
-      if (!uiLayout.canShowLibrary(windowWidth)) {
-        return; // Not enough room - do nothing
-      }
-    }
-
-    setState(() {
-      uiLayout.isLibraryPanelCollapsed = !uiLayout.isLibraryPanelCollapsed;
-      userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
-    });
   }
 
   /// Open the editor panel (double-click on a clip). Leaves it open if it
@@ -1921,29 +1217,6 @@ class _DAWScreenState extends State<DAWScreen>
       uiLayout.isEditorPanelVisible = true;
       userSettings.editorVisible = true;
     });
-  }
-
-  void _toggleEditor() {
-    setState(() {
-      uiLayout.isEditorPanelVisible = !uiLayout.isEditorPanelVisible;
-      userSettings.editorVisible = uiLayout.isEditorPanelVisible;
-    });
-  }
-
-  void _resetPanelLayout() {
-    setState(() {
-      // Reset to default panel sizes and visibility
-      uiLayout.resetLayout();
-
-      // Save reset states
-      userSettings.libraryCollapsed = false;
-      userSettings.mixerVisible = true;
-      userSettings.editorVisible = true;
-    });
-  }
-
-  void _showKeyboardShortcuts() {
-    KeyboardShortcutsOverlay.show(context);
   }
 
   // M8: MIDI clip methods - delegating to MidiClipController
@@ -1958,82 +1231,6 @@ class _DAWScreenState extends State<DAWScreen>
 
   void _onMidiClipUpdated(MidiClipData updatedClip) {
     midiClipController.updateClip(updatedClip, playheadPosition);
-  }
-
-  void _duplicateSelectedClip() {
-    // Try the currently-editing MIDI clip first.
-    final midiClip = midiPlaybackManager?.currentEditingClip;
-    if (midiClip != null) {
-      final newStartTime = midiClip.startTime + midiClip.duration;
-      onMidiClipCopied(midiClip, newStartTime);
-      return;
-    }
-
-    // Fall back to the selected audio clip in the arrangement (mirrors
-    // _quantizeSelectedClip's fallback pattern).
-    final audioClip = timelineKey.currentState?.selectedAudioClip;
-    if (audioClip != null) {
-      timelineKey.currentState?.duplicateAudioClip(audioClip);
-      return;
-    }
-
-    Notices.info('Select a clip to duplicate');
-  }
-
-  void _quantizeSelectedClip() {
-    // Default grid size: 1 beat (quarter note)
-    const gridSizeBeats = 1.0;
-    final beatsPerSecond = tempo / 60.0;
-    final gridSizeSeconds = gridSizeBeats / beatsPerSecond;
-
-    // Try MIDI clip first
-    if (midiPlaybackManager?.selectedClipId != null) {
-      final success = midiClipController.quantizeSelectedClip(gridSizeBeats);
-      if (success) return;
-    }
-
-    // Try audio clip
-    final audioQuantized =
-        timelineKey.currentState?.quantizeSelectedAudioClip(gridSizeSeconds) ??
-        false;
-    if (audioQuantized) return;
-
-    // Neither worked
-    Notices.info('Select a clip to quantize');
-  }
-
-  /// Select all clips in the timeline view
-  void _selectAllClips() {
-    timelineKey.currentState?.selectAllClips();
-  }
-
-  void _deleteMidiClip(int clipId, int trackId) {
-    // Find the clip data for undo
-    final clip = midiPlaybackManager?.midiClips.firstWhere(
-      (c) => c.clipId == clipId,
-      orElse: () => MidiClipData(
-        clipId: clipId,
-        trackId: trackId,
-        startTime: 0,
-        duration: 4,
-        name: 'Deleted Clip',
-      ),
-    );
-
-    final command = DeleteMidiClipFromArrangementCommand(
-      clipData: clip!,
-      onClipRemoved: (cId, tId) {
-        midiClipController.deleteClip(cId, tId);
-        if (mounted) setState(() {});
-      },
-      onClipRestored: (restoredClip) {
-        midiPlaybackManager?.addRecordedClip(restoredClip);
-        midiClipController.updateClip(restoredClip, playheadPosition);
-        midiPlaybackManager?.selectClip(restoredClip.clipId, restoredClip);
-        if (mounted) setState(() {});
-      },
-    );
-    undoRedoManager.execute(command);
   }
 
   /// Export a MIDI clip as a Standard MIDI File (.mid)
@@ -2097,208 +1294,11 @@ class _DAWScreenState extends State<DAWScreen>
     if (mounted) setState(() {});
   }
 
-  /// Batch delete multiple audio clips (eraser tool - single undo action)
-  void _deleteAudioClipsBatch(List<ClipData> clipsToDelete) {
-    if (clipsToDelete.isEmpty) return;
-
-    // Build individual delete commands for each clip
-    final commands = <Command>[];
-    for (final clip in clipsToDelete) {
-      commands.add(
-        DeleteAudioClipCommand(
-          clipData: clip,
-          onClipRemoved: (clipId) {
-            // Remove from timeline view's clip list
-            // (Engine removal is handled by the command's execute method)
-            timelineKey.currentState?.removeClip(clipId);
-          },
-          onClipRestored: (restoredClip) {
-            // Restore to timeline view's clip list
-            // (Engine restoration is handled by the command's undo method)
-            timelineKey.currentState?.addClip(restoredClip);
-          },
-        ),
-      );
-    }
-
-    if (commands.isEmpty) return;
-
-    // Wrap in CompositeCommand for single undo action
-    final compositeCommand = CompositeCommand(
-      commands,
-      'Delete ${clipsToDelete.length} audio clip${clipsToDelete.length > 1 ? 's' : ''}',
-    );
-    undoRedoManager.execute(compositeCommand);
-    if (mounted) setState(() {});
-  }
-
   // ========================================================================
   // Undo/Redo methods
   // ========================================================================
 
-  Future<void> _performUndo() async {
-    final success = await undoRedoManager.undo();
-    if (success && mounted) {
-      refreshTrackWidgets();
-    }
-  }
-
-  Future<void> _performRedo() async {
-    final success = await undoRedoManager.redo();
-    if (success && mounted) {
-      refreshTrackWidgets();
-    }
-  }
-
   // M5: Project file methods
-
-  void _newProject() => newProject();
-
-  Future<void> _openProject() => openProject();
-
-  /// Open a project from a specific path (used by Open Recent)
-  Future<void> _openRecentProject(String path) => openRecentProject(path);
-
-  /// Build the Open Recent submenu items
-  List<PlatformMenuItem> _buildRecentProjectsMenu() {
-    final recent = userSettings.recentProjects;
-
-    if (recent.isEmpty) {
-      return [
-        const PlatformMenuItem(label: 'No Recent Projects', onSelected: null),
-      ];
-    }
-
-    return [
-      ...recent.map(
-        (project) => PlatformMenuItem(
-          label: project.name,
-          onSelected: () => _openRecentProject(project.path),
-        ),
-      ),
-      PlatformMenuItemGroup(
-        members: [
-          PlatformMenuItem(
-            label: 'Clear Recent Projects',
-            onSelected: () {
-              userSettings.clearRecentProjects();
-              setState(() {});
-            },
-          ),
-        ],
-      ),
-    ];
-  }
-
-  void _exportAudio() {
-    if (audioEngine == null) return;
-
-    ExportDialog.show(
-      context,
-      audioEngine: audioEngine!,
-      defaultName: projectManager?.currentName ?? 'Untitled',
-    );
-  }
-
-  Future<void> _renameProject() async {
-    if (projectManager?.currentPath == null) {
-      Notices.info('Save the project before renaming it');
-      return;
-    }
-
-    final currentName = projectManager!.currentName;
-    final nameController = TextEditingController(text: currentName);
-
-    final newName = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Rename Project'),
-        content: TextField(
-          controller: nameController,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Project Name',
-            hintText: 'Enter new project name',
-          ),
-          onSubmitted: (value) => Navigator.pop(context, value),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, nameController.text),
-            child: const Text('Rename'),
-          ),
-        ],
-      ),
-    );
-
-    if (newName == null || newName.isEmpty || newName == currentName) return;
-
-    try {
-      final currentPath = projectManager!.currentPath!;
-
-      // Rename the .audio folder on disk
-      final currentDir = Directory(currentPath);
-      if (await currentDir.exists()) {
-        final parentDir = currentDir.parent.path;
-        final newPath = '$parentDir/$newName.audio';
-
-        // Check if target already exists
-        if (await Directory(newPath).exists()) {
-          Notices.info(
-            'A project called "$newName" is already there. '
-            'Pick another name.',
-          );
-          return;
-        }
-
-        // Rename the directory
-        await currentDir.rename(newPath);
-
-        // Update project manager state
-        projectManager!.setProjectName(newName);
-
-        // Save project to update internal metadata with new name
-        await projectManager!.saveProjectToPath(newPath, getCurrentUILayout());
-
-        // Update UI
-        setState(() {
-          projectMetadata = projectMetadata.copyWith(name: newName);
-        });
-
-        // Update window title
-        WindowTitleService.setProjectName(newName);
-
-        // Update recent projects: remove old path, add new path
-        await userSettings.removeRecentProject(currentPath);
-        await userSettings.addRecentProject(newPath, newName);
-      }
-    } catch (e) {
-      Notices.problem("Couldn't rename the project", error: e);
-    }
-  }
-
-  Future<void> _appSettings() async {
-    // Open app-wide settings dialog (accessed via logo "O" click)
-
-    // Wait for audio engine if not yet initialized (up to 2 seconds)
-    if (audioEngine == null) {
-      for (int i = 0; i < 20 && audioEngine == null && mounted; i++) {
-        await Future.delayed(const Duration(milliseconds: 100));
-      }
-    }
-
-    if (!mounted) return;
-
-    await AppSettingsDialog.show(
-      context,
-      userSettings,
-      audioEngine: audioEngine,
-    );
-  }
 
   // ========================================================================
   // End Snapshot Methods
@@ -2383,7 +1383,7 @@ class _DAWScreenState extends State<DAWScreen>
           openRecentProject(result.projectPath!);
         }
       case StartScreenAction.openSettings:
-        await _appSettings();
+        await appSettings();
         // Return to the launcher after settings closes so the user can still
         // pick New / Open / a recent project.
         if (mounted) await _showStartScreen();
@@ -2412,7 +1412,7 @@ class _DAWScreenState extends State<DAWScreen>
 
               // Stop playback if active
               if (isPlaying) {
-                _stopPlayback();
+                stopPlayback();
               }
 
               // Clear all tracks from the audio engine
@@ -2458,30 +1458,30 @@ class _DAWScreenState extends State<DAWScreen>
         builder: (context, playheadPos, _) => TransportBar(
           // Grouped callbacks
           fileMenu: FileMenuCallbacks(
-            onNewProject: _newProject,
-            onOpenProject: _openProject,
+            onNewProject: newProject,
+            onOpenProject: openProject,
             onSaveProject: saveProject,
             onSaveProjectAs: saveProjectAs,
-            onRenameProject: _renameProject,
-            onExportAudio: _exportAudio,
-            onAppSettings: _appSettings,
+            onRenameProject: renameProject,
+            onExportAudio: exportAudio,
+            onAppSettings: appSettings,
             onCloseProject: _closeProject,
             onStartScreen: _showStartScreen,
-            onKeyboardShortcuts: _showKeyboardShortcuts,
+            onKeyboardShortcuts: showKeyboardShortcuts,
           ),
           transport: TransportCallbacks(
-            onPlay: _playWithLoopCheck,
-            onPause: _pause,
-            onStop: _stopPlayback,
+            onPlay: playWithLoopCheck,
+            onPause: pause,
+            onStop: stopPlayback,
             onRecord: toggleRecording,
             onRecordNewMidiTrack: () => _recordIntoNewTrack('midi'),
             onRecordNewAudioTrack: () => _recordIntoNewTrack('audio'),
             onPauseRecording: pauseRecording,
             onStopRecording: stopRecordingAndReturn,
-            onUndo: undoRedoManager.canUndo ? _performUndo : null,
-            onRedo: undoRedoManager.canRedo ? _performRedo : null,
-            onMetronomeToggle: _toggleMetronome,
-            onPianoToggle: _toggleVirtualPiano,
+            onUndo: undoRedoManager.canUndo ? performUndo : null,
+            onRedo: undoRedoManager.canRedo ? performRedo : null,
+            onMetronomeToggle: toggleMetronome,
+            onPianoToggle: toggleVirtualPiano,
             onLoopPlaybackToggle: uiLayout.toggleLoopPlayback,
             onPositionChanged: (seconds) {
               playbackController.seek(seconds);
@@ -2489,11 +1489,11 @@ class _DAWScreenState extends State<DAWScreen>
             onCaptureMidi: captureMidi,
           ),
           panels: PanelCallbacks(
-            onToggleLibrary: _toggleLibraryPanel,
-            onToggleMixer: _toggleMixer,
-            onToggleEditor: _toggleEditor,
-            onTogglePiano: _toggleVirtualPiano,
-            onResetPanelLayout: _resetPanelLayout,
+            onToggleLibrary: toggleLibraryPanel,
+            onToggleMixer: toggleMixer,
+            onToggleEditor: toggleEditor,
+            onTogglePiano: toggleVirtualPiano,
+            onResetPanelLayout: resetPanelLayout,
           ),
           // Remaining individual parameters
           playheadPosition: playheadPos,
@@ -2543,7 +1543,7 @@ class _DAWScreenState extends State<DAWScreen>
     if (trackId == null || trackId < 0) return;
 
     createDefaultMidiClip(trackId);
-    _onTrackSelected(trackId, autoSelectClip: true);
+    onTrackSelected(trackId, autoSelectClip: true);
     // Adding a track from the empty-timeline button is deliberate: open its editor.
     uiLayout.isEditorPanelVisible = true;
     refreshTrackWidgets();
@@ -2559,7 +1559,7 @@ class _DAWScreenState extends State<DAWScreen>
     final trackId = command.createdTrackId;
     if (trackId == null || trackId < 0) return;
 
-    _onTrackSelected(trackId);
+    onTrackSelected(trackId);
     refreshTrackWidgets();
   }
 
@@ -2582,7 +1582,7 @@ class _DAWScreenState extends State<DAWScreen>
     // Arm via the engine (source of truth) so recording targets the new track;
     // the refresh propagates the armed flag into the mixer + hasArmedTracks.
     audioEngine!.setTrackArmed(trackId, armed: true);
-    _onTrackSelected(trackId, autoSelectClip: trackType == 'midi');
+    onTrackSelected(trackId, autoSelectClip: trackType == 'midi');
     refreshTrackWidgets();
 
     // Roll. startRecording reads the engine-armed track set synchronously above.
@@ -2613,7 +1613,7 @@ class _DAWScreenState extends State<DAWScreen>
                       value: libraryPreviewService!,
                       child: LibraryPanel(
                         isCollapsed: false,
-                        onToggle: _toggleLibraryPanel,
+                        onToggle: toggleLibraryPanel,
                         availableVst3Plugins:
                             vst3PluginManager?.availablePlugins ?? [],
                         libraryService: libraryService,
@@ -2624,7 +1624,7 @@ class _DAWScreenState extends State<DAWScreen>
                     )
                   : LibraryPanel(
                       isCollapsed: false,
-                      onToggle: _toggleLibraryPanel,
+                      onToggle: toggleLibraryPanel,
                       availableVst3Plugins:
                           vst3PluginManager?.availablePlugins ?? [],
                       libraryService: libraryService,
@@ -2681,7 +1681,7 @@ class _DAWScreenState extends State<DAWScreen>
             selectedMidiClipId: midiPlaybackManager?.selectedClipId,
             currentEditingClip: midiPlaybackManager?.currentEditingClip,
             midiClips: midiPlaybackManager?.midiClips ?? [],
-            onMidiTrackSelected: _onTrackSelected,
+            onMidiTrackSelected: onTrackSelected,
             getRustClipId: (dartClipId) =>
                 midiPlaybackManager?.dartToRustClipIds[dartClipId] ??
                 dartClipId,
@@ -2690,7 +1690,7 @@ class _DAWScreenState extends State<DAWScreen>
               onOpenEditor: _openEditorPanel,
               onUpdated: _onMidiClipUpdated,
               onCopied: onMidiClipCopied,
-              onDeleted: _deleteMidiClip,
+              onDeleted: deleteMidiClip,
               onBatchDeleted: _deleteMidiClipsBatch,
               onExported: _exportMidiClip,
               onSplit: onMidiClipSplit,
@@ -2711,20 +1711,20 @@ class _DAWScreenState extends State<DAWScreen>
               onSelected: _onAudioClipSelected,
               onOpenEditor: _openEditorPanel,
               onCopied: onAudioClipCopied,
-              onBatchDeleted: _deleteAudioClipsBatch,
+              onBatchDeleted: deleteAudioClipsBatch,
               onJoinSelected: joinSelectedClips,
             ),
             dragDropCallbacks: DragDropCallbacks(
               onInstrumentDropped: onInstrumentDropped,
               onInstrumentDroppedOnEmpty: onInstrumentDroppedOnEmpty,
               onVst3InstrumentDropped: _onVst3InstrumentDropped,
-              onVst3InstrumentDroppedOnEmpty: _onVst3InstrumentDroppedOnEmpty,
-              onMidiFileDroppedOnEmpty: _onMidiFileDroppedOnEmpty,
+              onVst3InstrumentDroppedOnEmpty: onVst3InstrumentDroppedOnEmpty,
+              onMidiFileDroppedOnEmpty: onMidiFileDroppedOnEmpty,
               onMidiFileDroppedOnTrack: onMidiFileDroppedOnTrack,
-              onAudioFileDroppedOnEmpty: _onAudioFileDroppedOnEmpty,
+              onAudioFileDroppedOnEmpty: onAudioFileDroppedOnEmpty,
               onAudioFileDroppedOnTrack: onAudioFileDroppedOnTrack,
-              onCreateTrackWithClip: _onCreateTrackWithClip,
-              onCreateClipOnTrack: _onCreateClipOnTrack,
+              onCreateTrackWithClip: onCreateTrackWithClip,
+              onCreateClipOnTrack: onCreateClipOnTrack,
             ),
             automationCallbacks: AutomationCallbacks(
               onPointAdded: onAutomationPointAdded,
@@ -2842,13 +1842,13 @@ class _DAWScreenState extends State<DAWScreen>
                 audioEngine: audioEngine,
                 scrollController: mixerVerticalScrollController,
                 trackInstruments: trackInstruments,
-                trackVst3PluginCounts: _getTrackVst3PluginCounts(), // M10
-                onAudioFileDropped: (path) => _onAudioFileDroppedOnEmpty(path),
+                trackVst3PluginCounts: getTrackVst3PluginCounts(), // M10
+                onAudioFileDropped: (path) => onAudioFileDroppedOnEmpty(path),
                 getTrackColor: getTrackColor,
                 config: MixerPanelConfig(
                   isEngineReady: isAudioGraphInitialized,
                   panelWidth: uiLayout.mixerPanelWidth,
-                  onTogglePanel: _toggleMixer,
+                  onTogglePanel: toggleMixer,
                   isRecording:
                       recordingController.isRecording ||
                       recordingController.isCountingIn,
@@ -2858,23 +1858,23 @@ class _DAWScreenState extends State<DAWScreen>
                 selectionState: TrackSelectionState(
                   selectedTrackId: selectedTrackId,
                   selectedTrackIds: selectedTrackIds,
-                  onTrackSelected: _onTrackSelected,
+                  onTrackSelected: onTrackSelected,
                 ),
                 trackCallbacks: TrackManagementCallbacks(
-                  onDuplicated: _onTrackDuplicated,
-                  onDeleted: _onTrackDeleted,
+                  onDuplicated: onTrackDuplicated,
+                  onDeleted: onTrackDeleted,
                   onDeleteRequested: _onDeleteTrackRequested,
                   onMidiTrackCreated: createDefaultMidiClip,
                   onTrackCreated: _onTrackCreatedFromMixer,
                   onAddMidiTrack: _addMidiTrackWithClip,
                   onAddAudioTrack: _addAudioTrack,
-                  onReordered: _onTrackReordered,
+                  onReordered: onTrackReordered,
                   onOrderSync: trackController.syncTrackOrder,
                   onDoubleClick: (trackId) {
                     // Select track and open editor
-                    _onTrackSelected(trackId);
+                    onTrackSelected(trackId);
                     if (!uiLayout.isEditorPanelVisible) {
-                      _toggleEditor();
+                      toggleEditor();
                     }
                   },
                   onColorChanged: _onTrackColorChanged,
@@ -2886,11 +1886,11 @@ class _DAWScreenState extends State<DAWScreen>
                       onInstrumentDropped, // Swap built-in instrument
                   onVst3InstrumentDropped:
                       _onVst3InstrumentDropped, // Swap VST3 instrument
-                  onVst3PluginDropped: _onVst3PluginDropped, // M10
+                  onVst3PluginDropped: onVst3PluginDropped, // M10
                   onBuiltInEffectDropped: (trackId, effect) =>
                       _addBuiltInEffectToTrack(trackId, effect.effectType),
                   onFxButtonPressed: _showVst3PluginBrowser, // M10
-                  onEditPluginsPressed: _showVst3PluginEditor, // M10
+                  onEditPluginsPressed: showVst3PluginEditor, // M10
                 ),
                 trackHeightState: TrackHeightState(
                   clipHeights: clipHeights,
@@ -2977,15 +1977,15 @@ class _DAWScreenState extends State<DAWScreen>
         context,
         DawMenuConfig(
           // File menu callbacks
-          onNewProject: _newProject,
-          onOpenProject: _openProject,
+          onNewProject: newProject,
+          onOpenProject: openProject,
           onSaveProject: saveProject,
           onSaveProjectAs: saveProjectAs,
-          onRenameProject: _renameProject,
-          onExportAudio: _exportAudio,
+          onRenameProject: renameProject,
+          onExportAudio: exportAudio,
           onCloseProject: _closeProject,
           onStartScreen: _showStartScreen,
-          recentProjectsMenu: _buildRecentProjectsMenu(),
+          recentProjectsMenu: buildRecentProjectsMenu(),
           // Edit menu state and callbacks
           undoRedoManager: undoRedoManager,
           onDelete: midiPlaybackManager?.selectedClipId != null
@@ -2993,12 +1993,12 @@ class _DAWScreenState extends State<DAWScreen>
                   final clipId = midiPlaybackManager!.selectedClipId!;
                   final clip = midiPlaybackManager!.currentEditingClip;
                   if (clip != null) {
-                    _deleteMidiClip(clipId, clip.trackId);
+                    deleteMidiClip(clipId, clip.trackId);
                   }
                 }
               : null,
-          onDuplicate: _duplicateSelectedClip,
-          onSelectAll: _selectAllClips,
+          onDuplicate: duplicateSelectedClip,
+          onSelectAll: selectAllClips,
           onSplitAtPlayhead:
               (midiPlaybackManager?.selectedClipId != null ||
                   timelineKey.currentState?.selectedAudioClipId != null)
@@ -3007,7 +2007,7 @@ class _DAWScreenState extends State<DAWScreen>
           onQuantizeClip:
               (midiPlaybackManager?.selectedClipId != null ||
                   timelineKey.currentState?.selectedAudioClipId != null)
-              ? _quantizeSelectedClip
+              ? quantizeSelectedClip
               : null,
           onJoinClips:
               (timelineKey.currentState?.selectedMidiClipIds.length ?? 0) >= 2
@@ -3020,15 +2020,15 @@ class _DAWScreenState extends State<DAWScreen>
               timelineKey.currentState?.selectedMidiClipIds.length ?? 0,
           // View menu state and callbacks
           uiLayout: uiLayout,
-          onToggleLibrary: _toggleLibraryPanel,
-          onToggleMixer: _toggleMixer,
-          onToggleEditor: _toggleEditor,
-          onTogglePiano: _toggleVirtualPiano,
-          onResetPanelLayout: _resetPanelLayout,
-          onAppSettings: _appSettings,
+          onToggleLibrary: toggleLibraryPanel,
+          onToggleMixer: toggleMixer,
+          onToggleEditor: toggleEditor,
+          onTogglePiano: toggleVirtualPiano,
+          onResetPanelLayout: resetPanelLayout,
+          onAppSettings: appSettings,
           // Undo/redo callbacks
-          onUndo: _performUndo,
-          onRedo: _performRedo,
+          onUndo: performUndo,
+          onRedo: performRedo,
           onStartTour: _startTour,
         ),
       ),
@@ -3036,16 +2036,16 @@ class _DAWScreenState extends State<DAWScreen>
         bindings: <ShortcutActivator, VoidCallback>{
           // ? key (Shift + /) to show keyboard shortcuts
           const SingleActivator(LogicalKeyboardKey.slash, shift: true):
-              _showKeyboardShortcuts,
+              showKeyboardShortcuts,
           // Cmd+E splits the selected clip at the playhead
           const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
               splitSelectedClipAtPlayhead,
           // Cmd+D to duplicate clip
           const SingleActivator(LogicalKeyboardKey.keyD, meta: true):
-              _duplicateSelectedClip,
+              duplicateSelectedClip,
           // Cmd+A to select all clips (in timeline view)
           const SingleActivator(LogicalKeyboardKey.keyA, meta: true):
-              _selectAllClips,
+              selectAllClips,
           // Cmd+J to join selected clips into one
           const SingleActivator(LogicalKeyboardKey.keyJ, meta: true):
               joinSelectedClips,
@@ -3160,16 +2160,16 @@ class _DAWScreenState extends State<DAWScreen>
                                   uiLayout.isVirtualPianoEnabled,
                               trackContext: EditorPanelContext(
                                 selectedTrackId: selectedTrackId,
-                                selectedTrackName: _getSelectedTrackName(),
-                                selectedTrackType: _getSelectedTrackType(),
+                                selectedTrackName: getSelectedTrackName(),
+                                selectedTrackType: getSelectedTrackType(),
                                 currentInstrumentData: selectedTrackId != null
                                     ? trackInstruments[selectedTrackId]
                                     : null,
                                 floatedPluginEffectIds: floatedPluginEffectIds,
                               ),
                               callbacks: EditorPanelCallbacks(
-                                onVirtualPianoClose: _toggleVirtualPiano,
-                                onVirtualPianoToggle: _toggleVirtualPiano,
+                                onVirtualPianoClose: toggleVirtualPiano,
+                                onVirtualPianoToggle: toggleVirtualPiano,
                                 onClosePanel: () {
                                   setState(() {
                                     uiLayout.isEditorPanelVisible = false;
@@ -3200,8 +2200,8 @@ class _DAWScreenState extends State<DAWScreen>
                               ),
                               vst3Callbacks: Vst3EditorCallbacks(
                                 onVst3ParameterChanged:
-                                    _onVst3ParameterChanged, // M10
-                                onVst3PluginRemoved: _removeVst3Plugin, // M10
+                                    onVst3ParameterChanged, // M10
+                                onVst3PluginRemoved: removeVst3Plugin, // M10
                                 onFloatPlugin: onFloatPlugin,
                                 onEmbedPlugin: onEmbedPlugin,
                                 onVst3InstrumentDropped: (plugin) {
@@ -3222,7 +2222,7 @@ class _DAWScreenState extends State<DAWScreen>
                               isPlaying: isPlaying,
                               onSeek: playbackController.seek,
                               onInstrumentParameterChanged:
-                                  _onInstrumentParameterChanged,
+                                  onInstrumentParameterChanged,
                               currentEditingAudioClip: selectedAudioClip,
                               onAudioClipUpdated: _onAudioClipUpdated,
                               currentTrackPlugins:
@@ -3251,10 +2251,7 @@ class _DAWScreenState extends State<DAWScreen>
                               },
                               onVst3EffectDropped: (plugin) {
                                 if (selectedTrackId != null) {
-                                  _onVst3PluginDropped(
-                                    selectedTrackId!,
-                                    plugin,
-                                  );
+                                  onVst3PluginDropped(selectedTrackId!, plugin);
                                 }
                               },
                               isCollapsed: !uiLayout.isEditorPanelVisible,
@@ -3269,7 +2266,7 @@ class _DAWScreenState extends State<DAWScreen>
                               trackColor: selectedTrackId != null
                                   ? getTrackColor(
                                       selectedTrackId!,
-                                      _getSelectedTrackType() ?? '',
+                                      getSelectedTrackType() ?? '',
                                     )
                                   : null,
                               onCreateSamplerFromClip: (clipPath) {
@@ -3289,7 +2286,7 @@ class _DAWScreenState extends State<DAWScreen>
                             VirtualPiano(
                               audioEngine: audioEngine,
                               isEnabled: uiLayout.isVirtualPianoEnabled,
-                              onClose: _toggleVirtualPiano,
+                              onClose: toggleVirtualPiano,
                               targetTrackId: _midiInputTrackId,
                             ),
                         ],

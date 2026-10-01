@@ -194,11 +194,6 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     handleRecordingComplete(result, capturedNotes: capturedNotes);
   }
 
-  /// Stop playback (not recording): Return to playStartPosition or bar 1 if idle
-  void stopPlayback() {
-    playbackController.stop(isRecording: false);
-  }
-
   /// Internal: Complete recording and return results with captured notes
   (RecordingResult, List<MidiNoteData>) _completeRecording() {
     // Re-enable preview playback
@@ -493,16 +488,13 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     recordingController.toggleMetronome();
   }
 
-  /// Set count-in bars (0, 1, or 2)
+  /// Set count-in bars (Off or 1 bar)
   void setCountInBars(int bars) {
     userSettings.countInBars = bars;
-    audioEngine?.setCountInBars(bars);
+    // Read back: the setting clamps to Off / 1 bar.
+    final applied = userSettings.countInBars;
+    audioEngine?.setCountInBars(applied);
   }
-
-  // Tempo and time-signature changes live in daw_screen.dart
-  // (_onTempoChanged / _onTimeSignatureChanged) — the copies that used to
-  // live here were dead duplicates (the CLAUDE.md mixin trap) and have been
-  // removed.
 
   // ============================================
   // VIRTUAL PIANO METHODS

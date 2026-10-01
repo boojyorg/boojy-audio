@@ -199,11 +199,6 @@ mixin DAWTrackMixin
     trackController.onTrackDuplicated(sourceTrackId, newTrackId);
   }
 
-  // Mixer-created-track handling lives in daw_screen.dart's private
-  // _onTrackCreatedFromMixer (the live copy the callback actually binds —
-  // see the mixin-trap note in .claude/rules/flutter-ui.md); the dead mixin
-  // duplicate was deleted when exclusive arm landed there.
-
   /// Called when tracks are reordered via drag-and-drop in the mixer panel
   void onTrackReordered(int oldIndex, int newIndex) {
     // Update shared track order in TrackController
