@@ -1,4 +1,6 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:boojy_audio/widgets/transport_bar.dart';
@@ -301,4 +303,85 @@ void main() {
       expect(find.text('Project Tempo'), findsOneWidget);
     });
   });
+
+  // The pointer stays put while the tempo is dragged; the native side then
+  // reports the mouse's movement, which must move the tempo the same way.
+  group('TempoDisplay drag holds the pointer', () {
+    testWidgets('mouse drag: held pointer movement keeps changing tempo', (
+      tester,
+    ) async {
+      final nativeCalls = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        _pointerHoldChannel,
+        (call) async {
+          nativeCalls.add(call.method);
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          _pointerHoldChannel,
+          null,
+        ),
+      );
+      final tempos = <double>[];
+      await tester.pumpWidget(
+        buildTestWidget(
+          child: TempoDisplay(tempo: 120.0, onTempoChanged: tempos.add),
+        ),
+      );
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('120')),
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveBy(const Offset(0, -2)); // starts the drag
+      await gesture.moveBy(const Offset(0, -10));
+      await tester.pump();
+      expect(nativeCalls, ['hold']);
+      final afterPointerMove = tempos.last;
+      expect(afterPointerMove, greaterThan(120));
+
+      // Held: the pointer no longer moves, the mouse does (20 px up).
+      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        _pointerHoldChannel.name,
+        const StandardMethodCodec().encodeMethodCall(
+          const MethodCall('move', [0.0, -20.0]),
+        ),
+        (_) {},
+      );
+      expect(tempos.last, afterPointerMove + 10); // 0.5 BPM per pixel
+
+      await gesture.up();
+      await tester.pump();
+      expect(nativeCalls, ['hold', 'release']);
+    });
+
+    testWidgets('touch drag never holds a pointer', (tester) async {
+      final nativeCalls = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        _pointerHoldChannel,
+        (call) async {
+          nativeCalls.add(call.method);
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          _pointerHoldChannel,
+          null,
+        ),
+      );
+      await tester.pumpWidget(
+        buildTestWidget(
+          child: TempoDisplay(tempo: 120.0, onTempoChanged: (_) {}),
+        ),
+      );
+      await tester.drag(find.text('120'), const Offset(0, -30));
+      await tester.pump();
+      expect(nativeCalls, isEmpty);
+    });
+  });
 }
+
+const _pointerHoldChannel = MethodChannel('boojy_audio/pointer_hold');

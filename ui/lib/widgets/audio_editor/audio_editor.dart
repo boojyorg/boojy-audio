@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import '../../theme/boojy_icons.dart';
 import '../../models/clip_data.dart';
 import '../../models/tool_mode.dart';
-import '../../audio_engine.dart';
+import '../../services/commands/audio_engine_interface.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 import '../../theme/app_colors.dart';
@@ -22,7 +22,7 @@ import 'operations/parameter_operations.dart';
 /// Displays waveform visualization and provides controls for
 /// transpose, gain, reverse, normalize, and other audio parameters.
 class AudioEditor extends StatefulWidget {
-  final AudioEngine? audioEngine;
+  final AudioEngineInterface? audioEngine;
   final ClipData? clipData;
   final VoidCallback? onClose;
   final Function(ClipData)? onClipUpdated;
@@ -155,6 +155,8 @@ class _AudioEditorState extends State<AudioEditor>
                   onWarpToggle: _toggleWarp,
                   originalBpm: editData.bpm,
                   onOriginalBpmChanged: _onOriginalBpmChanged,
+                  onOriginalBpmDragStart: _onOriginalBpmDragStart,
+                  onOriginalBpmDragEnd: _onOriginalBpmDragEnd,
                   projectBpm: widget.projectTempo,
                   onProjectBpmChanged: widget.onProjectTempoChanged,
                   // Reverse
@@ -429,8 +431,27 @@ class _AudioEditorState extends State<AudioEditor>
     commitToHistory(newValue ? 'Enable warp' : 'Disable warp');
   }
 
-  void _onOriginalBpmChanged(double value) {
+  // A BPM drag re-stretches the clip and adds one undo step on release, not
+  // on every step (each re-stretch renders the clip's audio again).
+  bool _bpmDragging = false;
+
+  void _onOriginalBpmDragStart() {
+    _bpmDragging = true;
     saveToHistory();
+  }
+
+  void _onOriginalBpmDragEnd() {
+    _bpmDragging = false;
+    if (snapshotBeforeAction?.bpm == editData.bpm) {
+      snapshotBeforeAction = null;
+      return;
+    }
+    sendToAudioEngine();
+    commitToHistory('Set original BPM to ${editData.bpm.toStringAsFixed(1)}');
+  }
+
+  void _onOriginalBpmChanged(double value) {
+    if (!_bpmDragging) saveToHistory();
     final clampedBpm = value.clamp(20.0, 999.0);
     setState(() {
       editData = editData.copyWith(bpm: clampedBpm);
@@ -438,6 +459,7 @@ class _AudioEditorState extends State<AudioEditor>
       recalculateBeatsForOriginalBpm(clampedBpm);
     });
     notifyClipUpdated();
+    if (_bpmDragging) return;
     sendToAudioEngine();
     commitToHistory('Set original BPM to ${clampedBpm.toStringAsFixed(1)}');
   }

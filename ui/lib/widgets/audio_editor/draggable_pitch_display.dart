@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../services/pointer_hold.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
@@ -39,6 +40,7 @@ class DraggablePitchDisplay extends StatefulWidget {
 }
 
 class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
+  final _pointerHold = PointerHold();
   bool _isEditing = false;
   int _editingSegment = -1; // 0=semitones, 1=cents
   bool _isFirstKeystroke = true;
@@ -64,6 +66,7 @@ class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
 
   @override
   void dispose() {
+    _pointerHold.end();
     _editController.dispose();
     _editFocusNode.removeListener(_onFocusChange);
     _editFocusNode.dispose();
@@ -306,9 +309,15 @@ class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
       },
       child: GestureDetector(
         onDoubleTap: () => _startEditing(segment),
+        onVerticalDragStart: (details) => _pointerHold.start(
+          details.kind,
+          (delta) => _handleDrag(segment, delta.dy),
+        ),
         onVerticalDragUpdate: (details) {
           _handleDrag(segment, details.delta.dy);
         },
+        onVerticalDragEnd: (_) => _pointerHold.end(),
+        onVerticalDragCancel: _pointerHold.end,
         child: MouseRegion(
           cursor: SystemMouseCursors.resizeUpDown,
           child: Container(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../services/pointer_hold.dart';
 import '../../../theme/theme_extension.dart';
 import '../../../theme/tokens.dart';
 
@@ -7,12 +8,18 @@ import '../../../theme/tokens.dart';
 class BpmDisplay extends StatefulWidget {
   final double bpm;
   final Function(double)? onBpmChanged;
+
+  /// A drag began / finished; [onBpmChanged] fires for every step between.
+  final VoidCallback? onDragStart;
+  final VoidCallback? onDragEnd;
   final bool enabled;
 
   const BpmDisplay({
     super.key,
     required this.bpm,
     this.onBpmChanged,
+    this.onDragStart,
+    this.onDragEnd,
     this.enabled = true,
   });
 
@@ -22,8 +29,30 @@ class BpmDisplay extends StatefulWidget {
 
 class _BpmDisplayState extends State<BpmDisplay> {
   bool _isDragging = false;
-  double _dragStartY = 0.0;
+  double _dragUp = 0.0; // pixels dragged up since the drag started
   double _dragStartBpm = 120.0;
+  final _pointerHold = PointerHold();
+
+  @override
+  void dispose() {
+    _pointerHold.end();
+    super.dispose();
+  }
+
+  void _dragBy(double dy) {
+    _dragUp -= dy;
+    final newBpm = (_dragStartBpm + (_dragUp * 0.5).roundToDouble()).clamp(
+      20.0,
+      999.0,
+    );
+    widget.onBpmChanged?.call(newBpm);
+  }
+
+  void _endDrag() {
+    _pointerHold.end();
+    setState(() => _isDragging = false);
+    widget.onDragEnd?.call();
+  }
 
   String _formatBpm(double bpm) {
     if (bpm == bpm.roundToDouble()) {
@@ -88,28 +117,18 @@ class _BpmDisplayState extends State<BpmDisplay> {
             ? (details) {
                 setState(() {
                   _isDragging = true;
-                  _dragStartY = details.globalPosition.dy;
+                  _dragUp = 0.0;
                   _dragStartBpm = widget.bpm.roundToDouble();
                 });
+                widget.onDragStart?.call();
+                _pointerHold.start(details.kind, (delta) => _dragBy(delta.dy));
               }
             : null,
         onVerticalDragUpdate: isEnabled
-            ? (details) {
-                if (widget.onBpmChanged != null) {
-                  final deltaY = _dragStartY - details.globalPosition.dy;
-                  final deltaBpm = (deltaY * 0.5).roundToDouble();
-                  final newBpm = (_dragStartBpm + deltaBpm).clamp(20.0, 999.0);
-                  widget.onBpmChanged!(newBpm);
-                }
-              }
+            ? (details) => _dragBy(details.delta.dy)
             : null,
-        onVerticalDragEnd: isEnabled
-            ? (details) {
-                setState(() {
-                  _isDragging = false;
-                });
-              }
-            : null,
+        onVerticalDragEnd: isEnabled ? (_) => _endDrag() : null,
+        onVerticalDragCancel: isEnabled ? _endDrag : null,
         onDoubleTap: isEnabled ? () => _showBpmDialog(context) : null,
         child: MouseRegion(
           cursor: isEnabled

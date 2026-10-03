@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../services/pointer_hold.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
@@ -55,6 +56,7 @@ class LoopTimeDisplay extends StatefulWidget {
 }
 
 class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
+  final _pointerHold = PointerHold();
   bool _isEditing = false;
   int _editingSegment = -1; // 0=bar, 1=beat, 2=sub
   bool _isFirstKeystroke = true; // Track if first keystroke should replace
@@ -71,6 +73,7 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
 
   @override
   void dispose() {
+    _pointerHold.end();
     _editController.dispose();
     _editFocusNode.removeListener(_onFocusChange);
     _editFocusNode.dispose();
@@ -412,11 +415,17 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
       },
       child: GestureDetector(
         onTap: () => _startEditing(segment),
+        onVerticalDragStart: (details) => _pointerHold.start(
+          details.kind,
+          (delta) => _handleDrag(segment, delta.dy),
+        ),
         onVerticalDragUpdate: (details) {
           // Dragging up (negative dy) = increase value
           // Scale: ~3 pixels per increment
           _handleDrag(segment, details.delta.dy);
         },
+        onVerticalDragEnd: (_) => _pointerHold.end(),
+        onVerticalDragCancel: _pointerHold.end,
         child: MouseRegion(
           cursor: SystemMouseCursors.resizeUpDown,
           child: Container(

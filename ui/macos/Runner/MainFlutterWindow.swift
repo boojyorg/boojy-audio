@@ -3,6 +3,7 @@ import FlutterMacOS
 
 class MainFlutterWindow: NSWindow {
   private var vst3PlatformChannel: VST3PlatformChannel?
+  private var pointerHoldChannel: PointerHoldChannel?
 
   // MARK: - Traffic-light placement
 
@@ -54,6 +55,8 @@ class MainFlutterWindow: NSWindow {
 
     // Initialize VST3 platform channel handler for Swift -> Dart notifications
     VST3PlatformChannelHandler.shared.setup(messenger: messenger)
+
+    pointerHoldChannel = PointerHoldChannel(messenger: messenger)
 
     // Register updater channel for Sparkle auto-updates
     UpdaterChannel.register(with: flutterViewController.engine.registrar(forPlugin: "UpdaterChannel"))
@@ -114,5 +117,68 @@ class MainFlutterWindow: NSWindow {
         button.setFrameOrigin(target)
       }
     }
+  }
+}
+
+/// Holds the pointer still and hidden while a drag-to-adjust control (tempo,
+/// knobs, …) is dragged, and reports the mouse's movement to Dart as
+/// `move [dx, dy]` in points, y down. The pointer never leaves the spot the
+/// drag started from, so it reappears there and never meets a screen edge.
+final class PointerHoldChannel {
+  private let channel: FlutterMethodChannel
+  private var monitor: Any?
+  private var holding = false
+
+  init(messenger: FlutterBinaryMessenger) {
+    channel = FlutterMethodChannel(
+      name: "boojy_audio/pointer_hold", binaryMessenger: messenger)
+    channel.setMethodCallHandler { [weak self] call, result in
+      switch call.method {
+      case "hold":
+        self?.hold()
+        result(nil)
+      case "release":
+        self?.release()
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+    // Never leave the pointer hidden behind another app.
+    NotificationCenter.default.addObserver(
+      forName: NSApplication.didResignActiveNotification, object: nil, queue: .main
+    ) { [weak self] _ in self?.release() }
+  }
+
+  private func hold() {
+    // Only mid-drag: a hold that started after the button came up would
+    // never see the mouse-up that ends it.
+    guard !holding, NSEvent.pressedMouseButtons != 0 else { return }
+    holding = true
+    NSCursor.hide()
+    CGAssociateMouseAndMouseCursorPosition(0)
+    monitor = NSEvent.addLocalMonitorForEvents(matching: [
+      .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
+      .leftMouseUp, .rightMouseUp, .otherMouseUp,
+    ]) { [weak self] event in
+      guard let self else { return event }
+      switch event.type {
+      case .leftMouseUp, .rightMouseUp, .otherMouseUp:
+        self.release()
+      default:
+        // Mouse deltas are y-down, like Flutter's.
+        self.channel.invokeMethod("move", arguments: [event.deltaX, event.deltaY])
+      }
+      return event
+    }
+  }
+
+  private func release() {
+    guard holding else { return }
+    holding = false
+    if let monitor { NSEvent.removeMonitor(monitor) }
+    monitor = nil
+    CGAssociateMouseAndMouseCursorPosition(1)
+    NSCursor.unhide()
   }
 }

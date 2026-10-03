@@ -29,6 +29,8 @@ class AudioEditorControlsBar extends StatefulWidget {
   final VoidCallback? onWarpToggle;
   final double originalBpm; // Clip's original tempo
   final Function(double)? onOriginalBpmChanged;
+  final VoidCallback? onOriginalBpmDragStart;
+  final VoidCallback? onOriginalBpmDragEnd;
   final double projectBpm; // Project tempo (read-only display or editable)
   final Function(double)? onProjectBpmChanged;
 
@@ -62,6 +64,8 @@ class AudioEditorControlsBar extends StatefulWidget {
     this.onWarpToggle,
     this.originalBpm = 120.0,
     this.onOriginalBpmChanged,
+    this.onOriginalBpmDragStart,
+    this.onOriginalBpmDragEnd,
     this.projectBpm = 120.0,
     this.onProjectBpmChanged,
     this.transposeSemitones = 0,
@@ -440,6 +444,8 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
         BpmDisplay(
           bpm: widget.originalBpm,
           onBpmChanged: isEnabled ? widget.onOriginalBpmChanged : null,
+          onDragStart: widget.onOriginalBpmDragStart,
+          onDragEnd: widget.onOriginalBpmDragEnd,
           enabled: isEnabled,
         ),
         const SizedBox(width: 4),
