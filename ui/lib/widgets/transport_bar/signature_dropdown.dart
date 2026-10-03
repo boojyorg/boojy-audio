@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/pointer_hold.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
@@ -32,6 +33,29 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
   bool _isHovered = false;
   bool _isDragging = false;
   double _dragAccumulator = 0;
+  final _pointerHold = PointerHold();
+
+  @override
+  void dispose() {
+    _pointerHold.end();
+    super.dispose();
+  }
+
+  void _dragBy(double dy) {
+    _dragAccumulator += dy;
+    const pxPerStep = 6.0;
+    if (_dragAccumulator.abs() >= pxPerStep) {
+      final steps = (_dragAccumulator / pxPerStep).truncate();
+      _dragAccumulator -= steps * pxPerStep;
+      _changeNumerator(-steps); // drag up = increase
+    }
+  }
+
+  void _endDrag() {
+    _pointerHold.end();
+    widget.onDragEnd?.call();
+    setState(() => _isDragging = false);
+  }
 
   /// Step the numerator (beats per bar) by [delta], clamped to a sane range,
   /// and commit (denominator stays locked at 4).
@@ -126,32 +150,19 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
         },
         child: GestureDetector(
           onTap: () => _showSignatureMenu(context),
-          onVerticalDragStart: (_) {
+          onVerticalDragStart: (details) {
             widget.onDragStart?.call();
             setState(() {
               _isDragging = true;
               _dragAccumulator = 0;
             });
+            _pointerHold.start(details.kind, (delta) => _dragBy(delta.dy));
           },
-          onVerticalDragUpdate: (details) {
-            _dragAccumulator += details.delta.dy;
-            const pxPerStep = 6.0;
-            if (_dragAccumulator.abs() >= pxPerStep) {
-              final steps = (_dragAccumulator / pxPerStep).truncate();
-              _dragAccumulator -= steps * pxPerStep;
-              _changeNumerator(-steps); // drag up = increase
-            }
-          },
-          onVerticalDragEnd: (_) {
-            widget.onDragEnd?.call();
-            setState(() => _isDragging = false);
-          },
+          onVerticalDragUpdate: (details) => _dragBy(details.delta.dy),
+          onVerticalDragEnd: (_) => _endDrag(),
           // A cancelled drag must still close the coalescing window (same
           // reason as the tempo control).
-          onVerticalDragCancel: () {
-            widget.onDragEnd?.call();
-            setState(() => _isDragging = false);
-          },
+          onVerticalDragCancel: _endDrag,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

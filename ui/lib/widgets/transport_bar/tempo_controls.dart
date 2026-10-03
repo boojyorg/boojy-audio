@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../services/pointer_hold.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 
@@ -49,8 +50,30 @@ class TempoDisplay extends StatefulWidget {
 
 class _TempoDisplayState extends State<TempoDisplay> {
   bool _isDragging = false;
-  double _dragStartY = 0.0;
+  double _dragUp = 0.0; // pixels dragged up since the drag started
   double _dragStartTempo = 120.0;
+  final _pointerHold = PointerHold();
+
+  @override
+  void dispose() {
+    _pointerHold.end();
+    super.dispose();
+  }
+
+  void _dragBy(double dy) {
+    _dragUp -= dy;
+    final newTempo = (_dragStartTempo + (_dragUp * 0.5).roundToDouble()).clamp(
+      20.0,
+      300.0,
+    );
+    widget.onTempoChanged?.call(newTempo);
+  }
+
+  void _endDrag() {
+    _pointerHold.end();
+    widget.onDragEnd?.call();
+    setState(() => _isDragging = false);
+  }
 
   bool _numHovered = false;
   bool _bpmHovered = false;
@@ -204,32 +227,21 @@ class _TempoDisplayState extends State<TempoDisplay> {
                       widget.onDragStart?.call();
                       setState(() {
                         _isDragging = true;
-                        _dragStartY = details.globalPosition.dy;
+                        _dragUp = 0.0;
                         _dragStartTempo = widget.tempo.roundToDouble();
                       });
+                      _pointerHold.start(
+                        details.kind,
+                        (delta) => _dragBy(delta.dy),
+                      );
                     },
-                    onVerticalDragUpdate: (details) {
-                      if (widget.onTempoChanged != null) {
-                        final deltaY = _dragStartY - details.globalPosition.dy;
-                        final deltaTempo = (deltaY * 0.5).roundToDouble();
-                        final newTempo = (_dragStartTempo + deltaTempo).clamp(
-                          20.0,
-                          300.0,
-                        );
-                        widget.onTempoChanged!(newTempo);
-                      }
-                    },
-                    onVerticalDragEnd: (_) {
-                      widget.onDragEnd?.call();
-                      setState(() => _isDragging = false);
-                    },
+                    onVerticalDragUpdate: (details) =>
+                        _dragBy(details.delta.dy),
+                    onVerticalDragEnd: (_) => _endDrag(),
                     // A cancelled drag must still close the coalescing
                     // window, or the parent would treat every later edit
                     // as mid-drag and skip the undo step entirely.
-                    onVerticalDragCancel: () {
-                      widget.onDragEnd?.call();
-                      setState(() => _isDragging = false);
-                    },
+                    onVerticalDragCancel: _endDrag,
                     onTap: _handleNumberTap,
                     child: Container(
                       // v:2 (not the split buttons' v:4) so the box height

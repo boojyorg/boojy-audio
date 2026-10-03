@@ -1,6 +1,8 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../services/pointer_hold.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 
@@ -73,6 +75,8 @@ class _VolumeReadoutBoxState extends State<VolumeReadoutBox> {
   // has actually moved past [tapSlop]; a smaller movement ends as a click.
   bool _scrubbing = false;
   double _dragDy = 0.0;
+  PointerDeviceKind? _dragKind;
+  final _pointerHold = PointerHold();
 
   @override
   void initState() {
@@ -84,6 +88,7 @@ class _VolumeReadoutBoxState extends State<VolumeReadoutBox> {
 
   @override
   void dispose() {
+    _pointerHold.end();
     _focusNode.removeListener(_onFocusChange);
     _controller.dispose();
     _focusNode.dispose();
@@ -158,23 +163,30 @@ class _VolumeReadoutBoxState extends State<VolumeReadoutBox> {
   void _onDragStart(DragStartDetails details) {
     _scrubbing = false;
     _dragDy = 0.0;
+    _dragKind = details.kind;
   }
 
-  void _onDragUpdate(DragUpdateDetails details) {
+  void _onDragUpdate(DragUpdateDetails details) => _moveBy(details.delta.dy);
+
+  void _moveBy(double dy) {
     if (widget.onVolumeChanged == null) return;
-    _dragDy += details.delta.dy;
+    _dragDy += dy;
     if (!_scrubbing) {
       if (_dragDy.abs() < VolumeReadoutBox.tapSlop) return; // still a click
       _scrubbing = true;
       widget.onVolumeDragStart?.call();
+      // Only a scrub holds the pointer; a click must leave it alone.
+      _pointerHold.start(_dragKind, (delta) => _moveBy(delta.dy));
     }
-    final newDb =
-        (widget.volumeDb - details.delta.dy * VolumeReadoutBox.dbPerPixel)
-            .clamp(VolumeReadoutBox.minDb, VolumeReadoutBox.maxDb);
+    final newDb = (widget.volumeDb - dy * VolumeReadoutBox.dbPerPixel).clamp(
+      VolumeReadoutBox.minDb,
+      VolumeReadoutBox.maxDb,
+    );
     widget.onVolumeChanged!(newDb);
   }
 
   void _onDragEnd(DragEndDetails details) {
+    _pointerHold.end();
     if (_scrubbing) {
       widget.onVolumeDragEnd?.call();
     } else {
@@ -184,6 +196,7 @@ class _VolumeReadoutBoxState extends State<VolumeReadoutBox> {
   }
 
   void _onDragCancel() {
+    _pointerHold.end();
     if (_scrubbing) widget.onVolumeDragEnd?.call();
     _scrubbing = false;
   }

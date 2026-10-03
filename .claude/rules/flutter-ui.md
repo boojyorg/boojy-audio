@@ -44,6 +44,10 @@ iOS); check it applies to this macOS/Windows desktop app before acting on it.
 - **Menu bar:** `StableMenuBar` (`widgets/shared/stable_menu_bar.dart`), never a bare
   `PlatformMenuBar`: the plain one resends every menu on every rebuild, which closes an open
   macOS menu. Also avoid `notifyListeners()` from pollers when nothing changed.
+- **Drag-to-adjust** (number boxes, knobs): `PointerHold` (`services/pointer_hold.dart`) hides
+  the pointer and keeps it where it was pressed. Start it in the drag's start with `details.kind`,
+  send its moves and the drag's own deltas to the same handler, end it on end, cancel and
+  dispose. Not for faders or scroll gutters, where the pointer should follow.
 - **Logging:** `Log.d()` / `Log.e()` / `Log.i()`, never `print()`.
 - **UI state:** `provider`, used lightly. Riverpod is a planned migration, not a casual swap.
 - **`ui_layout.json`** fields go through `ProjectPersistence.collect()` / `applyUILayout()`.

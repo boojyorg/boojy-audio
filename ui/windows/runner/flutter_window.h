@@ -2,7 +2,9 @@
 #define RUNNER_FLUTTER_WINDOW_H_
 
 #include <flutter/dart_project.h>
+#include <flutter/encodable_value.h>
 #include <flutter/flutter_view_controller.h>
+#include <flutter/method_channel.h>
 
 #include <memory>
 
@@ -28,6 +30,17 @@ class FlutterWindow : public Win32Window {
 
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
+
+  // Holds the pointer still and hidden while a drag-to-adjust control is
+  // dragged, sending the mouse's movement to Dart as "move" [dx, dy]
+  // (logical pixels, y down).
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      pointer_hold_channel_;
+  bool pointer_held_ = false;
+
+  void HoldPointer();
+  void ReleasePointer();
+  void OnRawMouseInput(HWND hwnd, LPARAM lparam);
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

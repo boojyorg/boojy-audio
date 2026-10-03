@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../services/pointer_hold.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 
@@ -54,7 +55,14 @@ class ArcKnob extends StatefulWidget {
 
 class _ArcKnobState extends State<ArcKnob> {
   double? _dragStartValue;
-  double? _dragStartY;
+  double _dragUp = 0.0; // pixels dragged up since the drag started
+  final _pointerHold = PointerHold();
+
+  @override
+  void dispose() {
+    _pointerHold.end();
+    super.dispose();
+  }
 
   double get _normalized =>
       ((widget.value - widget.min) / (widget.max - widget.min)).clamp(0.0, 1.0);
@@ -71,22 +79,23 @@ class _ArcKnobState extends State<ArcKnob> {
 
   void _onDragStart(DragStartDetails details) {
     _dragStartValue = widget.value;
-    _dragStartY = details.globalPosition.dy;
+    _dragUp = 0.0;
     widget.onChangeStart?.call(widget.value);
+    _pointerHold.start(details.kind, (delta) => _dragBy(delta.dy));
   }
 
-  void _onDragUpdate(DragUpdateDetails details) {
-    if (_dragStartValue == null || _dragStartY == null) return;
-    final dy = _dragStartY! - details.globalPosition.dy; // up = positive
-    final delta = dy / _kDragRange * (widget.max - widget.min);
-    final next = (_dragStartValue! + delta).clamp(widget.min, widget.max);
-    widget.onChanged?.call(next);
+  void _dragBy(double dy) {
+    final start = _dragStartValue;
+    if (start == null) return;
+    _dragUp -= dy;
+    final delta = _dragUp / _kDragRange * (widget.max - widget.min);
+    widget.onChanged?.call((start + delta).clamp(widget.min, widget.max));
   }
 
-  void _onDragEnd(DragEndDetails _) {
+  void _onDragEnd() {
+    _pointerHold.end();
     widget.onChangeEnd?.call(widget.value);
     _dragStartValue = null;
-    _dragStartY = null;
   }
 
   @override
@@ -99,8 +108,11 @@ class _ArcKnobState extends State<ArcKnob> {
         children: [
           GestureDetector(
             onVerticalDragStart: widget.enabled ? _onDragStart : null,
-            onVerticalDragUpdate: widget.enabled ? _onDragUpdate : null,
-            onVerticalDragEnd: widget.enabled ? _onDragEnd : null,
+            onVerticalDragUpdate: widget.enabled
+                ? (details) => _dragBy(details.delta.dy)
+                : null,
+            onVerticalDragEnd: widget.enabled ? (_) => _onDragEnd() : null,
+            onVerticalDragCancel: widget.enabled ? _onDragEnd : null,
             child: MouseRegion(
               cursor: widget.enabled
                   ? SystemMouseCursors.resizeUpDown
