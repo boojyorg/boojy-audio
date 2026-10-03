@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../models/instrument_data.dart';
 import '../../../models/midi_note_data.dart';
+import '../../../models/track_data.dart';
 import '../../../services/bundled_content_service.dart';
 import '../../../services/commands/track_commands.dart';
 import '../../../services/vst3_editor_service.dart';
@@ -193,10 +194,45 @@ mixin DAWTrackMixin
     refreshTrackWidgets();
   }
 
-  /// Handle track duplication
-  void onTrackDuplicated(int sourceTrackId, int newTrackId) {
-    // Copy track state via controller
-    trackController.onTrackDuplicated(sourceTrackId, newTrackId);
+  /// Undoable Duplicate Track: the new track gets its own copy of every
+  /// clip (new IDs), shown on the timeline. The engine used to copy the clips
+  /// itself, under the originals' IDs, so they played but never appeared.
+  Future<void> onDuplicateTrackRequested(TrackData track) async {
+    final command = DuplicateTrackCommand(
+      sourceTrackId: track.id,
+      sourceTrackName: track.name,
+      audioClips:
+          timelineKey.currentState?.getAudioClipsOnTrack(track.id) ?? const [],
+      midiClips:
+          midiPlaybackManager?.midiClips
+              .where((c) => c.trackId == track.id)
+              .toList() ??
+          const [],
+      onCopied: (newTrackId, audioCopies, midiCopies) {
+        trackController.onTrackDuplicated(track.id, newTrackId);
+        automationController.onTrackDuplicated(track.id, newTrackId);
+        syncVolumeAutomationToEngine(newTrackId);
+        for (final clip in audioCopies) {
+          timelineKey.currentState?.addClip(clip);
+        }
+        for (final clip in midiCopies) {
+          midiPlaybackManager?.addRecordedClip(clip);
+          midiClipController.updateClip(clip, playheadPosition);
+        }
+        refreshTrackWidgets();
+      },
+      onCleanup: (trackId) {
+        final timeline = timelineKey.currentState;
+        if (timeline != null) {
+          for (final clip in timeline.getAudioClipsOnTrack(trackId)) {
+            timeline.removeClip(clip.clipId);
+          }
+        }
+        automationController.onTrackDeleted(trackId);
+        onTrackDeleted(trackId);
+      },
+    );
+    await undoRedoManager.execute(command);
   }
 
   /// Called when tracks are reordered via drag-and-drop in the mixer panel

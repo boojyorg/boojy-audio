@@ -1,4 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:boojy_audio/models/audio_clip_edit_data.dart';
+import 'package:boojy_audio/models/clip_data.dart';
+import 'package:boojy_audio/models/midi_note_data.dart';
 import 'package:boojy_audio/services/commands/track_commands.dart';
 import '../../mocks/mock_audio_engine.dart';
 
@@ -357,6 +360,80 @@ void main() {
 
       expect(mockEngine.calls, contains('deleteTrack'));
     });
+
+    // The engine used to copy clips itself, under the originals' IDs: they
+    // played on the new track but never showed on the timeline.
+    test('copies every clip onto the new track under new IDs', () async {
+      final audio = ClipData(
+        clipId: 7,
+        trackId: 1,
+        filePath: '/a.wav',
+        startTime: 2.0,
+        duration: 4.0,
+        editData: const AudioClipEditData(reversed: true),
+      );
+      final midi = MidiClipData(
+        clipId: 9,
+        trackId: 1,
+        startTime: 0,
+        duration: 4,
+        name: 'Riff',
+        notes: [
+          MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 1),
+        ],
+      );
+      late int shownTrack;
+      late List<ClipData> shownAudio;
+      late List<MidiClipData> shownMidi;
+      final command = DuplicateTrackCommand(
+        sourceTrackId: 1,
+        sourceTrackName: 'Guitar',
+        audioClips: [audio],
+        midiClips: [midi],
+        onCopied: (trackId, audioCopies, midiCopies) {
+          shownTrack = trackId;
+          shownAudio = audioCopies;
+          shownMidi = midiCopies;
+        },
+      );
+
+      await command.execute(mockEngine);
+
+      final newTrack = command.duplicatedTrackId!;
+      expect(shownTrack, newTrack);
+      expect(mockEngine.clipCopies, [(clipId: 7, targetTrackId: newTrack)]);
+      expect(shownAudio.single.trackId, newTrack);
+      expect(shownAudio.single.clipId, isNot(7));
+      expect(shownAudio.single.startTime, 2.0);
+      expect(shownAudio.single.editData!.reversed, isTrue);
+      expect(shownMidi.single.trackId, newTrack);
+      expect(shownMidi.single.clipId, isNot(9));
+      expect(shownMidi.single.notes.single.note, 60);
+      expect(
+        shownMidi.single.notes.single.id,
+        isNot(midi.notes.single.id),
+        reason: 'notes are fresh copies, not shared with the original',
+      );
+    });
+
+    test(
+      'undo clears the copies from the screen, then deletes the track',
+      () async {
+        final order = <String>[];
+        final command = DuplicateTrackCommand(
+          sourceTrackId: 1,
+          sourceTrackName: 'Guitar',
+          onCleanup: (trackId) => order.add('cleanup $trackId'),
+        );
+        await command.execute(mockEngine);
+        final newTrack = command.duplicatedTrackId!;
+
+        await command.undo(mockEngine);
+
+        expect(order, ['cleanup $newTrack']);
+        expect(mockEngine.calls.last, 'deleteTrack');
+      },
+    );
   });
 
   group('RenameTrackCommand', () {

@@ -122,6 +122,7 @@ class _AudioEngineBase {
   late final _DeleteTrackFfi _deleteTrack;
   late final _DuplicateTrackFfi _duplicateTrack;
   late final _DuplicateAudioClipFfi _duplicateAudioClip;
+  late final _DuplicateAudioClipToTrackFfi _duplicateAudioClipToTrack;
   late final _RemoveAudioClipFfi _removeAudioClip;
   late final _AddExistingClipToTrackFfi _addExistingClipToTrack;
   late final _ClearAllTracksFfi _clearAllTracks;
@@ -782,6 +783,12 @@ class _AudioEngineBase {
       _duplicateAudioClip = _lib
           .lookup<ffi.NativeFunction<_DuplicateAudioClipFfiNative>>(
             'duplicate_audio_clip_ffi',
+          )
+          .asFunction();
+
+      _duplicateAudioClipToTrack = _lib
+          .lookup<ffi.NativeFunction<_DuplicateAudioClipToTrackFfiNative>>(
+            'duplicate_audio_clip_to_track_ffi',
           )
           .asFunction();
 

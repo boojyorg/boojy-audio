@@ -257,6 +257,34 @@ pub extern "C" fn duplicate_audio_clip_ffi(
     })
 }
 
+/// Copy an audio clip onto another track under a new clip ID.
+///
+/// Returns the new clip ID on success, or -1 on failure.
+#[no_mangle]
+pub extern "C" fn duplicate_audio_clip_to_track_ffi(
+    source_track_id: u64,
+    source_clip_id: u64,
+    target_track_id: u64,
+    new_start_time: f64,
+) -> i64 {
+    ffi_catch(-1, || {
+        match api::duplicate_audio_clip_to_track(
+            source_track_id,
+            source_clip_id,
+            target_track_id,
+            new_start_time,
+        ) {
+            Ok(new_clip_id) => new_clip_id as i64,
+            Err(e) => {
+                eprintln!(
+                    "[FFI] Failed to copy clip {source_clip_id} to track {target_track_id}: {e}"
+                );
+                -1
+            }
+        }
+    })
+}
+
 /// Remove an audio clip from a track
 ///
 /// Returns 1 if removed, 0 if not found, -1 on error.

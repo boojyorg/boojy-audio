@@ -1904,7 +1904,7 @@ class _DAWScreenState extends State<DAWScreen>
                   onTrackSelected: onTrackSelected,
                 ),
                 trackCallbacks: TrackManagementCallbacks(
-                  onDuplicated: onTrackDuplicated,
+                  onDuplicateRequested: onDuplicateTrackRequested,
                   onDeleted: onTrackDeleted,
                   onDeleteRequested: _onDeleteTrackRequested,
                   onMidiTrackCreated: createDefaultMidiClip,

@@ -8,7 +8,8 @@ import '../../widgets/instrument_browser.dart';
 
 /// Grouped callbacks for track CRUD operations
 class TrackManagementCallbacks {
-  final Function(int, int)? onDuplicated; // (sourceTrackId, newTrackId)
+  /// Undoable duplicate, handled by the DAW layer (it owns the clips).
+  final Future<void> Function(TrackData track)? onDuplicateRequested;
   final Function(int)? onDeleted; // (trackId)
 
   /// Undoable delete: routes to the DAW layer (which has the playback managers)
@@ -31,7 +32,7 @@ class TrackManagementCallbacks {
   final VoidCallback? onAddAudioTrack;
 
   const TrackManagementCallbacks({
-    this.onDuplicated,
+    this.onDuplicateRequested,
     this.onDeleted,
     this.onDeleteRequested,
     this.onMidiTrackCreated,

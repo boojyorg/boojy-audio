@@ -227,6 +227,21 @@ class MockAudioEngine implements AudioEngineInterface {
     return clipId + 1000;
   }
 
+  /// (source clip, target track) pairs passed to [duplicateAudioClipToTrack].
+  final List<({int clipId, int targetTrackId})> clipCopies = [];
+
+  @override
+  int duplicateAudioClipToTrack(
+    int sourceTrackId,
+    int sourceClipId,
+    int targetTrackId,
+    double startTime,
+  ) {
+    _record('duplicateAudioClipToTrack');
+    clipCopies.add((clipId: sourceClipId, targetTrackId: targetTrackId));
+    return sourceClipId + 2000;
+  }
+
   // --- Track operations ---
 
   @override

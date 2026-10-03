@@ -315,6 +315,9 @@ typedef _DuplicateTrackFfi = int Function(int);
 typedef _DuplicateAudioClipFfiNative =
     ffi.Int64 Function(ffi.Uint64, ffi.Uint64, ffi.Double);
 typedef _DuplicateAudioClipFfi = int Function(int, int, double);
+typedef _DuplicateAudioClipToTrackFfiNative =
+    ffi.Int64 Function(ffi.Uint64, ffi.Uint64, ffi.Uint64, ffi.Double);
+typedef _DuplicateAudioClipToTrackFfi = int Function(int, int, int, double);
 
 typedef _RemoveAudioClipFfiNative = ffi.Int32 Function(ffi.Uint64, ffi.Uint64);
 typedef _RemoveAudioClipFfi = int Function(int, int);

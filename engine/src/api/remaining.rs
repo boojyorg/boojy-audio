@@ -322,7 +322,7 @@ pub fn duplicate_track(track_id: TrackId) -> Result<TrackId, String> {
     }
 
     // First, collect the data we need from the source track
-    let (track_type, name, volume_db, pan, mute, audio_clips, midi_clips, fx_chain, sends) = {
+    let (track_type, name, volume_db, pan, mute, fx_chain, sends) = {
         let track_manager = graph.track_manager.lock();
         let source_track_arc = track_manager
             .get_track(track_id)
@@ -337,8 +337,6 @@ pub fn duplicate_track(track_id: TrackId) -> Result<TrackId, String> {
             source_track.volume_db,
             source_track.pan,
             source_track.mute,
-            source_track.audio_clips.clone(),
-            source_track.midi_clips.clone(),
             source_track.fx_chain.clone(),
             source_track.sends.clone(),
         )
@@ -384,9 +382,10 @@ pub fn duplicate_track(track_id: TrackId) -> Result<TrackId, String> {
         new_track.solo = false; // Don't copy solo state
         new_track.armed = false; // Don't copy armed state
 
-        // Copy clips (Arc references, so this is cheap)
-        new_track.audio_clips = audio_clips;
-        new_track.midi_clips = midi_clips;
+        // Clips are not copied here: the app copies each one through
+        // duplicate_audio_clip_to_track (and its MIDI path) so every copy
+        // gets its own ID and appears on the timeline. Copying them here
+        // shared IDs with the originals and left them playing unseen.
 
         // Use the deep-copied effects chain
         new_track.fx_chain = new_fx_chain;
@@ -413,96 +412,67 @@ pub fn duplicate_track(track_id: TrackId) -> Result<TrackId, String> {
     Ok(new_track_id)
 }
 
-/// Duplicate an audio clip on the same track at a new position
+/// Duplicate an audio clip on the same track at a new position.
 ///
-/// Creates a new timeline clip that references the same audio data
-/// but at a different start time. This is efficient as no audio data is copied.
-///
-/// # Arguments
-/// * `track_id` - Track containing the original clip
-/// * `source_clip_id` - ID of the clip to duplicate
-/// * `new_start_time` - Position (in seconds) for the duplicated clip
-///
-/// # Returns
-/// New clip ID on success
+/// Returns the new clip's ID. See [`duplicate_audio_clip_to_track`].
 pub fn duplicate_audio_clip(
     track_id: TrackId,
     source_clip_id: u64,
     new_start_time: f64,
 ) -> Result<u64, String> {
+    duplicate_audio_clip_to_track(track_id, source_clip_id, track_id, new_start_time)
+}
+
+/// Copy an audio clip onto `target_track_id` at `new_start_time` under a new
+/// clip ID: same audio (shared, not copied), trim, gain, warp, pitch, reverse
+/// and processed audio. Duplicate Track uses it to give every copied clip its
+/// own ID.
+///
+/// Returns the new clip's ID.
+pub fn duplicate_audio_clip_to_track(
+    source_track_id: TrackId,
+    source_clip_id: u64,
+    target_track_id: TrackId,
+    new_start_time: f64,
+) -> Result<u64, String> {
     let graph_mutex = graph()?;
     let graph = graph_mutex.lock();
 
-    // Find the source clip and capture all its properties
-    let (clip_arc, offset, duration, gain_db, warp_enabled, stretch_factor,
-         warp_mode, stretched_cache, cached_stretch_factor, cached_transpose_cents,
-         transpose_semitones, transpose_cents) = {
+    // The whole clip is cloned so every setting comes along, including ones
+    // added later (field-by-field copying once dropped Reverse).
+    let mut copy = {
         let track_manager = graph.track_manager.lock();
         let track_arc = track_manager
-            .get_track(track_id)
-            .ok_or(format!("Track {track_id} not found"))?;
-
+            .get_track(source_track_id)
+            .ok_or(format!("Track {source_track_id} not found"))?;
         let track = track_arc.lock();
-
-        // Find the source clip
-        let source_clip = track
+        track
             .audio_clips
             .iter()
             .find(|c| c.id == source_clip_id)
-            .ok_or(format!("Clip {source_clip_id} not found on track {track_id}"))?;
-
-        // Clone the Arc (cheap - just increments reference count)
-        (
-            source_clip.clip.clone(),
-            source_clip.offset,
-            source_clip.duration,
-            source_clip.gain_db,
-            source_clip.warp_enabled,
-            source_clip.stretch_factor,
-            source_clip.warp_mode,
-            source_clip.stretched_cache.clone(),
-            source_clip.cached_stretch_factor,
-            source_clip.cached_transpose_cents,
-            source_clip.transpose_semitones,
-            source_clip.transpose_cents,
-        )
+            .ok_or(format!(
+                "Clip {source_clip_id} not found on track {source_track_id}"
+            ))?
+            .clone()
     };
+    copy.id = graph.allocate_clip_id();
+    copy.start_time = new_start_time;
+    let new_clip_id = copy.id;
+    let audio = copy.clip.clone();
 
-    // Add a new timeline clip with the same audio data at new position
-    let new_clip_id = graph
-        .add_clip_to_track(track_id, clip_arc.clone(), new_start_time)
-        .ok_or("Failed to add duplicated clip to track")?;
-
-    // Also add to global clips map so it can be saved to project
-    {
-        let clips_mutex = clips()?;
-        let mut clips_map = clips_mutex.lock();
-        clips_map.insert(new_clip_id, clip_arc);
-    }
-
-    // Copy all source clip settings to the new clip
     {
         let track_manager = graph.track_manager.lock();
-        if let Some(track_arc) = track_manager.get_track(track_id) {
-            let mut track = track_arc.lock();
-            if let Some(new_clip) = track.audio_clips.iter_mut().find(|c| c.id == new_clip_id) {
-                new_clip.offset = offset;
-                new_clip.duration = duration;
-                new_clip.gain_db = gain_db;
-                new_clip.warp_enabled = warp_enabled;
-                new_clip.stretch_factor = stretch_factor;
-                new_clip.warp_mode = warp_mode;
-                new_clip.stretched_cache = stretched_cache;
-                new_clip.cached_stretch_factor = cached_stretch_factor;
-                new_clip.cached_transpose_cents = cached_transpose_cents;
-                new_clip.transpose_semitones = transpose_semitones;
-                new_clip.transpose_cents = transpose_cents;
-            }
-        }
+        let track_arc = track_manager
+            .get_track(target_track_id)
+            .ok_or(format!("Track {target_track_id} not found"))?;
+        track_arc.lock().audio_clips.push(copy);
     }
 
+    // The global clips map is what a save writes out.
+    clips()?.lock().insert(new_clip_id, audio);
+
     eprintln!(
-        "📋 [API] Duplicated clip {source_clip_id} → new clip {new_clip_id} at {new_start_time:.3}s"
+        "📋 [API] Duplicated clip {source_clip_id} (track {source_track_id}) → clip {new_clip_id} on track {target_track_id} at {new_start_time:.3}s"
     );
 
     Ok(new_clip_id)
