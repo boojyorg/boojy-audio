@@ -1477,3 +1477,62 @@ fn transposing_a_clip_changes_its_pitch_not_its_timing() {
         );
     }
 }
+
+// ============================================================================
+// DUPLICATE TRACK: every copied clip is its own clip
+// ============================================================================
+
+#[test]
+fn duplicated_track_gets_its_own_copy_of_each_clip() {
+    let _guard = engine_lock();
+
+    let dir = temp_dir("duplicate_track");
+    let wav = write_sine_wav(&dir, "tone.wav", 1.0, 0.5);
+    let track = create_track("Audio", "Tone".to_string()).unwrap();
+    let clip = load_audio_file_to_track_api(path_str(&wav), track, 0.5).unwrap();
+    set_audio_clip_reverse(track, clip, true).unwrap();
+
+    // The engine copies the track's settings only; it used to copy the clips
+    // too, under the originals' IDs, so they played but never showed.
+    let copy_track = duplicate_track(track).unwrap();
+    assert!(audio_clip_positions(copy_track).is_empty());
+
+    let copy = duplicate_audio_clip_to_track(track, clip, copy_track, 0.5).unwrap();
+    assert_ne!(copy, clip, "a copy gets its own ID");
+    assert_eq!(audio_clip_positions(track), vec![(clip, 0.5)]);
+    assert_eq!(audio_clip_positions(copy_track), vec![(copy, 0.5)]);
+    let copy_reversed = {
+        let graph = get_audio_graph().unwrap().lock();
+        let tm = graph.track_manager.lock();
+        let t = tm.get_track(copy_track).unwrap();
+        let t = t.lock();
+        t.audio_clips[0].reversed
+    };
+    assert!(copy_reversed, "the copy keeps the clip's edits (Reverse)");
+
+    // The copy plays on its own: mute the original and it's still heard.
+    set_track_mute(track, true).unwrap();
+    let mix = {
+        let graph = get_audio_graph().unwrap().lock();
+        graph.render_offline(1.5)
+    };
+    let peak = mix[48_000..96_000]
+        .iter()
+        .fold(0.0f32, |m, s| m.max(s.abs()));
+    assert!(peak > 0.05, "the copy is audible on its own");
+
+    // Both survive a save and reload, each with one clip of its own.
+    let project = dir.join("Dup.audio");
+    save_project("Dup".to_string(), path_str(&project)).unwrap();
+    load_project(path_str(&project)).unwrap();
+    let ids: Vec<u64> = track_ids_and_names()
+        .into_iter()
+        .map(|(id, _)| {
+            let clips = audio_clip_positions(id);
+            assert_eq!(clips.len(), 1, "track {id} keeps exactly its own clip");
+            clips[0].0
+        })
+        .collect();
+    assert_eq!(ids.len(), 2);
+    assert_ne!(ids[0], ids[1], "the two clips stay distinct after reload");
+}

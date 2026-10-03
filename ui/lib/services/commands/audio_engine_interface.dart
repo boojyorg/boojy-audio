@@ -44,6 +44,12 @@ abstract class AudioEngineInterface {
     double? duration,
   });
   int duplicateAudioClip(int trackId, int clipId, double startTime);
+  int duplicateAudioClipToTrack(
+    int sourceTrackId,
+    int sourceClipId,
+    int targetTrackId,
+    double startTime,
+  );
 
   /// Render the given audio clips on a track into one WAV, baking clip edits.
   /// Returns the rendered WAV path, or null on error. Render-only — does not

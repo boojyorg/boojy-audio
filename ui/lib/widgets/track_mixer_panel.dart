@@ -587,27 +587,8 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   }
 
   Future<void> _duplicateTrack(TrackData track) async {
-    if (widget.audioEngine == null) return;
-
-    // Use UndoRedoManager for undoable track duplication
-    final command = DuplicateTrackCommand(
-      sourceTrackId: track.id,
-      sourceTrackName: track.name,
-    );
-
-    await UndoRedoManager().execute(command);
-
-    if (command.duplicatedTrackId != null && command.duplicatedTrackId! >= 0) {
-      // Notify parent about duplication so it can copy instrument mapping
-      widget.trackCallbacks.onDuplicated?.call(
-        track.id,
-        command.duplicatedTrackId!,
-      );
-
-      _loadTracksAsync();
-    } else {
-      Log.e('TrackMixerPanel: Failed to duplicate track ${track.name}');
-    }
+    await widget.trackCallbacks.onDuplicateRequested?.call(track);
+    _loadTracksAsync();
   }
 
   void _confirmDeleteTrack(TrackData track) {

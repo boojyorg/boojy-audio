@@ -10,9 +10,32 @@ import 'command.dart';
 int _clipIdCounter = 0;
 
 /// Generate a unique clip ID that won't collide even in rapid succession
-int _generateUniqueClipId() {
+int generateUniqueClipId() {
   _clipIdCounter++;
   return DateTime.now().microsecondsSinceEpoch + _clipIdCounter;
+}
+
+/// A copy of [clip] with its own clip id and fresh note instances, sharing
+/// nothing with the original: editing either never changes the other.
+MidiClipData independentMidiCopy(
+  MidiClipData clip, {
+  int? trackId,
+  double? startTime,
+}) {
+  return clip.copyWith(
+    clipId: generateUniqueClipId(),
+    trackId: trackId,
+    startTime: startTime,
+    notes: [
+      for (final n in clip.notes)
+        MidiNoteData(
+          note: n.note,
+          velocity: n.velocity,
+          startTime: n.startTime,
+          duration: n.duration,
+        ),
+    ],
+  );
 }
 
 /// Command to move an audio clip on the timeline.
@@ -498,8 +521,8 @@ class SplitMidiClipCommand extends Command {
     this.addClip,
     this.selectClip,
   }) {
-    leftClipId = _generateUniqueClipId();
-    rightClipId = _generateUniqueClipId();
+    leftClipId = generateUniqueClipId();
+    rightClipId = generateUniqueClipId();
     _computeHalves();
   }
 
@@ -612,8 +635,8 @@ class SplitAudioClipCommand extends Command {
     this.onSplit,
     this.onUndo,
   }) {
-    leftClipId = _generateUniqueClipId();
-    rightClipId = _generateUniqueClipId();
+    leftClipId = generateUniqueClipId();
+    rightClipId = generateUniqueClipId();
   }
 
   @override
@@ -950,7 +973,7 @@ class DuplicateAudioClipCommand extends Command {
 
     if (newClipId < 0) {
       // Fallback to local-only ID if engine call fails
-      _duplicatedClipId = _generateUniqueClipId();
+      _duplicatedClipId = generateUniqueClipId();
     } else {
       _duplicatedClipId = newClipId;
     }
@@ -1101,22 +1124,8 @@ class DuplicateMidiClipCommand extends Command {
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
-    _duplicatedClipId = _generateUniqueClipId();
-
-    final newClip = originalClip.copyWith(
-      clipId: _duplicatedClipId,
-      startTime: newStartTime,
-      // Fresh note instances (new ids), so nothing is shared with the original.
-      notes: [
-        for (final n in originalClip.notes)
-          MidiNoteData(
-            note: n.note,
-            velocity: n.velocity,
-            startTime: n.startTime,
-            duration: n.duration,
-          ),
-      ],
-    );
+    final newClip = independentMidiCopy(originalClip, startTime: newStartTime);
+    _duplicatedClipId = newClip.clipId;
     onClipDuplicated?.call(newClip);
   }
 

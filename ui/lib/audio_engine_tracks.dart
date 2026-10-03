@@ -296,6 +296,26 @@ mixin _TracksMixin on _AudioEngineBase {
     }
   }
 
+  /// Copy an audio clip onto another track under a new clip ID, with all its
+  /// edits. Returns the new clip ID, or -1 on failure.
+  int duplicateAudioClipToTrack(
+    int sourceTrackId,
+    int sourceClipId,
+    int targetTrackId,
+    double startTime,
+  ) {
+    try {
+      return _duplicateAudioClipToTrack(
+        sourceTrackId,
+        sourceClipId,
+        targetTrackId,
+        startTime,
+      );
+    } catch (e) {
+      return -1;
+    }
+  }
+
   /// Remove an audio clip from a track
   /// Returns true if removed, false if not found
   bool removeAudioClip(int trackId, int clipId) {

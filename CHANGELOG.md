@@ -88,6 +88,12 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Duplicate Track shows the copied clips.** The engine copied a track's clips under the same IDs
+  as the originals, so the new track played them but the timeline never showed them, and editing
+  one could affect its twin. Each copied audio and MIDI clip now gets its own ID and appears on the
+  new track; the track's volume automation is copied too, and one undo removes it all. Duplicating
+  a single clip also keeps its Reverse setting now.
+
 - **Mixes are 3 dB louder: the master's pan is a balance control.** A centred track lost 3 dB
   to its own pan and another 3 dB to the master's, so everything played 6 dB under its source.
   Tracks keep the usual −3 dB at centre; the master's pan now only turns one side down. Existing

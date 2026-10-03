@@ -1,4 +1,8 @@
+import '../../models/clip_data.dart';
+import '../../models/midi_note_data.dart';
+import '../../utils/logger.dart';
 import 'audio_engine_interface.dart';
+import 'clip_commands.dart';
 import 'command.dart';
 
 /// Command to create a new track
@@ -358,15 +362,43 @@ class DeleteTrackCommand extends Command {
   String get description => 'Delete Track: $trackName';
 }
 
-/// Command to duplicate a track
+/// Command to duplicate a track with its clips.
+///
+/// The engine copies the track's settings (mixer, effects, sends,
+/// instrument); this command then copies every clip onto the new track under
+/// its own ID: audio clips through the engine, MIDI clips as independent
+/// copies. Copies never share an ID with their original, so they show on the
+/// timeline and can be edited separately. Undo removes the track and every
+/// copy in one step.
 class DuplicateTrackCommand extends Command {
   final int sourceTrackId;
   final String sourceTrackName;
+
+  /// The source track's clips, copied onto the new track.
+  final List<ClipData> audioClips;
+  final List<MidiClipData> midiClips;
+
+  /// Show the copies. Audio copies are already in the engine; MIDI copies
+  /// still need adding to the playback manager (which schedules them).
+  final void Function(
+    int newTrackId,
+    List<ClipData> audioCopies,
+    List<MidiClipData> midiCopies,
+  )?
+  onCopied;
+
+  /// Remove a track's clips from the screen before undo deletes it.
+  final void Function(int trackId)? onCleanup;
+
   int? _duplicatedTrackId;
 
   DuplicateTrackCommand({
     required this.sourceTrackId,
     required this.sourceTrackName,
+    this.audioClips = const [],
+    this.midiClips = const [],
+    this.onCopied,
+    this.onCleanup,
   });
 
   /// Get the ID of the duplicated track (after execute)
@@ -374,14 +406,37 @@ class DuplicateTrackCommand extends Command {
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
-    _duplicatedTrackId = engine.duplicateTrack(sourceTrackId);
+    final newTrackId = engine.duplicateTrack(sourceTrackId);
+    _duplicatedTrackId = newTrackId;
+    if (newTrackId < 0) return;
+
+    final audioCopies = <ClipData>[];
+    for (final clip in audioClips) {
+      final newClipId = engine.duplicateAudioClipToTrack(
+        sourceTrackId,
+        clip.clipId,
+        newTrackId,
+        clip.startTime,
+      );
+      if (newClipId < 0) {
+        Log.e('[DuplicateTrackCommand] failed to copy clip ${clip.clipId}');
+        continue;
+      }
+      audioCopies.add(clip.copyWith(clipId: newClipId, trackId: newTrackId));
+    }
+    final midiCopies = [
+      for (final clip in midiClips)
+        independentMidiCopy(clip, trackId: newTrackId),
+    ];
+    onCopied?.call(newTrackId, audioCopies, midiCopies);
   }
 
   @override
   Future<void> undo(AudioEngineInterface engine) async {
-    if (_duplicatedTrackId != null && _duplicatedTrackId! >= 0) {
-      engine.deleteTrack(_duplicatedTrackId!);
-    }
+    final trackId = _duplicatedTrackId;
+    if (trackId == null || trackId < 0) return;
+    onCleanup?.call(trackId);
+    engine.deleteTrack(trackId);
   }
 
   @override

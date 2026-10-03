@@ -143,6 +143,14 @@ class AudioEngine implements AudioEngineInterface {
   int duplicateAudioClip(int trackId, int clipId, double startTime) =>
       throw UnsupportedError('stub');
 
+  @override
+  int duplicateAudioClipToTrack(
+    int sourceTrackId,
+    int sourceClipId,
+    int targetTrackId,
+    double startTime,
+  ) => throw UnsupportedError('stub');
+
   // ========================================================================
   // Track Operations
   // ========================================================================
