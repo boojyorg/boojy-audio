@@ -98,6 +98,18 @@ All notable changes to Boojy Audio will be documented in this file.
   most audible on recordings. Playback and export now play every sample in order (a rendered
   take matches the file sample for sample).
 
+- **Warped clips stay in time when you change the project tempo.** Warp worked out how much to
+  stretch a clip once, from the tempo at that moment, and kept that number. After a tempo change
+  the clip moved and resized on the timeline but played at its old speed, and reopening the
+  project brought the old speed back. The stretch now always comes from the clip's BPM and the
+  current tempo; every warped clip re-stretches when a tempo change is finished (on release when
+  dragging). Re-stretching no longer holds up playback while it works.
+- **Warped clips draw their waveform at the right length.** The timeline measured a warped clip's
+  loop in project beats but its audio in its own, so at 120 BPM a 150 BPM loop showed only its
+  first 80%, stretched across the clip. Projects saved this way are corrected when opened.
+- **Undo in the audio editor changes the sound back.** Undoing a warp, gain, pitch or reverse
+  edit updated the editor but the clip kept playing with the edit.
+
 - **Warped and reversed clips export clean, and MIDI lands on its sample.** A full-mix export
   kept an old copy of the clip-playback maths, so a warped clip still had the grit in exports
   (about 2 samples in 3 played one step late). It now uses the same code as playback. Reversed

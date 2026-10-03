@@ -99,6 +99,12 @@ class ClipData {
 
   double get endTime => startTime + duration;
 
+  /// Seconds on the timeline that [sourceSeconds] of this clip's audio fills
+  /// at [projectBpm]. Duration, offset and loop length are in seconds of the
+  /// clip's own audio; warp stretches that to the project tempo.
+  double timelineSeconds(double sourceSeconds, double projectBpm) =>
+      sourceSeconds / (editData?.stretchAt(projectBpm) ?? 1.0);
+
   ClipData copyWith({
     int? clipId,
     int? trackId,

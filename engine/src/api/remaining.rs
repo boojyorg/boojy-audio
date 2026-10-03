@@ -555,35 +555,47 @@ pub fn set_audio_clip_warp(
     stretch_factor: f32,
     warp_mode: u8,
 ) -> Result<String, String> {
+    let stretch_factor = stretch_factor.clamp(0.25, 4.0);
     let graph_mutex = graph()?;
+
+    // Stretch on a copy with no locks held: the audio thread takes the track
+    // lock every buffer, so stretching under it (every step of a tempo drag
+    // re-stretched the open clip) stalled playback until it finished.
+    let find_clip = |track: &crate::track::Track| {
+        track.audio_clips.iter().position(|c| c.id == clip_id)
+    };
+    let snapshot = {
+        let graph = graph_mutex.lock();
+        let track_manager = graph.track_manager.lock();
+        let track_arc = track_manager
+            .get_track(track_id)
+            .ok_or(format!("Track {track_id} not found"))?;
+        let track = track_arc.lock();
+        let index =
+            find_clip(&track).ok_or(format!("Clip {clip_id} not found on track {track_id}"))?;
+        track.audio_clips[index].clone()
+    };
+    let stretched = snapshot.stretched_audio_for(warp_enabled, stretch_factor, warp_mode);
+
     let graph = graph_mutex.lock();
     let track_manager = graph.track_manager.lock();
+    let track_arc = track_manager
+        .get_track(track_id)
+        .ok_or(format!("Track {track_id} not found"))?;
+    let mut track = track_arc.lock();
+    let index =
+        find_clip(&track).ok_or(format!("Clip {clip_id} not found on track {track_id}"))?;
+    let clip = &mut track.audio_clips[index];
+    clip.warp_enabled = warp_enabled;
+    clip.stretch_factor = stretch_factor;
+    clip.warp_mode = warp_mode;
+    clip.cached_stretch_factor = if stretched.is_some() { stretch_factor } else { 0.0 };
+    clip.stretched_cache = stretched;
 
-    if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock();
-
-        // Find and update the clip
-        for clip in &mut track.audio_clips {
-            if clip.id == clip_id {
-                clip.warp_enabled = warp_enabled;
-                clip.stretch_factor = stretch_factor.clamp(0.25, 4.0);
-                clip.warp_mode = warp_mode;
-
-                // Rebuild stretched audio cache for Warp mode (pitch-preserved)
-                clip.rebuild_stretched_cache();
-
-                let mode_str = if warp_mode == 0 { "warp" } else { "repitch" };
-                return Ok(format!(
-                    "Clip {} warp: {}, stretch: {:.2}x, mode: {}",
-                    clip_id, warp_enabled, clip.stretch_factor, mode_str
-                ));
-            }
-        }
-
-        Err(format!("Clip {clip_id} not found on track {track_id}"))
-    } else {
-        Err(format!("Track {track_id} not found"))
-    }
+    let mode_str = if warp_mode == 0 { "warp" } else { "repitch" };
+    Ok(format!(
+        "Clip {clip_id} warp: {warp_enabled}, stretch: {stretch_factor:.2}x, mode: {mode_str}"
+    ))
 }
 
 /// Set the transpose/pitch shift of an audio clip

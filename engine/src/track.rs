@@ -88,28 +88,27 @@ impl TimelineClip {
         2_f32.powf(total_semitones / 12.0)
     }
 
-    /// Rebuild the stretched audio cache for Warp mode (pitch-preserved time-stretching).
-    /// Call this when warp settings change (`warp_enabled`, `stretch_factor`, `warp_mode`).
-    pub fn rebuild_stretched_cache(&mut self) {
+    /// The stretched audio these warp settings play from: `None` unless
+    /// warping with pitch preserved (mode 0). Reuses the current cache when
+    /// the factor hasn't changed; otherwise it stretches the whole clip, which
+    /// is slow, so call it on a copy of the clip with no locks held.
+    pub fn stretched_audio_for(
+        &self,
+        warp_enabled: bool,
+        stretch_factor: f32,
+        warp_mode: u8,
+    ) -> Option<Arc<AudioClip>> {
         use crate::stretch::stretch_audio_preserve_pitch;
 
-        // Only build cache for Warp mode (warp_mode=0) when warp is enabled
-        if self.warp_enabled && self.warp_mode == 0 {
-            // Check if we need to rebuild (stretch factor changed)
-            if self.stretched_cache.is_none()
-                || (self.cached_stretch_factor - self.stretch_factor).abs() > 0.001
-            {
-                self.stretched_cache = Some(stretch_audio_preserve_pitch(
-                    &self.clip,
-                    self.stretch_factor,
-                ));
-                self.cached_stretch_factor = self.stretch_factor;
-            }
-        } else {
-            // Clear cache for Re-Pitch mode or when warp is disabled
-            self.stretched_cache = None;
-            self.cached_stretch_factor = 0.0;
+        if !warp_enabled || warp_mode != 0 {
+            return None;
         }
+        if let Some(cache) = &self.stretched_cache {
+            if (self.cached_stretch_factor - stretch_factor).abs() <= 0.001 {
+                return Some(cache.clone());
+            }
+        }
+        Some(stretch_audio_preserve_pitch(&self.clip, stretch_factor))
     }
 
     /// Clear the stretched cache (call when clip is replaced or removed)

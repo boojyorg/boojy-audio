@@ -14,7 +14,6 @@ void main() {
         expect(data.beatUnit, 4);
         expect(data.bpm, 120.0);
         expect(data.syncEnabled, false);
-        expect(data.stretchFactor, 1.0);
         expect(data.transposeSemitones, 0);
         expect(data.fineCents, 0);
         expect(data.gainDb, 0.0);
@@ -82,9 +81,29 @@ void main() {
         expect(data.hasTempoModification, true);
       });
 
-      test('hasTempoModification is true when stretchFactor != 1.0', () {
-        const data = AudioClipEditData(stretchFactor: 2.0);
-        expect(data.hasTempoModification, true);
+      test('stretchAt follows the project tempo while warp is on', () {
+        const data = AudioClipEditData(bpm: 150.0, syncEnabled: true);
+        expect(data.stretchAt(120.0), closeTo(0.8, 1e-9));
+        expect(data.stretchAt(170.0), closeTo(170.0 / 150.0, 1e-9));
+        expect(data.stretchAt(150.0), 1.0);
+      });
+
+      test('stretchAt is 1 with warp off and clamps to the engine range', () {
+        expect(const AudioClipEditData(bpm: 150.0).stretchAt(120.0), 1.0);
+        const slow = AudioClipEditData(bpm: 20.0, syncEnabled: true);
+        expect(slow.stretchAt(300.0), 4.0);
+      });
+
+      test('loopLengthSeconds counts a warped clip in its own beats', () {
+        // 4 bars at 150 BPM is 6.4 s of audio whatever the project tempo.
+        const warped = AudioClipEditData(
+          bpm: 150.0,
+          syncEnabled: true,
+          loopEndBeats: 16.0,
+        );
+        expect(warped.loopLengthSeconds(120.0), closeTo(6.4, 1e-9));
+        const unwarped = AudioClipEditData(loopEndBeats: 16.0);
+        expect(unwarped.loopLengthSeconds(120.0), closeTo(8.0, 1e-9));
       });
     });
 
@@ -98,7 +117,6 @@ void main() {
           beatUnit: 8,
           bpm: 140.0,
           syncEnabled: true,
-          stretchFactor: 0.5,
           transposeSemitones: 5,
           fineCents: 25,
           gainDb: -3.0,
@@ -153,12 +171,6 @@ void main() {
         const data = AudioClipEditData();
         final copy = data.copyWith(syncEnabled: true);
         expect(copy.syncEnabled, true);
-      });
-
-      test('updates stretchFactor', () {
-        const data = AudioClipEditData();
-        final copy = data.copyWith(stretchFactor: 2.0);
-        expect(copy.stretchFactor, 2.0);
       });
 
       test('updates transposeSemitones', () {
@@ -259,7 +271,6 @@ void main() {
           beatUnit: 8,
           bpm: 95.0,
           syncEnabled: true,
-          stretchFactor: 0.75,
           transposeSemitones: -5,
           fineCents: 30,
           gainDb: -12.0,
@@ -286,12 +297,12 @@ void main() {
         expect(data.normalizeTargetDb, isNull);
       });
 
-      test('fromJson ignores a legacy warpMode key', () {
+      test('fromJson ignores legacy warpMode and stretchFactor keys', () {
         final data = AudioClipEditData.fromJson(const {
           'warpMode': 'repitch',
           'stretchFactor': 0.5,
         });
-        expect(data, AudioClipEditData.fromJson(const {'stretchFactor': 0.5}));
+        expect(data, const AudioClipEditData());
       });
     });
 
@@ -378,18 +389,6 @@ void main() {
         expect(data.normalizeTargetDb, -12.0);
       });
 
-      test('stretchFactor at 0.5 (half speed)', () {
-        const data = AudioClipEditData(stretchFactor: 0.5);
-        expect(data.stretchFactor, 0.5);
-        expect(data.hasTempoModification, true);
-      });
-
-      test('stretchFactor at 2.0 (double speed)', () {
-        const data = AudioClipEditData(stretchFactor: 2.0);
-        expect(data.stretchFactor, 2.0);
-        expect(data.hasTempoModification, true);
-      });
-
       test('fineCents at limits', () {
         const pos = AudioClipEditData(fineCents: 100);
         expect(pos.fineCents, 100);
@@ -434,7 +433,7 @@ void main() {
       test('returns formatted string', () {
         const data = AudioClipEditData(
           bpm: 140.0,
-          stretchFactor: 2.0,
+          syncEnabled: true,
           transposeSemitones: 5,
           gainDb: -6.0,
           reversed: true,
@@ -442,7 +441,7 @@ void main() {
 
         final str = data.toString();
         expect(str, contains('bpm: 140.0'));
-        expect(str, contains('stretch: 2.0x'));
+        expect(str, contains('warp: true'));
         expect(str, contains('transpose: 5st'));
         expect(str, contains('gain: -6.0dB'));
         expect(str, contains('reversed: true'));

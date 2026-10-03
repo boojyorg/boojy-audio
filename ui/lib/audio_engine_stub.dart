@@ -411,6 +411,7 @@ class AudioEngine implements AudioEngineInterface {
   @override
   void setTempo(double bpm) => throw UnsupportedError('stub');
 
+  @override
   double getTempo() => throw UnsupportedError('stub');
 
   @override

@@ -15,6 +15,9 @@ class MockAudioEngine implements AudioEngineInterface {
   int nextReturnId = 1;
   String trackInfoResponse = '';
 
+  /// Project tempo reported by [getTempo].
+  double tempo = 120.0;
+
   /// Configurable responses for the delete-track snapshot path.
   String trackSendsResponse = '';
   String trackEffectsResponse = '';
@@ -37,6 +40,9 @@ class MockAudioEngine implements AudioEngineInterface {
   final List<int> removedReturnIds = [];
   final List<int> removedClipIds = [];
   final List<List<int>> joinedClipIdLists = [];
+
+  /// Arguments passed to [setAudioClipWarp], in call order.
+  final List<({int clipId, bool enabled, double stretch})> warpCalls = [];
 
   /// (trackId, clipId) pairs passed to [removeMidiClip], in call order. Lets
   /// recording-undo tests assert the engine-side MIDI clip was actually
@@ -122,6 +128,9 @@ class MockAudioEngine implements AudioEngineInterface {
   }
 
   @override
+  double getTempo() => tempo;
+
+  @override
   String setAudioClipWarp(
     int trackId,
     int clipId,
@@ -129,6 +138,11 @@ class MockAudioEngine implements AudioEngineInterface {
     double stretchFactor,
   ) {
     _record('setAudioClipWarp');
+    warpCalls.add((
+      clipId: clipId,
+      enabled: warpEnabled,
+      stretch: stretchFactor,
+    ));
     return 'OK';
   }
 
