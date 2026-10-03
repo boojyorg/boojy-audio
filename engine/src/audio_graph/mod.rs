@@ -1,6 +1,8 @@
 mod device;
 mod offline;
 mod project;
+#[cfg(test)]
+mod render_tests;
 /// Audio graph and playback engine
 ///
 /// Split into focused modules:

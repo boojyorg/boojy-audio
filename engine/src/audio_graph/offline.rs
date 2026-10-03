@@ -1,7 +1,7 @@
 /// Offline rendering for export and bounce
-use super::renderer::frame_at;
+use super::renderer::{frame_at, render_audio_clip_sample};
 use super::{interpolate_automation_gain, AudioGraph};
-use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
+use crate::audio_file::TARGET_SAMPLE_RATE;
 use crate::effects::{Effect, EffectManager};
 use crate::track::{AutomationPoint, TimelineClip, TimelineMidiClip, TrackType};
 
@@ -273,95 +273,19 @@ impl AudioGraph {
                         let mut track_left = 0.0f32;
                         let mut track_right = 0.0f32;
 
-                        // Mix all audio clips on this track
+                        // Mix all audio clips on this track: the same per-clip math
+                        // as playback, so an export can't drift from what you hear.
                         for timeline_clip in &track_snap.audio_clips {
-                            let clip_duration = timeline_clip
-                                .duration
-                                .unwrap_or(timeline_clip.clip.duration_seconds);
-                            // When warp is enabled, the clip's timeline duration changes:
-                            // stretch > 1 = faster playback = clip ends sooner
-                            // stretch < 1 = slower playback = clip ends later
-                            let effective_duration = if timeline_clip.warp_enabled {
-                                clip_duration / f64::from(timeline_clip.stretch_factor)
-                            } else {
-                                clip_duration
-                            };
-                            let clip_end = timeline_clip.start_time + effective_duration;
-
-                            if playhead_seconds >= timeline_clip.start_time
-                                && playhead_seconds < clip_end
-                            {
-                                let time_in_clip = timeline_clip
-                                    .time_in_clip(playhead_seconds, effective_duration);
-                                let clip_gain = timeline_clip.get_gain();
-                                let pitch_ratio = f64::from(timeline_clip.get_pitch_ratio());
-
-                                // Determine which audio source to use and calculate frame index
-                                let (frame_in_clip, source_clip): (usize, &AudioClip) =
-                                    if timeline_clip.warp_enabled {
-                                        if timeline_clip.warp_mode == 0 {
-                                            // Warp mode: use pre-stretched cached audio (pitch preserved)
-                                            // Apply pitch ratio for transpose
-                                            if let Some(ref stretched) =
-                                                timeline_clip.stretched_cache
-                                            {
-                                                let frame = (time_in_clip
-                                                    * pitch_ratio
-                                                    * f64::from(sample_rate))
-                                                    as usize;
-                                                (frame, stretched.as_ref())
-                                            } else {
-                                                // Fallback to Re-Pitch if cache not ready
-                                                let stretched_time = time_in_clip
-                                                    * f64::from(timeline_clip.stretch_factor)
-                                                    * pitch_ratio;
-                                                (
-                                                    (stretched_time * f64::from(sample_rate))
-                                                        as usize,
-                                                    &*timeline_clip.clip,
-                                                )
-                                            }
-                                        } else {
-                                            // Re-Pitch mode: sample-rate shift (pitch follows speed)
-                                            // Also apply any additional transpose
-                                            let stretched_time = time_in_clip
-                                                * f64::from(timeline_clip.stretch_factor)
-                                                * pitch_ratio;
-                                            (
-                                                frame_at(stretched_time * f64::from(sample_rate)),
-                                                &*timeline_clip.clip,
-                                            )
-                                        }
-                                    } else {
-                                        // No warp - apply pitch ratio for transpose
-                                        (
-                                            frame_at(
-                                                time_in_clip * pitch_ratio * f64::from(sample_rate),
-                                            ),
-                                            &*timeline_clip.clip,
-                                        )
-                                    };
-
-                                if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
-                                    track_left += l * clip_gain;
-                                }
-                                if source_clip.channels > 1 {
-                                    if let Some(r) = source_clip.get_sample(frame_in_clip, 1) {
-                                        track_right += r * clip_gain;
-                                    }
-                                } else {
-                                    // Mono clip - duplicate to right
-                                    if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
-                                        track_right += l * clip_gain;
-                                    }
-                                }
-                            }
+                            let (l, r) = render_audio_clip_sample(timeline_clip, playhead_seconds);
+                            track_left += l;
+                            track_right += r;
                         }
 
                         // MIDI events landing at this exact frame
                         for timeline_midi_clip in &track_snap.midi_clips {
                             let clip_start_samples =
-                                (timeline_midi_clip.start_time * f64::from(sample_rate)) as u64;
+                                frame_at(timeline_midi_clip.start_time * f64::from(sample_rate))
+                                    as u64;
                             let clip_end_samples =
                                 clip_start_samples + timeline_midi_clip.clip.duration_samples;
 
@@ -628,8 +552,6 @@ impl AudioGraph {
         clip_ids: &[u64],
         output_path: &std::path::Path,
     ) -> Result<(f64, f64), String> {
-        use super::renderer::render_audio_clip_sample;
-
         // Snapshot the selected clips under the track lock, then drop the guard
         // before doing any heavy work (lock-safety: see sends.rs pattern).
         let clips: Vec<TimelineClip> = {
@@ -805,90 +727,18 @@ impl AudioGraph {
                     let mut track_left = 0.0f32;
                     let mut track_right = 0.0f32;
 
-                    // Mix all audio clips on this track
+                    // Mix all audio clips on this track: the same per-clip math
+                    // as playback, so an export can't drift from what you hear.
                     for timeline_clip in &track_snap.audio_clips {
-                        let clip_duration = timeline_clip
-                            .duration
-                            .unwrap_or(timeline_clip.clip.duration_seconds);
-                        // When warp is enabled, the clip's timeline duration changes:
-                        // stretch > 1 = faster playback = clip ends sooner
-                        // stretch < 1 = slower playback = clip ends later
-                        let effective_duration = if timeline_clip.warp_enabled {
-                            clip_duration / f64::from(timeline_clip.stretch_factor)
-                        } else {
-                            clip_duration
-                        };
-                        let clip_end = timeline_clip.start_time + effective_duration;
-
-                        if playhead_seconds >= timeline_clip.start_time
-                            && playhead_seconds < clip_end
-                        {
-                            let time_in_clip =
-                                timeline_clip.time_in_clip(playhead_seconds, effective_duration);
-                            let clip_gain = timeline_clip.get_gain();
-                            let pitch_ratio = f64::from(timeline_clip.get_pitch_ratio());
-
-                            // Determine which audio source to use and calculate frame index
-                            let (frame_in_clip, source_clip): (usize, &AudioClip) = if timeline_clip
-                                .warp_enabled
-                            {
-                                if timeline_clip.warp_mode == 0 {
-                                    // Warp mode: use pre-stretched cached audio (pitch preserved)
-                                    // Apply pitch ratio for transpose
-                                    if let Some(ref stretched) = timeline_clip.stretched_cache {
-                                        let frame = frame_at(
-                                            time_in_clip * pitch_ratio * f64::from(sample_rate),
-                                        );
-                                        (frame, stretched.as_ref())
-                                    } else {
-                                        // Fallback to Re-Pitch if cache not ready
-                                        let stretched_time = time_in_clip
-                                            * f64::from(timeline_clip.stretch_factor)
-                                            * pitch_ratio;
-                                        (
-                                            frame_at(stretched_time * f64::from(sample_rate)),
-                                            &*timeline_clip.clip,
-                                        )
-                                    }
-                                } else {
-                                    // Re-Pitch mode: sample-rate shift (pitch follows speed)
-                                    // Also apply any additional transpose
-                                    let stretched_time = time_in_clip
-                                        * f64::from(timeline_clip.stretch_factor)
-                                        * pitch_ratio;
-                                    (
-                                        frame_at(stretched_time * f64::from(sample_rate)),
-                                        &*timeline_clip.clip,
-                                    )
-                                }
-                            } else {
-                                // No warp - apply pitch ratio for transpose
-                                (
-                                    frame_at(time_in_clip * pitch_ratio * f64::from(sample_rate)),
-                                    &*timeline_clip.clip,
-                                )
-                            };
-
-                            if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
-                                track_left += l * clip_gain;
-                            }
-                            if source_clip.channels > 1 {
-                                if let Some(r) = source_clip.get_sample(frame_in_clip, 1) {
-                                    track_right += r * clip_gain;
-                                }
-                            } else {
-                                // Mono clip - duplicate to right
-                                if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
-                                    track_right += l * clip_gain;
-                                }
-                            }
-                        }
+                        let (l, r) = render_audio_clip_sample(timeline_clip, playhead_seconds);
+                        track_left += l;
+                        track_right += r;
                     }
 
                     // MIDI events landing at this exact frame
                     for timeline_midi_clip in &track_snap.midi_clips {
                         let clip_start_samples =
-                            (timeline_midi_clip.start_time * f64::from(sample_rate)) as u64;
+                            frame_at(timeline_midi_clip.start_time * f64::from(sample_rate)) as u64;
                         let clip_end_samples =
                             clip_start_samples + timeline_midi_clip.clip.duration_samples;
 

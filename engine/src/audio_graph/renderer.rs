@@ -187,7 +187,13 @@ pub(crate) fn render_audio_clip_sample(
     };
     let clip_end = timeline_clip.start_time + effective_duration;
 
-    if playhead_seconds < timeline_clip.start_time || playhead_seconds >= clip_end {
+    // Decide the edges on the frame grid (nearest frame): float error let a
+    // clip play one frame past its end, and a split's two halves must agree
+    // on which of them owns the frame where they meet.
+    let half_frame = 0.5 / f64::from(TARGET_SAMPLE_RATE);
+    if playhead_seconds < timeline_clip.start_time - half_frame
+        || playhead_seconds >= clip_end - half_frame
+    {
         return (0.0, 0.0);
     }
 
@@ -969,8 +975,10 @@ impl AudioGraph {
 
                                 if !skip_clips {
                                     for timeline_midi_clip in &track_snap.midi_clips {
-                                        let clip_start_samples = (timeline_midi_clip.start_time
-                                            * f64::from(TARGET_SAMPLE_RATE))
+                                        let clip_start_samples = frame_at(
+                                            timeline_midi_clip.start_time
+                                                * f64::from(TARGET_SAMPLE_RATE),
+                                        )
                                             as u64;
                                         let clip_end_samples = clip_start_samples
                                             + timeline_midi_clip.clip.duration_samples;

@@ -1,4 +1,4 @@
-use crate::audio_file::AudioClip;
+use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
 use crate::effects::EffectId;
 use crate::midi::MidiClip;
 /// Track system for M4: Mixing & Effects
@@ -69,7 +69,11 @@ impl TimelineClip {
     pub fn time_in_clip(&self, playhead_seconds: f64, effective_duration: f64) -> f64 {
         let progress = playhead_seconds - self.start_time;
         let progress = if self.reversed {
-            (effective_duration - progress).max(0.0)
+            // Reflect onto the window's LAST frame, not one past it: the
+            // first reversed frame was silent and every frame after played
+            // one late, so the window's first frame never played.
+            let last_frame = effective_duration - 1.0 / f64::from(TARGET_SAMPLE_RATE);
+            (last_frame - progress).max(0.0)
         } else {
             progress
         };
@@ -653,12 +657,13 @@ mod tests {
     fn test_time_in_clip_reversed_reflects_window() {
         let mut clip = make_timeline_clip(10.0, 0.5, 4.0);
         clip.reversed = true;
-        // At clip start, reversed playback reads from the end of the window
-        assert!((clip.time_in_clip(10.0, 4.0) - 4.5).abs() < 1e-9);
-        // 1.5s in → mirrored to 2.5s progress + offset
-        assert!((clip.time_in_clip(11.5, 4.0) - 3.0).abs() < 1e-9);
-        // Near clip end, reversed playback approaches the window start (offset)
-        assert!((clip.time_in_clip(14.0, 4.0) - 0.5).abs() < 1e-9);
+        let frame = 1.0 / 48_000.0;
+        // At clip start, reversed playback reads the window's last frame
+        assert!((clip.time_in_clip(10.0, 4.0) - (4.5 - frame)).abs() < 1e-9);
+        // 1.5s in → mirrored to 2.5s progress (less a frame) + offset
+        assert!((clip.time_in_clip(11.5, 4.0) - (3.0 - frame)).abs() < 1e-9);
+        // On the clip's last frame, reversed playback reads the window start
+        assert!((clip.time_in_clip(14.0 - frame, 4.0) - 0.5).abs() < 1e-9);
     }
 
     #[test]

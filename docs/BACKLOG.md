@@ -35,8 +35,8 @@ each state-of-play review ([RELEASING.md](RELEASING.md#milestone-reviews)).
   row 14 gets the test net that proves it. Includes the editing model ([EDITING.md](EDITING.md))
   after a throwaway Mac + iPad prototype; if the prototype says no or the work balloons, it moves
   to v0.8.
-  **Order (2026-10-01):** offline-render tests that check the audio itself (Test plan 3; the
-  clip-playback grit hid for months) → dropout counter, log and stress tests (row 1) → finish
+  **Order (2026-10-01):** ~~offline-render tests that check the audio itself~~ (done
+  2026-10-03) → dropout counter, log and stress tests (row 1) → finish
   recording (multi-track takes, loop-on recording) → projects (Save As, unsaved dot, export
   error) → editing model prototype.
 - **v0.8.0: the app feels right.** UI/UX and bugs, not new sounds: rows 4, 10, 11, 12, 14 and
@@ -101,8 +101,9 @@ tests don't cover.
    `ui/test/native/clip_drag_overlap_test.dart`). Describe outcomes, not exact clicks.
 2. **Random stress tests**: thousands of random edits, undos and save/reload cycles against
    invariants (undo restores exactly, a reopened project matches, nothing crashes).
-3. **Audio-safety checks**: fail if the audio thread allocates or waits on a lock; offline
-   renders checked for silence, clicks and invalid samples.
+3. **Audio-safety checks**: fail if the audio thread allocates or waits on a lock. Offline
+   renders are checked sample by sample (order, clip edges, levels, clicks, export files:
+   `engine/src/audio_checks.rs`); the live mix and loop wrap need a sound card, so aren't.
 4. **A failing test before every fix.** A bug found only by reading code is a candidate.
 5. **Builds reach Tyr after the suites pass**, and new UI is rendered and checked first.
 6. **A local log and an audio-dropout counter**, so "it crackled" comes with data.

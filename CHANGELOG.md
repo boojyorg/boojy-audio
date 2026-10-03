@@ -98,6 +98,13 @@ All notable changes to Boojy Audio will be documented in this file.
   most audible on recordings. Playback and export now play every sample in order (a rendered
   take matches the file sample for sample).
 
+- **Warped and reversed clips export clean, and MIDI lands on its sample.** A full-mix export
+  kept an old copy of the clip-playback maths, so a warped clip still had the grit in exports
+  (about 2 samples in 3 played one step late). It now uses the same code as playback. Reversed
+  clips started with a silent sample, played every sample one step late and never reached
+  their first sample. Every clip played one sample past its end. Notes in a MIDI clip could
+  start one sample early. Engine tests now check rendered audio sample by sample.
+
 - **A take recorded straight after Record → New Audio Track is kept.** The UI decided whether a
   take had audio from its own track list, which hadn't yet seen the new track armed, and
   discarded the clip. The finished clip is now placed where the engine recorded it.

@@ -1217,3 +1217,124 @@ fn offline_render_pins_builtin_fx_to_engine_rate_and_restores_the_live_rate() {
             .set_sample_rate(TARGET_SAMPLE_RATE as f32);
     }
 }
+
+// ============================================================================
+// EXPORTED FILES HOLD THE RENDER (the audio itself, not just a valid file)
+// ============================================================================
+
+/// Every sample of an exported WAV, as floats (integer formats scaled to ±1).
+fn read_wav_samples(path: &Path) -> (hound::WavSpec, Vec<f32>) {
+    let mut reader = hound::WavReader::open(path).unwrap();
+    let spec = reader.spec();
+    let samples = match spec.sample_format {
+        hound::SampleFormat::Float => reader.samples::<f32>().map(Result::unwrap).collect(),
+        hound::SampleFormat::Int => {
+            let full_scale = (1i64 << (spec.bits_per_sample - 1)) as f32;
+            reader
+                .samples::<i32>()
+                .map(|s| s.unwrap() as f32 / full_scale)
+                .collect()
+        }
+    };
+    (spec, samples)
+}
+
+#[test]
+fn exported_wav_holds_the_render_at_every_bit_depth() {
+    use crate::export::{ExportOptions, WavBitDepth};
+
+    let _guard = engine_lock();
+
+    let dir = temp_dir("export_holds_render");
+    let wav = write_sine_wav(&dir, "source.wav", 2.0, 0.5);
+    let track_id = create_track("Audio", "Mix".to_string()).unwrap();
+    load_audio_file_to_track_api(path_str(&wav), track_id, 0.0).unwrap();
+    set_track_pan(track_id, -0.3).unwrap(); // keep L and R different
+
+    let render = {
+        let graph = get_audio_graph().unwrap().lock();
+        graph.render_offline(graph.calculate_project_duration())
+    };
+
+    // Float is the render bit for bit; integer formats are within one step
+    // of their resolution (no dither requested).
+    for (depth, step) in [
+        (WavBitDepth::Float32, 0.0),
+        (WavBitDepth::Int24, 1.0 / 8_388_608.0),
+        (WavBitDepth::Int16, 1.0 / 32_768.0),
+    ] {
+        let options = ExportOptions::wav(depth).with_sample_rate(TARGET_SAMPLE_RATE);
+        let out = dir.join(format!("{depth:?}.wav"));
+        export_audio(path_str(&out), export_options_json(&options)).unwrap();
+
+        let (spec, file) = read_wav_samples(&out);
+        assert_eq!(spec.channels, 2, "{depth:?}: stereo");
+        assert_eq!(
+            file.len(),
+            render.len(),
+            "{depth:?}: same length as the render"
+        );
+        let worst = file
+            .iter()
+            .zip(&render)
+            .map(|(f, r)| (f - r).abs())
+            .fold(0.0f32, f32::max);
+        assert!(
+            worst <= step,
+            "{depth:?}: exported samples differ from the render by up to {worst}"
+        );
+    }
+}
+
+#[test]
+fn export_at_44_1_khz_keeps_length_pitch_and_smoothness() {
+    use crate::audio_checks::{assert_valid, channel, clicks, frequency};
+    use crate::export::{ExportOptions, WavBitDepth};
+
+    let _guard = engine_lock();
+
+    let dir = temp_dir("export_44k");
+    let wav = write_sine_wav(&dir, "source.wav", 4.0, 0.5);
+    let track_id = create_track("Audio", "Mix".to_string()).unwrap();
+    load_audio_file_to_track_api(path_str(&wav), track_id, 0.0).unwrap();
+
+    let rendered_frames = {
+        let graph = get_audio_graph().unwrap().lock();
+        graph
+            .render_offline(graph.calculate_project_duration())
+            .len()
+            / 2
+    };
+
+    let options = ExportOptions::wav(WavBitDepth::Float32).with_sample_rate(44_100);
+    let out = dir.join("cd.wav");
+    export_audio(path_str(&out), export_options_json(&options)).unwrap();
+    let (spec, file) = read_wav_samples(&out);
+    assert_eq!(spec.sample_rate, 44_100);
+    assert_valid(&file, "44.1 kHz export");
+
+    let frames = file.len() / 2;
+    let expected = rendered_frames as f64 * 44_100.0 / 48_000.0;
+    assert!(
+        (frames as f64 - expected).abs() <= 2.0,
+        "same running time: expected ≈{expected:.0} frames, got {frames}"
+    );
+
+    // Inside the tone (away from where the clip starts and stops): still
+    // 440 Hz, and no step steeper than the tone itself makes.
+    let left = channel(&file, 0);
+    let tone = &left[4_410..4 * 44_100 - 4_410];
+    let hz = frequency(tone, 44_100);
+    assert!(
+        (hz - 440.0).abs() < 1.0,
+        "pitch after resampling: {hz:.2} Hz"
+    );
+    let peak = tone.iter().fold(0.0f32, |m, s| m.max(s.abs()));
+    let steepest = (std::f64::consts::TAU * 440.0 / 44_100.0) as f32 * peak;
+    let found = clicks(tone, steepest * 1.05);
+    assert!(
+        found.is_empty(),
+        "clicks in the resampled tone at frames {:?}",
+        &found[..found.len().min(5)]
+    );
+}
