@@ -78,6 +78,8 @@ reproduces them.
 - *If reproduced:*
   - New Project keeps the previous tempo and time signature (U2).
   - The volume fader jumps when grabbed (U3).
+  - Trimming the start of a warped clip may play from the wrong point: the engine reads the
+    offset in stretched time, the timeline stores it in the clip's own time.
   - Save As renames before the folder is picked; cancel leaves it renamed (U5).
   - No unsaved-changes signal (U6): a quiet dot beside the name; close warns only when dirty.
   - The drag-to-create preview drifts when scrolled (U10).

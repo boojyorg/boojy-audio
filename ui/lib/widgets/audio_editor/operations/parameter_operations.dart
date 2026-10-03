@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../models/clip_data.dart';
 import '../../../models/audio_clip_edit_data.dart';
+import '../../../services/audio_clip_engine_sync.dart';
 import '../../../services/commands/audio_engine_interface.dart';
 import '../../../services/commands/command.dart';
 import '../audio_editor.dart';
@@ -57,55 +58,20 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
   void notifyClipUpdated() {
     if (currentClip == null) return;
 
-    // Calculate loop length in seconds from beats
-    // loopLengthBeats = loopEndBeats - loopStartBeats (from editData)
-    final loopLengthBeats = editData.loopEndBeats - editData.loopStartBeats;
-    final beatsPerSecond = widget.projectTempo / 60.0;
-    final loopLengthSeconds = loopLengthBeats / beatsPerSecond;
-
     final updatedClip = currentClip!.copyWith(
       editData: editData,
       canRepeat: editData.loopEnabled,
-      loopLength: loopLengthSeconds,
+      loopLength: editData.loopLengthSeconds(widget.projectTempo),
     );
     widget.onClipUpdated?.call(updatedClip);
   }
 
   /// Send parameters to audio engine for real-time processing.
   void sendToAudioEngine() {
-    if (currentClip == null || widget.audioEngine == null) return;
-
-    final clip = currentClip!;
-    final engine = widget.audioEngine!;
-
-    // Send clip gain to audio engine
-    engine.setAudioClipGain(clip.trackId, clip.clipId, editData.gainDb);
-
-    // Send warp settings to audio engine
-    engine.setAudioClipWarp(
-      clip.trackId,
-      clip.clipId,
-      editData.syncEnabled,
-      editData.stretchFactor,
-    );
-
-    // Send transpose/pitch shift to audio engine
-    engine.setAudioClipTranspose(
-      clip.trackId,
-      clip.clipId,
-      editData.transposeSemitones,
-      editData.fineCents,
-    );
-
-    // Send reverse playback to audio engine
-    engine.setAudioClipReverse(
-      clip.trackId,
-      clip.clipId,
-      reversed: editData.reversed,
-    );
-
-    // Future: FFI for normalize
-    // - setAudioClipNormalize(trackId, clipId, targetDb)
+    final clip = currentClip;
+    final engine = widget.audioEngine;
+    if (clip == null || engine == null) return;
+    pushAudioClipEdits(engine, clip.trackId, clip.clipId, editData);
   }
 
   // ============================================
@@ -214,17 +180,6 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
     sendToAudioEngine();
     commitToHistory(newValue ? 'Enable tempo sync' : 'Disable tempo sync');
   }
-
-  /// Set stretch factor.
-  void setStretch(double factor) {
-    saveToHistory();
-    setState(() {
-      editData = editData.copyWith(stretchFactor: factor.clamp(0.25, 4.0));
-    });
-    notifyClipUpdated();
-    sendToAudioEngine();
-    commitToHistory('Set stretch to ${factor}x');
-  }
 }
 
 /// Command for undo/redo of audio clip edit operations.
@@ -245,12 +200,19 @@ class AudioClipEditCommand extends Command {
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
-    onApplyState(afterState, clipData);
+    _apply(engine, afterState);
   }
 
   @override
   Future<void> undo(AudioEngineInterface engine) async {
-    onApplyState(beforeState, clipData);
+    _apply(engine, beforeState);
+  }
+
+  // The engine gets the state too: undo used to change only the editor, so
+  // an undone warp, gain or pitch edit kept playing.
+  void _apply(AudioEngineInterface engine, AudioClipEditData state) {
+    pushAudioClipEdits(engine, clipData.trackId, clipData.clipId, state);
+    onApplyState(state, clipData);
   }
 
   @override

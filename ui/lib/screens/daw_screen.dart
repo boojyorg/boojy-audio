@@ -30,6 +30,7 @@ import '../models/vst3_plugin_data.dart';
 import '../models/clip_data.dart';
 import '../models/library_item.dart';
 import '../models/track_data.dart';
+import '../services/audio_clip_engine_sync.dart';
 import '../services/commands/command.dart';
 import '../services/user_settings.dart';
 import '../services/commands/track_commands.dart';
@@ -646,6 +647,12 @@ class _DAWScreenState extends State<DAWScreen>
           clip.clipId,
           clip.startTime,
         );
+      }
+      // Warped clips follow the new tempo once the change is finished; on
+      // every drag step it would re-stretch each clip's audio.
+      final engine = audioEngine;
+      if (engine != null && !_tempoDragging) {
+        pushWarpForTempo(engine, timelineClips);
       }
     }
     syncAllVolumeAutomationToEngine();

@@ -100,14 +100,10 @@ class _AudioEditorState extends State<AudioEditor>
     } else if (widget.projectBeatsPerBar != oldWidget.projectBeatsPerBar) {
       setState(() => beatsPerBar = widget.projectBeatsPerBar);
     }
-    // Recalculate when project tempo changes
+    // Recalculate visual beat duration (only affects warp OFF clips). The
+    // DAW re-stretches warped clips once the tempo change is finished.
     if (widget.projectTempo != oldWidget.projectTempo) {
-      setState(() {
-        _updateStretchFactor();
-        // Recalculate visual beat duration (only affects warp OFF clips)
-        recalculateBeatsForTempo(widget.projectTempo);
-      });
-      sendToAudioEngine();
+      setState(() => recalculateBeatsForTempo(widget.projectTempo));
     }
   }
 
@@ -427,8 +423,6 @@ class _AudioEditorState extends State<AudioEditor>
     final newValue = !editData.syncEnabled;
     setState(() {
       editData = editData.copyWith(syncEnabled: newValue);
-      // Recalculate stretch factor when warp is toggled
-      _updateStretchFactor();
     });
     notifyClipUpdated();
     sendToAudioEngine();
@@ -440,30 +434,12 @@ class _AudioEditorState extends State<AudioEditor>
     final clampedBpm = value.clamp(20.0, 999.0);
     setState(() {
       editData = editData.copyWith(bpm: clampedBpm);
-      // Recalculate stretch factor when original BPM changes
-      _updateStretchFactor();
       // Recalculate waveform beat duration (stretches/squeezes waveform display)
       recalculateBeatsForOriginalBpm(clampedBpm);
     });
     notifyClipUpdated();
     sendToAudioEngine();
     commitToHistory('Set original BPM to ${clampedBpm.toStringAsFixed(1)}');
-  }
-
-  /// Recalculate stretch factor based on warp state and tempos
-  void _updateStretchFactor() {
-    if (!editData.syncEnabled) {
-      // Warp off - no stretching
-      editData = editData.copyWith(stretchFactor: 1.0);
-    } else {
-      // Warp on - stretch to project tempo
-      final projectBpm = widget.projectTempo;
-      final clipBpm = editData.bpm;
-      if (clipBpm > 0) {
-        final stretch = projectBpm / clipBpm;
-        editData = editData.copyWith(stretchFactor: stretch.clamp(0.25, 4.0));
-      }
-    }
   }
 
   // ============================================

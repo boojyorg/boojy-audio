@@ -23,7 +23,6 @@ void main() {
         beatUnit: 8,
         bpm: 140.0,
         syncEnabled: true,
-        stretchFactor: 1.5,
         transposeSemitones: -5,
         fineCents: 25,
         gainDb: -3.5,

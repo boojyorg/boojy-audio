@@ -1,5 +1,6 @@
 import 'dart:ui' show Color;
 
+import 'package:boojy_audio/models/audio_clip_edit_data.dart';
 import 'package:boojy_audio/models/clip_data.dart';
 import 'package:boojy_audio/utils/audio_clips_info.dart';
 import 'package:boojy_audio/utils/audio_file_names.dart';
@@ -124,6 +125,31 @@ void main() {
       // The user's dropped file is what the clip shows and reloads from.
       expect(clip.filePath, '/samples/808 Kick.wav');
       expect(clip.fileName, '808 Kick.wav');
+    });
+
+    test("a warped clip's loop length is redone from its own beats", () {
+      // Saved by an older build at the project tempo of the day (120 BPM):
+      // 16 beats = 8 s, though 4 bars at the clip's 150 BPM is 6.4 s of
+      // audio. That drew the waveform 25% too long with the last bar missing.
+      final saved = ClipData(
+        clipId: 5,
+        trackId: 1,
+        filePath: '/samples/loop.wav',
+        startTime: 0,
+        duration: 6.4,
+        loopLength: 8.0,
+        editData: const AudioClipEditData(
+          bpm: 150,
+          syncEnabled: true,
+          loopEndBeats: 16,
+        ),
+      );
+      final rebuilt = rebuildAudioClips(
+        engineClips: [_engine(id: 5, fileDuration: 6.4)],
+        savedClips: [saved],
+        peaksFor: _peaks,
+      );
+      expect(rebuilt.single.loopLength, closeTo(6.4, 1e-9));
     });
 
     test(

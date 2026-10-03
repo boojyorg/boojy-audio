@@ -1338,3 +1338,95 @@ fn export_at_44_1_khz_keeps_length_pitch_and_smoothness() {
         &found[..found.len().min(5)]
     );
 }
+
+// ============================================================================
+// WARP: a warped clip stays on the beat at any project tempo
+// ============================================================================
+
+/// A 4-bar 150 BPM click track: a short 1 kHz burst on every beat.
+fn write_click_track(dir: &Path) -> PathBuf {
+    let path = dir.join("clicks_150.wav");
+    let spec = hound::WavSpec {
+        channels: 2,
+        sample_rate: TARGET_SAMPLE_RATE,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+    let mut writer = hound::WavWriter::create(&path, spec).unwrap();
+    let sr = TARGET_SAMPLE_RATE as usize;
+    let beat = sr * 60 / 150; // 19200 frames
+    for i in 0..16 * beat {
+        let in_burst = i % beat < sr / 100; // 10 ms
+        let v = if in_burst {
+            0.8 * (std::f32::consts::TAU * 1000.0 * i as f32 / sr as f32).sin()
+        } else {
+            0.0
+        };
+        writer.write_sample(v).unwrap();
+        writer.write_sample(v).unwrap();
+    }
+    writer.finalize().unwrap();
+    path
+}
+
+/// Where each beat's click sits: the energy centre of the audio within half
+/// a beat either side of `beat_frames * k`. Measuring the centre, not the
+/// first loud sample, keeps the stretcher's slight smearing of an attack
+/// from reading as a timing error.
+fn click_centres(samples: &[f32], beat_frames: f64, beats: usize) -> Vec<f64> {
+    (0..beats)
+        .map(|k| {
+            let centre = k as f64 * beat_frames;
+            let from = (centre - beat_frames / 2.0).max(0.0) as usize;
+            let to = ((centre + beat_frames / 2.0) as usize).min(samples.len());
+            let (weighted, total) = (from..to).fold((0.0, 0.0), |(w, t), i| {
+                let e = f64::from(samples[i]).powi(2);
+                (w + e * i as f64, t + e)
+            });
+            weighted / total
+        })
+        .collect()
+}
+
+#[test]
+fn warped_clip_lands_on_the_beat_at_any_project_tempo() {
+    let _guard = engine_lock();
+
+    let dir = temp_dir("warp_on_beat");
+    let wav = write_click_track(&dir);
+    let track_id = create_track("Audio", "Clicks".to_string()).unwrap();
+    let clip_id = load_audio_file_to_track_api(path_str(&wav), track_id, 0.0).unwrap();
+
+    for tempo in [120.0, 170.0, 150.0, 97.0] {
+        set_tempo(tempo).unwrap();
+        // The clip is 150 BPM; warp stretches it to the project tempo.
+        set_audio_clip_warp(track_id, clip_id, true, (tempo / 150.0) as f32, 0).unwrap();
+
+        let beat_seconds = 60.0 / tempo;
+        let mix = {
+            let graph = get_audio_graph().unwrap().lock();
+            graph.render_offline(16.0 * beat_seconds + 0.5)
+        };
+        let left: Vec<f32> = mix.iter().step_by(2).copied().collect();
+        let sr = f64::from(TARGET_SAMPLE_RATE);
+        let centres = click_centres(&left, beat_seconds * sr, 16);
+        // Each click is a 10 ms burst at the start of its beat, stretched
+        // along with everything else.
+        let burst_centre = 0.005 * (150.0 / tempo) * sr;
+        for (beat, centre) in centres.iter().enumerate() {
+            let expected = beat as f64 * beat_seconds * sr + burst_centre;
+            let off_ms = (centre - expected) / sr * 1000.0;
+            assert!(
+                off_ms.abs() < 2.0,
+                "{tempo} BPM: beat {beat} lands {off_ms:.1} ms off the grid"
+            );
+        }
+        // …and the clip ends with its 16th beat, not before or after.
+        let after = (16.0 * beat_seconds * sr) as usize + 2_400;
+        let tail = left[after..].iter().fold(0.0f32, |m, s| m.max(s.abs()));
+        assert!(
+            tail < 0.01,
+            "{tempo} BPM: sound after the clip's last beat ({tail})"
+        );
+    }
+}

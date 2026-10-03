@@ -2,6 +2,7 @@ import '../../models/clip_data.dart';
 import '../../utils/logger.dart';
 import '../../models/midi_note_data.dart';
 import '../../utils/clip_overlap_handler.dart';
+import '../audio_clip_engine_sync.dart';
 import 'audio_engine_interface.dart';
 import 'command.dart';
 
@@ -907,24 +908,7 @@ class JoinAudioClipsCommand extends Command {
       // the saved edits so an edited clip comes back exactly as it was.
       final edit = clip.editData;
       if (edit != null) {
-        engine.setAudioClipGain(trackId, clip.clipId, edit.gainDb);
-        engine.setAudioClipWarp(
-          trackId,
-          clip.clipId,
-          edit.syncEnabled,
-          edit.stretchFactor,
-        );
-        engine.setAudioClipTranspose(
-          trackId,
-          clip.clipId,
-          edit.transposeSemitones,
-          edit.fineCents,
-        );
-        engine.setAudioClipReverse(
-          trackId,
-          clip.clipId,
-          reversed: edit.reversed,
-        );
+        pushAudioClipEdits(engine, trackId, clip.clipId, edit);
       }
     }
 
