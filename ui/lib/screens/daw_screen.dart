@@ -545,7 +545,7 @@ class _DAWScreenState extends State<DAWScreen>
         // L is also a note on the computer-keyboard piano; the piano wins
         // while it is open.
         if (uiLayout.isVirtualPianoEnabled) return false;
-        uiLayout.toggleLoopPlayback();
+        toggleLoop();
         return true;
       case LogicalKeyboardKey.keyM:
         toggleMetronome();
@@ -1524,7 +1524,7 @@ class _DAWScreenState extends State<DAWScreen>
             onRedo: undoRedoManager.canRedo ? performRedo : null,
             onMetronomeToggle: toggleMetronome,
             onPianoToggle: toggleVirtualPiano,
-            onLoopPlaybackToggle: uiLayout.toggleLoopPlayback,
+            onLoopPlaybackToggle: toggleLoop,
             onPositionChanged: (seconds) {
               playbackController.seek(seconds);
             },

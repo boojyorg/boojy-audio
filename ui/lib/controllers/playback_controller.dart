@@ -41,6 +41,39 @@ class PlaybackController extends ChangeNotifier {
   double _loopEndBeats = 16.0; // bars 1-4, matches UILayoutState default
   double _loopTempo = 120.0;
 
+  /// Engine position at the previous timer tick, to see the loop end crossed.
+  double _lastEnginePos = 0.0;
+
+  /// Where to jump when playback moves from [previous] to [current]
+  /// (seconds), or null to play on. Only crossing the loop end from inside
+  /// the loop jumps back: turning loop on with the playhead already past the
+  /// end lets the song carry on, as other DAWs do.
+  static double? loopWrapTarget({
+    required double previous,
+    required double current,
+    required double loopStartSeconds,
+    required double loopEndSeconds,
+  }) {
+    final crossedEnd = previous < loopEndSeconds && current >= loopEndSeconds;
+    return crossedEnd ? loopStartSeconds : null;
+  }
+
+  /// Turn loop cycling on or off while playing (the loop button or L). Before
+  /// this, the loop setting was only read when Play was pressed.
+  void setLoopCycling({
+    required bool enabled,
+    required double loopStartBeats,
+    required double loopEndBeats,
+    required double tempo,
+  }) {
+    if (!_isPlaying) return; // the next Play reads the setting
+    _isLoopCycling = enabled;
+    _loopStartBeats = loopStartBeats;
+    _loopEndBeats = loopEndBeats;
+    _loopTempo = tempo;
+    _lastEnginePos = _audioEngine?.getPlayheadPosition() ?? _playheadPosition;
+  }
+
   /// Update loop bounds in real-time during playback.
   /// Call this when the user drags loop handles while playing.
   void updateLoopBounds({
@@ -78,6 +111,7 @@ class PlaybackController extends ChangeNotifier {
     _loopTempo = newBpm;
 
     final scale = oldBpm / newBpm;
+    _lastEnginePos *= scale;
     _playStartPosition *= scale;
     _recordStartPosition *= scale;
     _playheadDisplayOffset *= scale;
@@ -168,6 +202,7 @@ class PlaybackController extends ChangeNotifier {
         _playheadPosition = loopStartSeconds;
       }
 
+      _lastEnginePos = _audioEngine!.getPlayheadPosition();
       _audioEngine!.transportPlay();
       _isPlaying = true;
       notifyListeners();
@@ -306,17 +341,22 @@ class PlaybackController extends ChangeNotifier {
           );
         }
 
-        // Loop cycling: jump back to start when reaching end
+        // Loop cycling: jump back to the start on crossing the end.
+        var enginePos = pos;
         if (_isLoopCycling) {
-          // Convert loop bounds from beats to seconds for comparison
-          final loopEndSeconds = _loopEndBeats * 60.0 / _loopTempo;
-          final loopStartSeconds = _loopStartBeats * 60.0 / _loopTempo;
-
-          if (pos >= loopEndSeconds) {
-            _audioEngine!.transportSeek(loopStartSeconds);
-            _playheadPosition = loopStartSeconds;
+          final target = loopWrapTarget(
+            previous: _lastEnginePos,
+            current: pos,
+            loopStartSeconds: _loopStartBeats * 60.0 / _loopTempo,
+            loopEndSeconds: _loopEndBeats * 60.0 / _loopTempo,
+          );
+          if (target != null) {
+            _audioEngine!.transportSeek(target);
+            _playheadPosition = target;
+            enginePos = target;
           }
         }
+        _lastEnginePos = enginePos;
 
         // PERFORMANCE: Only update playhead notifier, not full controller.
         // This prevents 60fps full widget rebuilds during playback.

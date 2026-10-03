@@ -50,6 +50,19 @@ mixin DAWPlaybackMixin on State<DAWScreen>, DAWScreenStateMixin {
     }
   }
 
+  /// Loop button / L: turn loop on or off, straight away when playing.
+  /// (Loop-on recording is undecided, so a take in progress isn't changed.)
+  void toggleLoop() {
+    uiLayout.toggleLoopPlayback();
+    if (!isPlaying || isRecording) return;
+    playbackController.setLoopCycling(
+      enabled: uiLayout.loopPlaybackEnabled,
+      loopStartBeats: uiLayout.loopStartBeats,
+      loopEndBeats: uiLayout.loopEndBeats,
+      tempo: tempo,
+    );
+  }
+
   /// Play the loop region, cycling forever until stopped
   void playLoopRegion() {
     // Get loop bounds from UI layout state
