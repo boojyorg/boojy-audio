@@ -78,6 +78,8 @@ reproduces them.
 - *If reproduced:*
   - New Project keeps the previous tempo and time signature (U2).
   - The volume fader jumps when grabbed (U3).
+  - The loop's jump back is timed by the UI's 60 fps timer, not the engine, so it can land a
+    frame or more late (a stutter at the loop point). The engine should own the loop.
   - Trimming the start of a warped clip may play from the wrong point: the engine reads the
     offset in stretched time, the timeline stores it in the clip's own time.
   - Save As renames before the folder is picked; cancel leaves it renamed (U5).

@@ -98,6 +98,11 @@ All notable changes to Boojy Audio will be documented in this file.
   most audible on recordings. Playback and export now play every sample in order (a rendered
   take matches the file sample for sample).
 
+- **Turning loop on or off while playing works straight away.** The loop button and L were only
+  read when Play was pressed, so turning loop on mid-song did nothing (and turning it off kept
+  looping) until the next Play. Turning it on with the playhead already past the loop end lets
+  the song play on; it loops once the playhead next runs through the loop.
+
 - **Transposing a clip changes its pitch, not its speed.** Transpose used to play the audio faster
   or slower, like a sped-up record: +12 played at double speed and ran out of sync, even on warped
   clips. The pitch is now shifted with the clip's length and timing unchanged, warped or not.

@@ -284,4 +284,42 @@ void main() {
       expect(() => controller.handleTempoChange(120.0, 90.0), returnsNormally);
     });
   });
+
+  group('loopWrapTarget', () {
+    // Loop bars 1-2 at 120 BPM: 0 s to 4 s.
+    double? wrap(double previous, double current) =>
+        PlaybackController.loopWrapTarget(
+          previous: previous,
+          current: current,
+          loopStartSeconds: 0,
+          loopEndSeconds: 4,
+        );
+
+    test('jumps back on crossing the loop end from inside', () {
+      expect(wrap(3.99, 4.01), 0);
+    });
+
+    test('plays on inside the loop', () {
+      expect(wrap(1.0, 1.016), isNull);
+    });
+
+    test('loop turned on past the end: the song carries on', () {
+      expect(wrap(9.0, 9.016), isNull);
+    });
+  });
+
+  group('setLoopCycling', () {
+    test('does nothing while stopped (Play reads the setting)', () {
+      final controller = PlaybackController();
+      expect(
+        () => controller.setLoopCycling(
+          enabled: true,
+          loopStartBeats: 0,
+          loopEndBeats: 8,
+          tempo: 120,
+        ),
+        returnsNormally,
+      );
+    });
+  });
 }
