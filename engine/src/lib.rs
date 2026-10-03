@@ -48,6 +48,8 @@ macro_rules! dlog {
 // ============================================
 // Core modules (shared across all platforms)
 // ============================================
+#[cfg(test)]
+mod audio_checks; // Test-only checks on rendered audio
 pub mod audio_file;
 mod audio_graph;
 pub mod drum_kit; // Drum Kit instrument (multi-slot one-shot sampler)
