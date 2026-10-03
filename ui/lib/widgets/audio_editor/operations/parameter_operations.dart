@@ -18,6 +18,35 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
     snapshotBeforeAction = editData;
   }
 
+  /// True while a control is being dragged: each step updates the editor and
+  /// timeline, and the engine and undo history get the result once, on
+  /// release (BPM and pitch changes re-render the clip's audio).
+  bool liveDragging = false;
+
+  void beginLiveDrag() {
+    liveDragging = true;
+    saveToHistory();
+  }
+
+  void endLiveDrag(String actionDescription) {
+    liveDragging = false;
+    if (snapshotBeforeAction == editData) {
+      snapshotBeforeAction = null; // dragged back to where it started
+      return;
+    }
+    sendToAudioEngine();
+    commitToHistory(actionDescription);
+  }
+
+  /// Finish one edit: tell the timeline, then (unless mid-drag) the engine
+  /// and the undo history.
+  void finishEdit(String actionDescription) {
+    notifyClipUpdated();
+    if (liveDragging) return;
+    sendToAudioEngine();
+    commitToHistory(actionDescription);
+  }
+
   /// Commit changes to history after making changes.
   void commitToHistory(String actionDescription) {
     if (snapshotBeforeAction == null || currentClip == null) return;
@@ -80,26 +109,22 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
 
   /// Set transpose amount in semitones (-48 to +48).
   void setTranspose(int semitones) {
-    saveToHistory();
+    if (!liveDragging) saveToHistory();
     setState(() {
       editData = editData.copyWith(
         transposeSemitones: semitones.clamp(-48, 48),
       );
     });
-    notifyClipUpdated();
-    sendToAudioEngine();
-    commitToHistory('Set transpose to $semitones semitones');
+    finishEdit('Set transpose to $semitones semitones');
   }
 
   /// Set fine pitch adjustment in cents (-50 to +50).
   void setFineCents(int cents) {
-    saveToHistory();
+    if (!liveDragging) saveToHistory();
     setState(() {
       editData = editData.copyWith(fineCents: cents.clamp(-50, 50));
     });
-    notifyClipUpdated();
-    sendToAudioEngine();
-    commitToHistory('Set fine tune to $cents cents');
+    finishEdit('Set fine tune to $cents cents');
   }
 
   // ============================================

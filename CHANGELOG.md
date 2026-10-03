@@ -98,6 +98,11 @@ All notable changes to Boojy Audio will be documented in this file.
   most audible on recordings. Playback and export now play every sample in order (a rendered
   take matches the file sample for sample).
 
+- **Transposing a clip changes its pitch, not its speed.** Transpose used to play the audio faster
+  or slower, like a sped-up record: +12 played at double speed and ran out of sync, even on warped
+  clips. The pitch is now shifted with the clip's length and timing unchanged, warped or not.
+  Dragging the pitch applies it once, when you let go, with one undo step.
+
 - **Dragging a number keeps the pointer still.** Dragging the tempo, time signature, a knob, the
   volume readout, or the audio editor's BPM, pitch or loop length now hides the pointer and leaves
   it where you pressed; it reappears there when you let go, and a long drag no longer runs into

@@ -155,8 +155,12 @@ class _AudioEditorState extends State<AudioEditor>
                   onWarpToggle: _toggleWarp,
                   originalBpm: editData.bpm,
                   onOriginalBpmChanged: _onOriginalBpmChanged,
-                  onOriginalBpmDragStart: _onOriginalBpmDragStart,
-                  onOriginalBpmDragEnd: _onOriginalBpmDragEnd,
+                  onOriginalBpmDragStart: beginLiveDrag,
+                  onOriginalBpmDragEnd: () => endLiveDrag(
+                    'Set original BPM to ${editData.bpm.toStringAsFixed(1)}',
+                  ),
+                  onPitchDragStart: beginLiveDrag,
+                  onPitchDragEnd: () => endLiveDrag('Set pitch'),
                   projectBpm: widget.projectTempo,
                   onProjectBpmChanged: widget.onProjectTempoChanged,
                   // Reverse
@@ -431,37 +435,15 @@ class _AudioEditorState extends State<AudioEditor>
     commitToHistory(newValue ? 'Enable warp' : 'Disable warp');
   }
 
-  // A BPM drag re-stretches the clip and adds one undo step on release, not
-  // on every step (each re-stretch renders the clip's audio again).
-  bool _bpmDragging = false;
-
-  void _onOriginalBpmDragStart() {
-    _bpmDragging = true;
-    saveToHistory();
-  }
-
-  void _onOriginalBpmDragEnd() {
-    _bpmDragging = false;
-    if (snapshotBeforeAction?.bpm == editData.bpm) {
-      snapshotBeforeAction = null;
-      return;
-    }
-    sendToAudioEngine();
-    commitToHistory('Set original BPM to ${editData.bpm.toStringAsFixed(1)}');
-  }
-
   void _onOriginalBpmChanged(double value) {
-    if (!_bpmDragging) saveToHistory();
+    if (!liveDragging) saveToHistory();
     final clampedBpm = value.clamp(20.0, 999.0);
     setState(() {
       editData = editData.copyWith(bpm: clampedBpm);
       // Recalculate waveform beat duration (stretches/squeezes waveform display)
       recalculateBeatsForOriginalBpm(clampedBpm);
     });
-    notifyClipUpdated();
-    if (_bpmDragging) return;
-    sendToAudioEngine();
-    commitToHistory('Set original BPM to ${clampedBpm.toStringAsFixed(1)}');
+    finishEdit('Set original BPM to ${clampedBpm.toStringAsFixed(1)}');
   }
 
   // ============================================

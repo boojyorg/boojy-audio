@@ -1397,10 +1397,12 @@ fn warped_clip_lands_on_the_beat_at_any_project_tempo() {
     let track_id = create_track("Audio", "Clicks".to_string()).unwrap();
     let clip_id = load_audio_file_to_track_api(path_str(&wav), track_id, 0.0).unwrap();
 
-    for tempo in [120.0, 170.0, 150.0, 97.0] {
+    // (tempo, transpose): transposing must not move the clicks either.
+    for (tempo, semitones) in [(120.0, 0), (170.0, 0), (150.0, 0), (97.0, 0), (170.0, 5)] {
         set_tempo(tempo).unwrap();
         // The clip is 150 BPM; warp stretches it to the project tempo.
         set_audio_clip_warp(track_id, clip_id, true, (tempo / 150.0) as f32, 0).unwrap();
+        set_audio_clip_transpose(track_id, clip_id, semitones, 0).unwrap();
 
         let beat_seconds = 60.0 / tempo;
         let mix = {
@@ -1418,7 +1420,7 @@ fn warped_clip_lands_on_the_beat_at_any_project_tempo() {
             let off_ms = (centre - expected) / sr * 1000.0;
             assert!(
                 off_ms.abs() < 2.0,
-                "{tempo} BPM: beat {beat} lands {off_ms:.1} ms off the grid"
+                "{tempo} BPM, {semitones} st: beat {beat} lands {off_ms:.1} ms off the grid"
             );
         }
         // …and the clip ends with its 16th beat, not before or after.
@@ -1427,6 +1429,51 @@ fn warped_clip_lands_on_the_beat_at_any_project_tempo() {
         assert!(
             tail < 0.01,
             "{tempo} BPM: sound after the clip's last beat ({tail})"
+        );
+    }
+}
+
+#[test]
+fn transposing_a_clip_changes_its_pitch_not_its_timing() {
+    use crate::audio_checks::frequency;
+
+    let _guard = engine_lock();
+
+    // A 2 s 440 Hz tone from 0.5 s, unwarped.
+    let dir = temp_dir("transpose_keeps_time");
+    let wav = write_sine_wav(&dir, "tone.wav", 2.0, 0.5);
+    let track_id = create_track("Audio", "Tone".to_string()).unwrap();
+    let clip_id = load_audio_file_to_track_api(path_str(&wav), track_id, 0.5).unwrap();
+
+    for semitones in [12, -12, 7] {
+        set_audio_clip_transpose(track_id, clip_id, semitones, 0).unwrap();
+        let mix = {
+            let graph = get_audio_graph().unwrap().lock();
+            graph.render_offline(3.0)
+        };
+        let left: Vec<f32> = mix.iter().step_by(2).copied().collect();
+        let peak = |t0: f64, t1: f64| {
+            let (a, b) = ((t0 * 48_000.0) as usize, (t1 * 48_000.0) as usize);
+            left[a..b].iter().fold(0.0f32, |m, s| m.max(s.abs()))
+        };
+        assert!(
+            peak(0.0, 0.45) < 0.01,
+            "{semitones} st: silent before the clip"
+        );
+        assert!(
+            peak(2.3, 2.45) > 0.1,
+            "{semitones} st: still playing near its end"
+        );
+        assert!(
+            peak(2.55, 3.0) < 0.01,
+            "{semitones} st: stops where it always did"
+        );
+
+        let want = 440.0 * 2f64.powf(f64::from(semitones) / 12.0);
+        let got = frequency(&left[48_000..96_000], TARGET_SAMPLE_RATE);
+        assert!(
+            (got - want).abs() < want * 0.02,
+            "{semitones} st: expected {want:.0} Hz, got {got:.0} Hz"
         );
     }
 }

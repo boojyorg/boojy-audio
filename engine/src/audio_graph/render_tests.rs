@@ -195,10 +195,12 @@ fn clip_edits_play_the_right_source_frames() {
             Box::new(|i| 2 * i),
         ),
         (
+            // Transpose changes pitch, never the read speed (the pitch shift
+            // lives in the processed audio, which this edit doesn't build).
             "transposed up an octave",
             Box::new(|c| c.transpose_semitones = 12),
-            len / 2,
-            Box::new(|i| 2 * i),
+            len,
+            Box::new(|i| i),
         ),
     ];
 

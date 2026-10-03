@@ -36,11 +36,13 @@ pub struct TimelineClip {
     pub stretch_factor: f32,
     /// Warp algorithm mode: 0 = warp (pitch preserved), 1 = repitch (pitch follows speed)
     pub warp_mode: u8,
-    /// Cached stretched audio for Warp mode (pitch-preserved time-stretching)
-    /// Only used when `warp_enabled=true` AND `warp_mode=0` (Warp)
+    /// The clip's audio stretched to the project tempo (Warp mode) and/or
+    /// pitch-shifted by its transpose; playback reads it at normal speed.
+    /// `None` when neither applies. See [`TimelineClip::processed_audio`].
     pub stretched_cache: Option<Arc<AudioClip>>,
-    /// Stretch factor used when the cache was built (to detect when rebuild is needed)
+    /// Stretch and transpose the cache was built with (to reuse it).
     pub cached_stretch_factor: f32,
+    pub cached_transpose_cents: i32,
     /// Transpose in semitones (-48 to +48)
     pub transpose_semitones: i32,
     /// Fine pitch adjustment in cents (-50 to +50)
@@ -88,33 +90,51 @@ impl TimelineClip {
         2_f32.powf(total_semitones / 12.0)
     }
 
-    /// The stretched audio these warp settings play from: `None` unless
-    /// warping with pitch preserved (mode 0). Reuses the current cache when
-    /// the factor hasn't changed; otherwise it stretches the whole clip, which
-    /// is slow, so call it on a copy of the clip with no locks held.
-    pub fn stretched_audio_for(
-        &self,
-        warp_enabled: bool,
-        stretch_factor: f32,
-        warp_mode: u8,
-    ) -> Option<Arc<AudioClip>> {
-        use crate::stretch::stretch_audio_preserve_pitch;
+    fn transpose_total_cents(&self) -> i32 {
+        self.transpose_semitones * 100 + self.transpose_cents
+    }
 
-        if !warp_enabled || warp_mode != 0 {
+    /// The stretch baked into the processed audio: Warp mode stretches it to
+    /// the project tempo; Re-Pitch and unwarped clips are not stretched.
+    fn processed_stretch(&self) -> f32 {
+        if self.warp_enabled && self.warp_mode == 0 {
+            self.stretch_factor
+        } else {
+            1.0
+        }
+    }
+
+    /// The audio playback reads for these settings: stretched (Warp) and
+    /// pitch-shifted (transpose), or `None` to read the source as it is.
+    /// Transpose always goes through here, so it changes the pitch and never
+    /// the timing. Reuses the current cache when nothing changed; otherwise
+    /// it renders the whole clip, which is slow, so call it on a copy of the
+    /// clip with no locks held, then [`Self::set_processed_audio`].
+    pub fn processed_audio(&self) -> Option<Arc<AudioClip>> {
+        let stretch = self.processed_stretch();
+        let cents = self.transpose_total_cents();
+        if (stretch - 1.0).abs() <= 0.001 && cents == 0 {
             return None;
         }
         if let Some(cache) = &self.stretched_cache {
-            if (self.cached_stretch_factor - stretch_factor).abs() <= 0.001 {
+            if (self.cached_stretch_factor - stretch).abs() <= 0.001
+                && self.cached_transpose_cents == cents
+            {
                 return Some(cache.clone());
             }
         }
-        Some(stretch_audio_preserve_pitch(&self.clip, stretch_factor))
+        Some(crate::stretch::process_audio(
+            &self.clip,
+            stretch,
+            cents as f32 / 100.0,
+        ))
     }
 
-    /// Clear the stretched cache (call when clip is replaced or removed)
-    pub fn clear_stretched_cache(&mut self) {
-        self.stretched_cache = None;
-        self.cached_stretch_factor = 0.0;
+    /// Install audio from [`Self::processed_audio`] for the current settings.
+    pub fn set_processed_audio(&mut self, audio: Option<Arc<AudioClip>>) {
+        self.cached_stretch_factor = self.processed_stretch();
+        self.cached_transpose_cents = self.transpose_total_cents();
+        self.stretched_cache = audio;
     }
 }
 
@@ -639,6 +659,7 @@ mod tests {
             warp_mode: 0,
             stretched_cache: None,
             cached_stretch_factor: 0.0,
+            cached_transpose_cents: 0,
             transpose_semitones: 0,
             transpose_cents: 0,
             reversed: false,

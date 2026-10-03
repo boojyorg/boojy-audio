@@ -435,7 +435,7 @@ pub fn duplicate_audio_clip(
 
     // Find the source clip and capture all its properties
     let (clip_arc, offset, duration, gain_db, warp_enabled, stretch_factor,
-         warp_mode, stretched_cache, cached_stretch_factor,
+         warp_mode, stretched_cache, cached_stretch_factor, cached_transpose_cents,
          transpose_semitones, transpose_cents) = {
         let track_manager = graph.track_manager.lock();
         let track_arc = track_manager
@@ -462,6 +462,7 @@ pub fn duplicate_audio_clip(
             source_clip.warp_mode,
             source_clip.stretched_cache.clone(),
             source_clip.cached_stretch_factor,
+            source_clip.cached_transpose_cents,
             source_clip.transpose_semitones,
             source_clip.transpose_cents,
         )
@@ -493,6 +494,7 @@ pub fn duplicate_audio_clip(
                 new_clip.warp_mode = warp_mode;
                 new_clip.stretched_cache = stretched_cache;
                 new_clip.cached_stretch_factor = cached_stretch_factor;
+                new_clip.cached_transpose_cents = cached_transpose_cents;
                 new_clip.transpose_semitones = transpose_semitones;
                 new_clip.transpose_cents = transpose_cents;
             }
@@ -556,46 +558,53 @@ pub fn set_audio_clip_warp(
     warp_mode: u8,
 ) -> Result<String, String> {
     let stretch_factor = stretch_factor.clamp(0.25, 4.0);
-    let graph_mutex = graph()?;
+    edit_clip_processing(track_id, clip_id, |clip| {
+        clip.warp_enabled = warp_enabled;
+        clip.stretch_factor = stretch_factor;
+        clip.warp_mode = warp_mode;
+    })?;
+    let mode_str = if warp_mode == 0 { "warp" } else { "repitch" };
+    Ok(format!(
+        "Clip {clip_id} warp: {warp_enabled}, stretch: {stretch_factor:.2}x, mode: {mode_str}"
+    ))
+}
 
-    // Stretch on a copy with no locks held: the audio thread takes the track
-    // lock every buffer, so stretching under it (every step of a tempo drag
-    // re-stretched the open clip) stalled playback until it finished.
-    let find_clip = |track: &crate::track::Track| {
-        track.audio_clips.iter().position(|c| c.id == clip_id)
-    };
-    let snapshot = {
+/// Apply `edit` to a clip's playback settings and rebuild its processed
+/// audio (warp stretch, transpose) to match. The rebuild renders the whole
+/// clip, so it runs on a copy with no locks held: the audio thread takes the
+/// track lock every buffer, and rendering under it stalled playback.
+fn edit_clip_processing(
+    track_id: TrackId,
+    clip_id: u64,
+    edit: impl Fn(&mut crate::track::TimelineClip),
+) -> Result<(), String> {
+    let graph_mutex = graph()?;
+    let with_clip = |apply: &mut dyn FnMut(&mut crate::track::TimelineClip)| {
         let graph = graph_mutex.lock();
         let track_manager = graph.track_manager.lock();
         let track_arc = track_manager
             .get_track(track_id)
             .ok_or(format!("Track {track_id} not found"))?;
-        let track = track_arc.lock();
-        let index =
-            find_clip(&track).ok_or(format!("Clip {clip_id} not found on track {track_id}"))?;
-        track.audio_clips[index].clone()
+        let mut track = track_arc.lock();
+        let clip = track
+            .audio_clips
+            .iter_mut()
+            .find(|c| c.id == clip_id)
+            .ok_or(format!("Clip {clip_id} not found on track {track_id}"))?;
+        apply(clip);
+        Ok::<(), String>(())
     };
-    let stretched = snapshot.stretched_audio_for(warp_enabled, stretch_factor, warp_mode);
 
-    let graph = graph_mutex.lock();
-    let track_manager = graph.track_manager.lock();
-    let track_arc = track_manager
-        .get_track(track_id)
-        .ok_or(format!("Track {track_id} not found"))?;
-    let mut track = track_arc.lock();
-    let index =
-        find_clip(&track).ok_or(format!("Clip {clip_id} not found on track {track_id}"))?;
-    let clip = &mut track.audio_clips[index];
-    clip.warp_enabled = warp_enabled;
-    clip.stretch_factor = stretch_factor;
-    clip.warp_mode = warp_mode;
-    clip.cached_stretch_factor = if stretched.is_some() { stretch_factor } else { 0.0 };
-    clip.stretched_cache = stretched;
+    let mut snapshot = None;
+    with_clip(&mut |clip| snapshot = Some(clip.clone()))?;
+    let mut snapshot = snapshot.expect("clip was found");
+    edit(&mut snapshot);
+    let processed = snapshot.processed_audio();
 
-    let mode_str = if warp_mode == 0 { "warp" } else { "repitch" };
-    Ok(format!(
-        "Clip {clip_id} warp: {warp_enabled}, stretch: {stretch_factor:.2}x, mode: {mode_str}"
-    ))
+    with_clip(&mut |clip| {
+        edit(clip);
+        clip.set_processed_audio(processed.clone());
+    })
 }
 
 /// Set the transpose/pitch shift of an audio clip
@@ -614,30 +623,13 @@ pub fn set_audio_clip_transpose(
     semitones: i32,
     cents: i32,
 ) -> Result<String, String> {
-    let graph_mutex = graph()?;
-    let graph = graph_mutex.lock();
-    let track_manager = graph.track_manager.lock();
-
-    if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock();
-
-        // Find and update the clip
-        for clip in &mut track.audio_clips {
-            if clip.id == clip_id {
-                clip.transpose_semitones = semitones.clamp(-48, 48);
-                clip.transpose_cents = cents.clamp(-50, 50);
-
-                return Ok(format!(
-                    "Clip {} transpose: {} st, {} ct",
-                    clip_id, clip.transpose_semitones, clip.transpose_cents
-                ));
-            }
-        }
-
-        Err(format!("Clip {clip_id} not found on track {track_id}"))
-    } else {
-        Err(format!("Track {track_id} not found"))
-    }
+    let semitones = semitones.clamp(-48, 48);
+    let cents = cents.clamp(-50, 50);
+    edit_clip_processing(track_id, clip_id, |clip| {
+        clip.transpose_semitones = semitones;
+        clip.transpose_cents = cents;
+    })?;
+    Ok(format!("Clip {clip_id} transpose: {semitones} st, {cents} ct"))
 }
 
 /// Set whether an audio clip plays its audible window backwards
