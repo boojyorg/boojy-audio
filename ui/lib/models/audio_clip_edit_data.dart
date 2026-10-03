@@ -28,9 +28,6 @@ class AudioClipEditData {
   /// Whether to sync clip playback to project tempo
   final bool syncEnabled;
 
-  /// Time stretch factor (0.5 = half speed, 1.0 = normal, 2.0 = double speed)
-  final double stretchFactor;
-
   // === Pitch ===
   /// Transpose amount in semitones (-48 to +48)
   final int transposeSemitones;
@@ -67,7 +64,6 @@ class AudioClipEditData {
     this.beatUnit = 4,
     this.bpm = 120.0,
     this.syncEnabled = false,
-    this.stretchFactor = 1.0,
     this.transposeSemitones = 0,
     this.fineCents = 0,
     this.gainDb = 0.0,
@@ -87,7 +83,6 @@ class AudioClipEditData {
     int? beatUnit,
     double? bpm,
     bool? syncEnabled,
-    double? stretchFactor,
     int? transposeSemitones,
     int? fineCents,
     double? gainDb,
@@ -106,7 +101,6 @@ class AudioClipEditData {
       beatUnit: beatUnit ?? this.beatUnit,
       bpm: bpm ?? this.bpm,
       syncEnabled: syncEnabled ?? this.syncEnabled,
-      stretchFactor: stretchFactor ?? this.stretchFactor,
       transposeSemitones: transposeSemitones ?? this.transposeSemitones,
       fineCents: fineCents ?? this.fineCents,
       gainDb: gainDb ?? this.gainDb,
@@ -123,6 +117,12 @@ class AudioClipEditData {
   /// Loop region length in beats
   double get loopLengthBeats => loopEndBeats - loopStartBeats;
 
+  /// Loop region length in seconds of the clip's own audio, the unit of a
+  /// clip's duration and offset. A warped clip counts beats at its own [bpm];
+  /// otherwise at [projectBpm].
+  double loopLengthSeconds(double projectBpm) =>
+      loopLengthBeats * 60.0 / (syncEnabled ? bpm : projectBpm);
+
   /// Combined pitch shift in cents (semitones * 100 + fine cents)
   int get totalPitchCents => (transposeSemitones * 100) + fineCents;
 
@@ -133,7 +133,15 @@ class AudioClipEditData {
   bool get hasProcessing => reversed || normalizeTargetDb != null;
 
   /// Whether any tempo modification is applied
-  bool get hasTempoModification => syncEnabled || stretchFactor != 1.0;
+  bool get hasTempoModification => syncEnabled;
+
+  /// How much faster than recorded the clip plays at [projectBpm]: warp
+  /// stretches it from its own [bpm] to the project tempo. Worked out when
+  /// needed, never stored: a stored factor went stale when the tempo changed.
+  double stretchAt(double projectBpm) {
+    if (!syncEnabled || bpm <= 0) return 1.0;
+    return (projectBpm / bpm).clamp(0.25, 4.0);
+  }
 
   /// Serialize to JSON for project save
   Map<String, dynamic> toJson() {
@@ -145,7 +153,6 @@ class AudioClipEditData {
       'beatUnit': beatUnit,
       'bpm': bpm,
       'syncEnabled': syncEnabled,
-      'stretchFactor': stretchFactor,
       'transposeSemitones': transposeSemitones,
       'fineCents': fineCents,
       'gainDb': gainDb,
@@ -167,7 +174,6 @@ class AudioClipEditData {
       beatUnit: json['beatUnit'] as int? ?? 4,
       bpm: (json['bpm'] as num?)?.toDouble() ?? 120.0,
       syncEnabled: json['syncEnabled'] as bool? ?? false,
-      stretchFactor: (json['stretchFactor'] as num?)?.toDouble() ?? 1.0,
       transposeSemitones: json['transposeSemitones'] as int? ?? 0,
       fineCents: json['fineCents'] as int? ?? 0,
       gainDb: (json['gainDb'] as num?)?.toDouble() ?? 0.0,
@@ -190,7 +196,6 @@ class AudioClipEditData {
         other.beatUnit == beatUnit &&
         other.bpm == bpm &&
         other.syncEnabled == syncEnabled &&
-        other.stretchFactor == stretchFactor &&
         other.transposeSemitones == transposeSemitones &&
         other.fineCents == fineCents &&
         other.gainDb == gainDb &&
@@ -211,7 +216,6 @@ class AudioClipEditData {
       beatUnit,
       bpm,
       syncEnabled,
-      stretchFactor,
       transposeSemitones,
       fineCents,
       gainDb,
@@ -228,7 +232,7 @@ class AudioClipEditData {
     return 'AudioClipEditData('
         'loop: $loopEnabled, '
         'bpm: $bpm, '
-        'stretch: ${stretchFactor}x, '
+        'warp: $syncEnabled, '
         'transpose: ${transposeSemitones}st, '
         'gain: ${gainDb}dB, '
         'reversed: $reversed'

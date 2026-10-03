@@ -158,7 +158,16 @@ ClipData _mergeClip(
         : peaksFor(e.clipId, e.fileDuration),
     color: saved?.color,
     editData: saved?.editData,
-    loopLength: saved?.loopLength,
+    loopLength: _loopLength(saved),
     canRepeat: saved?.canRepeat ?? true,
   );
+}
+
+/// A warped clip's loop length comes from its own beats. Older saves stored
+/// it at the project tempo of the day, which drew the waveform too long or
+/// short; the project tempo doesn't matter for a warped clip.
+double? _loopLength(ClipData? saved) {
+  final edit = saved?.editData;
+  if (edit != null && edit.syncEnabled) return edit.loopLengthSeconds(edit.bpm);
+  return saved?.loopLength;
 }

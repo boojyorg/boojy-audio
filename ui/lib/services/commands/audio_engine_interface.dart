@@ -24,6 +24,9 @@ abstract class AudioEngineInterface {
     int cents,
   );
   String setAudioClipReverse(int trackId, int clipId, {required bool reversed});
+
+  /// The project tempo the engine is playing at, in BPM.
+  double getTempo();
   int loadAudioFileToTrack(
     String filePath,
     int trackId, {

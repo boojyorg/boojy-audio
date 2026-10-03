@@ -1,9 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:boojy_audio/models/audio_clip_edit_data.dart';
 import 'package:boojy_audio/models/clip_data.dart';
 
 void main() {
   group('ClipData', () {
+    group('timelineSeconds', () {
+      test('a warped clip fills its own beats at any project tempo', () {
+        // 4 bars at 150 BPM: 6.4 s of audio, always 16 beats on the timeline.
+        final clip = ClipData(
+          clipId: 1,
+          trackId: 1,
+          filePath: '/a.wav',
+          startTime: 0,
+          duration: 6.4,
+          editData: const AudioClipEditData(bpm: 150, syncEnabled: true),
+        );
+        for (final bpm in [97.0, 120.0, 150.0, 170.0]) {
+          final beats = clip.timelineSeconds(clip.duration, bpm) * bpm / 60;
+          expect(beats, closeTo(16, 1e-9), reason: 'at $bpm BPM');
+        }
+      });
+
+      test('an unwarped clip keeps its length in seconds', () {
+        final clip = ClipData(
+          clipId: 1,
+          trackId: 1,
+          filePath: '/a.wav',
+          startTime: 0,
+          duration: 6.4,
+        );
+        expect(clip.timelineSeconds(6.4, 97), 6.4);
+      });
+    });
+
     group('constructor', () {
       test('creates instance with required fields', () {
         final clip = ClipData(

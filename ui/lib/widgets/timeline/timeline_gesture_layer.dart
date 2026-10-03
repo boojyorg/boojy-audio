@@ -517,19 +517,9 @@ mixin TimelineGestureLayerMixin
     double? recStartBeat,
     double? recEndBeat,
   }) {
-    // Calculate clip width based on warp state:
-    // - Warp ON: clip syncs to project tempo, so it covers a fixed number of beats
-    // - Warp OFF: clip is fixed-length in seconds, so width changes with tempo
-    final double clipWidth;
-    if (clip.editData?.syncEnabled ?? false) {
-      // Warp ON: use beat-based width (fixed visual size regardless of tempo)
-      final beatsInClip =
-          clip.duration * ((clip.editData?.bpm ?? 120.0) / 60.0);
-      clipWidth = beatsInClip * pixelsPerBeat;
-    } else {
-      // Warp OFF: use time-based width (stretches with tempo)
-      clipWidth = clip.duration * pixelsPerSecond;
-    }
+    // Warp ON covers a fixed number of beats; warp OFF a fixed time.
+    final clipWidth =
+        clip.timelineSeconds(clip.duration, widget.tempo) * pixelsPerSecond;
     // Use dragged position if this clip is being dragged OR is part of the selection being dragged
     // BUT NOT for copy drags - the original stays in place, only the ghost moves
     double displayStartTime;
@@ -1067,9 +1057,11 @@ mixin TimelineGestureLayerMixin
             },
             child: Builder(
               builder: (context) {
-                // Calculate loop boundary positions for audio clips (like MIDI clips)
-                // loopLength is in seconds, need to calculate loop boundary X positions in pixels
-                final loopWidthPixels = clip.loopLength * pixelsPerSecond;
+                // Loop boundary positions for audio clips (like MIDI clips).
+                // loopLength is in seconds of the clip's audio, like duration.
+                final loopWidthPixels =
+                    clip.timelineSeconds(clip.loopLength, widget.tempo) *
+                    pixelsPerSecond;
                 final isLooped =
                     clip.canRepeat && clip.duration > clip.loopLength;
                 final loopBoundaryPositions = isLooped

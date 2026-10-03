@@ -7,6 +7,7 @@ import '../../../utils/native_dialogs.dart';
 import '../../../models/clip_data.dart';
 import '../../../utils/audio_clips_info.dart';
 import '../../../models/project_view_state.dart';
+import '../../../services/audio_clip_engine_sync.dart';
 import '../../../services/project_manager.dart';
 import '../../../services/project_persistence.dart';
 import '../../../services/window_title_service.dart';
@@ -648,25 +649,9 @@ mixin DAWProjectMixin
     if (engine == null) return;
     for (final clip in clips) {
       final edit = clip.editData;
-      if (edit == null) continue;
-      engine.setAudioClipGain(clip.trackId, clip.clipId, edit.gainDb);
-      engine.setAudioClipWarp(
-        clip.trackId,
-        clip.clipId,
-        edit.syncEnabled,
-        edit.stretchFactor,
-      );
-      engine.setAudioClipTranspose(
-        clip.trackId,
-        clip.clipId,
-        edit.transposeSemitones,
-        edit.fineCents,
-      );
-      engine.setAudioClipReverse(
-        clip.trackId,
-        clip.clipId,
-        reversed: edit.reversed,
-      );
+      if (edit != null) {
+        pushAudioClipEdits(engine, clip.trackId, clip.clipId, edit);
+      }
     }
   }
 

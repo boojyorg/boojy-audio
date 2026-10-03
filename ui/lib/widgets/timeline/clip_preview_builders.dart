@@ -145,15 +145,9 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
     Color trackColor,
     double trackHeight,
   ) {
-    // Calculate width respecting warp state
-    final double clipWidth;
-    if (sourceClip.editData?.syncEnabled ?? false) {
-      final beatsInClip =
-          sourceClip.duration * ((sourceClip.editData?.bpm ?? 120.0) / 60.0);
-      clipWidth = beatsInClip * pixelsPerBeat;
-    } else {
-      clipWidth = sourceClip.duration * pixelsPerSecond;
-    }
+    final clipWidth =
+        sourceClip.timelineSeconds(sourceClip.duration, widget.tempo) *
+        pixelsPerSecond;
     final totalHeight = trackHeight - UIConstants.clipContentPadding;
     const headerHeight = 20.0;
 
@@ -278,15 +272,9 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
     Color trackColor,
     double trackHeight,
   ) {
-    // Calculate width respecting warp state
-    final double clipWidth;
-    if (sourceClip.editData?.syncEnabled ?? false) {
-      final beatsInClip =
-          sourceClip.duration * ((sourceClip.editData?.bpm ?? 120.0) / 60.0);
-      clipWidth = beatsInClip * pixelsPerBeat;
-    } else {
-      clipWidth = sourceClip.duration * pixelsPerSecond;
-    }
+    final clipWidth =
+        sourceClip.timelineSeconds(sourceClip.duration, widget.tempo) *
+        pixelsPerSecond;
     final totalHeight = trackHeight - UIConstants.clipContentPadding;
     const headerHeight = 20.0;
 
