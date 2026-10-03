@@ -111,7 +111,9 @@ All notable changes to Boojy Audio will be documented in this file.
 - **Dragging a number keeps the pointer still.** Dragging the tempo, time signature, a knob, the
   volume readout, or the audio editor's BPM, pitch or loop length now hides the pointer and leaves
   it where you pressed; it reappears there when you let go, and a long drag no longer runs into
-  the top of the screen (macOS and Windows; touch is unchanged). Dragging the audio editor's BPM
+  the top of the screen (macOS and Windows; touch is unchanged). Dragging a ruler to zoom or
+  scroll (arrangement, piano roll, audio editor) works the same way; loop edges and the playhead
+  still follow the pointer. Dragging the audio editor's BPM
   re-stretches the clip once when you let go, with one undo step, instead of on every step.
 
 - **Warped clips stay in time when you change the project tempo.** Warp worked out how much to

@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:boojy_audio/theme/theme_provider.dart';
@@ -135,4 +136,51 @@ void main() {
     expect(drags.map((d) => d.anchorBeat), everyElement(closeTo(2.0, 1e-9)));
     expect(drags.map((d) => d.viewportX).toList(), [130.0, 80.0]);
   });
+
+  testWidgets(
+    'a zoom drag holds the pointer and keeps zooming from its moves',
+    (tester) async {
+      const channel = MethodChannel('boojy_audio/pointer_hold');
+      final nativeCalls = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+        call,
+      ) async {
+        nativeCalls.add(call.method);
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+      await pumpRuler(tester);
+
+      final gesture = await tester.startGesture(
+        const Offset(100, 12),
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveBy(const Offset(0, 10));
+      await tester.pump();
+      expect(nativeCalls, ['hold']);
+      final zoomsBefore = drags.length;
+
+      // Held: the pointer stays put and the mouse moves 30 px up and 20 right.
+      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        channel.name,
+        const StandardMethodCodec().encodeMethodCall(
+          const MethodCall('move', [20.0, -30.0]),
+        ),
+        (_) {},
+      );
+      expect(drags.length, zoomsBefore + 1);
+      expect(drags.last.factor, closeTo(rulerDragZoomFactor(-30), 1e-9));
+      expect(drags.last.viewportX, closeTo(120.0, 1e-9));
+      expect(drags.last.anchorBeat, closeTo(2.0, 1e-9));
+
+      await gesture.up();
+      await tester.pump();
+      expect(nativeCalls, ['hold', 'release']);
+    },
+  );
 }

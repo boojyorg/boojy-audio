@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import '../../../services/pointer_hold.dart';
 import '../../../theme/theme_extension.dart';
 import '../../painters/unified_nav_bar_painter.dart';
 import 'anchored_zoom.dart';
@@ -118,6 +119,18 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
   double? _navStartGlobalX;
   double? _navLastGlobalY;
 
+  // Where the pointer would be: the pointer is held still and hidden during
+  // a navigation drag (so zooming out never runs into the top of the
+  // screen), and the drag's movement is added up here instead.
+  Offset? _navPointer;
+  final _pointerHold = PointerHold();
+
+  @override
+  void dispose() {
+    _pointerHold.end();
+    super.dispose();
+  }
+
   // Where the pointer went down. A pan is only recognised after the pointer
   // has travelled the gesture slop, so the anchor is taken from the press
   // itself (the beat the user aimed at) and the swallowed travel is folded
@@ -143,7 +156,8 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
         onPanDown: _handlePanDown,
         onPanStart: _handlePanStart,
         onPanUpdate: _handlePanUpdate,
-        onPanEnd: _handlePanEnd,
+        onPanEnd: (_) => _endPan(),
+        onPanCancel: _endPan,
         child: Listener(
           behavior: HitTestBehavior.opaque,
           onPointerSignal: (event) {
@@ -311,7 +325,9 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
       _navStartGlobalX = global.dx;
       _navLastGlobalY = global.dy;
       // Apply the travel between the press and recognition straight away.
+      _navPointer = details.globalPosition;
       _emitNavigation(details.globalPosition);
+      _pointerHold.start(details.kind, _moveNavigation);
     }
 
     setState(() {});
@@ -336,13 +352,15 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
     }
   }
 
-  void _handlePanEnd(DragEndDetails details) {
+  void _endPan() {
+    _pointerHold.end();
     setState(() {
       _dragMode = _DragMode.none;
       _navAnchorBeat = null;
       _navStartViewportX = null;
       _navStartGlobalX = null;
       _navLastGlobalY = null;
+      _navPointer = null;
       _downLocal = null;
       _downGlobal = null;
     });
@@ -383,7 +401,14 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
   }
 
   void _handleNavigationDrag(DragUpdateDetails details) =>
-      _emitNavigation(details.globalPosition);
+      _moveNavigation(details.delta);
+
+  void _moveNavigation(Offset delta) {
+    final pointer = _navPointer;
+    if (pointer == null) return;
+    _navPointer = pointer + delta;
+    _emitNavigation(_navPointer!);
+  }
 
   void _emitNavigation(Offset globalPosition) {
     final anchorBeat = _navAnchorBeat;
