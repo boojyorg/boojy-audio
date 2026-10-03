@@ -22,9 +22,15 @@ use std::sync::Arc;
 /// - `stretch_factor` = `project_bpm` / `clip_original_bpm`
 /// - `stretch_factor` of 1.2 means project is 20% faster, so clip needs to be 20% shorter
 /// - `stretch_factor` of 0.8 means project is 20% slower, so clip needs to be 20% longer
-pub fn stretch_audio_preserve_pitch(clip: &AudioClip, stretch_factor: f32) -> Arc<AudioClip> {
-    // If stretch factor is effectively 1.0, return a clone wrapped in Arc
-    if (stretch_factor - 1.0).abs() < 0.001 {
+///
+/// `transpose_semitones` shifts the pitch in the same pass. It never changes
+/// the length: transposing a clip changes its pitch only.
+pub fn process_audio(
+    clip: &AudioClip,
+    stretch_factor: f32,
+    transpose_semitones: f32,
+) -> Arc<AudioClip> {
+    if (stretch_factor - 1.0).abs() < 0.001 && transpose_semitones.abs() < 0.001 {
         return Arc::new(clip.clone());
     }
 
@@ -40,6 +46,9 @@ pub fn stretch_audio_preserve_pitch(clip: &AudioClip, stretch_factor: f32) -> Ar
 
     // Create stretcher instance
     let mut stretcher = Stretch::preset_default(channels, sample_rate);
+    if transpose_semitones.abs() >= 0.001 {
+        stretcher.set_transpose_factor_semitones(transpose_semitones, None);
+    }
 
     // Prepare output buffer (interleaved, same format as input)
     let mut output_samples = vec![0.0f32; output_frames * clip.channels];
@@ -97,10 +106,43 @@ mod tests {
         }
     }
 
+    /// Rising zero crossings per second (the pitch of a clean tone), measured
+    /// away from the edges.
+    fn frequency(clip: &AudioClip) -> f64 {
+        let left: Vec<f32> = clip
+            .samples
+            .iter()
+            .step_by(clip.channels)
+            .copied()
+            .collect();
+        let middle = &left[left.len() / 4..left.len() * 3 / 4];
+        let rising = middle
+            .windows(2)
+            .filter(|w| w[0] < 0.0 && w[1] >= 0.0)
+            .count();
+        rising as f64 * 48_000.0 / middle.len() as f64
+    }
+
+    #[test]
+    fn transpose_changes_pitch_not_length() {
+        let clip = create_test_clip(48_000, 2); // 1 s of 440 Hz
+        for (semitones, stretch) in [(12.0, 1.0), (-12.0, 1.0), (7.0, 1.25)] {
+            let out = process_audio(&clip, stretch, semitones);
+            let expected_frames = (48_000.0 / f64::from(stretch)).ceil() as usize;
+            assert_eq!(out.frame_count(), expected_frames, "{semitones} st: length");
+            let want = 440.0 * 2f64.powf(f64::from(semitones) / 12.0);
+            let got = frequency(&out);
+            assert!(
+                (got - want).abs() < want * 0.02,
+                "{semitones} st at {stretch}x: expected {want:.0} Hz, got {got:.0} Hz"
+            );
+        }
+    }
+
     #[test]
     fn test_no_stretch() {
         let clip = create_test_clip(4800, 2); // 0.1 seconds of stereo audio
-        let stretched = stretch_audio_preserve_pitch(&clip, 1.0);
+        let stretched = process_audio(&clip, 1.0, 0.0);
 
         // Should be approximately the same length
         assert_eq!(stretched.frame_count(), clip.frame_count());
@@ -110,7 +152,7 @@ mod tests {
     fn test_stretch_faster() {
         // stretch_factor = 2.0 means project is 2x faster, clip should be HALF as long
         let clip = create_test_clip(4800, 2);
-        let stretched = stretch_audio_preserve_pitch(&clip, 2.0);
+        let stretched = process_audio(&clip, 2.0, 0.0);
 
         // Should be approximately half as long (4800 / 2.0 = 2400)
         let expected_frames = (clip.frame_count() as f64 / 2.0).ceil() as usize;
@@ -121,7 +163,7 @@ mod tests {
     fn test_stretch_slower() {
         // stretch_factor = 0.5 means project is 0.5x speed, clip should be TWICE as long
         let clip = create_test_clip(4800, 2);
-        let stretched = stretch_audio_preserve_pitch(&clip, 0.5);
+        let stretched = process_audio(&clip, 0.5, 0.0);
 
         // Should be approximately twice as long (4800 / 0.5 = 9600)
         let expected_frames = (clip.frame_count() as f64 / 0.5).ceil() as usize;
@@ -132,7 +174,7 @@ mod tests {
     fn test_mono_stretch() {
         // stretch_factor = 1.5 means project is 1.5x faster, clip should be 2/3 as long
         let clip = create_test_clip(4800, 1);
-        let stretched = stretch_audio_preserve_pitch(&clip, 1.5);
+        let stretched = process_audio(&clip, 1.5, 0.0);
 
         assert_eq!(stretched.channels, 1);
         // Should be approximately 2/3 as long (4800 / 1.5 = 3200)

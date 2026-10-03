@@ -27,12 +27,18 @@ class DraggablePitchDisplay extends StatefulWidget {
   /// Called when cents change
   final Function(int)? onCentsChanged;
 
+  /// A drag began / finished; the change callbacks fire for every step.
+  final VoidCallback? onDragStart;
+  final VoidCallback? onDragEnd;
+
   const DraggablePitchDisplay({
     super.key,
     required this.semitones,
     required this.cents,
     this.onSemitonesChanged,
     this.onCentsChanged,
+    this.onDragStart,
+    this.onDragEnd,
   });
 
   @override
@@ -190,6 +196,11 @@ class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
     }
   }
 
+  void _endDrag() {
+    _pointerHold.end();
+    widget.onDragEnd?.call();
+  }
+
   void _handleDrag(int segment, double deltaY) {
     const pixelsPerIncrement = 3.0;
 
@@ -309,15 +320,18 @@ class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
       },
       child: GestureDetector(
         onDoubleTap: () => _startEditing(segment),
-        onVerticalDragStart: (details) => _pointerHold.start(
-          details.kind,
-          (delta) => _handleDrag(segment, delta.dy),
-        ),
+        onVerticalDragStart: (details) {
+          widget.onDragStart?.call();
+          _pointerHold.start(
+            details.kind,
+            (delta) => _handleDrag(segment, delta.dy),
+          );
+        },
         onVerticalDragUpdate: (details) {
           _handleDrag(segment, details.delta.dy);
         },
-        onVerticalDragEnd: (_) => _pointerHold.end(),
-        onVerticalDragCancel: _pointerHold.end,
+        onVerticalDragEnd: (_) => _endDrag(),
+        onVerticalDragCancel: _endDrag,
         child: MouseRegion(
           cursor: SystemMouseCursors.resizeUpDown,
           child: Container(

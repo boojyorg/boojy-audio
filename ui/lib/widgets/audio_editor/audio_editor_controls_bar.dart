@@ -36,6 +36,8 @@ class AudioEditorControlsBar extends StatefulWidget {
 
   // === Pitch ===
   final int transposeSemitones;
+  final VoidCallback? onPitchDragStart;
+  final VoidCallback? onPitchDragEnd;
   final Function(int)? onTransposeChanged;
   final int fineCents;
   final Function(int)? onFineCentsChanged;
@@ -69,6 +71,8 @@ class AudioEditorControlsBar extends StatefulWidget {
     this.projectBpm = 120.0,
     this.onProjectBpmChanged,
     this.transposeSemitones = 0,
+    this.onPitchDragStart,
+    this.onPitchDragEnd,
     this.onTransposeChanged,
     this.fineCents = 0,
     this.onFineCentsChanged,
@@ -262,6 +266,8 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
             cents: widget.fineCents,
             onSemitonesChanged: widget.onTransposeChanged,
             onCentsChanged: widget.onFineCentsChanged,
+            onDragStart: widget.onPitchDragStart,
+            onDragEnd: widget.onPitchDragEnd,
           ),
         ),
       ],

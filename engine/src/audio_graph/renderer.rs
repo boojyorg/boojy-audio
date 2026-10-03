@@ -199,39 +199,20 @@ pub(crate) fn render_audio_clip_sample(
 
     let time_in_clip = timeline_clip.time_in_clip(playhead_seconds, effective_duration);
     let clip_gain = timeline_clip.get_gain();
-    let pitch_ratio = f64::from(timeline_clip.get_pitch_ratio());
 
-    let (frame_in_clip, source_clip): (usize, &AudioClip) = if timeline_clip.warp_enabled {
-        if timeline_clip.warp_mode == 0 {
-            // Warp mode: use pre-stretched cached audio (pitch preserved)
-            if let Some(ref stretched) = timeline_clip.stretched_cache {
-                let frame = frame_at(time_in_clip * pitch_ratio * f64::from(TARGET_SAMPLE_RATE));
-                (frame, stretched.as_ref())
-            } else {
-                // Fallback to Re-Pitch if cache not ready
-                let stretched_time =
-                    time_in_clip * f64::from(timeline_clip.stretch_factor) * pitch_ratio;
-                (
-                    frame_at(stretched_time * f64::from(TARGET_SAMPLE_RATE)),
-                    &*timeline_clip.clip,
-                )
-            }
-        } else {
-            // Re-Pitch mode: sample-rate shift (pitch follows speed)
-            let stretched_time =
-                time_in_clip * f64::from(timeline_clip.stretch_factor) * pitch_ratio;
-            (
-                frame_at(stretched_time * f64::from(TARGET_SAMPLE_RATE)),
-                &*timeline_clip.clip,
-            )
-        }
+    // Processed audio (Warp stretch and/or transpose) already plays at
+    // timeline speed. Re-Pitch, or Warp whose processed audio isn't there,
+    // reads the source faster or slower instead. Transpose never changes
+    // the read speed: it changes pitch only.
+    let processed = timeline_clip.stretched_cache.as_deref();
+    let warp_from_processed = timeline_clip.warp_mode == 0 && processed.is_some();
+    let rate = if timeline_clip.warp_enabled && !warp_from_processed {
+        f64::from(timeline_clip.stretch_factor)
     } else {
-        // No warp — apply pitch ratio for transpose
-        (
-            frame_at(time_in_clip * pitch_ratio * f64::from(TARGET_SAMPLE_RATE)),
-            &*timeline_clip.clip,
-        )
+        1.0
     };
+    let source_clip: &AudioClip = processed.unwrap_or(&timeline_clip.clip);
+    let frame_in_clip = frame_at(time_in_clip * rate * f64::from(TARGET_SAMPLE_RATE));
 
     let left = source_clip.get_sample(frame_in_clip, 0).unwrap_or(0.0) * clip_gain;
     let right = if source_clip.channels > 1 {
@@ -1361,6 +1342,7 @@ mod tests {
             warp_mode: 0,
             stretched_cache: None,
             cached_stretch_factor: 1.0,
+            cached_transpose_cents: 0,
             transpose_semitones: 0,
             transpose_cents: 0,
             reversed: false,
