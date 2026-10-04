@@ -15,8 +15,9 @@ paths:
 - **`./build.sh` picks the engine the app runs:** no argument = debug, `release` = release. It
   repoints `ui/macos/Runner/libengine.dylib` and copies the dylib into the app; a plain
   `cargo build` changes nothing the app loads. **Dogfood and judge audio on `./build.sh release`**
-  (the debug engine crackles on its own). Don't run `flutter build`; `flutter run` builds the
-  engine via the Xcode run script.
+  (the debug engine crackles on its own). Don't run `flutter build` locally; `flutter run` builds
+  the engine via the Xcode run script. CI builds both apps (debug, unsigned) on every PR
+  (`app-build-macos`, `app-build-windows`).
 - **Tests pass but the app crashes** → a stale dylib. Run `./build.sh release`.
 - **`ui/test/native/`** loads `libengine` over `dart:ffi` as plain `flutter test` (no device, never
   launches the app). Run `./build.sh` first. Under `--dart-define=BOOJY_CI=true` a missing engine
