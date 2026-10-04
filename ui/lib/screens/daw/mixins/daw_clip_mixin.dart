@@ -594,6 +594,10 @@ mixin DAWClipMixin
           tempo: tempo,
         );
         midiPlaybackManager?.addRecordedClip(newClip);
+        // addRecordedClip is screen-only: send the clip to the engine too, or
+        // a drawn clip exists only on screen until its first edit (and isn't
+        // saved), the same as bug-hunt #1 in createDefaultMidiClip.
+        midiPlaybackManager?.rescheduleClip(newClip, tempo);
         midiPlaybackManager?.selectClip(newClip.clipId, newClip);
         if (mounted) setState(() {});
       },

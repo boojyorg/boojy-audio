@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../../models/clip_data.dart';
 import '../../../models/instrument_data.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../models/track_data.dart';
+import '../../../services/audio_clip_engine_sync.dart';
 import '../../../services/bundled_content_service.dart';
 import '../../../services/commands/track_commands.dart';
 import '../../../services/vst3_editor_service.dart';
@@ -192,6 +194,120 @@ mixin DAWTrackMixin
 
     // Refresh timeline immediately
     refreshTrackWidgets();
+  }
+
+  /// Undoable track deletion that snapshots and restores the track's content.
+  ///
+  /// Lives here (not in the mixer panel) because restoring clips needs the
+  /// playback managers. The command owns the engine-side state (mixer, sends,
+  /// built-in effects, redo id); these closures own the UI/manager state
+  /// (MIDI + audio clips, timeline, selection). VST3 plugins and tweaked synth
+  /// params aren't recovered — surfaced via the command's onNotice.
+  Future<void> onDeleteTrackRequested(TrackData track) async {
+    // Snapshot the track's content BEFORE the command deletes it.
+    final midiSnapshot =
+        midiPlaybackManager?.midiClips
+            .where((c) => c.trackId == track.id)
+            .toList() ??
+        const <MidiClipData>[];
+    final audioSnapshot =
+        timelineKey.currentState?.getAudioClipsOnTrack(track.id) ??
+        const <ClipData>[];
+    // A VST3 *instrument* (e.g. Serum) lives in the track's InstrumentData
+    // (trackController), NOT in vst3PluginManager — that's what the UI's
+    // instrument slot reads. Capture its path so undo can route the reloaded
+    // plugin back to setTrackInstrument; everything else is a VST3 effect.
+    final deletedInstrument = trackController.getTrackInstrument(track.id);
+    final instrumentPluginPath = (deletedInstrument?.type == 'vst3')
+        ? deletedInstrument?.pluginPath
+        : null;
+    final command = DeleteTrackCommand(
+      trackId: track.id,
+      trackName: track.name,
+      trackType: track.type,
+      volumeDb: track.volumeDb,
+      pan: track.pan,
+      mute: track.mute,
+      solo: track.solo,
+      armed: track.armed,
+      onVst3Restored: (newTrackId, restored) {
+        // The command reloaded these plugins into the engine. A reloaded plugin
+        // whose path matches the deleted track's VST3 instrument goes back as
+        // the track's instrument (trackController); the rest are VST3 effects
+        // and re-register with the plugin manager (editor + count chip).
+        for (final r in restored) {
+          if (instrumentPluginPath != null && r.path == instrumentPluginPath) {
+            trackController.setTrackInstrument(
+              newTrackId,
+              InstrumentData.vst3Instrument(
+                trackId: newTrackId,
+                pluginPath: r.path,
+                pluginName: r.name,
+                effectId: r.effectId,
+              ),
+            );
+          } else {
+            vst3PluginManager?.registerRestoredPlugin(
+              newTrackId,
+              r.effectId,
+              path: r.path,
+              name: r.name,
+            );
+          }
+        }
+      },
+      onCleanup: (tid) {
+        // The engine drops a track's audio clips with the track, but the
+        // timeline UI keeps them — prune them here so redo doesn't leave
+        // ghosts. Then run the shared teardown (MIDI clips, plugin windows).
+        final timeline = timelineKey.currentState;
+        if (timeline != null) {
+          for (final clip in timeline.getAudioClipsOnTrack(tid)) {
+            timeline.removeClip(clip.clipId);
+          }
+        }
+        onTrackDeleted(tid);
+      },
+      onRestoreUi: (newTrackId) {
+        // MIDI clips: re-stamp onto the recreated track, re-add to the manager
+        // and resync to the engine (mirrors DeleteMidiClipFromArrangementCommand).
+        for (final clip in midiSnapshot) {
+          final restored = clip.copyWith(trackId: newTrackId);
+          midiPlaybackManager?.addRecordedClip(restored);
+          midiClipController.updateClip(restored, playheadPosition);
+        }
+        // Audio clips: reload from disk onto the new track with their trim
+        // and edits (restoreAudioClip, as DeleteAudioClipCommand.undo does).
+        for (final clip in audioSnapshot) {
+          final engine = audioEngine;
+          if (engine == null) break;
+          final restored = clip.copyWith(trackId: newTrackId);
+          final newClipId = restoreAudioClip(engine, restored);
+          if (newClipId >= 0) {
+            timelineKey.currentState?.addClip(
+              restored.copyWith(clipId: newClipId),
+            );
+          }
+        }
+        refreshTrackWidgets();
+        onTrackSelected(newTrackId);
+      },
+      onNotice: Notices.problem,
+    );
+
+    await undoRedoManager.execute(command);
+  }
+
+  /// Take a track's audio and MIDI clips off the screen (and the MIDI ones
+  /// out of the engine) before undo deletes the track that held them.
+  void removeTrackClipsFromScreen(int trackId) {
+    final timeline = timelineKey.currentState;
+    if (timeline != null) {
+      for (final clip in timeline.getAudioClipsOnTrack(trackId)) {
+        timeline.removeClip(clip.clipId);
+      }
+    }
+    midiPlaybackManager?.removeClipsForTrack(trackId);
   }
 
   /// Undoable Duplicate Track: the new track gets its own copy of every

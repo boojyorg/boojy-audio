@@ -100,6 +100,25 @@ void main() {
       expect(m.notes, isEmpty);
     });
 
+    test('a MIDI clip keeps its length through ui_layout.json', () {
+      // Extended to repeat: 8 beats long, a 4-beat loop. The length used to
+      // come back as the loop length (or the engine's bar-rounded one).
+      final clip = MidiClipData(
+        clipId: 5,
+        trackId: 2,
+        startTime: 4,
+        duration: 8,
+        loopLength: 4,
+        name: 'Riff',
+      );
+      final back = MidiClipData.fromUiLayoutJson(clip.toUiLayoutJson());
+      expect(back.duration, 8);
+      expect(back.loopLength, 4);
+      // Files saved before the length was stored fall back to the loop.
+      final old = clip.toUiLayoutJson()..remove('duration');
+      expect(MidiClipData.fromUiLayoutJson(old).duration, 4);
+    });
+
     test('MidiClipData.fromUiLayoutJson tolerates a legacy patternId key', () {
       final m = MidiClipData.fromUiLayoutJson({
         'trackId': 2,

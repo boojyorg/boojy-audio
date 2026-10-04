@@ -88,6 +88,17 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Undo no longer leaves ghost clips.** Undoing a file dropped on the empty arrangement, or
+  Add MIDI Track, removed the track but left its clip on screen, playing nothing. The track and
+  its clip are now one undo step.
+- **Undone deletes come back with their edits.** Undoing Delete Clip, Delete Track, or a clip
+  trimmed away by an overlap restored the plain file: a warped, reversed, pitched or quieter clip
+  looked edited but played unedited.
+- **MIDI clips survive save and reopen intact.** A drawn MIDI clip wasn't sent to the engine until
+  its first edit, so an empty one was lost on save. At tempos other than 120, clips came back
+  longer or shorter (the engine's bar-rounded length replaced the saved one), and a repeating clip
+  doubled its notes. Two overlapping notes of the same pitch lost one in the save.
+
 - **Duplicate Track shows the copied clips.** The engine copied a track's clips under the same IDs
   as the originals, so the new track played them but the timeline never showed them, and editing
   one could affect its twin. Each copied audio and MIDI clip now gets its own ID and appears on the

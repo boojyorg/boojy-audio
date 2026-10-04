@@ -200,56 +200,41 @@ mixin DAWLibraryMixin
       // 1. Copy sample to project folder if setting is enabled
       final finalPath = await prepareSamplePath(filePath);
 
-      // 2. Create new audio track, unarmed: it holds the file, so it
-      // shouldn't open the microphone.
+      // 2. A new unarmed audio track holding the clip, as one undo step
+      // (it holds a file, so it shouldn't open the microphone).
+      final startTimeSeconds = startTimeBeats * 60.0 / tempo;
       final command = CreateTrackCommand(
         trackType: 'audio',
         trackName: 'Audio',
         armed: false,
+        onCreated: (trackId) {
+          final clipId = audioEngine!.loadAudioFileToTrack(
+            finalPath, // Use the copied path
+            trackId,
+            startTime: startTimeSeconds,
+          );
+          if (clipId < 0) return;
+          final timeline = timelineKey.currentState;
+          timeline?.addClip(
+            ClipData(
+              clipId: clipId,
+              trackId: trackId,
+              filePath: finalPath,
+              startTime: startTimeSeconds,
+              duration: audioEngine!.getClipDuration(clipId),
+              waveformPeaks: audioEngine!.getWaveformPeaks(clipId, 1000),
+            ),
+          );
+          // Select the new clip (opens the Audio Editor), then sharpen its
+          // quick waveform to full resolution once it's on screen.
+          timeline?.selectAudioClip(clipId);
+          timeline?.scheduleWaveformUpgrade(clipId);
+        },
+        onBeforeUndo: removeTrackClipsFromScreen,
       );
-
       await undoRedoManager.execute(command);
 
-      final trackId = command.createdTrackId;
-      if (trackId == null || trackId < 0) {
-        return;
-      }
-
-      // 3. Load audio file to the newly created track
-      final clipId = audioEngine!.loadAudioFileToTrack(finalPath, trackId);
-      if (clipId < 0) {
-        return;
-      }
-
-      // 4. Get clip info + a quick low-res waveform for immediate display; the
-      // timeline sharpens it to full resolution a frame later.
-      final duration = audioEngine!.getClipDuration(clipId);
-      final peaks = audioEngine!.getWaveformPeaks(clipId, 1000);
-
-      // 5. Place the clip where it was dropped (audio clips are in seconds)
-      final startTimeSeconds = startTimeBeats * 60.0 / tempo;
-      if (startTimeSeconds > 0) {
-        audioEngine!.setClipStartTime(trackId, clipId, startTimeSeconds);
-      }
-
-      timelineKey.currentState?.addClip(
-        ClipData(
-          clipId: clipId,
-          trackId: trackId,
-          filePath: finalPath, // Use the copied path
-          startTime: startTimeSeconds,
-          duration: duration,
-          waveformPeaks: peaks,
-        ),
-      );
-
-      // 6. Select the newly created clip (opens Audio Editor)
-      timelineKey.currentState?.selectAudioClip(clipId);
-
-      // 7. Upgrade to the full-resolution waveform once the clip is on screen
-      timelineKey.currentState?.scheduleWaveformUpgrade(clipId);
-
-      // 8. Refresh track widgets. The track was created unarmed, so other
+      // 3. Refresh track widgets. The track was created unarmed, so other
       // tracks keep their arm.
       refreshTrackWidgets();
     } catch (e) {

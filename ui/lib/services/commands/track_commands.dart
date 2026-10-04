@@ -14,12 +14,24 @@ class CreateTrackCommand extends Command {
   /// in the engine, and an armed audio track opens the microphone, so a track
   /// made to hold a dropped file shouldn't be.
   final bool armed;
+
+  /// Fill the new track (a dropped file, a starting MIDI clip). Runs on
+  /// execute and redo, so the track and what's on it are one undo step.
+  final void Function(int trackId)? onCreated;
+
+  /// Take the track's clips off the screen before undo deletes it. Without
+  /// these two, undo removed the track but left its clip on screen, playing
+  /// nothing.
+  final void Function(int trackId)? onBeforeUndo;
+
   int? _createdTrackId;
 
   CreateTrackCommand({
     required this.trackType,
     required this.trackName,
     this.armed = true,
+    this.onCreated,
+    this.onBeforeUndo,
   });
 
   /// Get the ID of the created track (after execute)
@@ -29,14 +41,15 @@ class CreateTrackCommand extends Command {
   Future<void> execute(AudioEngineInterface engine) async {
     _createdTrackId = engine.createTrack(trackType, trackName);
     final id = _createdTrackId;
-    if (!armed && id != null && id >= 0) {
-      engine.setTrackArmed(id, armed: false);
-    }
+    if (id == null || id < 0) return;
+    if (!armed) engine.setTrackArmed(id, armed: false);
+    onCreated?.call(id);
   }
 
   @override
   Future<void> undo(AudioEngineInterface engine) async {
     if (_createdTrackId != null && _createdTrackId! >= 0) {
+      onBeforeUndo?.call(_createdTrackId!);
       engine.deleteTrack(_createdTrackId!);
     }
   }

@@ -23,6 +23,25 @@ void pushAudioClipEdits(
   engine.setAudioClipReverse(trackId, clipId, reversed: edit.reversed);
 }
 
+/// Put a removed clip back in the engine: reload its file at its position,
+/// then re-apply its trim and its edits. Returns the engine's new clip ID
+/// (-1 if the file wouldn't load). Restores used to bring back the trim only,
+/// so a warped, reversed or pitched clip came back as the plain file while
+/// the screen still showed its edits.
+int restoreAudioClip(AudioEngineInterface engine, ClipData clip) {
+  final id = engine.loadAudioFileToTrack(
+    clip.filePath,
+    clip.trackId,
+    startTime: clip.startTime,
+  );
+  if (id < 0) return id;
+  engine.setClipOffset(clip.trackId, id, clip.offset);
+  engine.setClipDuration(clip.trackId, id, clip.duration);
+  final edit = clip.editData;
+  if (edit != null) pushAudioClipEdits(engine, clip.trackId, id, edit);
+  return id;
+}
+
 /// Re-stretch every warped clip to the engine's current tempo. Call once a
 /// tempo change is finished (not on every step of a drag: each call
 /// re-renders the stretched audio of every warped clip).
