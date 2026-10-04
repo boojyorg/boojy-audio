@@ -7,6 +7,7 @@ import 'package:boojy_audio/audio_engine.dart';
 import 'package:boojy_audio/models/clip_data.dart';
 import 'package:boojy_audio/models/tool_mode.dart';
 import 'package:boojy_audio/services/project_manager.dart';
+import 'package:boojy_audio/services/state_consistency.dart';
 import 'package:boojy_audio/services/undo_redo_manager.dart';
 import 'package:boojy_audio/theme/theme_provider.dart';
 import 'package:boojy_audio/widgets/timeline_view.dart';
@@ -203,6 +204,18 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
 
+    /// Besides the specific numbers: the screen shows exactly what plays.
+    void expectScreenMatchesEngine(TimelineViewState state) => expect(
+      compareScreenWithEngine(
+        engine: EngineSnapshot.read(engine),
+        screenTempo: engine.getTempo(),
+        audioClips: state.clips,
+        midiClips: const [],
+        midiEngineIds: const {},
+      ),
+      isEmpty,
+    );
+
     ClipData uiClip(TimelineViewState state, int id) =>
         state.clips.singleWhere((c) => c.clipId == id);
 
@@ -237,6 +250,8 @@ void main() {
         expect(find.byKey(ValueKey('audio_clip_${b.clipId}')), findsOneWidget);
 
         var engineClips = await engineClipsOnTrack(engine, dir, trackId);
+
+        expectScreenMatchesEngine(state);
         expect(engineClips[a.clipId]!.start, closeTo(0.25, 1e-6));
         expect(engineClips[b.clipId]!.start, closeTo(2.25, 1e-6));
         expect(engineClips[b.clipId]!.offset, closeTo(0.25, 1e-6));
@@ -251,6 +266,7 @@ void main() {
         expect(restoredB.duration, closeTo(0.4, 0.01));
         expect(restoredB.offset, closeTo(0.0, 1e-6));
         engineClips = await engineClipsOnTrack(engine, dir, trackId);
+        expectScreenMatchesEngine(state);
         expect(engineClips[a.clipId]!.start, closeTo(0.0, 1e-6));
         expect(engineClips[b.clipId]!.start, closeTo(2.0, 1e-6));
         expect(engineClips[b.clipId]!.offset, closeTo(0.0, 1e-6));
@@ -265,6 +281,7 @@ void main() {
         expect(redoneB.duration, closeTo(0.15, 1e-6));
         expect(redoneB.offset, closeTo(0.25, 1e-6));
         engineClips = await engineClipsOnTrack(engine, dir, trackId);
+        expectScreenMatchesEngine(state);
         expect(engineClips[b.clipId]!.start, closeTo(2.25, 1e-6));
         expect(engineClips[b.clipId]!.offset, closeTo(0.25, 1e-6));
         expect(engineClips[b.clipId]!.duration, closeTo(0.15, 1e-6));
@@ -291,6 +308,8 @@ void main() {
         expect(trimmedB.offset, closeTo(1.0, 1e-6));
 
         final engineClips = await engineClipsOnTrack(engine, dir, trackId);
+
+        expectScreenMatchesEngine(state);
         expect(engineClips[b.clipId]!.start, closeTo(3.0, 1e-6));
         expect(engineClips[b.clipId]!.offset, closeTo(1.0, 1e-6));
         expect(engineClips[b.clipId]!.duration, closeTo(1.0, 1e-6));
@@ -317,6 +336,8 @@ void main() {
         expect(trimmedA.offset, closeTo(0.0, 1e-6));
 
         final engineClips = await engineClipsOnTrack(engine, dir, trackId);
+
+        expectScreenMatchesEngine(state);
         expect(engineClips[a.clipId]!.start, closeTo(0.0, 1e-6));
         expect(engineClips[a.clipId]!.duration, closeTo(1.5, 1e-6));
 

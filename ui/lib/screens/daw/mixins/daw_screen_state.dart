@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../audio_engine.dart';
 import '../../../models/clip_data.dart';
@@ -8,6 +9,9 @@ import '../../../models/project_metadata.dart';
 import '../../../models/tool_mode.dart';
 import '../../../models/track_automation_data.dart';
 import '../../../services/commands/automation_commands.dart';
+import '../../../services/state_consistency.dart';
+import '../../../utils/logger.dart';
+import '../../../widgets/shared/boojy_notice.dart';
 import '../../../services/undo_redo_manager.dart';
 import '../../../services/library_service.dart';
 import '../../../services/library_preview_service.dart';
@@ -187,6 +191,36 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
       current[trackId] = value;
     }
     automationPreviewNotifier.value = current;
+  }
+
+  /// Development builds only: once the next frame has drawn, check the
+  /// screen still matches what the engine plays (`state_consistency.dart`)
+  /// and flag any difference, so a bug like clips playing unseen announces
+  /// itself the first time it happens. Called after every undoable action
+  /// and after a project loads.
+  void scheduleScreenEngineCheck() {
+    if (!kDebugMode) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final engine = audioEngine;
+      final timeline = timelineKey.currentState;
+      if (!mounted || engine == null || timeline == null) return;
+      final problems = compareScreenWithEngine(
+        engine: EngineSnapshot.read(engine),
+        screenTempo: tempo,
+        audioClips: timeline.clips,
+        midiClips: midiPlaybackManager?.midiClips ?? const [],
+        midiEngineIds: midiPlaybackManager?.dartToRustClipIds ?? const {},
+      );
+      if (problems.isEmpty) return;
+      for (final problem in problems) {
+        Log.e('[screen ≠ engine] $problem');
+      }
+      Notices.problem(
+        'Dev check: the screen and engine disagree. ${problems.first}'
+        '${problems.length > 1 ? ' (+${problems.length - 1} more in the log)' : ''}',
+        id: 'screen-engine-check',
+      );
+    });
   }
 
   void syncVolumeAutomationToEngine(int trackId) {

@@ -582,6 +582,7 @@ mixin DAWProjectMixin
           timelineState.scheduleWaveformUpgrade(clip.clipId);
         }
       }
+      scheduleScreenEngineCheck();
     });
     // Nothing else may schedule a frame (a project with no layout file).
     WidgetsBinding.instance.ensureVisualUpdate();

@@ -606,7 +606,8 @@ mixin _RecordingMixin on _AudioEngineBase {
   }
 
   /// Get all MIDI clips info
-  /// Returns semicolon-separated list: "clip_id,track_id,start_time,duration,note_count"
+  /// Returns semicolon-separated list:
+  /// "clip_id,track_id,start_time,duration,note_count,plays" (plays: 1 = on a track)
   /// Each clip info is separated by semicolon
   String getAllMidiClipsInfo() {
     try {
