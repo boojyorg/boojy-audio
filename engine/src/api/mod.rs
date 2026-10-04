@@ -99,10 +99,10 @@ pub use timing::{
     set_time_signature,
 };
 pub use tracks::{
-    create_track, get_all_track_ids, get_track_count, get_track_info, get_track_input,
-    get_track_peak_levels, set_track_armed, set_track_input, set_track_input_monitoring,
-    set_track_mute, set_track_name, set_track_pan, set_track_solo, set_track_volume,
-    set_track_volume_automation,
+    create_track, create_track_with_id, get_all_track_ids, get_track_count, get_track_info,
+    get_track_input, get_track_peak_levels, set_track_armed, set_track_input,
+    set_track_input_monitoring, set_track_mute, set_track_name, set_track_pan, set_track_solo,
+    set_track_volume, set_track_volume_automation,
 };
 pub use transport::{
     get_play_start_position, get_playhead_position, get_record_start_position, get_transport_state,

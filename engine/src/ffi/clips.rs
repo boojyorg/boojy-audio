@@ -235,7 +235,8 @@ pub extern "C" fn free_waveform_peaks_ffi(ptr: *mut f32, length: usize) {
     );
 }
 
-/// Duplicate an audio clip on the same track at a new position
+/// Duplicate an audio clip on the same track at a new position, under
+/// `new_clip_id` (redo keeps the copy's id) or a fresh id when negative.
 ///
 /// Returns the new clip ID on success, or -1 on failure.
 #[no_mangle]
@@ -243,9 +244,15 @@ pub extern "C" fn duplicate_audio_clip_ffi(
     track_id: u64,
     source_clip_id: u64,
     new_start_time: f64,
+    new_clip_id: i64,
 ) -> i64 {
     ffi_catch(-1, || {
-        match api::duplicate_audio_clip(track_id, source_clip_id, new_start_time) {
+        match api::duplicate_audio_clip(
+            track_id,
+            source_clip_id,
+            new_start_time,
+            u64::try_from(new_clip_id).ok(),
+        ) {
             Ok(new_clip_id) => new_clip_id as i64,
             Err(e) => {
                 eprintln!(
@@ -257,7 +264,8 @@ pub extern "C" fn duplicate_audio_clip_ffi(
     })
 }
 
-/// Copy an audio clip onto another track under a new clip ID.
+/// Copy an audio clip onto another track under `new_clip_id` (redo keeps the
+/// copy's id) or a fresh id when negative.
 ///
 /// Returns the new clip ID on success, or -1 on failure.
 #[no_mangle]
@@ -266,6 +274,7 @@ pub extern "C" fn duplicate_audio_clip_to_track_ffi(
     source_clip_id: u64,
     target_track_id: u64,
     new_start_time: f64,
+    new_clip_id: i64,
 ) -> i64 {
     ffi_catch(-1, || {
         match api::duplicate_audio_clip_to_track(
@@ -273,6 +282,7 @@ pub extern "C" fn duplicate_audio_clip_to_track_ffi(
             source_clip_id,
             target_track_id,
             new_start_time,
+            u64::try_from(new_clip_id).ok(),
         ) {
             Ok(new_clip_id) => new_clip_id as i64,
             Err(e) => {

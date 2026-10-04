@@ -173,33 +173,20 @@ pub fn get_midi_clip_notes(clip_id: u64) -> Result<String, String> {
     Err(format!("MIDI clip {clip_id} not found"))
 }
 
-/// Helper function to extract notes from a MIDI clip
+/// A clip's notes as "`note,velocity,start_time,duration`" entries, paired the
+/// same way a save pairs them: one slot per pitch lost a note that sat inside
+/// another of the same pitch, so a reopened project showed one note fewer
+/// than the engine played.
 fn extract_notes_from_clip(clip: &crate::midi::MidiClip, sample_rate: u32) -> String {
-    use crate::midi::MidiEventType;
-    use std::collections::HashMap;
-
-    let mut notes_info = Vec::new();
-    let mut note_starts: HashMap<u8, (u64, u8)> = HashMap::new(); // note -> (start_samples, velocity)
-
-    for event in &clip.events {
-        match event.event_type {
-            MidiEventType::NoteOn { note, velocity } => {
-                note_starts.insert(note, (event.timestamp_samples, velocity));
-            }
-            MidiEventType::NoteOff { note, .. } => {
-                if let Some((start_samples, velocity)) = note_starts.remove(&note) {
-                    let start_time = start_samples as f64 / f64::from(sample_rate);
-                    let end_time = event.timestamp_samples as f64 / f64::from(sample_rate);
-                    let duration = end_time - start_time;
-
-                    notes_info.push(format!("{note},{velocity},{start_time},{duration}"));
-                }
-            }
-            MidiEventType::ControlChange { .. } => {}
-        }
-    }
-
-    notes_info.join(";")
+    crate::audio_graph::convert_midi_events_to_notes(
+        &clip.events,
+        sample_rate,
+        clip.duration_seconds(),
+    )
+    .iter()
+    .map(|n| format!("{},{},{},{}", n.note, n.velocity, n.start_time, n.duration))
+    .collect::<Vec<_>>()
+    .join(";")
 }
 
 // ============================================================================
@@ -576,4 +563,29 @@ pub fn remove_midi_clip(track_id: u64, clip_id: u64) -> Result<bool, String> {
     // Remove from global collection
     let removed = graph.remove_clip(clip_id);
     Ok(removed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::extract_notes_from_clip;
+    use crate::midi::{MidiClip, MidiEvent};
+
+    #[test]
+    fn a_note_inside_another_of_the_same_pitch_reads_back_as_two_notes() {
+        // A G3 from 1 s to 2 s with another G3 from 1.25 s to 1.75 s inside it
+        // (a stress-test seed lost the outer one on reopen).
+        let sr = 48_000;
+        let at = |s: f64| (s * f64::from(sr)) as u64;
+        let clip = MidiClip::with_events(
+            vec![
+                MidiEvent::note_on(55, 100, at(1.0)),
+                MidiEvent::note_on(55, 90, at(1.25)),
+                MidiEvent::note_off(55, 0, at(1.75)),
+                MidiEvent::note_off(55, 0, at(2.0)),
+            ],
+            sr,
+        );
+        let notes = extract_notes_from_clip(&clip, sr);
+        assert_eq!(notes.split(';').count(), 2, "notes: {notes}");
+    }
 }

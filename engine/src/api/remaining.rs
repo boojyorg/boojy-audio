@@ -313,6 +313,12 @@ pub fn clear_all_tracks() -> Result<String, String> {
 /// # Returns
 /// New track ID on success, error if track not found or is master
 pub fn duplicate_track(track_id: TrackId) -> Result<TrackId, String> {
+    duplicate_track_as(track_id, None)
+}
+
+/// [`duplicate_track`] under a chosen id for the copy (redo recreates the
+/// copy under the id it had), or a fresh one with `None`.
+pub fn duplicate_track_as(track_id: TrackId, new_id: Option<TrackId>) -> Result<TrackId, String> {
     let graph_mutex = graph()?;
     let graph = graph_mutex.lock();
 
@@ -347,7 +353,10 @@ pub fn duplicate_track(track_id: TrackId) -> Result<TrackId, String> {
     // Now create the new track and set its properties
     let new_track_id = {
         let mut track_manager = graph.track_manager.lock();
-        track_manager.create_track(track_type, name)
+        match new_id {
+            Some(id) => track_manager.insert_track_with_id(id, track_type, name)?,
+            None => track_manager.create_track(track_type, name),
+        }
     };
 
     // Deep copy effects chain (create new effect instances)
@@ -419,8 +428,15 @@ pub fn duplicate_audio_clip(
     track_id: TrackId,
     source_clip_id: u64,
     new_start_time: f64,
+    new_clip_id: Option<u64>,
 ) -> Result<u64, String> {
-    duplicate_audio_clip_to_track(track_id, source_clip_id, track_id, new_start_time)
+    duplicate_audio_clip_to_track(
+        track_id,
+        source_clip_id,
+        track_id,
+        new_start_time,
+        new_clip_id,
+    )
 }
 
 /// Copy an audio clip onto `target_track_id` at `new_start_time` under a new
@@ -428,12 +444,14 @@ pub fn duplicate_audio_clip(
 /// and processed audio. Duplicate Track uses it to give every copied clip its
 /// own ID.
 ///
-/// Returns the new clip's ID.
+/// `new_clip_id` keeps the id the copy had before (redo); `None` picks a
+/// fresh one. Returns the new clip's ID.
 pub fn duplicate_audio_clip_to_track(
     source_track_id: TrackId,
     source_clip_id: u64,
     target_track_id: TrackId,
     new_start_time: f64,
+    new_clip_id: Option<u64>,
 ) -> Result<u64, String> {
     let graph_mutex = graph()?;
     let graph = graph_mutex.lock();
@@ -455,7 +473,13 @@ pub fn duplicate_audio_clip_to_track(
             ))?
             .clone()
     };
-    copy.id = graph.allocate_clip_id();
+    copy.id = match new_clip_id {
+        Some(id) => {
+            graph.ensure_next_clip_id_above(id);
+            id
+        }
+        None => graph.allocate_clip_id(),
+    };
     copy.start_time = new_start_time;
     let new_clip_id = copy.id;
     let audio = copy.clip.clone();

@@ -152,8 +152,9 @@ class ResolveAudioOverlapCommand extends Command {
           s.original.trackId,
           origId,
           tmpl.startTime,
+          newClipId: _splitPartBIds[i], // redo: the id it had
         );
-        if (partBId > 0) {
+        if (partBId >= 0) {
           engine.setClipOffset(s.original.trackId, partBId, tmpl.offset);
           engine.setClipDuration(s.original.trackId, partBId, tmpl.duration);
           _splitPartBIds[i] = partBId;
@@ -625,19 +626,21 @@ class SplitAudioClipCommand extends Command {
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
+    // The right half is a copy of the original (so it keeps the clip's
+    // edits: reloading the plain file dropped warp, pitch and reverse), made
+    // before the original is trimmed, under the id it had on a redo.
+    final rid = engine.duplicateAudioClip(
+      originalTrackId,
+      originalClipId,
+      rightStartTime,
+      newClipId: _rightEngineClipId,
+    );
+
     // C64: trim the original (left) clip in the engine to the split point.
     // Previously only the UI clip was shortened, so the engine kept playing the
     // full pre-split length, overlapping the right region.
     engine.setClipDuration(originalTrackId, originalClipId, leftDuration);
 
-    // Register the right clip in the engine so it plays the post-split region
-    // (offset into the source file + remaining duration). The engine assigns a
-    // new id which becomes the right clip's id in the UI.
-    final rid = engine.loadAudioFileToTrack(
-      originalFilePath,
-      originalTrackId,
-      startTime: rightStartTime,
-    );
     if (rid >= 0) {
       engine.setClipOffset(originalTrackId, rid, rightOffset);
       engine.setClipDuration(originalTrackId, rid, rightDuration);
@@ -706,7 +709,14 @@ class AddAudioClipCommand extends Command {
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
-    _createdClipId = engine.loadAudioFileToTrack(filePath, trackId);
+    // Redo brings the clip back under the id it had (from the engine's store).
+    _createdClipId = placeAudioFile(
+      engine,
+      filePath,
+      trackId,
+      startTime,
+      reuseId: _createdClipId,
+    );
     if (_createdClipId != null && _createdClipId! >= 0) {
       final duration = engine.getClipDuration(_createdClipId!);
       // Quick low-res waveform for immediate display; the timeline upgrades it
@@ -860,10 +870,12 @@ class JoinAudioClipsCommand extends Command {
     }
 
     // Add the rendered clip in their place.
-    final newId = engine.loadAudioFileToTrack(
+    final newId = placeAudioFile(
+      engine,
       path,
       trackId,
-      startTime: _joinedStart,
+      _joinedStart,
+      reuseId: _joinedClipId, // redo: the id it had
     );
     if (newId < 0) {
       Log.e('[JoinAudioClipsCommand] failed to load joined WAV');
@@ -931,11 +943,18 @@ class DuplicateAudioClipCommand extends Command {
   /// Callback to remove duplicated clip (undo)
   final void Function(int clipId)? onClipRemoved;
 
+  /// Trim or remove the clips the copy lands on, as part of this one undo
+  /// step (applied outside it, undoing the copy left them trimmed or gone).
+  /// Built once, on the first run, so redo repeats exactly the same edit.
+  final ResolveAudioOverlapCommand? Function(int copyId)? resolveOverlaps;
+  ResolveAudioOverlapCommand? _overlap;
+
   DuplicateAudioClipCommand({
     required this.originalClip,
     required this.newStartTime,
     this.onClipDuplicated,
     this.onClipRemoved,
+    this.resolveOverlaps,
   });
 
   @override
@@ -945,14 +964,16 @@ class DuplicateAudioClipCommand extends Command {
       originalClip.trackId,
       originalClip.clipId,
       newStartTime,
+      newClipId: _duplicatedClipId, // redo: the id it had
     );
-
     if (newClipId < 0) {
-      // Fallback to local-only ID if engine call fails
-      _duplicatedClipId = generateUniqueClipId();
-    } else {
-      _duplicatedClipId = newClipId;
+      // Nothing to show: a made-up id put a clip on screen that never played.
+      Log.e('[DuplicateAudioClipCommand] engine copy failed');
+      return;
     }
+    _duplicatedClipId = newClipId;
+    _overlap ??= resolveOverlaps?.call(newClipId);
+    await _overlap?.execute(engine);
 
     // Preserve editData (warp, gain, transpose settings)
     final newClip = originalClip.copyWith(
@@ -970,6 +991,7 @@ class DuplicateAudioClipCommand extends Command {
       engine.removeAudioClip(originalClip.trackId, _duplicatedClipId!);
       // Remove from UI
       onClipRemoved?.call(_duplicatedClipId!);
+      await _overlap?.undo(engine);
     }
   }
 
@@ -1088,20 +1110,36 @@ class DuplicateMidiClipCommand extends Command {
   /// Callback to remove duplicated clip (undo)
   final void Function(int clipId)? onClipRemoved;
 
+  /// Trim or remove the clips the copy lands on, in this same undo step
+  /// (see [DuplicateAudioClipCommand.resolveOverlaps]).
+  final ResolveMidiOverlapCommand? Function()? resolveOverlaps;
+  ResolveMidiOverlapCommand? _overlap;
+
   DuplicateMidiClipCommand({
     required this.originalClip,
     required this.newStartTime,
     this.onClipDuplicated,
     this.onClipRemoved,
+    this.resolveOverlaps,
   });
 
   /// Get the duplicated clip ID (available after execute)
   int? get duplicatedClipId => _duplicatedClipId;
 
+  /// The copy, made once: redo brings back this same clip (same id), so later
+  /// steps on it (adding notes) still find it. A fresh copy on every redo
+  /// left them editing a clip that no longer existed.
+  MidiClipData? _copy;
+
   @override
   Future<void> execute(AudioEngineInterface engine) async {
-    final newClip = independentMidiCopy(originalClip, startTime: newStartTime);
+    final newClip = _copy ??= independentMidiCopy(
+      originalClip,
+      startTime: newStartTime,
+    );
     _duplicatedClipId = newClip.clipId;
+    _overlap ??= resolveOverlaps?.call();
+    await _overlap?.execute(engine);
     onClipDuplicated?.call(newClip);
   }
 
@@ -1109,6 +1147,7 @@ class DuplicateMidiClipCommand extends Command {
   Future<void> undo(AudioEngineInterface engine) async {
     if (_duplicatedClipId != null) {
       onClipRemoved?.call(_duplicatedClipId!);
+      await _overlap?.undo(engine);
     }
   }
 
@@ -1192,20 +1231,29 @@ class CreateMidiClipCommand extends Command {
   /// Callback to remove clip from UI state (undo)
   final void Function(int clipId, int trackId)? onClipRemoved;
 
+  /// Trim or remove the clips the new one lands on, in this same undo step
+  /// (see [DuplicateAudioClipCommand.resolveOverlaps]).
+  final ResolveMidiOverlapCommand? Function()? resolveOverlaps;
+  ResolveMidiOverlapCommand? _overlap;
+
   CreateMidiClipCommand({
     required this.clipData,
     this.onClipCreated,
     this.onClipRemoved,
+    this.resolveOverlaps,
   });
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
+    _overlap ??= resolveOverlaps?.call();
+    await _overlap?.execute(engine);
     onClipCreated?.call(clipData);
   }
 
   @override
   Future<void> undo(AudioEngineInterface engine) async {
     onClipRemoved?.call(clipData.clipId, clipData.trackId);
+    await _overlap?.undo(engine);
   }
 
   @override

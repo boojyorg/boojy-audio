@@ -241,9 +241,9 @@ typedef _ClearMidiClipFfi = ffi.Pointer<Utf8> Function(int);
 
 // M4 types - Tracks & Mixer
 typedef _CreateTrackFfiNative =
-    ffi.Int64 Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>);
+    ffi.Int64 Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>, ffi.Int64);
 typedef _CreateTrackFfi =
-    int Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>);
+    int Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>, int);
 
 typedef _SetTrackVolumeFfiNative =
     ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Float);
@@ -309,15 +309,22 @@ typedef _GetEffectPeakLevelsFfi = ffi.Pointer<Utf8> Function(int);
 typedef _DeleteTrackFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64);
 typedef _DeleteTrackFfi = ffi.Pointer<Utf8> Function(int);
 
-typedef _DuplicateTrackFfiNative = ffi.Int64 Function(ffi.Uint64);
-typedef _DuplicateTrackFfi = int Function(int);
+typedef _DuplicateTrackFfiNative = ffi.Int64 Function(ffi.Uint64, ffi.Int64);
+typedef _DuplicateTrackFfi = int Function(int, int);
 
 typedef _DuplicateAudioClipFfiNative =
-    ffi.Int64 Function(ffi.Uint64, ffi.Uint64, ffi.Double);
-typedef _DuplicateAudioClipFfi = int Function(int, int, double);
+    ffi.Int64 Function(ffi.Uint64, ffi.Uint64, ffi.Double, ffi.Int64);
+typedef _DuplicateAudioClipFfi = int Function(int, int, double, int);
 typedef _DuplicateAudioClipToTrackFfiNative =
-    ffi.Int64 Function(ffi.Uint64, ffi.Uint64, ffi.Uint64, ffi.Double);
-typedef _DuplicateAudioClipToTrackFfi = int Function(int, int, int, double);
+    ffi.Int64 Function(
+      ffi.Uint64,
+      ffi.Uint64,
+      ffi.Uint64,
+      ffi.Double,
+      ffi.Int64,
+    );
+typedef _DuplicateAudioClipToTrackFfi =
+    int Function(int, int, int, double, int);
 
 typedef _RemoveAudioClipFfiNative = ffi.Int32 Function(ffi.Uint64, ffi.Uint64);
 typedef _RemoveAudioClipFfi = int Function(int, int);

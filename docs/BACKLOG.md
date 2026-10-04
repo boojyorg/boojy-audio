@@ -68,12 +68,6 @@ reproduces them.
   (`render_audio_clip_sample`). *(Tyr)* decide: make the engine loop the clip's audio for its
   length (what the screen promises; needs a loop length per clip in the engine), or stop audio
   clips stretching past their file and drop the repeat drawing.
-- **Undo and redo don't keep track and clip IDs stable.** Undoing Delete Track, undoing an
-  overlap that removed a clip, or redoing Create Track brings things back under *new* IDs, so
-  later undo/redo steps that refer to the old ones silently do nothing (a whole track survived
-  "undo everything"; a redone copy showed a clip the engine didn't have). Fix: recreate the same
-  IDs (the engine can insert a track by ID; audio clips can be re-added by ID). Reproduce:
-  `daw_stress_test.dart` with `--dart-define=STRESS_UNDO_ALL=true` (seed 1), and seed 10.
 - **Recording onto two armed audio tracks shows only the first take.** The engine records a
   clip on every armed audio track, but the UI adds (and undoes) only the first, so the others
   exist in the engine unseen. `RecordingCompleteCommand` needs to cover several tracks.
@@ -128,8 +122,9 @@ disagreeing, untested wiring in the DAW screen, and a test that pinned the wrong
    warp, loop toggle, Duplicate Track, save and reopen). Describe outcomes, not clicks; check (1)
    after every step. Recording workflows need a real input, so they aren't covered yet.
 3. **Random stress tests** (`ui/test/native/daw_stress_test.dart`): seeded runs of random edits,
-   undos and redos, checked with (1) after each, then save and reopen must match. CI runs seeds
-   1–5; `STRESS_SEEDS`/`STRESS_STEPS` run more. The undo-everything check waits on stable IDs.
+   undos and redos, checked with (1) after each; then undo everything back to an empty project,
+   redo it all, and save and reopen, each of which must match. CI runs seeds 1–5;
+   `STRESS_SEEDS`/`STRESS_STEPS` run more (1–40 pass).
 4. **CI builds the apps**: macOS and Windows debug builds on every PR, so native code can't
    reach a release uncompiled. `test/native` can't run on Windows CI yet: the engine won't start
    without an output device (see Known bugs).

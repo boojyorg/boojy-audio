@@ -39,7 +39,13 @@ class CreateTrackCommand extends Command {
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
-    _createdTrackId = engine.createTrack(trackType, trackName);
+    // Redo brings the track back under the id it had, so later steps on it
+    // (a dropped file, its clips' edits) still find it.
+    _createdTrackId = engine.createTrack(
+      trackType,
+      trackName,
+      id: _createdTrackId,
+    );
     final id = _createdTrackId;
     if (id == null || id < 0) return;
     if (!armed) engine.setTrackArmed(id, armed: false);
@@ -214,7 +220,9 @@ class DeleteTrackCommand extends Command {
 
   @override
   Future<void> undo(AudioEngineInterface engine) async {
-    final newTrackId = engine.createTrack(trackType, trackName);
+    // Back under its own id, so earlier steps on the track still find it.
+    var newTrackId = engine.createTrack(trackType, trackName, id: trackId);
+    if (newTrackId < 0) newTrackId = engine.createTrack(trackType, trackName);
     if (newTrackId < 0) return;
     _currentTrackId = newTrackId;
 
@@ -417,27 +425,39 @@ class DuplicateTrackCommand extends Command {
   /// Get the ID of the duplicated track (after execute)
   int? get duplicatedTrackId => _duplicatedTrackId;
 
+  /// The copies' ids from the first run: redo recreates them under the same
+  /// ids, so later steps on the copies still find them.
+  final List<int?> _audioCopyIds = [];
+  List<MidiClipData>? _midiCopies;
+
   @override
   Future<void> execute(AudioEngineInterface engine) async {
-    final newTrackId = engine.duplicateTrack(sourceTrackId);
+    final newTrackId = engine.duplicateTrack(
+      sourceTrackId,
+      newTrackId: _duplicatedTrackId,
+    );
     _duplicatedTrackId = newTrackId;
     if (newTrackId < 0) return;
 
     final audioCopies = <ClipData>[];
-    for (final clip in audioClips) {
+    for (var i = 0; i < audioClips.length; i++) {
+      final clip = audioClips[i];
+      if (_audioCopyIds.length <= i) _audioCopyIds.add(null);
       final newClipId = engine.duplicateAudioClipToTrack(
         sourceTrackId,
         clip.clipId,
         newTrackId,
         clip.startTime,
+        newClipId: _audioCopyIds[i],
       );
       if (newClipId < 0) {
         Log.e('[DuplicateTrackCommand] failed to copy clip ${clip.clipId}');
         continue;
       }
+      _audioCopyIds[i] = newClipId;
       audioCopies.add(clip.copyWith(clipId: newClipId, trackId: newTrackId));
     }
-    final midiCopies = [
+    final midiCopies = _midiCopies ??= [
       for (final clip in midiClips)
         independentMidiCopy(clip, trackId: newTrackId),
     ];

@@ -28,11 +28,17 @@ void pushAudioClipEdits(
 /// (-1 if the file wouldn't load). Restores used to bring back the trim only,
 /// so a warped, reversed or pitched clip came back as the plain file while
 /// the screen still showed its edits.
+///
+/// The clip comes back under its own ID when the engine still holds its audio
+/// (it keeps a deleted clip's audio), so undo and redo steps before and after
+/// still find it; reloading the file is the fallback.
 int restoreAudioClip(AudioEngineInterface engine, ClipData clip) {
-  final id = engine.loadAudioFileToTrack(
+  final id = placeAudioFile(
+    engine,
     clip.filePath,
     clip.trackId,
-    startTime: clip.startTime,
+    clip.startTime,
+    reuseId: clip.clipId,
   );
   if (id < 0) return id;
   engine.setClipOffset(clip.trackId, id, clip.offset);
@@ -40,6 +46,24 @@ int restoreAudioClip(AudioEngineInterface engine, ClipData clip) {
   final edit = clip.editData;
   if (edit != null) pushAudioClipEdits(engine, clip.trackId, id, edit);
   return id;
+}
+
+/// Put an audio file on a track at [startTime] and return its clip ID. With
+/// [reuseId] (a redo, or a restore) the clip comes back under that ID from
+/// the engine's clip store; only the first time, or if the store no longer
+/// has it, is the file loaded under a fresh ID.
+int placeAudioFile(
+  AudioEngineInterface engine,
+  String filePath,
+  int trackId,
+  double startTime, {
+  int? reuseId,
+}) {
+  if (reuseId != null &&
+      engine.addExistingClipToTrack(reuseId, trackId, startTime) >= 0) {
+    return reuseId;
+  }
+  return engine.loadAudioFileToTrack(filePath, trackId, startTime: startTime);
 }
 
 /// Re-stretch every warped clip to the engine's current tempo. Call once a

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../utils/logger.dart';
 import '../../../models/clip_data.dart';
 import '../../../models/midi_note_data.dart';
+import '../../../services/audio_clip_engine_sync.dart';
 import '../../../services/commands/track_commands.dart';
 // ignore: unused_import
 import '../../../services/commands/clip_commands.dart';
@@ -203,17 +204,21 @@ mixin DAWLibraryMixin
       // 2. A new unarmed audio track holding the clip, as one undo step
       // (it holds a file, so it shouldn't open the microphone).
       final startTimeSeconds = startTimeBeats * 60.0 / tempo;
+      int? droppedClipId; // redo brings the clip back under this id
       final command = CreateTrackCommand(
         trackType: 'audio',
         trackName: 'Audio',
         armed: false,
         onCreated: (trackId) {
-          final clipId = audioEngine!.loadAudioFileToTrack(
+          final clipId = placeAudioFile(
+            audioEngine!,
             finalPath, // Use the copied path
             trackId,
-            startTime: startTimeSeconds,
+            startTimeSeconds,
+            reuseId: droppedClipId,
           );
           if (clipId < 0) return;
+          droppedClipId = clipId;
           final timeline = timelineKey.currentState;
           timeline?.addClip(
             ClipData(

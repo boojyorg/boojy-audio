@@ -29,10 +29,9 @@ const _seeds = String.fromEnvironment(
 const _steps = int.fromEnvironment('STRESS_STEPS', defaultValue: 60);
 
 // Undo everything, then redo everything, and check the project returns to
-// empty and back. Off by default until undo and redo keep track and clip IDs
-// stable (BACKLOG): redo recreates them under new IDs, so later steps that
-// refer to the old ones do nothing. Turn on with --dart-define=STRESS_UNDO_ALL=true.
-const _undoAll = bool.fromEnvironment('STRESS_UNDO_ALL');
+// empty and back. On by default; --dart-define=STRESS_UNDO_ALL=false skips it
+// (to look at a save/reopen failure on its own).
+const _undoAll = bool.fromEnvironment('STRESS_UNDO_ALL', defaultValue: true);
 
 void main() {
   if (!isNativeEngineAvailable) {
@@ -115,14 +114,21 @@ class _StressRun {
     List<String> empty,
     List<String> last,
   ) async {
-    while (h.daw.undoRedoManager.canUndo) {
+    final undoRedo = h.daw.undoRedoManager;
+    var undone = 0;
+    while (undoRedo.canUndo) {
+      undone++;
+      log.add('undo all: ${undoRedo.undoDescription}');
       await h.daw.performUndo();
       await h.settle(frames: 2, ms: 20);
       _check('undoing everything');
     }
     _expectSame(_fingerprint(), empty, 'undoing everything');
 
-    while (h.daw.undoRedoManager.canRedo) {
+    // Redo exactly what was undone: steps the run itself had undone and left
+    // on the redo stack aren't part of where it ended.
+    for (var i = 0; i < undone; i++) {
+      log.add('redo all: ${undoRedo.redoDescription}');
       await h.daw.performRedo();
       await h.settle(frames: 2, ms: 20);
       _check('redoing everything');
@@ -164,8 +170,26 @@ class _StressRun {
 
   void _expectSame(List<String> got, List<String> want, String after) {
     if (got.join('\n') == want.join('\n')) return;
-    final missing = want.where((w) => !got.contains(w));
-    final extra = got.where((g) => !want.contains(g));
+    // Count each line: two identical clips are a different project from one.
+    Map<String, int> counts(List<String> lines) {
+      final c = <String, int>{};
+      for (final l in lines) {
+        c[l] = (c[l] ?? 0) + 1;
+      }
+      return c;
+    }
+
+    final g = counts(got), w = counts(want);
+    final missing = [
+      for (final e in w.entries)
+        if ((g[e.key] ?? 0) < e.value)
+          '${e.key} (×${e.value - (g[e.key] ?? 0)})',
+    ];
+    final extra = [
+      for (final e in g.entries)
+        if ((w[e.key] ?? 0) < e.value)
+          '${e.key} (×${e.value - (w[e.key] ?? 0)})',
+    ];
     fail(
       'Seed $seed: the project changed after $after.\n'
       '  missing: ${missing.join('; ')}\n'
@@ -348,12 +372,14 @@ class _StressRun {
 
   Future<bool> _undo() async {
     if (!h.daw.undoRedoManager.canUndo) return false;
+    log.add('   (undoing: ${h.daw.undoRedoManager.undoDescription})');
     await h.daw.performUndo();
     return true;
   }
 
   Future<bool> _redo() async {
     if (!h.daw.undoRedoManager.canRedo) return false;
+    log.add('   (redoing: ${h.daw.undoRedoManager.redoDescription})');
     await h.daw.performRedo();
     return true;
   }

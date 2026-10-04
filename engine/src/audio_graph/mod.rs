@@ -1,6 +1,7 @@
 mod device;
 mod offline;
 mod project;
+pub(crate) use project::convert_midi_events_to_notes;
 #[cfg(test)]
 mod render_tests;
 /// Audio graph and playback engine

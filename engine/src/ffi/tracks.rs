@@ -16,7 +16,7 @@ use std::panic::AssertUnwindSafe;
 /// # Returns
 /// Track ID on success, or -1 on error
 #[no_mangle]
-pub extern "C" fn create_track_ffi(track_type: *const c_char, name: *const c_char) -> i64 {
+pub extern "C" fn create_track_ffi(track_type: *const c_char, name: *const c_char, id: i64) -> i64 {
     ffi_catch(
         -1,
         AssertUnwindSafe(|| {
@@ -28,7 +28,13 @@ pub extern "C" fn create_track_ffi(track_type: *const c_char, name: *const c_cha
             };
             let name_str = name_str.to_string();
 
-            match api::create_track(track_type_str, name_str) {
+            // A non-negative id brings a track back under the id it had
+            // (undo/redo); negative picks a fresh one.
+            let created = match u64::try_from(id) {
+                Ok(id) => api::create_track_with_id(track_type_str, name_str, id),
+                Err(_) => api::create_track(track_type_str, name_str),
+            };
+            match created {
                 Ok(id) => id as i64,
                 Err(e) => {
                     eprintln!("[FFI] create_track error: {e}");
@@ -265,12 +271,14 @@ pub extern "C" fn clear_all_tracks_ffi() -> *mut c_char {
 /// Returns the new track ID as a string on success, or "Error: <message>" on failure.
 /// Returns "-1" if duplication fails.
 #[no_mangle]
-pub extern "C" fn duplicate_track_ffi(track_id: u64) -> i64 {
-    ffi_catch(-1, || match api::duplicate_track(track_id) {
-        Ok(new_track_id) => new_track_id as i64,
-        Err(e) => {
-            eprintln!("[FFI] Failed to duplicate track {track_id}: {e}");
-            -1
+pub extern "C" fn duplicate_track_ffi(track_id: u64, new_track_id: i64) -> i64 {
+    ffi_catch(-1, || {
+        match api::duplicate_track_as(track_id, u64::try_from(new_track_id).ok()) {
+            Ok(new_track_id) => new_track_id as i64,
+            Err(e) => {
+                eprintln!("[FFI] Failed to duplicate track {track_id}: {e}");
+                -1
+            }
         }
     })
 }
@@ -284,10 +292,13 @@ mod tests {
 
     #[test]
     fn create_track_ffi_null_args_return_error() {
-        assert_eq!(create_track_ffi(std::ptr::null(), std::ptr::null()), -1);
+        assert_eq!(create_track_ffi(std::ptr::null(), std::ptr::null(), -1), -1);
 
         let track_type = CString::new("audio").unwrap();
-        assert_eq!(create_track_ffi(track_type.as_ptr(), std::ptr::null()), -1);
+        assert_eq!(
+            create_track_ffi(track_type.as_ptr(), std::ptr::null(), -1),
+            -1
+        );
     }
 
     #[test]

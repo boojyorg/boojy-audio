@@ -91,6 +91,13 @@ All notable changes to Boojy Audio will be documented in this file.
 - **A reversed clip looks reversed in the arrangement.** It played backwards, but only the audio
   editor flipped its waveform; the timeline drew it forwards. The visible (trimmed) part now flips,
   as it plays.
+- **Undo and redo bring things back as they were.** Undoing Delete Track, or redoing a new track,
+  a dropped file, a copy or a split, brought tracks and clips back as new ones, so later undo and
+  redo steps that referred to them did nothing (a whole track could survive undoing everything).
+  They now come back as the same track or clip. Copying or drawing a clip over others is now one
+  undo step: undoing it brings back the clips it trimmed or covered, which used to stay trimmed or
+  gone. Splitting an edited audio clip keeps its warp, pitch and reverse on the right half, which
+  used to play the plain file.
 - **Undo no longer leaves ghost clips.** Undoing a file dropped on the empty arrangement, or
   Add MIDI Track, removed the track but left its clip on screen, playing nothing. The track and
   its clip are now one undo step.
@@ -100,7 +107,8 @@ All notable changes to Boojy Audio will be documented in this file.
 - **MIDI clips survive save and reopen intact.** A drawn MIDI clip wasn't sent to the engine until
   its first edit, so an empty one was lost on save. At tempos other than 120, clips came back
   longer or shorter (the engine's bar-rounded length replaced the saved one), and a repeating clip
-  doubled its notes. Two overlapping notes of the same pitch lost one in the save.
+  doubled its notes. Two overlapping notes of the same pitch lost one in the save, and a note
+  inside a longer one of the same pitch was lost on reopen.
 
 - **Duplicate Track shows the copied clips.** The engine copied a track's clips under the same IDs
   as the originals, so the new track played them but the timeline never showed them, and editing

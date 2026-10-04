@@ -19,6 +19,25 @@ use crate::track::{TrackId, TrackType};
 /// # Returns
 /// Track ID on success
 pub fn create_track(track_type_str: &str, name: String) -> Result<TrackId, String> {
+    create_track_as(track_type_str, name, None)
+}
+
+/// Create a track under a chosen id: undo and redo bring a track back under
+/// the id it had, so the steps before and after it still find it (a fresh id
+/// left them pointing at a track that no longer existed).
+pub fn create_track_with_id(
+    track_type_str: &str,
+    name: String,
+    id: TrackId,
+) -> Result<TrackId, String> {
+    create_track_as(track_type_str, name, Some(id))
+}
+
+fn create_track_as(
+    track_type_str: &str,
+    name: String,
+    id: Option<TrackId>,
+) -> Result<TrackId, String> {
     let track_type = match track_type_str.to_lowercase().as_str() {
         "audio" => TrackType::Audio,
         "midi" | "sampler" => TrackType::Midi,
@@ -33,7 +52,10 @@ pub fn create_track(track_type_str: &str, name: String) -> Result<TrackId, Strin
 
     let track_id = {
         let mut track_manager = graph.track_manager.lock();
-        track_manager.create_track(track_type, name)
+        match id {
+            Some(id) => track_manager.insert_track_with_id(id, track_type, name)?,
+            None => track_manager.create_track(track_type, name),
+        }
     };
 
     // Note: MIDI tracks are silent by default until an instrument is added
