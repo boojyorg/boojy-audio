@@ -69,6 +69,7 @@ class _StressRun {
     (2, 'copy an audio clip', _copyAudioClip),
     (1, 'copy a MIDI clip', _copyMidiClip),
     (1, 'split a MIDI clip', _splitMidiClip),
+    (1, 'split an audio clip', _splitAudioClip),
     (1, 'delete an audio clip', _deleteAudioClip),
     (1, 'delete a MIDI clip', _deleteMidiClip),
     (2, 'edit an audio clip', _editAudioClip),
@@ -84,7 +85,7 @@ class _StressRun {
   List<TrackData> get _tracks => [
     for (final id in h.engine.getAllTrackIds())
       if (TrackData.fromCSV(h.engine.getTrackInfo(id)) case final t?
-          when t.type != 'master')
+          when t.type.toLowerCase() != 'master') // the engine says 'Master'
         t,
   ];
 
@@ -304,6 +305,16 @@ class _StressRun {
     final clip = _pick(_midiClips);
     if (clip == null) return false;
     h.daw.onMidiClipCopied(clip, clip.startTime + clip.duration);
+    return true;
+  }
+
+  Future<bool> _splitAudioClip() async {
+    final clip = _pick(_audioClips);
+    if (clip == null) return false;
+    // Somewhere inside the clip as drawn (warp changes its length).
+    final length = clip.timelineSeconds(clip.duration, h.daw.tempo);
+    final at = clip.startTime + length * (0.1 + 0.8 * random.nextDouble());
+    h.daw.timelineKey.currentState!.runAudioSplit(clip, at);
     return true;
   }
 

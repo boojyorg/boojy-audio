@@ -736,6 +736,9 @@ void main() {
 
       await cmd.execute(mockEngine);
       expect(ui.length, 2); // re-split cleanly
+      // Under the same id, so later steps on that part (a copy of it)
+      // still find it on redo.
+      expect(ui.firstWhere((c) => c.clipId != 200).clipId, partB.clipId);
     });
   });
 
@@ -926,12 +929,10 @@ void main() {
       return SplitAudioClipCommand(
         originalClipId: original.clipId,
         originalTrackId: original.trackId,
-        originalFilePath: original.filePath,
-        originalStartTime: original.startTime,
         originalDuration: original.duration,
         originalOffset: original.offset,
-        originalWaveformPeaks: const [],
         splitPointSeconds: 3.0, // 2s into a clip that starts at t=1
+        split: original.splitAt(3.0, 120),
         onSplit: onSplit,
         onUndo: onUndo,
       );
@@ -946,8 +947,8 @@ void main() {
         await command.execute(mockEngine);
 
         // Right clip is a copy of the original (keeping its edits), under
-        // the engine's new id (the mock's copy of 50 is 1050).
-        expect(rightEngineId, 1050);
+        // the engine's new id (the mock's first is 1).
+        expect(rightEngineId, 1);
         // Copied before the left is trimmed, then positioned and sized.
         expect(
           mockEngine.calls,
@@ -971,7 +972,7 @@ void main() {
         await command.undo(mockEngine);
 
         // C63: the right clip created on split is removed from the engine.
-        expect(mockEngine.removedClipIds, [1050]);
+        expect(mockEngine.removedClipIds, [1]);
         // C64: left duration restored on undo (2 sets on execute + 1 on undo).
         expect(mockEngine.calls.where((c) => c == 'setClipDuration').length, 3);
       },
@@ -982,15 +983,15 @@ void main() {
       final command = build(onSplit: (id) => rightEngineId = id);
 
       await command.execute(mockEngine);
-      expect(rightEngineId, 1050);
+      expect(rightEngineId, 1);
       await command.undo(mockEngine);
 
       await command.execute(mockEngine); // redo
       // Same id, so later steps on the right half still find it.
-      expect(rightEngineId, 1050);
+      expect(rightEngineId, 1);
       await command.undo(mockEngine);
 
-      expect(mockEngine.removedClipIds, [1050, 1050]);
+      expect(mockEngine.removedClipIds, [1, 1]);
     });
   });
 

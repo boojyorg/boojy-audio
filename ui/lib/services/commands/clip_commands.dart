@@ -182,9 +182,10 @@ class ResolveAudioOverlapCommand extends Command {
       // Remove the Part B we created.
       final partBId = _splitPartBIds[i];
       if (partBId != null) {
+        // Its id stays: redo brings Part B back under it, so later steps
+        // on it (a copy of it) still find it.
         engine.removeAudioClip(s.original.trackId, partBId);
         uiRemoveClip?.call(partBId);
-        _splitPartBIds[i] = null;
       }
 
       if (s.partA != null) {
@@ -587,23 +588,19 @@ class SplitMidiClipCommand extends Command {
 class SplitAudioClipCommand extends Command {
   final int originalClipId;
   final int originalTrackId;
-  final String originalFilePath;
-  final double originalStartTime;
   final double originalDuration;
   final double originalOffset;
-  final List<double> originalWaveformPeaks;
-  final double
-  splitPointSeconds; // Split position in seconds from timeline start
+
+  /// Where the right half starts on the timeline (seconds).
+  final double splitPointSeconds;
+
+  /// Which part of the clip's audio each half keeps (`ClipData.splitAt`).
+  final AudioSplit split;
 
   // The engine assigns the right clip's id when it is created in execute();
   // the UI uses it to add the right clip to its list and to remove it on undo.
   final void Function(int rightEngineClipId)? onSplit;
   final void Function()? onUndo;
-
-  // Generated clip IDs for the split clips (fallbacks when no engine is present,
-  // e.g. headless tests / web stub).
-  late final int leftClipId;
-  late final int rightClipId;
 
   // Engine id of the right clip, assigned in execute(). Null until split runs.
   int? _rightEngineClipId;
@@ -611,18 +608,13 @@ class SplitAudioClipCommand extends Command {
   SplitAudioClipCommand({
     required this.originalClipId,
     required this.originalTrackId,
-    required this.originalFilePath,
-    required this.originalStartTime,
     required this.originalDuration,
     required this.originalOffset,
-    required this.originalWaveformPeaks,
     required this.splitPointSeconds,
+    required this.split,
     this.onSplit,
     this.onUndo,
-  }) {
-    leftClipId = generateUniqueClipId();
-    rightClipId = generateUniqueClipId();
-  }
+  });
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
@@ -632,21 +624,23 @@ class SplitAudioClipCommand extends Command {
     final rid = engine.duplicateAudioClip(
       originalTrackId,
       originalClipId,
-      rightStartTime,
+      splitPointSeconds,
       newClipId: _rightEngineClipId,
     );
-
-    // C64: trim the original (left) clip in the engine to the split point.
-    // Previously only the UI clip was shortened, so the engine kept playing the
-    // full pre-split length, overlapping the right region.
-    engine.setClipDuration(originalTrackId, originalClipId, leftDuration);
-
-    if (rid >= 0) {
-      engine.setClipOffset(originalTrackId, rid, rightOffset);
-      engine.setClipDuration(originalTrackId, rid, rightDuration);
-      _rightEngineClipId = rid;
+    if (rid < 0) {
+      Log.e('Split: could not copy clip $originalClipId; left it whole');
+      return;
     }
-    onSplit?.call(_rightEngineClipId ?? rightClipId);
+    _rightEngineClipId = rid;
+
+    // C64: trim the original (left) clip in the engine to its part. Previously
+    // only the UI clip was shortened, so the engine kept playing the full
+    // pre-split length, overlapping the right region.
+    engine.setClipOffset(originalTrackId, originalClipId, split.leftOffset);
+    engine.setClipDuration(originalTrackId, originalClipId, split.leftDuration);
+    engine.setClipOffset(originalTrackId, rid, split.rightOffset);
+    engine.setClipDuration(originalTrackId, rid, split.rightDuration);
+    onSplit?.call(rid);
   }
 
   @override
@@ -655,19 +649,14 @@ class SplitAudioClipCommand extends Command {
     if (_rightEngineClipId != null && _rightEngineClipId! >= 0) {
       engine.removeAudioClip(originalTrackId, _rightEngineClipId!);
     }
-    // C64: restore the original (left) clip to its full pre-split duration.
+    // C64: give the original (left) clip back its whole pre-split window.
+    engine.setClipOffset(originalTrackId, originalClipId, originalOffset);
     engine.setClipDuration(originalTrackId, originalClipId, originalDuration);
     onUndo?.call();
   }
 
   @override
   String get description => 'Split Audio Clip';
-
-  // Helper getters for the callback to use
-  double get leftDuration => splitPointSeconds - originalStartTime;
-  double get rightStartTime => splitPointSeconds;
-  double get rightDuration => originalDuration - leftDuration;
-  double get rightOffset => originalOffset + leftDuration;
 }
 
 /// Command to add an audio clip to a track

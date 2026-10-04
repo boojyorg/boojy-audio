@@ -224,6 +224,84 @@ fn clip_edits_play_the_right_source_frames() {
 }
 
 #[test]
+fn trimmed_clip_edits_play_the_right_source_frames() {
+    // A clip trimmed to its source's 0.5–1.5 s: the trim is in seconds of the
+    // clip's own audio, so warp must stretch what plays from there, not the
+    // trim too (the right half of a split warped clip played the wrong part).
+    let len = 2 * SR;
+    let start = 59_253;
+    let trim = SR / 2;
+    let kept = SR;
+    let cases: Vec<Case> = vec![
+        ("plain", Box::new(|_| {}), kept, Box::new(move |i| trim + i)),
+        (
+            "reversed",
+            Box::new(|c| c.reversed = true),
+            kept,
+            Box::new(move |i| trim + kept - 1 - i),
+        ),
+        (
+            "warp, stretched audio ready",
+            Box::new(move |c| {
+                c.warp_enabled = true;
+                c.warp_mode = 0;
+                c.stretch_factor = 2.0;
+                c.stretched_cache = Some(ramp_clip(len / 2, 2));
+            }),
+            kept / 2,
+            // The stand-in stretched audio counts its own frames.
+            Box::new(move |i| trim / 2 + i),
+        ),
+        (
+            "re-pitch at double speed",
+            Box::new(|c| {
+                c.warp_enabled = true;
+                c.warp_mode = 1;
+                c.stretch_factor = 2.0;
+            }),
+            kept / 2,
+            Box::new(move |i| trim + 2 * i),
+        ),
+        (
+            "re-pitch at double speed, reversed",
+            Box::new(|c| {
+                c.warp_enabled = true;
+                c.warp_mode = 1;
+                c.stretch_factor = 2.0;
+                c.reversed = true;
+            }),
+            kept / 2,
+            Box::new(move |i| trim + 2 * (kept / 2 - 1 - i)),
+        ),
+    ];
+
+    let problems: Vec<String> = cases
+        .into_iter()
+        .filter_map(|(what, edit, played, source)| {
+            let (graph, track) = graph_with_track();
+            let id = place(
+                &graph,
+                track,
+                ramp_clip(len, 2),
+                seconds(start),
+                seconds(trim),
+                Some(seconds(kept)),
+            );
+            edit_clip(&graph, track, id, edit);
+            let total = start + len + 1_000;
+            let buf = render(&graph, total);
+            ramp_problem(
+                &buf,
+                post_gains(&graph, track),
+                &span(total, start, source, played),
+                what,
+            )
+        })
+        .collect();
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+#[test]
 fn split_clip_plays_seamlessly() {
     // Splitting keeps the left part (duration cut at the split) and adds a
     // right part starting at the split with a matching offset. Played back,

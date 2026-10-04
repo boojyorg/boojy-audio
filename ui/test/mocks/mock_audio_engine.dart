@@ -229,7 +229,7 @@ class MockAudioEngine implements AudioEngineInterface {
     int? newClipId,
   }) {
     _record('duplicateAudioClip');
-    return newClipId ?? clipId + 1000;
+    return newClipId ?? nextClipId++; // a fresh id, as the engine gives
   }
 
   /// (source clip, target track) pairs passed to [duplicateAudioClipToTrack].

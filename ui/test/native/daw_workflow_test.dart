@@ -447,6 +447,52 @@ void main() {
       },
     );
 
+    testWidgets(
+      'splitting a reversed or warped clip keeps what each part played',
+      (tester) async {
+        final h = await DawHarness.start(tester);
+        try {
+          final timeline = h.daw.timelineKey.currentState!;
+          // A 2 s clip, split 0.5 s in. Reversed, the first 0.5 s on the
+          // timeline is the file's last 0.5 s, so the left half keeps that.
+          // Warped from 60 to 120 BPM (twice as fast), 0.5 s on the
+          // timeline is the file's first 1 s.
+          final cases = [
+            (
+              'reversed',
+              const AudioClipEditData(reversed: true),
+              (left: (1.5, 0.5), right: (0.0, 1.5)),
+            ),
+            (
+              'warped',
+              const AudioClipEditData(syncEnabled: true, bpm: 60),
+              (left: (0.0, 1.0), right: (1.0, 1.0)),
+            ),
+          ];
+          for (final (what, edit, want) in cases) {
+            final clip = await editClip(
+              h,
+              await dropClip(h, '$what.wav'),
+              edit,
+            );
+            timeline.runAudioSplit(clip, clip.startTime + 0.5);
+            await h.settle();
+            final halves =
+                timeline.clips.where((c) => c.trackId == clip.trackId).toList()
+                  ..sort((a, b) => a.startTime.compareTo(b.startTime));
+            (double, double) window(ClipData c) => (c.offset, c.duration);
+            expect(halves.map(window).toList(), [
+              want.left,
+              want.right,
+            ], reason: '$what: (offset, length) of each half');
+            h.expectScreenMatchesEngine(after: 'splitting the $what clip');
+          }
+        } finally {
+          await h.close();
+        }
+      },
+    );
+
     testWidgets('a repeating MIDI clip keeps its length through reopen', (
       tester,
     ) async {

@@ -98,6 +98,10 @@ All notable changes to Boojy Audio will be documented in this file.
   undo step: undoing it brings back the clips it trimmed or covered, which used to stay trimmed or
   gone. Splitting an edited audio clip keeps its warp, pitch and reverse on the right half, which
   used to play the plain file.
+- **Splitting a reversed or warped clip keeps what each part played.** A reversed clip's halves
+  swapped audio: the left half played the file's start backwards instead of the end you saw and
+  heard there. A warped clip split in the wrong place, and its right half, like any warped clip
+  trimmed at the start, played from the wrong point in the file.
 - **Undo no longer leaves ghost clips.** Undoing a file dropped on the empty arrangement, or
   Add MIDI Track, removed the track but left its clip on screen, playing nothing. The track and
   its clip are now one undo step.

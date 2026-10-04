@@ -68,6 +68,15 @@ reproduces them.
   (`render_audio_clip_sample`). *(Tyr)* decide: make the engine loop the clip's audio for its
   length (what the screen promises; needs a loop length per clip in the engine), or stop audio
   clips stretching past their file and drop the repeat drawing.
+- **Trimming or covering a reversed or warped audio clip keeps the wrong part** (found
+  2026-10-04 while fixing split). A reversed clip plays its window backwards, so dragging its
+  left edge should cut the end of its audio, but the trim handles and the overlap trims
+  (`ClipOverlapHandler`) always cut from the window's start. They also move the window by
+  timeline seconds, which are the clip's own seconds only when it isn't warped. Split does
+  this right (`splitAudioWindow` in `clip_data.dart`); reuse it.
+- **Warped audio clips' length on the timeline is taken as their unwarped length** in ~20
+  places (`clip.endTime`, `startTime + duration`): overlap checks, trim limits, the split
+  menu's "playhead inside the clip" check. Use `clip.timelineSeconds(clip.duration, tempo)`.
 - **Recording onto two armed audio tracks shows only the first take.** The engine records a
   clip on every armed audio track, but the UI adds (and undoes) only the first, so the others
   exist in the engine unseen. `RecordingCompleteCommand` needs to cover several tracks.

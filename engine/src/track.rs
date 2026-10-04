@@ -64,13 +64,14 @@ impl TimelineClip {
         }
     }
 
-    /// Playback position within the clip source in seconds (pre-warp/pitch).
-    /// Honors the `reversed` flag by reflecting progress within the clip's
-    /// audible window, so all downstream warp/pitch math applies unchanged.
-    /// `effective_duration` is the clip's on-timeline duration (post-warp).
-    pub fn time_in_clip(&self, playhead_seconds: f64, effective_duration: f64) -> f64 {
+    /// Timeline seconds played into the clip's audible window, reflected when
+    /// `reversed` so the warp/pitch math after it applies unchanged. Not
+    /// including the trim offset: that is in seconds of the clip's own
+    /// audio, which warp doesn't stretch. `effective_duration` is the clip's
+    /// on-timeline duration (post-warp).
+    pub fn progress_in_clip(&self, playhead_seconds: f64, effective_duration: f64) -> f64 {
         let progress = playhead_seconds - self.start_time;
-        let progress = if self.reversed {
+        if self.reversed {
             // Reflect onto the window's LAST frame, not one past it: the
             // first reversed frame was silent and every frame after played
             // one late, so the window's first frame never played.
@@ -78,8 +79,7 @@ impl TimelineClip {
             (last_frame - progress).max(0.0)
         } else {
             progress
-        };
-        progress + self.offset
+        }
     }
 
     /// Get pitch shift ratio for playback
@@ -96,7 +96,7 @@ impl TimelineClip {
 
     /// The stretch baked into the processed audio: Warp mode stretches it to
     /// the project tempo; Re-Pitch and unwarped clips are not stretched.
-    fn processed_stretch(&self) -> f32 {
+    pub(crate) fn processed_stretch(&self) -> f32 {
         if self.warp_enabled && self.warp_mode == 0 {
             self.stretch_factor
         } else {
@@ -667,31 +667,31 @@ mod tests {
     }
 
     #[test]
-    fn test_time_in_clip_forward() {
+    fn test_progress_in_clip_forward() {
         let clip = make_timeline_clip(10.0, 0.5, 4.0);
-        // 1.5s into the clip on the timeline → 1.5s progress + 0.5s offset
-        assert!((clip.time_in_clip(11.5, 4.0) - 2.0).abs() < 1e-9);
+        // 1.5s into the clip on the timeline (the 0.5s trim isn't included)
+        assert!((clip.progress_in_clip(11.5, 4.0) - 1.5).abs() < 1e-9);
     }
 
     #[test]
-    fn test_time_in_clip_reversed_reflects_window() {
+    fn test_progress_in_clip_reversed_reflects_window() {
         let mut clip = make_timeline_clip(10.0, 0.5, 4.0);
         clip.reversed = true;
         let frame = 1.0 / 48_000.0;
         // At clip start, reversed playback reads the window's last frame
-        assert!((clip.time_in_clip(10.0, 4.0) - (4.5 - frame)).abs() < 1e-9);
-        // 1.5s in → mirrored to 2.5s progress (less a frame) + offset
-        assert!((clip.time_in_clip(11.5, 4.0) - (3.0 - frame)).abs() < 1e-9);
+        assert!((clip.progress_in_clip(10.0, 4.0) - (4.0 - frame)).abs() < 1e-9);
+        // 1.5s in → mirrored to 2.5s progress (less a frame)
+        assert!((clip.progress_in_clip(11.5, 4.0) - (2.5 - frame)).abs() < 1e-9);
         // On the clip's last frame, reversed playback reads the window start
-        assert!((clip.time_in_clip(14.0 - frame, 4.0) - 0.5).abs() < 1e-9);
+        assert!((clip.progress_in_clip(14.0 - frame, 4.0) - 0.0).abs() < 1e-9);
     }
 
     #[test]
-    fn test_time_in_clip_reversed_clamps_past_end() {
+    fn test_progress_in_clip_reversed_clamps_past_end() {
         let mut clip = make_timeline_clip(0.0, 0.0, 2.0);
         clip.reversed = true;
         // Past the clip window, progress reflection clamps at 0 (no negative reads)
-        assert!((clip.time_in_clip(5.0, 2.0) - 0.0).abs() < 1e-9);
+        assert!((clip.progress_in_clip(5.0, 2.0) - 0.0).abs() < 1e-9);
     }
 
     #[test]
