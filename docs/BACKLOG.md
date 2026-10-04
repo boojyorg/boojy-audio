@@ -113,7 +113,9 @@ disagreeing, untested wiring in the DAW screen, and a test that pinned the wrong
    Tests call it after every step; debug builds run it after every undoable action and project
    load, and show a notice on any mismatch.
 2. **Workflow tests** per core task through the real DAW screen, headless over the real engine
-   (template: `ui/test/native/clip_drag_overlap_test.dart`). Describe outcomes, not clicks.
+   (`ui/test/native/support/daw_harness.dart`; examples in `daw_workflow_test.dart`: tempo and
+   warp, loop toggle, Duplicate Track, save and reopen). Describe outcomes, not clicks; check (1)
+   after every step. Recording workflows need a real input, so they aren't covered yet.
 3. **Random stress tests**: thousands of random edits, undos and save/reload cycles, checked
    with (1) (undo restores exactly, a reopened project matches, nothing crashes).
 4. **CI builds the apps**: macOS and Windows debug builds on every PR, so native code can't

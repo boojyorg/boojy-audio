@@ -10,6 +10,11 @@ import '../widgets/shared/boojy_notice.dart';
 ///
 /// Extracted from daw_screen.dart to improve maintainability.
 class Vst3PluginManager extends ChangeNotifier {
+  /// Whether the DAW scans the machine's VST3 folders at start-up. Tests
+  /// turn it off: the scan loads every installed plugin, which is slow and
+  /// differs from machine to machine.
+  static bool scanOnStart = true;
+
   final AudioEngine _audioEngine;
 
   // Plugin scanning state

@@ -109,6 +109,13 @@ pub fn init_audio_engine() -> Result<String, String> {
 
 /// Initialize the audio graph for playback
 pub fn init_audio_graph() -> Result<String, String> {
+    // Already running (a hot restart of the app, or a second test in the same
+    // process): reuse it. Starting over would open a second output stream
+    // only to drop it, and the app treated the error as a failed start.
+    if AUDIO_GRAPH.get().is_some() {
+        return Ok("Audio graph already initialized".to_string());
+    }
+
     // Initialize VST3 host first (required before loading any VST3 plugins)
     #[cfg(all(feature = "vst3", not(target_os = "ios")))]
     {
