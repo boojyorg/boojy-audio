@@ -249,6 +249,8 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
                                     trackColor,
                                   ),
                                   visualGain: clipVisualGain,
+                                  reversed:
+                                      sourceClip.editData?.reversed ?? false,
                                 ),
                               );
                             },
@@ -382,6 +384,8 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
                                     trackColor,
                                   ),
                                   visualGain: clipVisualGain,
+                                  reversed:
+                                      sourceClip.editData?.reversed ?? false,
                                 ),
                               );
                             },

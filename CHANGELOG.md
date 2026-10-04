@@ -88,6 +88,9 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **A reversed clip looks reversed in the arrangement.** It played backwards, but only the audio
+  editor flipped its waveform; the timeline drew it forwards. The visible (trimmed) part now flips,
+  as it plays.
 - **Undo no longer leaves ghost clips.** Undoing a file dropped on the empty arrangement, or
   Add MIDI Track, removed the track but left its clip on screen, playing nothing. The track and
   its clip are now one undo step.

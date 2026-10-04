@@ -63,6 +63,11 @@ reproduces them.
 
 **Fix before release**
 
+- **An audio clip stretched to repeat goes silent in the repeats** (Tyr, 2026-10-04). The
+  timeline tiles the waveform, but the engine never repeats audio clips
+  (`render_audio_clip_sample`). *(Tyr)* decide: make the engine loop the clip's audio for its
+  length (what the screen promises; needs a loop length per clip in the engine), or stop audio
+  clips stretching past their file and drop the repeat drawing.
 - **Undo and redo don't keep track and clip IDs stable.** Undoing Delete Track, undoing an
   overlap that removed a clip, or redoing Create Track brings things back under *new* IDs, so
   later undo/redo steps that refer to the old ones silently do nothing (a whole track survived
