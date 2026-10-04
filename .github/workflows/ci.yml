@@ -192,3 +192,108 @@ jobs:
 
       - name: Run tests
         run: cd engine && cargo test
+
+  # Compile the macOS app (debug, unsigned) so native code (Swift, Xcode
+  # project, plugins) can't reach a release uncompiled; the test jobs never
+  # build the app. Xcode's run script builds the Rust engine itself.
+  app-build-macos:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.98.1
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+
+      - name: Build macOS app (debug)
+        run: |
+          cd ui
+          flutter pub get
+          flutter build macos --debug
+
+  # Compile the Windows app (debug, unsigned) and run the native-engine tests
+  # against the engine it built; flutter-checks-windows has no engine, so its
+  # test/native run skips. The app bundles engine/target/release/engine.dll
+  # (ui/windows/CMakeLists.txt), hence the release engine build.
+  app-build-windows:
+    runs-on: windows-2022
+    timeout-minutes: 40
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.98.1
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+
+      # Same cache as rust-checks-windows (same key), so a hit skips CMake.
+      - name: Resolve VST3 SDK commit
+        id: vst3
+        shell: pwsh
+        run: '"sha=$(git rev-parse HEAD:engine/vst3sdk)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append'
+
+      - name: Cache VST3 host libraries
+        id: vst3-cache
+        uses: actions/cache@v4
+        with:
+          path: vst3-libs-cache
+          key: vst3-host-libs-win2022-v2-${{ steps.vst3.outputs.sha }}-${{ hashFiles('engine/vst3_host/CMakeLists.txt', 'engine/vst3_host/vst3_host.cpp', 'engine/vst3_host/vst3_host.h', 'engine/vst3_host/vst3_host_win.cpp') }}
+
+      - name: Build VST3 host libraries
+        if: steps.vst3-cache.outputs.cache-hit != 'true'
+        run: |
+          cd engine\vst3_host
+          if (Test-Path build_win) { Remove-Item -Recurse -Force build_win }
+          mkdir build_win
+          cd build_win
+          cmake -G "Visual Studio 17 2022" -A x64 ..
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build . --config Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Force -Path ..\..\..\vst3-libs-cache | Out-Null
+          Copy-Item -Path "lib\Release\*.lib" -Destination ..\..\..\vst3-libs-cache\ -Force
+
+      - name: Install VST3 host libraries
+        run: Copy-Item -Path "vst3-libs-cache\*.lib" -Destination "engine\lib\" -Force
+
+      - name: Build Rust engine (release)
+        run: cd engine && cargo build --release
+
+      - name: Build Windows app (debug)
+        run: |
+          cd ui
+          flutter pub get
+          flutter build windows --debug
+
+      # test/native loads engine.dll from the working directory.
+      - name: Run native-engine tests
+        run: |
+          Copy-Item engine\target\release\engine.dll ui\ -Force
+          cd ui
+          flutter test test/native --dart-define=BOOJY_CI=true
