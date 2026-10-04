@@ -248,7 +248,7 @@ pub extern "C" fn get_midi_clip_info_ffi(clip_id: u64) -> *mut c_char {
 // ============================================================================
 
 /// Get all MIDI clips info
-/// Returns semicolon-separated list: "`clip_id,track_id,start_time,duration,note_count`"
+/// Returns semicolon-separated list: "`clip_id,track_id,start_time,duration,note_count,plays`"
 /// Each clip info is separated by semicolon
 #[no_mangle]
 pub extern "C" fn get_all_midi_clips_info_ffi() -> *mut c_char {

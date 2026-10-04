@@ -515,7 +515,7 @@ class MidiPlaybackManager extends ChangeNotifier {
       return;
     }
 
-    // Parse clips: "clip_id,track_id,start_time,duration,note_count;..."
+    // Parse clips: "clip_id,track_id,start_time,duration,note_count,plays;..."
     final clipEntries = clipsInfoStr.split(';').where((s) => s.isNotEmpty);
     final beatsPerSecond = tempo / 60.0;
 

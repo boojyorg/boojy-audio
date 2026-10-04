@@ -81,6 +81,8 @@ reproduces them.
   - The volume fader jumps when grabbed (U3).
   - The loop's jump back is timed by the UI's 60 fps timer, not the engine, so it can land a
     frame or more late (a stutter at the loop point). The engine should own the loop.
+  - "Mute Clip" on a MIDI clip may not silence it: the menu sets a flag that nothing in the
+    engine reads.
   - Trimming the start of a warped clip may play from the wrong point: the engine reads the
     offset in stretched time, the timeline stores it in the clip's own time.
   - Save As renames before the folder is picked; cancel leaves it renamed (U5).
@@ -103,9 +105,10 @@ Tyr hits bugs several times a minute; most live where gestures, UI and engine me
 tests don't cover. The ones that got through (2026-10-04 review) were the screen and engine
 disagreeing, untested wiring in the DAW screen, and a test that pinned the wrong behaviour.
 
-1. **Screen and engine agree**: one check that what the engine holds (tracks, clips, IDs,
-   positions, warp and pitch) matches what the screen shows. Tests call it after every step;
-   debug builds run it after every undoable action and log any mismatch.
+1. **Screen and engine agree** (`ui/lib/services/state_consistency.dart`): what the engine
+   plays (clips, IDs, positions, trims, warp, pitch, tempo) must match what the screen shows.
+   Tests call it after every step; debug builds run it after every undoable action and project
+   load, and show a notice on any mismatch.
 2. **Workflow tests** per core task through the real DAW screen, headless over the real engine
    (template: `ui/test/native/clip_drag_overlap_test.dart`). Describe outcomes, not clicks.
 3. **Random stress tests**: thousands of random edits, undos and save/reload cycles, checked

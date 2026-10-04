@@ -201,6 +201,7 @@ class _DAWScreenState extends State<DAWScreen>
     _deferSetState(() {
       // Trigger rebuild to update Edit menu state
     });
+    scheduleScreenEngineCheck();
   }
 
   /// Post-frame setState — avoids parent rebuild during child panel refresh.

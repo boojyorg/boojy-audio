@@ -13,7 +13,8 @@ use std::sync::Arc;
 
 /// Get all MIDI clips info
 /// Returns semicolon-separated list of clip info strings
-/// Each clip: "`clip_id,track_id,start_time,duration,note_count`"
+/// Each clip: "`clip_id,track_id,start_time,duration,note_count,plays`" (`plays` is 1 when the
+/// clip is on a track and so plays, 0 when it is only held in storage)
 pub fn get_all_midi_clips_info() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
@@ -47,10 +48,15 @@ pub fn get_all_midi_clips_info() -> Result<String, String> {
                 (track_id_str, timeline_clip.start_time)
             };
         let duration = timeline_clip.clip.duration_seconds();
-        let note_count = timeline_clip.clip.events.len() / 2;
+        let plays = u8::from(on_track.contains_key(&timeline_clip.id));
         clips_info.push(format!(
-            "{},{},{},{},{}",
-            timeline_clip.id, track_id_str, start_time, duration, note_count
+            "{},{},{},{},{},{}",
+            timeline_clip.id,
+            track_id_str,
+            start_time,
+            duration,
+            note_count(&timeline_clip.clip),
+            plays
         ));
     }
     drop(midi_clips);
@@ -68,15 +74,26 @@ pub fn get_all_midi_clips_info() -> Result<String, String> {
             }
             let track_id = timeline_clip.track_id.unwrap_or(track_lock.id) as i64;
             let duration = timeline_clip.clip.duration_seconds();
-            let note_count = timeline_clip.clip.events.len() / 2;
             clips_info.push(format!(
-                "{},{},{},{},{}",
-                timeline_clip.id, track_id, timeline_clip.start_time, duration, note_count
+                "{},{},{},{},{},1",
+                timeline_clip.id,
+                track_id,
+                timeline_clip.start_time,
+                duration,
+                note_count(&timeline_clip.clip)
             ));
         }
     }
 
     Ok(clips_info.join(";"))
+}
+
+/// Notes in a clip (note-ons; control changes such as sustain don't count).
+fn note_count(clip: &crate::midi::MidiClip) -> usize {
+    clip.events
+        .iter()
+        .filter(|e| matches!(e.event_type, crate::midi::MidiEventType::NoteOn { .. }))
+        .count()
 }
 
 /// Get info about a MIDI clip
