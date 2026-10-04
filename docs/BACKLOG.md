@@ -81,6 +81,9 @@ reproduces them.
   - The volume fader jumps when grabbed (U3).
   - The loop's jump back is timed by the UI's 60 fps timer, not the engine, so it can land a
     frame or more late (a stutter at the loop point). The engine should own the loop.
+  - **Boojy can't start on a machine with no audio output** (no default output device): the
+    audio graph opens the output stream when it starts. Starting without one and saying so in a
+    notice would also let `test/native` run on Windows CI, whose machines have no sound card.
   - "Mute Clip" on a MIDI clip may not silence it: the menu sets a flag that nothing in the
     engine reads.
   - Trimming the start of a warped clip may play from the wrong point: the engine reads the
@@ -113,8 +116,9 @@ disagreeing, untested wiring in the DAW screen, and a test that pinned the wrong
    (template: `ui/test/native/clip_drag_overlap_test.dart`). Describe outcomes, not clicks.
 3. **Random stress tests**: thousands of random edits, undos and save/reload cycles, checked
    with (1) (undo restores exactly, a reopened project matches, nothing crashes).
-4. **CI builds the apps**: macOS and Windows debug builds on every PR, and the real-engine tests
-   on Windows, so native code can't reach a release uncompiled.
+4. **CI builds the apps**: macOS and Windows debug builds on every PR, so native code can't
+   reach a release uncompiled. `test/native` can't run on Windows CI yet: the engine won't start
+   without an output device (see Known bugs).
 5. **Audio-safety checks**: fail if the audio thread allocates or waits on a lock. Offline
    renders are checked sample by sample (order, clip edges, levels, clicks, export files:
    `engine/src/audio_checks.rs`); the live mix and loop wrap need a sound card, so aren't.

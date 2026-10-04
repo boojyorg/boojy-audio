@@ -71,12 +71,8 @@ Future<AudioEngine> createInitializedEngine() async {
 
   final engine = AudioEngine();
 
-  // Like the app, carry on without an output device: initAudioEngine only
-  // checks one exists, and CI's Windows machines have none. The graph is
-  // what the tests need.
   final initResult = engine.initAudioEngine();
-  if (initResult.startsWith('Error') &&
-      !initResult.contains('No output device')) {
+  if (initResult.startsWith('Error')) {
     throw StateError('initAudioEngine failed: $initResult');
   }
 

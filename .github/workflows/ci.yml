@@ -225,10 +225,11 @@ jobs:
           flutter pub get
           flutter build macos --debug
 
-  # Compile the Windows app (debug, unsigned) and run the native-engine tests
-  # against the engine it built; flutter-checks-windows has no engine, so its
-  # test/native run skips. The app bundles engine/target/release/engine.dll
-  # (ui/windows/CMakeLists.txt), hence the release engine build.
+  # Compile the Windows app (debug, unsigned) so the runner's C++ and CMake
+  # can't reach a release uncompiled. The app bundles
+  # engine/target/release/engine.dll (ui/windows/CMakeLists.txt), hence the
+  # release engine build. test/native can't run here yet: the engine needs an
+  # output device to start and these runners have none (BACKLOG).
   app-build-windows:
     runs-on: windows-2022
     timeout-minutes: 40
@@ -290,10 +291,3 @@ jobs:
           cd ui
           flutter pub get
           flutter build windows --debug
-
-      # test/native loads engine.dll from the working directory.
-      - name: Run native-engine tests
-        run: |
-          Copy-Item engine\target\release\engine.dll ui\ -Force
-          cd ui
-          flutter test test/native --dart-define=BOOJY_CI=true
