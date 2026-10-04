@@ -6,6 +6,7 @@ import 'package:boojy_audio/models/midi_note_data.dart';
 import 'package:boojy_audio/models/track_data.dart';
 import 'package:boojy_audio/services/audio_clip_engine_sync.dart';
 import 'package:boojy_audio/services/state_consistency.dart';
+import 'package:boojy_audio/widgets/audio_editor/operations/parameter_operations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/daw_harness.dart';
@@ -205,5 +206,132 @@ void main() {
     } finally {
       await h.close();
     }
+  });
+
+  // Bugs the stress test found (daw_stress_test.dart), each pinned here by
+  // name so a change to the random action mix can't lose them.
+  group('found by the stress test', () {
+    testWidgets('undoing a file drop takes its clip too; redo brings it back', (
+      tester,
+    ) async {
+      final h = await DawHarness.start(tester);
+      try {
+        await dropClip(h, 'take.wav');
+        await h.daw.performUndo();
+        await h.settle();
+        expect(h.daw.timelineKey.currentState!.clips, isEmpty);
+        h.expectScreenMatchesEngine(after: 'undoing the drop');
+        await h.daw.performRedo();
+        await h.settle();
+        expect(h.daw.timelineKey.currentState!.clips, hasLength(1));
+        h.expectScreenMatchesEngine(after: 'redoing the drop');
+      } finally {
+        await h.close();
+      }
+    });
+
+    testWidgets('undoing Add MIDI Track takes its starting clip too', (
+      tester,
+    ) async {
+      final h = await DawHarness.start(tester);
+      try {
+        await tester.tap(find.text('MIDI').first);
+        await h.settle();
+        expect(h.daw.midiPlaybackManager!.midiClips, hasLength(1));
+        await h.daw.performUndo();
+        await h.settle();
+        expect(h.daw.midiPlaybackManager!.midiClips, isEmpty);
+        h.expectScreenMatchesEngine(after: 'undoing Add MIDI Track');
+      } finally {
+        await h.close();
+      }
+    });
+
+    testWidgets('a drawn MIDI clip reaches the engine straight away', (
+      tester,
+    ) async {
+      final h = await DawHarness.start(tester);
+      try {
+        await tester.tap(find.text('MIDI').first);
+        await h.settle();
+        final trackId = h.daw.midiPlaybackManager!.midiClips.single.trackId;
+        await h.daw.createMidiClipWithParams(trackId, 8, 4);
+        await h.settle();
+        h.expectScreenMatchesEngine(after: 'drawing a MIDI clip');
+      } finally {
+        await h.close();
+      }
+    });
+
+    testWidgets('undoing Delete Track brings the clips back with their edits', (
+      tester,
+    ) async {
+      final h = await DawHarness.start(tester);
+      try {
+        final clip = await dropClip(h, 'take.wav');
+        const edit = AudioClipEditData(reversed: true, transposeSemitones: 3);
+        await h.daw.undoRedoManager.execute(
+          AudioClipEditCommand(
+            beforeState: const AudioClipEditData(),
+            afterState: edit,
+            clipData: clip,
+            actionDescription: 'Edit clip',
+            onApplyState: (state, data) => h.daw.timelineKey.currentState!
+                .updateClip(data.copyWith(editData: state)),
+          ),
+        );
+        await h.settle();
+        await h.daw.onDeleteTrackRequested(
+          TrackData.fromCSV(h.engine.getTrackInfo(clip.trackId))!,
+        );
+        await h.settle();
+        await h.daw.performUndo();
+        await h.settle();
+        h.expectScreenMatchesEngine(after: 'undoing Delete Track');
+      } finally {
+        await h.close();
+      }
+    });
+
+    testWidgets('a repeating MIDI clip keeps its length through reopen', (
+      tester,
+    ) async {
+      final h = await DawHarness.start(tester);
+      try {
+        await tester.tap(find.text('MIDI').first);
+        await h.settle();
+        final manager = h.daw.midiPlaybackManager!;
+        final clip = manager.midiClips.single.copyWith(
+          duration: 8, // extended to repeat its 4-beat loop
+          loopLength: 4,
+          canRepeat: true,
+          notes: [
+            MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 1),
+          ],
+        );
+        h.daw.midiClipController.updateClip(clip, h.daw.playheadPosition);
+        await h.daw.onTempoChanged(140);
+        await h.settle();
+        h.expectScreenMatchesEngine(after: 'extending the clip at 140 BPM');
+
+        final path = '${h.tempDir.path}/Loop.audio';
+        await h.realTime(() => h.daw.saveProjectToPath(path));
+        await h.settleUntil(() => !h.daw.isLoading, what: 'the save');
+        h.daw.executeNewProject();
+        await h.settle();
+        await h.realTime(() => h.daw.openRecentProject(path));
+        await h.settleUntil(
+          () => manager.midiClips.isNotEmpty,
+          what: 'the reopened MIDI clip',
+        );
+        await h.settle();
+        final reopened = manager.midiClips.single;
+        expect(reopened.duration, closeTo(8, 1e-6));
+        expect(reopened.loopLength, closeTo(4, 1e-6));
+        h.expectScreenMatchesEngine(after: 'reopening');
+      } finally {
+        await h.close();
+      }
+    });
   });
 }

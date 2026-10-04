@@ -938,21 +938,30 @@ pub(crate) fn convert_midi_events_to_notes(
 ) -> Vec<crate::project::MidiNoteData> {
     use crate::midi::MidiEventType;
     use crate::project::MidiNoteData;
-    use std::collections::HashMap;
+    use std::collections::{HashMap, VecDeque};
 
-    // Track active notes: note_number -> (start_time_seconds, velocity)
-    let mut active_notes: HashMap<u8, (f64, u8)> = HashMap::new();
+    // Notes still sounding, per note number, oldest first: (start_seconds,
+    // velocity). A queue, not one slot: two overlapping notes of the same
+    // pitch each keep their own start (a single slot let the second
+    // overwrite the first, so a save and reopen lost one of them).
+    let mut active_notes: HashMap<u8, VecDeque<(f64, u8)>> = HashMap::new();
     let mut notes = Vec::new();
 
     for event in events {
         let time_seconds = event.timestamp_samples as f64 / f64::from(sample_rate);
         match event.event_type {
             MidiEventType::NoteOn { note, velocity } if velocity > 0 => {
-                active_notes.insert(note, (time_seconds, velocity));
+                active_notes
+                    .entry(note)
+                    .or_default()
+                    .push_back((time_seconds, velocity));
             }
-            // NoteOff or NoteOn with velocity 0 are both treated as NoteOff
+            // NoteOff or NoteOn with velocity 0 are both treated as NoteOff;
+            // it ends the oldest sounding note of that pitch.
             MidiEventType::NoteOff { note, .. } | MidiEventType::NoteOn { note, velocity: 0 } => {
-                if let Some((start, vel)) = active_notes.remove(&note) {
+                if let Some((start, vel)) =
+                    active_notes.get_mut(&note).and_then(VecDeque::pop_front)
+                {
                     notes.push(MidiNoteData {
                         note,
                         velocity: vel,
@@ -967,7 +976,10 @@ pub(crate) fn convert_midi_events_to_notes(
 
     // Flush notes still held at end-of-clip (no NoteOff recorded yet) so a
     // save during a sustained note doesn't silently drop it.
-    for (note, (start, vel)) in active_notes {
+    for (note, (start, vel)) in active_notes
+        .into_iter()
+        .flat_map(|(note, held)| held.into_iter().map(move |h| (note, h)))
+    {
         notes.push(MidiNoteData {
             note,
             velocity: vel,
@@ -1088,6 +1100,29 @@ mod tests {
 
     const SR: u32 = 48_000;
     const SR64: u64 = SR as u64;
+
+    #[test]
+    fn overlapping_notes_of_the_same_pitch_all_survive() {
+        // Three C4s: two overlapping (0–1 s and 0.5–1.5 s) and one alone.
+        use crate::midi::MidiEvent;
+        let sr = 48_000;
+        let at = |s: f64| (s * f64::from(sr)) as u64;
+        let mut events = vec![
+            MidiEvent::note_on(60, 100, at(0.0)),
+            MidiEvent::note_on(60, 90, at(0.5)),
+            MidiEvent::note_off(60, 0, at(1.0)),
+            MidiEvent::note_off(60, 0, at(1.5)),
+            MidiEvent::note_on(60, 80, at(2.0)),
+            MidiEvent::note_off(60, 0, at(2.5)),
+        ];
+        events.sort();
+        let notes = convert_midi_events_to_notes(&events, sr, 4.0);
+        let got: Vec<(f64, f64, u8)> = notes
+            .iter()
+            .map(|n| (n.start_time, n.duration, n.velocity))
+            .collect();
+        assert_eq!(got, vec![(0.0, 1.0, 100), (0.5, 1.0, 90), (2.0, 0.5, 80)]);
+    }
 
     #[test]
     fn held_note_without_note_off_is_flushed_at_clip_end() {

@@ -1166,6 +1166,8 @@ mixin TimelineGestureLayerMixin
                                             clip.offset, // Left trim offset
                                         visibleDuration:
                                             visibleDuration, // How much is actually visible
+                                        reversed:
+                                            clip.editData?.reversed ?? false,
                                       ),
                                     );
                                   },

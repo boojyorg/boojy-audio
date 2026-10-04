@@ -431,22 +431,25 @@ class MidiClipData {
     'canRepeat': canRepeat,
     'contentStartOffset': contentStartOffset,
     'loopLength': loopLength,
+    // The arrangement length: the engine's own is rounded up to a bar at
+    // 120 BPM, so it can't stand in for this at any other tempo.
+    'duration': duration,
   };
 
   /// Rebuild a metadata-only clip from `ui_layout.json`. Unknown keys (e.g. the
   /// removed `patternId` from files saved by older versions) are ignored.
-  /// `clipId`/`duration`
-  /// are placeholders — the engine owns those and the real values come from the
-  /// reloaded clip; only the cosmetic fields and the `(trackId, startTime)`
-  /// match key are authoritative here.
+  /// `clipId` is a placeholder (the engine owns it); the notes come from the
+  /// reloaded clip. `(trackId, startTime)` is the match key. Files saved
+  /// before `duration` was stored fall back to the loop length.
   factory MidiClipData.fromUiLayoutJson(Map<String, dynamic> json) {
     final colorValue = json['color'] as int?;
     final loopLength = (json['loopLength'] as num?)?.toDouble();
+    final duration = (json['duration'] as num?)?.toDouble();
     return MidiClipData(
       clipId: -1,
       trackId: (json['trackId'] as num).toInt(),
       startTime: (json['startTime'] as num).toDouble(),
-      duration: loopLength ?? 0.0,
+      duration: duration ?? loopLength ?? 0.0,
       loopLength: loopLength,
       name: json['name'] as String? ?? 'MIDI Clip',
       color: colorValue != null ? Color(colorValue) : null,

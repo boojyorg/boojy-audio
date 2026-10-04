@@ -28,6 +28,10 @@ class WaveformPainter extends CustomPainter {
   /// If null, displays from startOffset to end of content.
   final double? visibleDuration;
 
+  /// Draw the visible part backwards, as a reversed clip plays: the engine
+  /// reverses the trimmed window, not the whole file.
+  final bool reversed;
+
   WaveformPainter({
     required this.peaks,
     required this.color,
@@ -36,6 +40,7 @@ class WaveformPainter extends CustomPainter {
     this.contentDuration,
     this.startOffset = 0.0,
     this.visibleDuration,
+    this.reversed = false,
   });
 
   @override
@@ -127,6 +132,7 @@ class WaveformPainter extends CustomPainter {
     } else {
       visiblePeaks = peaks;
     }
+    if (reversed) visiblePeaks = reversePeakPairs(visiblePeaks);
 
     final visiblePeakCount = visiblePeaks.length ~/ 2;
     if (visiblePeakCount == 0) return;
@@ -242,6 +248,14 @@ class WaveformPainter extends CustomPainter {
     return result;
   }
 
+  /// [peaks] (two values per point) with the points in reverse order.
+  static List<double> reversePeakPairs(List<double> peaks) => [
+    for (var i = peaks.length ~/ 2 - 1; i >= 0; i--) ...[
+      peaks[2 * i],
+      peaks[2 * i + 1],
+    ],
+  ];
+
   @override
   bool shouldRepaint(WaveformPainter oldDelegate) {
     // O(1) reference checks - downsampling happens fresh each paint
@@ -251,6 +265,7 @@ class WaveformPainter extends CustomPainter {
         loopWidth != oldDelegate.loopWidth ||
         contentDuration != oldDelegate.contentDuration ||
         startOffset != oldDelegate.startOffset ||
-        visibleDuration != oldDelegate.visibleDuration;
+        visibleDuration != oldDelegate.visibleDuration ||
+        reversed != oldDelegate.reversed;
   }
 }

@@ -198,18 +198,8 @@ class ResolveAudioOverlapCommand extends Command {
         uiUpdateClip?.call(s.original.copyWith(clipId: origId));
       } else {
         // Original was removed → reload it (engine assigns a new id).
-        final newId = engine.loadAudioFileToTrack(
-          s.original.filePath,
-          s.original.trackId,
-          startTime: s.original.startTime,
-        );
+        final newId = restoreAudioClip(engine, s.original);
         if (newId >= 0) {
-          engine.setClipOffset(s.original.trackId, newId, s.original.offset);
-          engine.setClipDuration(
-            s.original.trackId,
-            newId,
-            s.original.duration,
-          );
           _splitOriginalIds[i] = newId;
           uiAddClip?.call(s.original.copyWith(clipId: newId));
         }
@@ -226,14 +216,8 @@ class ResolveAudioOverlapCommand extends Command {
 
     for (var i = result.removals.length - 1; i >= 0; i--) {
       final clip = result.removals[i];
-      final newId = engine.loadAudioFileToTrack(
-        clip.filePath,
-        clip.trackId,
-        startTime: clip.startTime,
-      );
+      final newId = restoreAudioClip(engine, clip);
       if (newId >= 0) {
-        engine.setClipOffset(clip.trackId, newId, clip.offset);
-        engine.setClipDuration(clip.trackId, newId, clip.duration);
         _removalIds[i] = newId;
         uiAddClip?.call(clip.copyWith(clipId: newId));
       } else {
@@ -783,19 +767,11 @@ class DeleteAudioClipCommand extends Command {
 
   @override
   Future<void> undo(AudioEngineInterface engine) async {
-    // Reload the audio file from disk at the original position
-    final newClipId = engine.loadAudioFileToTrack(
-      clipData.filePath,
-      clipData.trackId,
-      startTime: clipData.startTime,
-    );
+    // Reload the file at the original position with its trim and edits, so
+    // an already-trimmed or edited clip comes back exactly as it was.
+    final newClipId = restoreAudioClip(engine, clipData);
 
     if (newClipId >= 0) {
-      // `loadAudioFileToTrack` restores the clip at full length / zero offset.
-      // Re-apply the saved trim so an already-trimmed clip (e.g. one removed by
-      // overlap resolution) comes back exactly as it was, not un-trimmed.
-      engine.setClipOffset(clipData.trackId, newClipId, clipData.offset);
-      engine.setClipDuration(clipData.trackId, newClipId, clipData.duration);
       // Restore with new clip ID from engine, and track it so a subsequent
       // redo removes the right clip.
       _currentClipId = newClipId;
@@ -1325,6 +1301,11 @@ class RecordingCompleteCommand extends Command {
             offset: clip.offset,
             duration: clip.duration,
           );
+          // Re-added clips start with default processing: restore edits too.
+          final edit = clip.editData;
+          if (edit != null) {
+            pushAudioClipEdits(engine, audioTrackId!, clip.clipId, edit);
+          }
         }
       }
 

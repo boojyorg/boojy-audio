@@ -594,16 +594,35 @@ class MidiPlaybackManager extends ChangeNotifier {
           isMuted: meta.isMuted,
           canRepeat: meta.canRepeat,
           contentStartOffset: meta.contentStartOffset,
+          // The saved arrangement length: the engine's own is rounded up to a
+          // bar at 120 BPM, so at any other tempo a clip came back longer or
+          // shorter, and a looping clip played notes the engine didn't.
+          duration: meta.duration > 0 ? meta.duration : null,
           // Preserve the saved loop length only when it was explicitly set
           // (non-zero); otherwise keep the engine-derived duration above.
           loopLength: meta.loopLength > 0 ? meta.loopLength : null,
         );
       }
 
-      _midiClips.add(clipData);
+      _midiClips.add(_withoutRepeats(clipData));
       _dartToRustClipIds[dartClipId] = rustClipId;
     }
 
     notifyListeners();
+  }
+
+  /// The engine holds a repeating clip's notes already repeated (that's what
+  /// it plays), but the clip stores one loop and repeats it itself: reloaded
+  /// as-is, the repeats repeated again. Keep the first loop. The tolerance
+  /// absorbs seconds-to-beats rounding (4 beats can come back as 3.99999).
+  static MidiClipData _withoutRepeats(MidiClipData clip) {
+    if (!clip.canRepeat || clip.duration <= clip.loopLength) return clip;
+    final loopEnd = clip.contentStartOffset + clip.loopLength - 1e-3;
+    return clip.copyWith(
+      notes: [
+        for (final n in clip.notes)
+          if (n.startTime < loopEnd) n,
+      ],
+    );
   }
 }
