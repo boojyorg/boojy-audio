@@ -8,6 +8,7 @@ import '../../../models/clip_data.dart';
 import '../../../utils/audio_clips_info.dart';
 import '../../../models/project_view_state.dart';
 import '../../../services/audio_clip_engine_sync.dart';
+import '../../../services/commands/project_commands.dart';
 import '../../../services/project_manager.dart';
 import '../../../services/project_persistence.dart';
 import '../../../services/window_title_service.dart';
@@ -37,6 +38,111 @@ mixin DAWProjectMixin
         DAWClipMixin,
         DAWVst3Mixin,
         DAWLibraryMixin {
+  // ============================================
+  // PROJECT TEMPO
+  // ============================================
+
+  // Tempo drag coalescing: live updates during a vertical drag, one undo
+  // step on release (same pattern as the time-signature control below —
+  // without it every drag tick landed its own BPM on the undo stack, so
+  // undoing a tempo change stepped back through dozens of intermediates).
+  bool _tempoDragging = false;
+  double _tempoDragStartBpm = 120.0;
+
+  /// Apply a tempo to the engine + every dependent (MIDI reschedule, audio
+  /// clip rescale + engine re-push, automation re-push, metadata) WITHOUT
+  /// registering undo. The engine keeps all positions in real seconds, so
+  /// the rescaled values must reach it on every apply — including undo/redo,
+  /// which is why the SetTempoCommand callback is this same method.
+  void applyTempo(double newBpm) {
+    // Get the current (old) tempo before we change it
+    final currentTempo = recordingController.tempo;
+
+    recordingController.setTempo(newBpm);
+    midiClipController.setTempo(newBpm);
+    midiCaptureBuffer.updateBpm(newBpm);
+    midiPlaybackManager?.rescheduleAllClips(newBpm);
+
+    // Re-anchor the playback caches (loop tempo, stop-return positions) so a
+    // mid-playback tempo change keeps looping at the same BEAT — without this
+    // the loop kept wrapping at the old tempo's wall-clock bounds. The engine
+    // itself moves the playhead to the same beat inside set_tempo.
+    playbackController.handleTempoChange(currentTempo, newBpm);
+
+    // Adjust audio clip positions to maintain their beat position
+    // This prevents audio clips from visually shifting when tempo changes
+    timelineKey.currentState?.adjustAudioClipPositionsForTempoChange(
+      currentTempo,
+      newBpm,
+    );
+
+    // Re-push the rescaled positions to the engine — otherwise clips LOOK
+    // right after a tempo change but PLAY from their old positions.
+    final timelineClips = timelineKey.currentState?.clips;
+    if (timelineClips != null) {
+      for (final clip in timelineClips) {
+        audioEngine?.setClipStartTime(
+          clip.trackId,
+          clip.clipId,
+          clip.startTime,
+        );
+      }
+      // Warped clips follow the new tempo once the change is finished; on
+      // every drag step it would re-stretch each clip's audio.
+      final engine = audioEngine;
+      if (engine != null && !_tempoDragging) {
+        pushWarpForTempo(engine, timelineClips);
+      }
+    }
+    syncAllVolumeAutomationToEngine();
+
+    // Keep the metadata BPM in step with the engine tempo — including on
+    // undo/redo.
+    setState(() {
+      projectMetadata = projectMetadata.copyWith(bpm: newBpm);
+    });
+  }
+
+  Future<void> onTempoChanged(double bpm) async {
+    // During a drag, apply live (engine must follow the gesture so playback
+    // tracks the scrub); the single undo step is registered on drag end.
+    if (_tempoDragging) {
+      applyTempo(bpm);
+      return;
+    }
+    // Discrete change (scroll step, typed value, tap-tempo, settings dialog):
+    // one undo step.
+    final oldBpm = recordingController.tempo;
+    if (oldBpm == bpm) return;
+
+    final command = SetTempoCommand(
+      newBpm: bpm,
+      oldBpm: oldBpm,
+      onTempoChanged: applyTempo,
+    );
+    await undoRedoManager.execute(command);
+  }
+
+  void onTempoDragStart() {
+    _tempoDragging = true;
+    _tempoDragStartBpm = recordingController.tempo;
+  }
+
+  Future<void> onTempoDragEnd() async {
+    _tempoDragging = false;
+    final newBpm = recordingController.tempo;
+    if (newBpm == _tempoDragStartBpm) return;
+    // Value is already applied live; register the whole drag as one undo
+    // step (execute re-applies the same value — idempotent).
+    await undoRedoManager.execute(
+      SetTempoCommand(
+        newBpm: newBpm,
+        oldBpm: _tempoDragStartBpm,
+        onTempoChanged: applyTempo,
+      ),
+    );
+  }
+
   // ============================================
   // NEW PROJECT
   // ============================================
