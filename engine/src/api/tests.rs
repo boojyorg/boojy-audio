@@ -1497,7 +1497,7 @@ fn duplicated_track_gets_its_own_copy_of_each_clip() {
     let copy_track = duplicate_track(track).unwrap();
     assert!(audio_clip_positions(copy_track).is_empty());
 
-    let copy = duplicate_audio_clip_to_track(track, clip, copy_track, 0.5).unwrap();
+    let copy = duplicate_audio_clip_to_track(track, clip, copy_track, 0.5, None).unwrap();
     assert_ne!(copy, clip, "a copy gets its own ID");
     assert_eq!(audio_clip_positions(track), vec![(clip, 0.5)]);
     assert_eq!(audio_clip_positions(copy_track), vec![(copy, 0.5)]);
@@ -1535,4 +1535,46 @@ fn duplicated_track_gets_its_own_copy_of_each_clip() {
         .collect();
     assert_eq!(ids.len(), 2);
     assert_ne!(ids[0], ids[1], "the two clips stay distinct after reload");
+}
+
+#[test]
+fn undo_and_redo_can_bring_tracks_and_clips_back_under_their_ids() {
+    let _guard = engine_lock();
+
+    let dir = temp_dir("stable_ids");
+    let wav = write_sine_wav(&dir, "tone.wav", 1.0, 0.5);
+    let track = create_track("Audio", "Tone".to_string()).unwrap();
+    let clip = load_audio_file_to_track_api(path_str(&wav), track, 0.0).unwrap();
+
+    // Delete, then restore under the same id (undo of Delete Track).
+    delete_track(track).unwrap();
+    assert_eq!(
+        create_track_with_id("audio", "Tone".to_string(), track).unwrap(),
+        track
+    );
+    assert_eq!(
+        add_existing_clip_to_track(clip, track, 0.0, 0.0, None).unwrap(),
+        clip
+    );
+    assert_eq!(audio_clip_positions(track), vec![(clip, 0.0)]);
+    assert!(
+        create_track_with_id("audio", "Twin".to_string(), track).is_err(),
+        "an id in use can't be taken twice"
+    );
+
+    // A fresh track still gets a fresh id above every restored one.
+    let fresh = create_track("Audio", "Fresh".to_string()).unwrap();
+    assert!(fresh > track);
+
+    // Duplicates can be recreated under the ids they had (redo).
+    let copy = duplicate_track_as(track, None).unwrap();
+    let copy_clip = duplicate_audio_clip_to_track(track, clip, copy, 0.0, None).unwrap();
+    delete_track(copy).unwrap();
+    assert_eq!(duplicate_track_as(track, Some(copy)).unwrap(), copy);
+    assert_eq!(
+        duplicate_audio_clip_to_track(track, clip, copy, 0.0, Some(copy_clip)).unwrap(),
+        copy_clip
+    );
+    let later = duplicate_audio_clip(track, clip, 2.0, None).unwrap();
+    assert!(later > copy_clip, "fresh clip ids stay above restored ones");
 }

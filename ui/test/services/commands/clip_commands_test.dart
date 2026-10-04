@@ -472,23 +472,22 @@ void main() {
       await command.undo(mockEngine);
 
       expect(mockEngine.calls, contains('removeAudioClip'));
-      expect(mockEngine.calls, contains('loadAudioFileToTrack'));
-      // Undo reloads from disk → engine hands back a fresh clip id.
-      expect(restoredId, isNotNull);
+      expect(mockEngine.calls, contains('addExistingClipToTrack'));
+      // Undo brings the clip back under its own id, so later steps that
+      // refer to it (an earlier edit's undo) still find it.
+      expect(restoredId, 42);
     });
 
-    // Regression test for the stale-id-on-redo bug (M-10): undo reloads the
-    // clip and the engine assigns a *new* id, so redo must remove that new id —
-    // not the stale original, which would leave the restored clip playing.
-    test('redo targets the reloaded clip id, not the stale original', () async {
+    // M-10: redo must remove the clip undo brought back (which would
+    // otherwise keep playing): the same id, now that undo keeps it.
+    test('redo removes the clip undo brought back', () async {
       final command = DeleteAudioClipCommand(clipData: makeClip());
 
       await command.execute(mockEngine); // removes 42
-      await command.undo(mockEngine); // reloads with a fresh id
-      await command.execute(mockEngine); // redo: must remove the reloaded id
+      await command.undo(mockEngine); // brings 42 back
+      await command.execute(mockEngine); // redo
 
-      expect(mockEngine.removedClipIds.first, 42);
-      expect(mockEngine.removedClipIds.last, isNot(42));
+      expect(mockEngine.removedClipIds, [42, 42]);
     });
   });
 
@@ -661,14 +660,13 @@ void main() {
 
       await cmd.undo(mockEngine);
       expect(ui.length, 1); // neighbour restored
-      final restoredId = ui.single.clipId;
-      expect(restoredId, isNot(200)); // engine assigned a fresh id on reload
+      expect(ui.single.clipId, 200); // back under its own id
       expect(ui.single.startTime, 0.0);
 
-      // Redo must remove the *reloaded* id, not the stale 200.
+      // Redo removes it again.
       await cmd.execute(mockEngine);
       expect(ui, isEmpty);
-      expect(mockEngine.removedClipIds.last, restoredId);
+      expect(mockEngine.removedClipIds, [200, 200]);
     });
 
     test(
@@ -738,6 +736,9 @@ void main() {
 
       await cmd.execute(mockEngine);
       expect(ui.length, 2); // re-split cleanly
+      // Under the same id, so later steps on that part (a copy of it)
+      // still find it on redo.
+      expect(ui.firstWhere((c) => c.clipId != 200).clipId, partB.clipId);
     });
   });
 
@@ -928,12 +929,10 @@ void main() {
       return SplitAudioClipCommand(
         originalClipId: original.clipId,
         originalTrackId: original.trackId,
-        originalFilePath: original.filePath,
-        originalStartTime: original.startTime,
         originalDuration: original.duration,
         originalOffset: original.offset,
-        originalWaveformPeaks: const [],
         splitPointSeconds: 3.0, // 2s into a clip that starts at t=1
+        split: original.splitAt(3.0, 120),
         onSplit: onSplit,
         onUndo: onUndo,
       );
@@ -947,14 +946,15 @@ void main() {
 
         await command.execute(mockEngine);
 
-        // Right clip got a real engine id (mock returns nextClipId from 1).
+        // Right clip is a copy of the original (keeping its edits), under
+        // the engine's new id (the mock's first is 1).
         expect(rightEngineId, 1);
-        // Left trimmed, then right created + positioned (offset) + sized (duration).
+        // Copied before the left is trimmed, then positioned and sized.
         expect(
           mockEngine.calls,
           containsAllInOrder([
+            'duplicateAudioClip', // right region, edits and all
             'setClipDuration', // C64: trim original (left)
-            'loadAudioFileToTrack', // register right region
             'setClipOffset',
             'setClipDuration', // size right
           ]),
@@ -978,23 +978,21 @@ void main() {
       },
     );
 
-    test(
-      'redo after undo recreates and re-removes the right clip cleanly',
-      () async {
-        int? rightEngineId;
-        final command = build(onSplit: (id) => rightEngineId = id);
+    test('redo brings the right clip back under the same id', () async {
+      int? rightEngineId;
+      final command = build(onSplit: (id) => rightEngineId = id);
 
-        await command.execute(mockEngine);
-        expect(rightEngineId, 1);
-        await command.undo(mockEngine);
+      await command.execute(mockEngine);
+      expect(rightEngineId, 1);
+      await command.undo(mockEngine);
 
-        await command.execute(mockEngine); // redo
-        expect(rightEngineId, 2); // fresh engine id, no stale reuse
-        await command.undo(mockEngine);
+      await command.execute(mockEngine); // redo
+      // Same id, so later steps on the right half still find it.
+      expect(rightEngineId, 1);
+      await command.undo(mockEngine);
 
-        expect(mockEngine.removedClipIds, [1, 2]);
-      },
-    );
+      expect(mockEngine.removedClipIds, [1, 1]);
+    });
   });
 
   group('RecordingCompleteCommand', () {

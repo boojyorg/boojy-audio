@@ -43,13 +43,21 @@ abstract class AudioEngineInterface {
     double offset = 0.0,
     double? duration,
   });
-  int duplicateAudioClip(int trackId, int clipId, double startTime);
+  // [newClipId]/[newTrackId]/[id]: undo and redo bring things back under the
+  // id they had, so the steps around them still find them.
+  int duplicateAudioClip(
+    int trackId,
+    int clipId,
+    double startTime, {
+    int? newClipId,
+  });
   int duplicateAudioClipToTrack(
     int sourceTrackId,
     int sourceClipId,
     int targetTrackId,
-    double startTime,
-  );
+    double startTime, {
+    int? newClipId,
+  });
 
   /// Render the given audio clips on a track into one WAV, baking clip edits.
   /// Returns the rendered WAV path, or null on error. Render-only — does not
@@ -57,9 +65,9 @@ abstract class AudioEngineInterface {
   String? joinAudioClips(int trackId, List<int> clipIds);
 
   // Track operations
-  int createTrack(String trackType, String name);
+  int createTrack(String trackType, String name, {int? id});
   String deleteTrack(int trackId);
-  int duplicateTrack(int sourceTrackId);
+  int duplicateTrack(int sourceTrackId, {int? newTrackId});
   String getTrackInfo(int trackId);
   void setTrackName(int trackId, String name);
   void setTrackVolume(int trackId, double volumeDb);

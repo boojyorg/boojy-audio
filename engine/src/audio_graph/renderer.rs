@@ -197,7 +197,7 @@ pub(crate) fn render_audio_clip_sample(
         return (0.0, 0.0);
     }
 
-    let time_in_clip = timeline_clip.time_in_clip(playhead_seconds, effective_duration);
+    let progress = timeline_clip.progress_in_clip(playhead_seconds, effective_duration);
     let clip_gain = timeline_clip.get_gain();
 
     // Processed audio (Warp stretch and/or transpose) already plays at
@@ -212,7 +212,16 @@ pub(crate) fn render_audio_clip_sample(
         1.0
     };
     let source_clip: &AudioClip = processed.unwrap_or(&timeline_clip.clip);
-    let frame_in_clip = frame_at(time_in_clip * rate * f64::from(TARGET_SAMPLE_RATE));
+    // The trim offset is in seconds of the clip's own audio: processed audio
+    // is that stretched (Warp), and only the time played since the trim
+    // moves at `rate`. Stretching the offset as well made a trimmed warped
+    // clip (the right half of a split) play the wrong part.
+    let offset = if processed.is_some() {
+        timeline_clip.offset / f64::from(timeline_clip.processed_stretch())
+    } else {
+        timeline_clip.offset
+    };
+    let frame_in_clip = frame_at((offset + progress * rate) * f64::from(TARGET_SAMPLE_RATE));
 
     let left = source_clip.get_sample(frame_in_clip, 0).unwrap_or(0.0) * clip_gain;
     let right = if source_clip.channels > 1 {

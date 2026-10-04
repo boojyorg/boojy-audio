@@ -309,10 +309,16 @@ mixin TimelineGestureLayerMixin
   void runAudioSplit(ClipData clip, double splitTimeAbsolute) {
     final splitTimeRelative = splitTimeAbsolute - clip.startTime;
 
-    // Validate split point is within clip bounds.
-    if (splitTimeRelative <= 0 || splitTimeRelative >= clip.duration) return;
+    // Validate split point is within the clip as drawn (warp changes its
+    // length on the timeline).
+    if (splitTimeRelative <= 0 ||
+        splitTimeRelative >=
+            clip.timelineSeconds(clip.duration, widget.tempo)) {
+      return;
+    }
 
     final originalClip = clip;
+    final split = clip.splitAt(splitTimeAbsolute, widget.tempo);
 
     // The engine assigns the right clip's id when the command runs; remember it
     // so undo can remove exactly that clip from the UI list.
@@ -321,25 +327,23 @@ mixin TimelineGestureLayerMixin
     final command = SplitAudioClipCommand(
       originalClipId: clip.clipId,
       originalTrackId: clip.trackId,
-      originalFilePath: clip.filePath,
-      originalStartTime: clip.startTime,
       originalDuration: clip.duration,
       originalOffset: clip.offset,
-      originalWaveformPeaks: clip.waveformPeaks,
       splitPointSeconds: splitTimeAbsolute,
+      split: split,
       onSplit: (rightEngineClipId) {
         if (!mounted) return;
         rightUiClipId = rightEngineClipId;
 
-        // Left clip (original, shortened - reuse original ID)
-        final leftClip = clip.copyWith(duration: splitTimeRelative);
-
-        // Right clip (new, starting at split point) using the engine id
+        final leftClip = clip.copyWith(
+          offset: split.leftOffset,
+          duration: split.leftDuration,
+        );
         final rightClip = clip.copyWith(
           clipId: rightEngineClipId,
           startTime: splitTimeAbsolute,
-          duration: clip.duration - splitTimeRelative,
-          offset: clip.offset + splitTimeRelative,
+          offset: split.rightOffset,
+          duration: split.rightDuration,
         );
 
         setState(() {

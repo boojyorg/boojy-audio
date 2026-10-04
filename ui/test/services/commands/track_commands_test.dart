@@ -155,10 +155,9 @@ void main() {
     });
 
     test(
-      'redo deletes the recreated track id, not the stale original (C62)',
+      'undo brings the track back under its id; redo deletes it again (C62)',
       () async {
-        // createTrack (on undo) hands out 42; redo must delete 42, not 1.
-        mockEngine.nextTrackId = 42;
+        mockEngine.nextTrackId = 42; // what a fresh track would get
 
         final command = DeleteTrackCommand(
           trackId: 1,
@@ -166,13 +165,14 @@ void main() {
           trackType: 'audio',
         );
 
-        await command.execute(mockEngine); // deletes original id 1
-        await command.undo(mockEngine); // recreates as id 42
+        await command.execute(mockEngine); // deletes 1
+        await command.undo(mockEngine); // recreates 1, not 42
+        expect(mockEngine.createdTrackIds, [1]);
         mockEngine.deletedTrackIds.clear();
 
         await command.execute(mockEngine); // redo (manager re-runs execute)
 
-        expect(mockEngine.deletedTrackIds, [42]);
+        expect(mockEngine.deletedTrackIds, [1]);
       },
     );
 
@@ -312,7 +312,7 @@ void main() {
       expect(cleanupId, 1);
 
       await command.undo(mockEngine);
-      expect(restoreId, 7);
+      expect(restoreId, 1); // back under its own id
     });
   });
 

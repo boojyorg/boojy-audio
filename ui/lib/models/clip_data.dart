@@ -3,6 +3,39 @@ import '../utils/audio_file_names.dart';
 import 'audio_clip_edit_data.dart';
 import 'midi_note_data.dart';
 
+/// Where each half of a split audio clip reads the clip's audio: offset and
+/// length in seconds of the clip's own audio.
+typedef AudioSplit = ({
+  double leftOffset,
+  double leftDuration,
+  double rightOffset,
+  double rightDuration,
+});
+
+/// Split the window [offset], [offset] + [duration] of a clip's audio [cut]
+/// seconds (of its own audio) after its start on the timeline. A reversed
+/// clip plays its window backwards, so its left half on the timeline is the
+/// window's end: cutting from the window's start gave each half the other's
+/// audio.
+AudioSplit splitAudioWindow({
+  required double offset,
+  required double duration,
+  required double cut,
+  required bool reversed,
+}) => reversed
+    ? (
+        leftOffset: offset + duration - cut,
+        leftDuration: cut,
+        rightOffset: offset,
+        rightDuration: duration - cut,
+      )
+    : (
+        leftOffset: offset,
+        leftDuration: cut,
+        rightOffset: offset + cut,
+        rightDuration: duration - cut,
+      );
+
 /// Represents an audio clip on the timeline
 class ClipData {
   final int clipId;
@@ -104,6 +137,15 @@ class ClipData {
   /// clip's own audio; warp stretches that to the project tempo.
   double timelineSeconds(double sourceSeconds, double projectBpm) =>
       sourceSeconds / (editData?.stretchAt(projectBpm) ?? 1.0);
+
+  /// [splitAudioWindow] at [splitTime] (seconds on the timeline): warp
+  /// stretches the timeline distance into the clip's own seconds.
+  AudioSplit splitAt(double splitTime, double projectBpm) => splitAudioWindow(
+    offset: offset,
+    duration: duration,
+    cut: (splitTime - startTime) * (editData?.stretchAt(projectBpm) ?? 1.0),
+    reversed: editData?.reversed ?? false,
+  );
 
   ClipData copyWith({
     int? clipId,

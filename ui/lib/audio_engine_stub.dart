@@ -140,30 +140,36 @@ class AudioEngine implements AudioEngineInterface {
       throw UnsupportedError('stub');
 
   @override
-  int duplicateAudioClip(int trackId, int clipId, double startTime) =>
-      throw UnsupportedError('stub');
+  int duplicateAudioClip(
+    int trackId,
+    int clipId,
+    double startTime, {
+    int? newClipId,
+  }) => throw UnsupportedError('stub');
 
   @override
   int duplicateAudioClipToTrack(
     int sourceTrackId,
     int sourceClipId,
     int targetTrackId,
-    double startTime,
-  ) => throw UnsupportedError('stub');
+    double startTime, {
+    int? newClipId,
+  }) => throw UnsupportedError('stub');
 
   // ========================================================================
   // Track Operations
   // ========================================================================
 
   @override
-  int createTrack(String trackType, String name) =>
+  int createTrack(String trackType, String name, {int? id}) =>
       throw UnsupportedError('stub');
 
   @override
   String deleteTrack(int trackId) => throw UnsupportedError('stub');
 
   @override
-  int duplicateTrack(int sourceTrackId) => throw UnsupportedError('stub');
+  int duplicateTrack(int sourceTrackId, {int? newTrackId}) =>
+      throw UnsupportedError('stub');
 
   @override
   String getTrackInfo(int trackId) => throw UnsupportedError('stub');

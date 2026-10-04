@@ -211,7 +211,7 @@ class MockAudioEngine implements AudioEngineInterface {
     double? duration,
   }) {
     _record('addExistingClipToTrack');
-    return nextClipId++;
+    return clipId; // the engine re-adds a stored clip under its own id
   }
 
   @override
@@ -222,9 +222,14 @@ class MockAudioEngine implements AudioEngineInterface {
   }
 
   @override
-  int duplicateAudioClip(int trackId, int clipId, double startTime) {
+  int duplicateAudioClip(
+    int trackId,
+    int clipId,
+    double startTime, {
+    int? newClipId,
+  }) {
     _record('duplicateAudioClip');
-    return clipId + 1000;
+    return newClipId ?? nextClipId++; // a fresh id, as the engine gives
   }
 
   /// (source clip, target track) pairs passed to [duplicateAudioClipToTrack].
@@ -235,19 +240,24 @@ class MockAudioEngine implements AudioEngineInterface {
     int sourceTrackId,
     int sourceClipId,
     int targetTrackId,
-    double startTime,
-  ) {
+    double startTime, {
+    int? newClipId,
+  }) {
     _record('duplicateAudioClipToTrack');
     clipCopies.add((clipId: sourceClipId, targetTrackId: targetTrackId));
-    return sourceClipId + 2000;
+    return newClipId ?? sourceClipId + 2000;
   }
 
   // --- Track operations ---
 
+  /// Ids passed to [createTrack] (null: the engine picked one), in order.
+  final List<int?> createdTrackIds = [];
+
   @override
-  int createTrack(String trackType, String name) {
+  int createTrack(String trackType, String name, {int? id}) {
     _record('createTrack');
-    return nextTrackId++;
+    createdTrackIds.add(id);
+    return id ?? nextTrackId++;
   }
 
   @override
@@ -258,9 +268,9 @@ class MockAudioEngine implements AudioEngineInterface {
   }
 
   @override
-  int duplicateTrack(int sourceTrackId) {
+  int duplicateTrack(int sourceTrackId, {int? newTrackId}) {
     _record('duplicateTrack');
-    return sourceTrackId + 1000;
+    return newTrackId ?? sourceTrackId + 1000;
   }
 
   @override

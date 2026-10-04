@@ -1373,11 +1373,14 @@ class _DAWScreenState extends State<DAWScreen>
 
   /// Create MIDI track with default 1-bar clip and open Piano Roll.
   Future<void> _addMidiTrackWithClip() async {
-    // The track and its starting clip are one undo step.
+    // The track and its starting clip are one undo step; redo brings the
+    // clip back under the same id.
+    MidiClipData? startingClip;
     final command = CreateTrackCommand(
       trackType: 'midi',
       trackName: 'MIDI 1',
-      onCreated: createDefaultMidiClip,
+      onCreated: (trackId) =>
+          startingClip = createDefaultMidiClip(trackId, reuse: startingClip),
       onBeforeUndo: removeTrackClipsFromScreen,
     );
     await undoRedoManager.execute(command);

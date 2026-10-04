@@ -40,6 +40,28 @@ void main() {
     return warped;
   }
 
+  /// Edit a clip through the undo step, as the audio editor does.
+  Future<ClipData> editClip(
+    DawHarness h,
+    ClipData clip,
+    AudioClipEditData edit,
+  ) async {
+    await h.daw.undoRedoManager.execute(
+      AudioClipEditCommand(
+        beforeState: clip.editData ?? const AudioClipEditData(),
+        afterState: edit,
+        clipData: clip,
+        actionDescription: 'Edit clip',
+        onApplyState: (state, data) => h.daw.timelineKey.currentState!
+            .updateClip(data.copyWith(editData: state)),
+      ),
+    );
+    await h.settle();
+    return h.daw.timelineKey.currentState!.clips.firstWhere(
+      (c) => c.clipId == clip.clipId,
+    );
+  }
+
   double engineStretch(DawHarness h, int clipId) => EngineSnapshot.read(
     h.engine,
   ).audioClips.firstWhere((c) => c.clipId == clipId).stretchFactor;
@@ -263,6 +285,31 @@ void main() {
       }
     });
 
+    testWidgets('undoing a MIDI clip drawn over another brings that one back', (
+      tester,
+    ) async {
+      final h = await DawHarness.start(tester);
+      try {
+        await tester.tap(find.text('MIDI').first);
+        await h.settle();
+        final manager = h.daw.midiPlaybackManager!;
+        final covered = manager.midiClips.single;
+        await h.daw.createMidiClipWithParams(
+          covered.trackId,
+          covered.startTime,
+          covered.duration,
+        );
+        await h.settle();
+        expect(manager.midiClips.map((c) => c.clipId), isNot([covered.clipId]));
+        await h.daw.performUndo();
+        await h.settle();
+        expect(manager.midiClips.map((c) => c.clipId), [covered.clipId]);
+        h.expectScreenMatchesEngine(after: 'undoing the drawn clip');
+      } finally {
+        await h.close();
+      }
+    });
+
     testWidgets('undoing Delete Track brings the clips back with their edits', (
       tester,
     ) async {
@@ -288,10 +335,163 @@ void main() {
         await h.daw.performUndo();
         await h.settle();
         h.expectScreenMatchesEngine(after: 'undoing Delete Track');
+        // The clip came back under its old id, so the edit's undo finds it.
+        await h.daw.performUndo();
+        await h.settle();
+        expect(
+          h.daw.timelineKey.currentState!.clips.single.editData?.reversed,
+          isNot(isTrue),
+        );
+        h.expectScreenMatchesEngine(after: 'then undoing the edit');
       } finally {
         await h.close();
       }
     });
+
+    testWidgets(
+      'redoing a file drop, then an edit to its clip, finds the clip',
+      (tester) async {
+        final h = await DawHarness.start(tester);
+        try {
+          final clip = await dropClip(h, 'take.wav');
+          await editClip(h, clip, const AudioClipEditData(reversed: true));
+          await h.daw.performUndo();
+          await h.daw.performUndo();
+          await h.settle();
+          await h.daw.performRedo();
+          await h.daw.performRedo();
+          await h.settle();
+          final redone = h.daw.timelineKey.currentState!.clips.single;
+          expect(redone.clipId, clip.clipId);
+          expect(redone.editData?.reversed, isTrue);
+          h.expectScreenMatchesEngine(after: 'redoing the drop and the edit');
+        } finally {
+          await h.close();
+        }
+      },
+    );
+
+    testWidgets('undoing a copy dropped over a clip brings that clip back', (
+      tester,
+    ) async {
+      final h = await DawHarness.start(tester);
+      try {
+        final first = await dropClip(h, 'take.wav');
+        h.daw.onAudioClipCopied(first, first.startTime + first.duration);
+        await h.settle();
+        final timeline = h.daw.timelineKey.currentState!;
+        final copy = timeline.clips.firstWhere((c) => c.clipId != first.clipId);
+        // A second copy right on top of the first clip covers it completely.
+        h.daw.onAudioClipCopied(copy, first.startTime);
+        await h.settle();
+        expect(
+          timeline.clips.map((c) => c.clipId),
+          isNot(contains(first.clipId)),
+        );
+        await h.daw.performUndo();
+        await h.settle();
+        final back = timeline.clips.firstWhere((c) => c.clipId == first.clipId);
+        expect(back.duration, closeTo(first.duration, 1e-6));
+        h.expectScreenMatchesEngine(after: 'undoing the covering copy');
+      } finally {
+        await h.close();
+      }
+    });
+
+    testWidgets('redoing a MIDI clip copy brings back the same clip', (
+      tester,
+    ) async {
+      final h = await DawHarness.start(tester);
+      try {
+        await tester.tap(find.text('MIDI').first);
+        await h.settle();
+        final manager = h.daw.midiPlaybackManager!;
+        final source = manager.midiClips.single;
+        h.daw.onMidiClipCopied(source, source.startTime + source.duration);
+        await h.settle();
+        final copyId = manager.midiClips.last.clipId;
+        await h.daw.performUndo();
+        await h.settle();
+        await h.daw.performRedo();
+        await h.settle();
+        expect(manager.midiClips.map((c) => c.clipId), contains(copyId));
+        h.expectScreenMatchesEngine(after: 'redoing the copy');
+      } finally {
+        await h.close();
+      }
+    });
+
+    testWidgets(
+      'splitting an edited audio clip keeps the edits on both halves',
+      (tester) async {
+        final h = await DawHarness.start(tester);
+        try {
+          final clip = await dropClip(h, 'take.wav');
+          const edit = AudioClipEditData(reversed: true, transposeSemitones: 3);
+          final edited = await editClip(h, clip, edit);
+          final timeline = h.daw.timelineKey.currentState!;
+          timeline.runAudioSplit(edited, edited.startTime + 1);
+          await h.settle();
+          expect(timeline.clips, hasLength(2));
+          h.expectScreenMatchesEngine(after: 'splitting');
+          final rightId = timeline.clips.last.clipId;
+          await h.daw.performUndo();
+          await h.settle();
+          await h.daw.performRedo();
+          await h.settle();
+          expect(timeline.clips.map((c) => c.clipId), contains(rightId));
+          h.expectScreenMatchesEngine(after: 'undoing and redoing the split');
+        } finally {
+          await h.close();
+        }
+      },
+    );
+
+    testWidgets(
+      'splitting a reversed or warped clip keeps what each part played',
+      (tester) async {
+        final h = await DawHarness.start(tester);
+        try {
+          final timeline = h.daw.timelineKey.currentState!;
+          // A 2 s clip, split 0.5 s in. Reversed, the first 0.5 s on the
+          // timeline is the file's last 0.5 s, so the left half keeps that.
+          // Warped from 60 to 120 BPM (twice as fast), 0.5 s on the
+          // timeline is the file's first 1 s.
+          final cases = [
+            (
+              'reversed',
+              const AudioClipEditData(reversed: true),
+              (left: (1.5, 0.5), right: (0.0, 1.5)),
+            ),
+            (
+              'warped',
+              const AudioClipEditData(syncEnabled: true, bpm: 60),
+              (left: (0.0, 1.0), right: (1.0, 1.0)),
+            ),
+          ];
+          for (final (what, edit, want) in cases) {
+            final clip = await editClip(
+              h,
+              await dropClip(h, '$what.wav'),
+              edit,
+            );
+            timeline.runAudioSplit(clip, clip.startTime + 0.5);
+            await h.settle();
+            final halves =
+                timeline.clips.where((c) => c.trackId == clip.trackId).toList()
+                  ..sort((a, b) => a.startTime.compareTo(b.startTime));
+            (double, double) window(ClipData c) => (c.offset, c.duration);
+            expect(halves.map(window).toList(), [
+              want.left,
+              want.right,
+            ], reason: '$what: (offset, length) of each half');
+            h.expectScreenMatchesEngine(after: 'splitting the $what clip');
+          }
+        } finally {
+          await h.close();
+        }
+      },
+    );
 
     testWidgets('a repeating MIDI clip keeps its length through reopen', (
       tester,

@@ -7,12 +7,13 @@ mixin _TracksMixin on _AudioEngineBase {
 
   /// Create a new track
   /// trackType: "audio", "midi", "return", "group", or "master"
-  /// Returns track ID or -1 on error
-  int createTrack(String trackType, String name) {
+  /// [id] brings a track back under the id it had (undo/redo); otherwise the
+  /// engine picks one. Returns track ID or -1 on error
+  int createTrack(String trackType, String name, {int? id}) {
     try {
       final typePtr = trackType.toNativeUtf8();
       final namePtr = name.toNativeUtf8();
-      final trackId = _createTrack(typePtr.cast(), namePtr.cast());
+      final trackId = _createTrack(typePtr.cast(), namePtr.cast(), id ?? -1);
       malloc.free(typePtr);
       malloc.free(namePtr);
 
@@ -262,16 +263,12 @@ mixin _TracksMixin on _AudioEngineBase {
     }
   }
 
-  /// Duplicate a track (cannot duplicate master track)
-  /// Returns the new track ID, or -1 on error
-  int duplicateTrack(int trackId) {
+  /// Duplicate a track (cannot duplicate master track), under [newTrackId]
+  /// when redoing. Returns the new track ID, or -1 on error
+  int duplicateTrack(int trackId, {int? newTrackId}) {
     try {
-      final newTrackId = _duplicateTrack(trackId);
-      if (newTrackId >= 0) {
-        return newTrackId;
-      } else {
-        return -1;
-      }
+      final created = _duplicateTrack(trackId, newTrackId ?? -1);
+      return created >= 0 ? created : -1;
     } catch (e) {
       return -1;
     }
@@ -279,18 +276,20 @@ mixin _TracksMixin on _AudioEngineBase {
 
   /// Duplicate an audio clip on the same track at a new position
   /// Returns the new clip ID, or -1 on error
-  int duplicateAudioClip(int trackId, int sourceClipId, double newStartTime) {
+  int duplicateAudioClip(
+    int trackId,
+    int sourceClipId,
+    double newStartTime, {
+    int? newClipId,
+  }) {
     try {
-      final newClipId = _duplicateAudioClip(
+      final created = _duplicateAudioClip(
         trackId,
         sourceClipId,
         newStartTime,
+        newClipId ?? -1,
       );
-      if (newClipId >= 0) {
-        return newClipId;
-      } else {
-        return -1;
-      }
+      return created >= 0 ? created : -1;
     } catch (e) {
       return -1;
     }
@@ -302,14 +301,16 @@ mixin _TracksMixin on _AudioEngineBase {
     int sourceTrackId,
     int sourceClipId,
     int targetTrackId,
-    double startTime,
-  ) {
+    double startTime, {
+    int? newClipId,
+  }) {
     try {
       return _duplicateAudioClipToTrack(
         sourceTrackId,
         sourceClipId,
         targetTrackId,
         startTime,
+        newClipId ?? -1,
       );
     } catch (e) {
       return -1;

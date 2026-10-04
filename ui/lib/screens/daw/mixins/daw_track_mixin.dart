@@ -3,6 +3,7 @@ import '../../../models/clip_data.dart';
 import '../../../models/instrument_data.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../models/track_data.dart';
+import '../../../services/commands/clip_commands.dart';
 import '../../../services/audio_clip_engine_sync.dart';
 import '../../../services/bundled_content_service.dart';
 import '../../../services/commands/track_commands.dart';
@@ -363,25 +364,29 @@ mixin DAWTrackMixin
   // CLIP CREATION
   // ============================================
 
-  /// Create a default 1-bar empty MIDI clip for a new track
-  void createDefaultMidiClip(int trackId) {
+  /// Create a default 1-bar empty MIDI clip for a new track, or bring back
+  /// [reuse] (a redo: the same clip id, so later steps on it still find it).
+  MidiClipData createDefaultMidiClip(int trackId, {MidiClipData? reuse}) {
     // 1 bar = 4 beats (MIDI clips store duration in beats, not seconds)
     const durationBeats = 4.0;
 
-    final defaultClip = MidiClipData(
-      clipId: DateTime.now().millisecondsSinceEpoch,
-      trackId: trackId,
-      startTime: 0.0, // Start at beat 0
-      duration: durationBeats,
-      name: generateClipName(trackId),
-      notes: [],
-    );
+    final defaultClip =
+        reuse?.copyWith(trackId: trackId) ??
+        MidiClipData(
+          clipId: generateUniqueClipId(), // ms timestamps collided
+          trackId: trackId,
+          startTime: 0.0, // Start at beat 0
+          duration: durationBeats,
+          name: generateClipName(trackId),
+          notes: [],
+        );
 
     midiPlaybackManager?.addRecordedClip(defaultClip);
     // Register the clip with the engine immediately. addRecordedClip is
     // Dart-side only; without this the clip is unknown to the engine until
     // the first piano-roll edit, so a fresh track plays silence (bug-hunt #1).
     midiPlaybackManager?.rescheduleClip(defaultClip, tempo);
+    return defaultClip;
   }
 
   // ============================================
