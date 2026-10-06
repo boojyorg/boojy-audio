@@ -14,6 +14,8 @@ EngineAudioClipInfo engineAudio({
   bool warp = false,
   int semitones = 0,
   bool reversed = false,
+  double? loopLength = 4,
+  double loopStart = 0,
 }) => EngineAudioClipInfo(
   clipId: id,
   trackId: track,
@@ -28,6 +30,8 @@ EngineAudioClipInfo engineAudio({
   transposeSemitones: semitones,
   transposeCents: 0,
   reversed: reversed,
+  loopLength: loopLength,
+  loopStart: loopStart,
   filePath: '/a.wav',
 );
 
@@ -36,6 +40,9 @@ ClipData screenAudio({
   int track = 1,
   double start = 0,
   AudioClipEditData? edit,
+  double? loopLength,
+  double loopStart = 0,
+  bool canRepeat = true,
 }) => ClipData(
   clipId: id,
   trackId: track,
@@ -43,6 +50,9 @@ ClipData screenAudio({
   startTime: start,
   duration: 4,
   editData: edit,
+  loopLength: loopLength,
+  loopStart: loopStart,
+  canRepeat: canRepeat,
 );
 
 MidiClipData screenMidi({int id = 10, int track = 2, double startBeats = 4}) =>
@@ -156,6 +166,32 @@ void main() {
       );
       expect(problems.single, contains('pitch: screen 5 st'));
       expect(problems.single, contains('reverse: screen true'));
+    });
+
+    test('a loop that never reached the engine', () {
+      // Repeats drawn on the screen but silent: the engine still loops the
+      // whole file, or has no loop at all.
+      final problems = compare(
+        engineAudioClips: [engineAudio(), engineAudio(id: 2, loopLength: null)],
+        audioClips: [
+          screenAudio(loopLength: 1, loopStart: 0.5),
+          screenAudio(id: 2),
+        ],
+      );
+      expect(problems, hasLength(2));
+      expect(problems[0], contains('loop: screen 1.0, engine 4.0'));
+      expect(problems[0], contains('loop start: screen 0.5s, engine 0.0s'));
+      expect(problems[1], contains('loop: screen 4.0, engine off'));
+    });
+
+    test('a clip that cannot repeat has no loop in the engine', () {
+      expect(
+        compare(
+          engineAudioClips: [engineAudio(loopLength: null)],
+          audioClips: [screenAudio(canRepeat: false)],
+        ),
+        isEmpty,
+      );
     });
 
     test('a clip that plays to the end of its file has the file length', () {

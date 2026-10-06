@@ -123,6 +123,14 @@ class AudioEngine implements AudioEngineInterface {
   }) => throw UnsupportedError('stub');
 
   @override
+  String setAudioClipLoop(
+    int trackId,
+    int clipId,
+    double loopLength,
+    double loopStart,
+  ) => throw UnsupportedError('stub');
+
+  @override
   bool removeAudioClip(int trackId, int clipId) =>
       throw UnsupportedError('stub');
 

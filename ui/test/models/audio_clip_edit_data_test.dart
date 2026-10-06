@@ -447,5 +447,29 @@ void main() {
         expect(str, contains('reversed: true'));
       });
     });
+    group('loop region stays on the same audio', () {
+      // 4 beats at a 120 BPM project = 2 s of the clip's audio.
+      const unwarped = AudioClipEditData(bpm: 150, loopEndBeats: 4);
+
+      test('turning warp on recounts the beats at the clip BPM', () {
+        final warped = unwarped.withWarp(on: true, projectBpm: 120);
+        expect(warped.syncEnabled, isTrue);
+        expect(warped.loopEndBeats, 5);
+        expect(warped.loopLengthSeconds(90), 2.0);
+        final back = warped.withWarp(on: false, projectBpm: 120);
+        expect(back.loopEndBeats, 4);
+        expect(
+          identical(back.withWarp(on: false, projectBpm: 120), back),
+          isTrue,
+        );
+      });
+
+      test('the region is re-counted from the clip loop in seconds', () {
+        // Beats saved at 120 BPM, project now at 90: 2 s is 3 beats.
+        final fresh = unwarped.withLoopSeconds(2.0, 90);
+        expect(fresh.loopEndBeats, 3);
+        expect(fresh.loopLengthSeconds(90), 2.0);
+      });
+    });
   });
 }

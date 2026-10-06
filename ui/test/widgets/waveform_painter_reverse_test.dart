@@ -17,6 +17,8 @@ Future<List<int>> _heights({
   bool reversed = false,
   double startOffset = 0,
   double? visibleDuration,
+  double? loopWidth,
+  double loopPhase = 0,
 }) async {
   const size = Size(200, 40);
   final recorder = ui.PictureRecorder();
@@ -27,6 +29,8 @@ Future<List<int>> _heights({
     startOffset: startOffset,
     visibleDuration: visibleDuration,
     reversed: reversed,
+    loopWidth: loopWidth,
+    loopPhase: loopPhase,
   ).paint(Canvas(recorder), size);
   final image = await recorder.endRecording().toImage(200, 40);
   final bytes = (await image.toByteData())!.buffer.asUint8List();
@@ -66,6 +70,29 @@ void main() {
       );
       expect(flipped.first, window.last);
       expect(flipped.last, window.first);
+    });
+  });
+
+  testWidgets('a clip starting partway into its loop draws from there', (
+    tester,
+  ) async {
+    // The first second repeats every 100 px. Starting half-way into the loop
+    // (a split's right piece), the drawing is the plain tiling moved left by
+    // half a loop, as the engine plays it.
+    await tester.runAsync(() async {
+      final plain = await _heights(visibleDuration: 1, loopWidth: 100);
+      final phased = await _heights(
+        visibleDuration: 1,
+        loopWidth: 100,
+        loopPhase: 50,
+      );
+      for (final x in [5, 25, 45, 55, 75, 95, 105, 145]) {
+        expect(
+          (phased[x] - plain[(x + 50) % 200]).abs(),
+          lessThanOrEqualTo(1),
+          reason: 'column $x',
+        );
+      }
     });
   });
 

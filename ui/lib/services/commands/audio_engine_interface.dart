@@ -25,6 +25,14 @@ abstract class AudioEngineInterface {
   );
   String setAudioClipReverse(int trackId, int clipId, {required bool reversed});
 
+  /// [loopLength] `<= 0` = the clip doesn't repeat.
+  String setAudioClipLoop(
+    int trackId,
+    int clipId,
+    double loopLength,
+    double loopStart,
+  );
+
   /// The project tempo the engine is playing at, in BPM.
   double getTempo();
   int loadAudioFileToTrack(

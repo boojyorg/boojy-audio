@@ -123,6 +123,33 @@ class AudioClipEditData {
   double loopLengthSeconds(double projectBpm) =>
       loopLengthBeats * 60.0 / (syncEnabled ? bpm : projectBpm);
 
+  /// This edit with warp turned [on] or off, its loop region kept on the
+  /// same audio. The region is counted in beats at the clip's own [bpm] when
+  /// warped, at [projectBpm] otherwise, so switching recounts it; keeping the
+  /// beats moved the loop and chopped or padded the clip's repeats.
+  AudioClipEditData withWarp({required bool on, required double projectBpm}) {
+    if (on == syncEnabled) return this;
+    final from = syncEnabled ? bpm : projectBpm;
+    final scale = (on ? bpm : projectBpm) / from;
+    return copyWith(
+      syncEnabled: on,
+      startOffsetBeats: startOffsetBeats * scale,
+      lengthBeats: lengthBeats * scale,
+      loopStartBeats: loopStartBeats * scale,
+      loopEndBeats: loopEndBeats * scale,
+    );
+  }
+
+  /// This edit with its loop region [seconds] long (of the clip's own audio),
+  /// counted in beats as [loopLengthSeconds] reads them back. The clip's loop
+  /// length is the truth; the region's beats go stale when the project tempo
+  /// changes while the editor is closed.
+  AudioClipEditData withLoopSeconds(double seconds, double projectBpm) =>
+      copyWith(
+        loopEndBeats:
+            loopStartBeats + seconds * (syncEnabled ? bpm : projectBpm) / 60.0,
+      );
+
   /// Combined pitch shift in cents (semitones * 100 + fine cents)
   int get totalPitchCents => (transposeSemitones * 100) + fineCents;
 

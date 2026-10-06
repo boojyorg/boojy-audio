@@ -15,6 +15,10 @@ class WaveformPainter extends CustomPainter {
   /// If null or >= clipWidth, no looping/tiling occurs.
   final double? loopWidth;
 
+  /// How far into the loop the clip begins, in pixels: the first iteration
+  /// is drawn this much to the left, cut off at the clip's edge.
+  final double loopPhase;
+
   /// Full content duration in seconds (for calculating peak density).
   /// This is the duration that the peaks array represents.
   final double? contentDuration;
@@ -37,6 +41,7 @@ class WaveformPainter extends CustomPainter {
     required this.color,
     this.visualGain = 1.0,
     this.loopWidth,
+    this.loopPhase = 0.0,
     this.contentDuration,
     this.startOffset = 0.0,
     this.visibleDuration,
@@ -49,19 +54,23 @@ class WaveformPainter extends CustomPainter {
 
     final centerY = size.height / 2;
 
-    // Calculate effective loop width (one iteration of the waveform)
-    final effectiveLoopWidth =
-        (loopWidth != null && loopWidth! > 0 && loopWidth! < size.width)
-        ? loopWidth!
-        : size.width;
+    // Calculate effective loop width (one iteration of the waveform). A clip
+    // that begins partway into its loop tiles even when shorter than it.
+    final tiles =
+        loopWidth != null &&
+        loopWidth! > 0 &&
+        (loopWidth! < size.width || loopPhase > 0);
+    final effectiveLoopWidth = tiles ? loopWidth! : size.width;
+    final phase = tiles ? loopPhase % effectiveLoopWidth : 0.0;
 
     // Calculate number of loop iterations needed to fill the clip
-    final loopCount = (size.width / effectiveLoopWidth).ceil();
+    final loopCount = ((size.width + phase) / effectiveLoopWidth).ceil();
 
     // Render waveform for each loop iteration
     for (int loop = 0; loop < loopCount; loop++) {
-      final loopStartX = loop * effectiveLoopWidth;
-      final loopEndX = (loopStartX + effectiveLoopWidth).clamp(0.0, size.width);
+      final tileX = loop * effectiveLoopWidth - phase;
+      final loopStartX = tileX.clamp(0.0, size.width);
+      final loopEndX = (tileX + effectiveLoopWidth).clamp(0.0, size.width);
       final thisLoopWidth = loopEndX - loopStartX;
 
       if (thisLoopWidth <= 0) break;
@@ -73,7 +82,7 @@ class WaveformPainter extends CustomPainter {
       _paintSingleWaveform(
         canvas,
         Size(effectiveLoopWidth, size.height),
-        loopStartX,
+        tileX,
         centerY,
       );
 
@@ -263,6 +272,7 @@ class WaveformPainter extends CustomPainter {
         color != oldDelegate.color ||
         visualGain != oldDelegate.visualGain ||
         loopWidth != oldDelegate.loopWidth ||
+        loopPhase != oldDelegate.loopPhase ||
         contentDuration != oldDelegate.contentDuration ||
         startOffset != oldDelegate.startOffset ||
         visibleDuration != oldDelegate.visibleDuration ||

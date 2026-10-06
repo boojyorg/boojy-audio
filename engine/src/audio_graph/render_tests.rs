@@ -302,6 +302,179 @@ fn trimmed_clip_edits_play_the_right_source_frames() {
 }
 
 #[test]
+fn repeating_clip_edits_play_the_right_source_frames() {
+    // A clip trimmed to start a quarter second into its audio and stretched
+    // to 3.5 times its half-second loop: the loop repeats from the trim, as
+    // the timeline draws it (repeats used to be silent).
+    let len = 2 * SR;
+    let start = 59_253;
+    let trim = SR / 4;
+    let lp = SR / 2;
+    let dur = 3 * lp + lp / 2;
+    let phase = 7_919; // loop start of a split's right piece: any frame
+    let cases: Vec<Case> = vec![
+        (
+            "plain",
+            Box::new(|_| {}),
+            dur,
+            Box::new(move |i| trim + i % lp),
+        ),
+        (
+            "starting partway into the loop",
+            Box::new(move |c| c.loop_start = seconds(phase)),
+            dur,
+            Box::new(move |i| trim + (phase + i) % lp),
+        ),
+        (
+            "reversed",
+            Box::new(|c| c.reversed = true),
+            dur,
+            Box::new(move |i| trim + lp - 1 - i % lp),
+        ),
+        (
+            "reversed, starting partway into the loop",
+            Box::new(move |c| {
+                c.reversed = true;
+                c.loop_start = seconds(phase);
+            }),
+            dur,
+            Box::new(move |i| trim + lp - 1 - (phase + i) % lp),
+        ),
+        (
+            "warp, stretched audio ready",
+            Box::new(move |c| {
+                c.warp_enabled = true;
+                c.warp_mode = 0;
+                c.stretch_factor = 2.0;
+                c.stretched_cache = Some(ramp_clip(len / 2, 2));
+            }),
+            dur / 2,
+            // The stand-in stretched audio counts its own frames.
+            Box::new(move |i| trim / 2 + i % (lp / 2)),
+        ),
+        (
+            "re-pitch at double speed",
+            Box::new(|c| {
+                c.warp_enabled = true;
+                c.warp_mode = 1;
+                c.stretch_factor = 2.0;
+            }),
+            dur / 2,
+            Box::new(move |i| trim + (2 * i) % lp),
+        ),
+        (
+            "re-pitch at double speed, reversed",
+            Box::new(|c| {
+                c.warp_enabled = true;
+                c.warp_mode = 1;
+                c.stretch_factor = 2.0;
+                c.reversed = true;
+            }),
+            dur / 2,
+            Box::new(move |i| trim + lp - 2 - (2 * i) % lp),
+        ),
+    ];
+
+    let problems: Vec<String> = cases
+        .into_iter()
+        .filter_map(|(what, edit, played, source)| {
+            let (graph, track) = graph_with_track();
+            let id = place(
+                &graph,
+                track,
+                ramp_clip(len, 2),
+                seconds(start),
+                seconds(trim),
+                Some(seconds(dur)),
+            );
+            edit_clip(&graph, track, id, |c| {
+                c.loop_length = Some(seconds(lp));
+                edit(c);
+            });
+            let total = start + dur + 1_000;
+            let buf = render(&graph, total);
+            ramp_problem(
+                &buf,
+                post_gains(&graph, track),
+                &span(total, start, source, played),
+                what,
+            )
+        })
+        .collect();
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+#[test]
+fn clip_no_longer_than_its_loop_plays_once() {
+    // A clip trimmed shorter than its loop (the default loop is its whole
+    // file) plays straight through: nothing repeats.
+    let (graph, track) = graph_with_track();
+    let len = 2 * SR;
+    let kept = SR;
+    let id = place(
+        &graph,
+        track,
+        ramp_clip(len, 2),
+        0.0,
+        0.0,
+        Some(seconds(kept)),
+    );
+    edit_clip(&graph, track, id, |c| c.loop_length = Some(seconds(len)));
+    let total = kept + 1_000;
+    let buf = render(&graph, total);
+    assert_ramp(
+        &buf,
+        post_gains(&graph, track),
+        &span(total, 0, |i| i, kept),
+        "trimmed",
+    );
+}
+
+#[test]
+fn split_repeating_clip_carries_the_pattern_on() {
+    // The right piece keeps the clip's trim and loop, starting as far into
+    // the loop as the cut is: played back, the two pieces are the original.
+    let len = 2 * SR;
+    let start = 12_000;
+    let trim = SR / 4;
+    let lp = SR / 2;
+    let dur = 3 * lp + lp / 2;
+    for cut in [seconds(lp) * 1.5, 60.0 / 97.0, seconds(71_111)] {
+        let (graph, track) = graph_with_track();
+        let clip = ramp_clip(len, 2);
+        let left = place(
+            &graph,
+            track,
+            clip.clone(),
+            seconds(start),
+            seconds(trim),
+            Some(cut),
+        );
+        let right = place(
+            &graph,
+            track,
+            clip,
+            seconds(start) + cut,
+            seconds(trim),
+            Some(seconds(dur) - cut),
+        );
+        edit_clip(&graph, track, left, |c| c.loop_length = Some(seconds(lp)));
+        edit_clip(&graph, track, right, |c| {
+            c.loop_length = Some(seconds(lp));
+            c.loop_start = cut % seconds(lp);
+        });
+        let total = start + dur + 1_000;
+        let buf = render(&graph, total);
+        assert_ramp(
+            &buf,
+            post_gains(&graph, track),
+            &span(total, start, move |i| trim + i % lp, dur),
+            &format!("split {cut}s in"),
+        );
+    }
+}
+
+#[test]
 fn split_clip_plays_seamlessly() {
     // Splitting keeps the left part (duration cut at the split) and adds a
     // right part starting at the split with a matching offset. Played back,

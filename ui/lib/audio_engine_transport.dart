@@ -402,6 +402,25 @@ mixin _TransportMixin on _AudioEngineBase {
     }
   }
 
+  /// Set how an audio clip repeats: [loopLength] seconds of its own audio
+  /// from its trim offset (`<= 0` = no repeats), starting [loopStart]
+  /// seconds into the loop.
+  String setAudioClipLoop(
+    int trackId,
+    int clipId,
+    double loopLength,
+    double loopStart,
+  ) {
+    try {
+      final result = _setAudioClipLoop(trackId, clipId, loopLength, loopStart);
+      final str = result.toDartString();
+      _freeRustString(result);
+      return str;
+    } catch (e) {
+      return 'Error: $e';
+    }
+  }
+
   /// Get waveform peaks for visualization
   List<double> getWaveformPeaks(int clipId, int resolution) {
     try {

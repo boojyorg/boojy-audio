@@ -63,11 +63,12 @@ reproduces them.
 
 **Fix before release**
 
-- **An audio clip stretched to repeat goes silent in the repeats** (Tyr, 2026-10-04). The
-  timeline tiles the waveform, but the engine never repeats audio clips
-  (`render_audio_clip_sample`). *(Tyr)* decide: make the engine loop the clip's audio for its
-  length (what the screen promises; needs a loop length per clip in the engine), or stop audio
-  clips stretching past their file and drop the repeat drawing.
+- **Trimming the left edge of a repeating audio clip slides its pattern** (found 2026-10-06
+  with repeats). The trim moves the clip's audio window, so the loop restarts from the new edge
+  instead of staying put as a split does (`loopStart`, as MIDI's `contentStartOffset`). The
+  screen and engine agree; it's the behaviour that's off. Same for overlap trims.
+- **The Audio Editor's loop Start does nothing on the timeline.** Its Length sets the clip's
+  loop; its Start is saved but never moves the audio the clip repeats.
 - **Trimming or covering a reversed or warped audio clip keeps the wrong part** (found
   2026-10-04 while fixing split). A reversed clip plays its window backwards, so dragging its
   left edge should cut the end of its audio, but the trim handles and the overlap trims

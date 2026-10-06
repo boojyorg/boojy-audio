@@ -410,7 +410,7 @@ fn audio_clip_rows() -> Vec<AudioClipRow> {
         .filter(|e| !e.is_empty())
         .map(|entry| {
             let f: Vec<&str> = entry.split(',').collect();
-            assert_eq!(f.len(), 14, "14 fields per audio clip row: {entry}");
+            assert_eq!(f.len(), 16, "16 fields per audio clip row: {entry}");
             AudioClipRow {
                 clip_id: f[0].parse().unwrap(),
                 track_id: f[1].parse().unwrap(),
@@ -418,7 +418,7 @@ fn audio_clip_rows() -> Vec<AudioClipRow> {
                 offset: f[3].parse().unwrap(),
                 duration: f[4].parse().unwrap(),
                 file_duration: f[5].parse().unwrap(),
-                file_path: f[13]
+                file_path: f[15]
                     .replace("%2C", ",")
                     .replace("%3B", ";")
                     .replace("%25", "%"),
@@ -1577,4 +1577,42 @@ fn undo_and_redo_can_bring_tracks_and_clips_back_under_their_ids() {
     );
     let later = duplicate_audio_clip(track, clip, 2.0, None).unwrap();
     assert!(later > copy_clip, "fresh clip ids stay above restored ones");
+}
+
+// ============================================================================
+// REPEATING AUDIO CLIPS
+// ============================================================================
+
+#[test]
+fn audio_clip_loop_is_set_reported_and_copied() {
+    let _guard = engine_lock();
+
+    let dir = temp_dir("clip_loop");
+    let wav = write_sine_wav(&dir, "tone.wav", 1.0, 0.5);
+    let track = create_track("Audio", "Tone".to_string()).unwrap();
+    let clip = load_audio_file_to_track_api(path_str(&wav), track, 0.0).unwrap();
+    let loop_fields = |id: u64| -> (f64, f64) {
+        let info = get_all_audio_clips_info().unwrap();
+        let row = info
+            .split(';')
+            .find(|r| r.starts_with(&format!("{id},")))
+            .expect("clip row");
+        let f: Vec<&str> = row.split(',').collect();
+        (f[13].parse().unwrap(), f[14].parse().unwrap())
+    };
+
+    // A new clip loops its whole file, as the timeline assumes.
+    assert_eq!(loop_fields(clip), (1.0, 0.0));
+
+    set_audio_clip_loop(track, clip, 0.25, 0.1).unwrap();
+    assert_eq!(loop_fields(clip), (0.25, 0.1));
+
+    // Copies (split's right piece, Duplicate) keep the loop.
+    let copy = duplicate_audio_clip(track, clip, 2.0, None).unwrap();
+    assert_eq!(loop_fields(copy), (0.25, 0.1));
+
+    // Zero turns repeats off.
+    set_audio_clip_loop(track, clip, 0.0, 0.0).unwrap();
+    assert_eq!(loop_fields(clip), (-1.0, 0.0));
+    assert!(set_audio_clip_loop(track, 9_999, 0.25, 0.0).is_err());
 }

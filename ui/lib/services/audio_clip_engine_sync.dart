@@ -23,6 +23,18 @@ void pushAudioClipEdits(
   engine.setAudioClipReverse(trackId, clipId, reversed: edit.reversed);
 }
 
+/// Send how a clip repeats to the engine: its loop when it can repeat, from
+/// its loop start. The engine compares the loop with the clip's length
+/// itself, so trims and resizes don't need to send it again.
+void pushAudioClipLoop(AudioEngineInterface engine, ClipData clip) {
+  engine.setAudioClipLoop(
+    clip.trackId,
+    clip.clipId,
+    clip.engineLoopLength,
+    clip.loopStart,
+  );
+}
+
 /// Put a removed clip back in the engine: reload its file at its position,
 /// then re-apply its trim and its edits. Returns the engine's new clip ID
 /// (-1 if the file wouldn't load). Restores used to bring back the trim only,
@@ -43,6 +55,7 @@ int restoreAudioClip(AudioEngineInterface engine, ClipData clip) {
   if (id < 0) return id;
   engine.setClipOffset(clip.trackId, id, clip.offset);
   engine.setClipDuration(clip.trackId, id, clip.duration);
+  pushAudioClipLoop(engine, clip.copyWith(clipId: id));
   final edit = clip.editData;
   if (edit != null) pushAudioClipEdits(engine, clip.trackId, id, edit);
   return id;

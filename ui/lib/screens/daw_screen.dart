@@ -30,6 +30,7 @@ import '../models/vst3_plugin_data.dart';
 import '../models/clip_data.dart';
 import '../models/library_item.dart';
 import '../models/track_data.dart';
+import '../services/audio_clip_engine_sync.dart';
 import '../services/commands/command.dart';
 import '../services/user_settings.dart';
 import '../services/commands/track_commands.dart';
@@ -710,6 +711,9 @@ class _DAWScreenState extends State<DAWScreen>
     setState(() {
       selectedAudioClip = clip;
     });
+    // The editor's Loop toggle and Length change how the clip repeats.
+    final engine = audioEngine;
+    if (engine != null) pushAudioClipLoop(engine, clip);
 
     // Update the clip in the timeline view so waveform reflects gain changes
     timelineKey.currentState?.updateClip(clip);

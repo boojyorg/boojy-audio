@@ -428,7 +428,16 @@ class _AudioEditorState extends State<AudioEditor>
     saveToHistory();
     final newValue = !editData.syncEnabled;
     setState(() {
-      editData = editData.copyWith(syncEnabled: newValue);
+      final scale = newValue
+          ? editData.bpm / widget.projectTempo
+          : widget.projectTempo / editData.bpm;
+      editData = editData.withWarp(
+        on: newValue,
+        projectBpm: widget.projectTempo,
+      );
+      loopStartBeats = editData.loopStartBeats;
+      loopEndBeats = editData.loopEndBeats;
+      contentDurationBeats *= scale;
     });
     notifyClipUpdated();
     sendToAudioEngine();

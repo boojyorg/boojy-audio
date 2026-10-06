@@ -216,12 +216,21 @@ pub(crate) fn render_audio_clip_sample(
     // is that stretched (Warp), and only the time played since the trim
     // moves at `rate`. Stretching the offset as well made a trimmed warped
     // clip (the right half of a split) play the wrong part.
-    let offset = if processed.is_some() {
-        timeline_clip.offset / f64::from(timeline_clip.processed_stretch())
+    let frame_in_clip = if let Some(loop_length) = timeline_clip.active_loop(clip_duration) {
+        looped_frame(
+            timeline_clip,
+            playhead_seconds,
+            loop_length,
+            processed.is_some(),
+        )
     } else {
-        timeline_clip.offset
+        let offset = if processed.is_some() {
+            timeline_clip.offset / f64::from(timeline_clip.processed_stretch())
+        } else {
+            timeline_clip.offset
+        };
+        frame_at((offset + progress * rate) * f64::from(TARGET_SAMPLE_RATE))
     };
-    let frame_in_clip = frame_at((offset + progress * rate) * f64::from(TARGET_SAMPLE_RATE));
 
     let left = source_clip.get_sample(frame_in_clip, 0).unwrap_or(0.0) * clip_gain;
     let right = if source_clip.channels > 1 {
@@ -231,6 +240,43 @@ pub(crate) fn render_audio_clip_sample(
     };
 
     (left, right)
+}
+
+/// Source frame of a repeating clip: the audio `loop_length` seconds long
+/// from its trim offset plays again and again, starting `loop_start` into it,
+/// each repeat backwards when the clip is reversed (as the timeline draws it).
+/// Worked in frames of the clip's own audio, where the loop is defined, then
+/// scaled to the audio being read (processed audio is stretched by Warp).
+#[inline]
+fn looped_frame(
+    timeline_clip: &TimelineClip,
+    playhead_seconds: f64,
+    loop_length: f64,
+    from_processed: bool,
+) -> usize {
+    let rate = f64::from(TARGET_SAMPLE_RATE);
+    // Frames of the clip's own audio per frame of timeline.
+    let own_per_frame = if timeline_clip.warp_enabled {
+        f64::from(timeline_clip.stretch_factor)
+    } else {
+        1.0
+    };
+    let loop_frames = loop_length * rate;
+    let played = (playhead_seconds - timeline_clip.start_time) * rate * own_per_frame;
+    // Nudged like `frame_at` before wrapping, so a position float error left
+    // a hair short of the loop's end wraps to its start, not its last frame.
+    let x = timeline_clip.loop_start * rate + played + 1e-6;
+    let mut in_loop = x - (x / loop_frames).floor() * loop_frames - 1e-6;
+    if timeline_clip.reversed {
+        // Reflect onto the loop's last frame (see `progress_in_clip`).
+        in_loop = (loop_frames - own_per_frame - in_loop).max(0.0);
+    }
+    let scale = if from_processed {
+        f64::from(timeline_clip.processed_stretch())
+    } else {
+        1.0
+    };
+    frame_at((timeline_clip.offset * rate + in_loop.max(0.0)) / scale)
 }
 
 /// Process an effect chain through a locked `EffectManager`.
@@ -1355,6 +1401,8 @@ mod tests {
             transpose_semitones: 0,
             transpose_cents: 0,
             reversed: false,
+            loop_length: None,
+            loop_start: 0.0,
         }
     }
 

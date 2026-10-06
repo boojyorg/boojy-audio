@@ -394,6 +394,86 @@ void main() {
     });
   });
 
+  group('repeating clips', () {
+    ClipData clip({
+      double offset = 0.5,
+      double duration = 3.5,
+      double loopLength = 1.0,
+      double loopStart = 0.0,
+      bool canRepeat = true,
+      bool reversed = false,
+    }) => ClipData(
+      clipId: 1,
+      trackId: 1,
+      filePath: '/a.wav',
+      startTime: 10.0,
+      duration: duration,
+      offset: offset,
+      loopLength: loopLength,
+      loopStart: loopStart,
+      canRepeat: canRepeat,
+      editData: AudioClipEditData(reversed: reversed),
+    );
+
+    test('a clip repeats when longer than its loop or starting into it', () {
+      expect(clip().isLooped, isTrue);
+      expect(clip(duration: 1.0).isLooped, isFalse);
+      expect(clip(duration: 0.75, loopStart: 0.5).isLooped, isTrue);
+      expect(clip(canRepeat: false).isLooped, isFalse);
+      // Float noise from beat/second conversions doesn't count.
+      expect(clip(duration: 1.0 + 1e-12).isLooped, isFalse);
+    });
+
+    test('the engine is told the loop only when the clip can repeat', () {
+      expect(clip().engineLoopLength, 1.0);
+      expect(clip(canRepeat: false).engineLoopLength, 0.0);
+    });
+
+    test('splitting mid-loop: the right piece carries the pattern on', () {
+      final s = clip().splitAt(12.25, 120); // 2.25 s in: a quarter into pass 3
+      expect(s.leftOffset, 0.5);
+      expect(s.leftDuration, 2.25);
+      expect(s.leftLoopStart, 0.0);
+      expect(s.rightOffset, 0.5);
+      expect(s.rightDuration, 1.25);
+      expect(s.rightLoopStart, closeTo(0.25, 1e-9));
+    });
+
+    test('a piece inside one pass becomes an ordinary trimmed window', () {
+      // Cut 0.25 s in: the left piece is the loop's first quarter second.
+      final s = clip(loopStart: 0.5).splitAt(10.25, 120);
+      expect((s.leftOffset, s.leftLoopStart), (1.0, 0.0));
+      expect(s.rightLoopStart, closeTo(0.75, 1e-9));
+      // Reversed, that quarter second is counted from the loop's end.
+      final r = clip(loopStart: 0.5, reversed: true).splitAt(10.25, 120);
+      expect((r.leftOffset, r.leftLoopStart), (0.75, 0.0));
+    });
+
+    test('a cut on a loop boundary starts the right piece at the top', () {
+      final s = clip().splitAt(12.0, 120);
+      expect(s.rightLoopStart, 0.0);
+      expect(s.rightOffset, 0.5, reason: 'still longer than the loop');
+    });
+
+    test('a clip that does not repeat splits its own window', () {
+      final s = clip(duration: 1.0, loopLength: 4.0).splitAt(10.25, 120);
+      expect((s.leftOffset, s.rightOffset), (0.5, 0.75));
+      expect((s.leftLoopStart, s.rightLoopStart), (0.0, 0.0));
+      final r = clip(
+        duration: 1.0,
+        loopLength: 4.0,
+        reversed: true,
+      ).splitAt(10.25, 120);
+      expect((r.leftOffset, r.rightOffset), (1.25, 0.5));
+    });
+
+    test('loop start is saved with the project', () {
+      final back = ClipData.fromJson(clip(loopStart: 0.25).toJson());
+      expect(back.loopStart, 0.25);
+      expect(ClipData.fromJson(clip().toJson()).loopStart, 0.0);
+    });
+  });
+
   group('PreviewClip', () {
     group('constructor', () {
       test('creates instance with all required fields', () {

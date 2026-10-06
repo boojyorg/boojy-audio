@@ -199,7 +199,12 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
     saveToHistory();
     final newValue = !editData.syncEnabled;
     setState(() {
-      editData = editData.copyWith(syncEnabled: newValue);
+      editData = editData.withWarp(
+        on: newValue,
+        projectBpm: widget.projectTempo,
+      );
+      loopStartBeats = editData.loopStartBeats;
+      loopEndBeats = editData.loopEndBeats;
     });
     notifyClipUpdated();
     sendToAudioEngine();
