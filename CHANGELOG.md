@@ -93,7 +93,8 @@ All notable changes to Boojy Audio will be documented in this file.
   repeat backwards on a reversed clip. Splitting a repeating clip carries the pattern on: the
   right part starts where in the loop the cut fell, instead of from the top. Turning warp on in
   the Audio Editor, or opening it on a stretched clip, no longer changes the length that repeats
-  (the first edit used to drop the repeats or cut the clip's end off). The waveform of a clip
+  (the first edit used to drop the repeats or cut the clip's end off), and an edit there no longer
+  puts back the length the clip had when the editor opened. The waveform of a clip
   whose loop is shorter than its file is no longer drawn squeezed.
 - **A reversed clip looks reversed in the arrangement.** It played backwards, but only the audio
   editor flipped its waveform; the timeline drew it forwards. The visible (trimmed) part now flips,

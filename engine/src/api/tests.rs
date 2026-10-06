@@ -1616,3 +1616,32 @@ fn audio_clip_loop_is_set_reported_and_copied() {
     assert_eq!(loop_fields(clip), (-1.0, 0.0));
     assert!(set_audio_clip_loop(track, 9_999, 0.25, 0.0).is_err());
 }
+
+#[test]
+fn export_plays_a_repeating_clip_in_wav_and_mp3() {
+    let _guard = engine_lock();
+
+    let dir = temp_dir("export_repeats");
+    let wav = write_sine_wav(&dir, "loop.wav", 1.0, 0.5);
+    let track = create_track("Audio", "Loop".to_string()).unwrap();
+    let clip = load_audio_file_to_track_api(path_str(&wav), track, 0.0).unwrap();
+    set_clip_duration(track, clip, 3.0).unwrap(); // three passes of the 1 s loop
+
+    let out = dir.join("mix.wav");
+    export_wav_with_options(path_str(&out), 32, TARGET_SAMPLE_RATE, false, false, false).unwrap();
+    let (_, samples) = read_wav_samples(&out);
+    let peak = |from: f64, to: f64| {
+        let frame = |s: f64| (s * f64::from(TARGET_SAMPLE_RATE)) as usize * 2;
+        samples[frame(from)..frame(to)]
+            .iter()
+            .fold(0.0f32, |m, s| m.max(s.abs()))
+    };
+    assert!(peak(1.2, 1.8) > 0.1, "second pass is audible");
+    assert!(peak(2.2, 2.8) > 0.1, "third pass is audible");
+
+    if crate::export::is_ffmpeg_available() {
+        let mp3 = dir.join("mix.mp3");
+        export_mp3_with_options(path_str(&mp3), 192, TARGET_SAMPLE_RATE, false, false).unwrap();
+        assert!(std::fs::metadata(&mp3).unwrap().len() > 10_000);
+    }
+}

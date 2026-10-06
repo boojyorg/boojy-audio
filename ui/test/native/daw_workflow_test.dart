@@ -5,8 +5,11 @@ import 'package:boojy_audio/models/clip_data.dart';
 import 'package:boojy_audio/models/midi_note_data.dart';
 import 'package:boojy_audio/models/track_data.dart';
 import 'package:boojy_audio/services/audio_clip_engine_sync.dart';
+import 'package:boojy_audio/services/commands/clip_commands.dart';
 import 'package:boojy_audio/services/state_consistency.dart';
+import 'package:boojy_audio/widgets/audio_editor/audio_editor.dart';
 import 'package:boojy_audio/widgets/audio_editor/operations/parameter_operations.dart';
+import 'package:boojy_audio/widgets/timeline_view.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/daw_harness.dart';
@@ -94,6 +97,55 @@ void main() {
       expect(h.daw.tempo, 170);
       expect(engineStretch(h, clip.clipId), closeTo(170 / 150, 1e-3));
       h.expectScreenMatchesEngine(after: 'undoing the drag');
+    } finally {
+      await h.close();
+    }
+  });
+
+  testWidgets('an editor change keeps a clip stretched since it opened', (
+    tester,
+  ) async {
+    // Found by Tyr: open the editor on a clip, stretch the clip to repeat,
+    // press Reverse, and it went back to one pass (the editor sent back its
+    // copy of the clip from when it opened, old length and all).
+    final h = await DawHarness.start(tester);
+    try {
+      final clip = await dropClip(h, 'loop.wav');
+      final callbacks = tester
+          .widget<TimelineView>(find.byType(TimelineView))
+          .audioClipCallbacks;
+      callbacks.onSelected!(clip.clipId, clip);
+      callbacks.onOpenEditor!();
+      await h.settle();
+
+      final timeline = h.daw.timelineKey.currentState!;
+      final twice = clip.loopLength * 2;
+      await h.daw.undoRedoManager.execute(
+        ResizeAudioClipCommand(
+          trackId: clip.trackId,
+          clipId: clip.clipId,
+          clipName: clip.fileName,
+          oldDuration: clip.duration,
+          newDuration: twice,
+          onClipResized: (id, d, _, _) => timeline.updateClip(
+            timeline.clips
+                .firstWhere((c) => c.clipId == id)
+                .copyWith(duration: d),
+          ),
+        ),
+      );
+      await h.settle();
+
+      final editor =
+          tester.state(find.byType(AudioEditor)) as ParameterOperationsMixin;
+      editor.toggleReverse();
+      await h.settle();
+
+      final now = timeline.clips.firstWhere((c) => c.clipId == clip.clipId);
+      expect(now.duration, closeTo(twice, 1e-9), reason: 'still two passes');
+      expect(now.isLooped, isTrue);
+      expect(now.editData?.reversed, isTrue);
+      h.expectScreenMatchesEngine(after: 'reversing in the editor');
     } finally {
       await h.close();
     }

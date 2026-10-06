@@ -707,7 +707,20 @@ class _DAWScreenState extends State<DAWScreen>
   }
 
   /// Handle audio clip updates from Audio Editor
-  void _onAudioClipUpdated(ClipData clip) {
+  void _onAudioClipUpdated(ClipData edited) {
+    // The editor holds the clip as it was when it opened: take only what it
+    // edits onto the clip as it is now. Taking its whole copy put a clip
+    // stretched since then back to its old length.
+    final timeline = timelineKey.currentState;
+    final index =
+        timeline?.clips.indexWhere((c) => c.clipId == edited.clipId) ?? -1;
+    final clip = index < 0
+        ? edited
+        : timeline!.clips[index].copyWith(
+            editData: edited.editData,
+            canRepeat: edited.canRepeat,
+            loopLength: edited.loopLength,
+          );
     setState(() {
       selectedAudioClip = clip;
     });
