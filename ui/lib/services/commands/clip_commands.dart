@@ -591,6 +591,11 @@ class SplitAudioClipCommand extends Command {
   final double originalDuration;
   final double originalOffset;
 
+  /// The clip's loop as the engine repeats it (`<= 0` = no repeats) and
+  /// where it began in it: each half carries the pattern on from its cut.
+  final double loopLength;
+  final double originalLoopStart;
+
   /// Where the right half starts on the timeline (seconds).
   final double splitPointSeconds;
 
@@ -610,6 +615,8 @@ class SplitAudioClipCommand extends Command {
     required this.originalTrackId,
     required this.originalDuration,
     required this.originalOffset,
+    this.loopLength = 0.0,
+    this.originalLoopStart = 0.0,
     required this.splitPointSeconds,
     required this.split,
     this.onSplit,
@@ -640,6 +647,18 @@ class SplitAudioClipCommand extends Command {
     engine.setClipDuration(originalTrackId, originalClipId, split.leftDuration);
     engine.setClipOffset(originalTrackId, rid, split.rightOffset);
     engine.setClipDuration(originalTrackId, rid, split.rightDuration);
+    engine.setAudioClipLoop(
+      originalTrackId,
+      originalClipId,
+      loopLength,
+      split.leftLoopStart,
+    );
+    engine.setAudioClipLoop(
+      originalTrackId,
+      rid,
+      loopLength,
+      split.rightLoopStart,
+    );
     onSplit?.call(rid);
   }
 
@@ -652,6 +671,12 @@ class SplitAudioClipCommand extends Command {
     // C64: give the original (left) clip back its whole pre-split window.
     engine.setClipOffset(originalTrackId, originalClipId, originalOffset);
     engine.setClipDuration(originalTrackId, originalClipId, originalDuration);
+    engine.setAudioClipLoop(
+      originalTrackId,
+      originalClipId,
+      loopLength,
+      originalLoopStart,
+    );
     onUndo?.call();
   }
 

@@ -63,11 +63,12 @@ reproduces them.
 
 **Fix before release**
 
-- **An audio clip stretched to repeat goes silent in the repeats** (Tyr, 2026-10-04). The
-  timeline tiles the waveform, but the engine never repeats audio clips
-  (`render_audio_clip_sample`). *(Tyr)* decide: make the engine loop the clip's audio for its
-  length (what the screen promises; needs a loop length per clip in the engine), or stop audio
-  clips stretching past their file and drop the repeat drawing.
+- **Trimming the left edge of a repeating audio clip slides its pattern** (found 2026-10-06
+  with repeats). The trim moves the clip's audio window, so the loop restarts from the new edge
+  instead of staying put as a split does (`loopStart`, as MIDI's `contentStartOffset`). The
+  screen and engine agree; it's the behaviour that's off. Same for overlap trims.
+- **The Audio Editor's loop Start does nothing on the timeline.** Its Length sets the clip's
+  loop; its Start is saved but never moves the audio the clip repeats.
 - **Trimming or covering a reversed or warped audio clip keeps the wrong part** (found
   2026-10-04 while fixing split). A reversed clip plays its window backwards, so dragging its
   left edge should cut the end of its audio, but the trim handles and the overlap trims
@@ -87,9 +88,11 @@ reproduces them.
   so fix it there, or Sparkle offers the update to Macs that can't run it.
 - **The appcast commit can't reach `master`** (branch protection). Details and options in
   [RELEASING.md](RELEASING.md#what-the-release-workflow-does).
-- **Export showed an error pop-up** (Tyr, 2026-09-30; format and message not captured). Maybe
-  the ffmpeg lookup: it's installed in `/opt/homebrew/bin`, which apps opened from Finder
-  don't get in their PATH.
+- **Export freezes the window, and its progress bar never moves.** The export runs on the UI
+  thread (a blocking FFI call), so the progress polling can't run until it's done; a 20 s song
+  freezes Boojy for 20 s. Run it off the UI thread (an isolate) so the bar and Cancel work.
+- **MP3 export may not find ffmpeg when Boojy is opened from Finder** (unverified): apps opened
+  there don't get `/opt/homebrew/bin` in their PATH (`Command::new("ffmpeg")` in `mp3.rs`).
 - *If reproduced:*
   - New Project keeps the previous tempo and time signature (U2).
   - The volume fader jumps when grabbed (U3).

@@ -88,6 +88,19 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Export no longer says "Couldn't export" when it worked.** The file was written, but the
+  screen misread the engine's reply and reported every export as failed, with the progress
+  window saying "Export Complete" at 0%. The progress window now closes when the export is
+  done, so only the summary with *Show in Finder* stays (closing it showed the progress window
+  again underneath), and a real failure says so in the progress window.
+- **An audio clip stretched past its audio repeats it.** The arrangement drew the waveform again
+  in each repeat, but the repeats were silent. They now play, in playback, export and Join, each
+  repeat backwards on a reversed clip. Splitting a repeating clip carries the pattern on: the
+  right part starts where in the loop the cut fell, instead of from the top. Turning warp on in
+  the Audio Editor, or opening it on a stretched clip, no longer changes the length that repeats
+  (the first edit used to drop the repeats or cut the clip's end off), and an edit there no longer
+  puts back the length the clip had when the editor opened. The waveform of a clip
+  whose loop is shorter than its file is no longer drawn squeezed.
 - **A reversed clip looks reversed in the arrangement.** It played backwards, but only the audio
   editor flipped its waveform; the timeline drew it forwards. The visible (trimmed) part now flips,
   as it plays.

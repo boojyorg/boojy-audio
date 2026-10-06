@@ -17,6 +17,10 @@ pub type TrackId = u64;
 pub type ClipId = u64;
 
 /// Represents an audio clip placed on a track's timeline
+/// Seconds below which loop lengths and starts count as equal (float noise
+/// from beat/second conversions). The UI uses the same value.
+pub const LOOP_EPSILON: f64 = 1e-6;
+
 #[derive(Clone)]
 pub struct TimelineClip {
     pub id: ClipId,
@@ -49,9 +53,47 @@ pub struct TimelineClip {
     pub transpose_cents: i32,
     /// Play the clip's audible window backwards
     pub reversed: bool,
+    /// Length of the audio that repeats when the clip is longer than it, in
+    /// seconds of the clip's own audio (like `offset`). `None` = no repeats.
+    /// New clips loop their whole file, as the timeline assumes.
+    pub loop_length: Option<f64>,
+    /// Where in the loop the clip begins (seconds of its own audio): the
+    /// right piece of a split repeating clip carries the pattern on.
+    pub loop_start: f64,
 }
 
 impl TimelineClip {
+    /// A clip of `clip`'s audio with no edits, looping the audio it plays
+    /// (the timeline's default for a new clip).
+    pub fn new(
+        id: ClipId,
+        clip: Arc<AudioClip>,
+        start_time: f64,
+        offset: f64,
+        duration: Option<f64>,
+    ) -> Self {
+        let loop_length = duration.unwrap_or(clip.duration_seconds - offset);
+        Self {
+            id,
+            clip,
+            start_time,
+            offset,
+            duration,
+            gain_db: 0.0,
+            warp_enabled: false,
+            stretch_factor: 1.0,
+            warp_mode: 0,
+            stretched_cache: None,
+            cached_stretch_factor: 0.0,
+            cached_transpose_cents: 0,
+            transpose_semitones: 0,
+            transpose_cents: 0,
+            reversed: false,
+            loop_length: Some(loop_length),
+            loop_start: 0.0,
+        }
+    }
+
     /// Convert clip gain from dB to linear
     /// -70 dB → 0.0 (silent)
     /// 0 dB → 1.0 (unity)
@@ -80,6 +122,16 @@ impl TimelineClip {
         } else {
             progress
         }
+    }
+
+    /// The loop length when the clip repeats: it is longer than its loop, or
+    /// begins partway into it. `clip_duration` is in the clip's own seconds.
+    /// Mirrors `ClipData.isLooped` on the UI side.
+    pub fn active_loop(&self, clip_duration: f64) -> Option<f64> {
+        self.loop_length.filter(|&len| {
+            len > LOOP_EPSILON
+                && (clip_duration > len + LOOP_EPSILON || self.loop_start > LOOP_EPSILON)
+        })
     }
 
     /// Get pitch shift ratio for playback
@@ -663,6 +715,8 @@ mod tests {
             transpose_semitones: 0,
             transpose_cents: 0,
             reversed: false,
+            loop_length: None,
+            loop_start: 0.0,
         }
     }
 

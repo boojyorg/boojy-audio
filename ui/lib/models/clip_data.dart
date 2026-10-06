@@ -3,38 +3,77 @@ import '../utils/audio_file_names.dart';
 import 'audio_clip_edit_data.dart';
 import 'midi_note_data.dart';
 
-/// Where each half of a split audio clip reads the clip's audio: offset and
-/// length in seconds of the clip's own audio.
+/// Seconds below which loop lengths and starts count as equal (float noise
+/// from beat/second conversions). The engine uses the same value.
+const double loopEpsilon = 1e-6;
+
+/// Where each half of a split audio clip reads the clip's audio: offset,
+/// length and loop start in seconds of the clip's own audio.
 typedef AudioSplit = ({
   double leftOffset,
   double leftDuration,
+  double leftLoopStart,
   double rightOffset,
   double rightDuration,
+  double rightLoopStart,
 });
 
-/// Split the window [offset], [offset] + [duration] of a clip's audio [cut]
-/// seconds (of its own audio) after its start on the timeline. A reversed
-/// clip plays its window backwards, so its left half on the timeline is the
-/// window's end: cutting from the window's start gave each half the other's
-/// audio.
+/// Split a clip [cut] seconds (of its own audio) after its start on the
+/// timeline. The clip plays the window [offset], [offset] + [duration] of its
+/// audio, or, when it repeats, the [loopLength] from [offset] again and
+/// again, starting [loopStart] into it.
+///
+/// A piece inside one pass of that audio becomes an ordinary trimmed window.
+/// A piece that crosses the loop's end keeps the loop and starts as far into
+/// it as the cut is, so the pattern carries on. A reversed clip plays each
+/// pass backwards, so a piece's audio is counted from the window's end:
+/// cutting from its start gave each half the other's audio.
 AudioSplit splitAudioWindow({
   required double offset,
   required double duration,
   required double cut,
   required bool reversed,
-}) => reversed
-    ? (
-        leftOffset: offset + duration - cut,
-        leftDuration: cut,
-        rightOffset: offset,
-        rightDuration: duration - cut,
-      )
-    : (
-        leftOffset: offset,
-        leftDuration: cut,
-        rightOffset: offset + cut,
-        rightDuration: duration - cut,
-      );
+  double? loopLength,
+  double loopStart = 0.0,
+}) {
+  final window = loopLength ?? duration;
+  var rightPhase = (loopStart + cut) % window;
+  if (window - rightPhase < loopEpsilon) rightPhase = 0.0;
+  final left = _splitPiece(offset, window, loopStart, cut, reversed);
+  final right = _splitPiece(
+    offset,
+    window,
+    rightPhase,
+    duration - cut,
+    reversed,
+  );
+  return (
+    leftOffset: left.offset,
+    leftDuration: cut,
+    leftLoopStart: left.loopStart,
+    rightOffset: right.offset,
+    rightDuration: duration - cut,
+    rightLoopStart: right.loopStart,
+  );
+}
+
+/// Where a piece [length] long, starting [phase] into a clip's [window] of
+/// audio from [offset], reads it (see [splitAudioWindow]).
+({double offset, double loopStart}) _splitPiece(
+  double offset,
+  double window,
+  double phase,
+  double length,
+  bool reversed,
+) {
+  if (phase + length > window + loopEpsilon) {
+    return (offset: offset, loopStart: phase);
+  }
+  return (
+    offset: reversed ? offset + window - phase - length : offset + phase,
+    loopStart: 0.0,
+  );
+}
 
 /// Represents an audio clip on the timeline
 class ClipData {
@@ -56,6 +95,10 @@ class ClipData {
   /// This is the content length that repeats when canRepeat is true.
   final double loopLength;
 
+  /// Where in the loop the clip begins, in seconds of its own audio: the
+  /// right piece of a split repeating clip carries the pattern on.
+  final double loopStart;
+
   /// Whether looping is enabled (mirrors editData.loopEnabled from Audio Editor)
   /// When true, clip can be extended beyond loopLength and content tiles.
   /// When false, clip cannot be extended beyond loopLength.
@@ -73,6 +116,7 @@ class ClipData {
     this.color,
     this.editData,
     double? loopLength,
+    this.loopStart = 0.0,
     this.canRepeat =
         true, // Default to true to match AudioClipEditData.loopEnabled
   }) : loopLength =
@@ -91,6 +135,7 @@ class ClipData {
       // Waveform peaks are NOT saved: they are recomputed from the audio
       // file on load (they made the layout file ~2 MB).
       'loopLength': loopLength,
+      if (loopStart > 0) 'loopStart': loopStart,
       'canRepeat': canRepeat,
       if (color != null) 'color': color!.toARGB32(),
       if (editData != null) 'editData': editData!.toJson(),
@@ -116,6 +161,7 @@ class ClipData {
               .toList() ??
           const [],
       loopLength: (json['loopLength'] as num?)?.toDouble() ?? duration,
+      loopStart: (json['loopStart'] as num?)?.toDouble() ?? 0.0,
       canRepeat:
           json['canRepeat'] as bool? ??
           true, // Default to true to match AudioClipEditData.loopEnabled
@@ -132,6 +178,16 @@ class ClipData {
 
   double get endTime => startTime + duration;
 
+  /// Whether the clip repeats its loop: it is longer than the loop, or
+  /// begins partway into it. Mirrors the engine's `TimelineClip::active_loop`.
+  bool get isLooped =>
+      canRepeat &&
+      loopLength > loopEpsilon &&
+      (duration > loopLength + loopEpsilon || loopStart > loopEpsilon);
+
+  /// The loop length the engine repeats (`<= 0` = no repeats).
+  double get engineLoopLength => canRepeat ? loopLength : 0.0;
+
   /// Seconds on the timeline that [sourceSeconds] of this clip's audio fills
   /// at [projectBpm]. Duration, offset and loop length are in seconds of the
   /// clip's own audio; warp stretches that to the project tempo.
@@ -145,6 +201,8 @@ class ClipData {
     duration: duration,
     cut: (splitTime - startTime) * (editData?.stretchAt(projectBpm) ?? 1.0),
     reversed: editData?.reversed ?? false,
+    loopLength: isLooped ? loopLength : null,
+    loopStart: isLooped ? loopStart : 0.0,
   );
 
   ClipData copyWith({
@@ -158,6 +216,7 @@ class ClipData {
     Color? color,
     AudioClipEditData? editData,
     double? loopLength,
+    double? loopStart,
     bool? canRepeat,
   }) {
     return ClipData(
@@ -171,6 +230,7 @@ class ClipData {
       color: color ?? this.color,
       editData: editData ?? this.editData,
       loopLength: loopLength ?? this.loopLength,
+      loopStart: loopStart ?? this.loopStart,
       canRepeat: canRepeat ?? this.canRepeat,
     );
   }

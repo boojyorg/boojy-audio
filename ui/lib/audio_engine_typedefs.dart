@@ -132,6 +132,11 @@ typedef _SetAudioClipReverseFfiNative =
     ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64, ffi.Bool);
 typedef _SetAudioClipReverseFfi = ffi.Pointer<Utf8> Function(int, int, bool);
 
+typedef _SetAudioClipLoopFfiNative =
+    ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64, ffi.Double, ffi.Double);
+typedef _SetAudioClipLoopFfi =
+    ffi.Pointer<Utf8> Function(int, int, double, double);
+
 typedef _GetWaveformPeaksFfiNative =
     ffi.Pointer<ffi.Float> Function(
       ffi.Uint64,

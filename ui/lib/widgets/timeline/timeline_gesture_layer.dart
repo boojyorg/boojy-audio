@@ -329,6 +329,8 @@ mixin TimelineGestureLayerMixin
       originalTrackId: clip.trackId,
       originalDuration: clip.duration,
       originalOffset: clip.offset,
+      loopLength: clip.engineLoopLength,
+      originalLoopStart: clip.loopStart,
       splitPointSeconds: splitTimeAbsolute,
       split: split,
       onSplit: (rightEngineClipId) {
@@ -338,12 +340,14 @@ mixin TimelineGestureLayerMixin
         final leftClip = clip.copyWith(
           offset: split.leftOffset,
           duration: split.leftDuration,
+          loopStart: split.leftLoopStart,
         );
         final rightClip = clip.copyWith(
           clipId: rightEngineClipId,
           startTime: splitTimeAbsolute,
           offset: split.rightOffset,
           duration: split.rightDuration,
+          loopStart: split.rightLoopStart,
         );
 
         setState(() {
@@ -1062,17 +1066,22 @@ mixin TimelineGestureLayerMixin
             child: Builder(
               builder: (context) {
                 // Loop boundary positions for audio clips (like MIDI clips).
-                // loopLength is in seconds of the clip's audio, like duration.
+                // loopLength and loopStart are in seconds of the clip's
+                // audio, like duration.
                 final loopWidthPixels =
                     clip.timelineSeconds(clip.loopLength, widget.tempo) *
                     pixelsPerSecond;
-                final isLooped =
-                    clip.canRepeat && clip.duration > clip.loopLength;
+                final isLooped = clip.isLooped;
+                final loopPhasePixels = isLooped
+                    ? clip.timelineSeconds(clip.loopStart, widget.tempo) *
+                          pixelsPerSecond
+                    : 0.0;
                 final loopBoundaryPositions = isLooped
                     ? _calculateLoopBoundaryPositions(
                         loopWidthPixels, // loopLength in pixels
                         clipWidth, // clipDuration in pixels
                         clipWidth,
+                        phase: loopPhasePixels,
                       )
                     : <double>[];
 
@@ -1164,8 +1173,8 @@ mixin TimelineGestureLayerMixin
                                         loopWidth: isLooped
                                             ? loopWidthPixels
                                             : null,
-                                        contentDuration: clip
-                                            .loopLength, // Full content duration
+                                        loopPhase: loopPhasePixels,
+                                        contentDuration: _peaksDuration(clip),
                                         startOffset:
                                             clip.offset, // Left trim offset
                                         visibleDuration:
@@ -2471,14 +2480,36 @@ mixin TimelineGestureLayerMixin
   }
 
   /// Calculate X positions of loop boundaries within a clip
+  /// Seconds of audio a clip's waveform peaks cover: its whole file. (The
+  /// loop length stood in for it, which squeezed the drawing whenever the
+  /// loop was shorter than the file.) The engine's answer never changes for
+  /// a clip ID, so it is asked once.
+  double _peaksDuration(ClipData clip) {
+    final cached = _peaksDurations[clip.clipId];
+    if (cached != null) return cached;
+    final seconds = widget.audioEngine?.getClipDuration(clip.clipId) ?? 0.0;
+    if (seconds <= 0) return clip.loopLength;
+    return _peaksDurations[clip.clipId] = seconds;
+  }
+
+  final Map<int, double> _peaksDurations = {};
+
+  /// Where the loop boundaries fall across a clip: every [loopLength] from
+  /// the first loop end, which is [phase] early when the clip begins partway
+  /// into its loop.
   List<double> _calculateLoopBoundaryPositions(
     double loopLength,
     double clipDuration,
-    double clipWidth,
-  ) {
+    double clipWidth, {
+    double phase = 0.0,
+  }) {
     final positions = <double>[];
+    if (loopLength <= 0) return positions;
     final clipPixelsPerBeat = clipWidth / clipDuration;
-    var loopBeat = loopLength;
+    var loopBeat = loopLength - phase;
+    while (loopBeat <= 0) {
+      loopBeat += loopLength;
+    }
     while (loopBeat < clipDuration) {
       positions.add(loopBeat * clipPixelsPerBeat);
       loopBeat += loopLength;

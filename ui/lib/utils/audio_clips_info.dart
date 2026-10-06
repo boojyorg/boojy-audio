@@ -23,6 +23,12 @@ class EngineAudioClipInfo {
   final int transposeSemitones;
   final int transposeCents;
   final bool reversed;
+
+  /// Seconds of the clip's own audio that repeat, or null when it doesn't.
+  final double? loopLength;
+
+  /// Where in the loop the clip begins (seconds of its own audio).
+  final double loopStart;
   final String filePath;
 
   const EngineAudioClipInfo({
@@ -39,6 +45,8 @@ class EngineAudioClipInfo {
     required this.transposeSemitones,
     required this.transposeCents,
     required this.reversed,
+    required this.loopLength,
+    required this.loopStart,
     required this.filePath,
   });
 }
@@ -46,8 +54,9 @@ class EngineAudioClipInfo {
 /// Parse the engine's `getAllAudioClipsInfo` string: `;`-separated rows of
 /// `clip_id,track_id,start_time,offset,duration,file_duration,gain_db,
 /// warp_enabled,stretch_factor,warp_mode,transpose_semitones,transpose_cents,
-/// reversed,file_path` (`duration` is -1 for "to the end of the file",
-/// `file_path` percent-encoded).
+/// reversed,loop_length,loop_start,file_path` (`duration` is -1 for "to the
+/// end of the file", `loop_length` -1 for "doesn't repeat", `file_path`
+/// percent-encoded).
 ///
 /// Malformed rows are skipped rather than failing the whole project open; an
 /// empty string or an `Error: …` reply yields no clips.
@@ -58,7 +67,7 @@ List<EngineAudioClipInfo> parseAudioClipsInfo(String raw) {
   for (final row in raw.split(';')) {
     if (row.isEmpty) continue;
     final f = row.split(',');
-    if (f.length < 14) continue;
+    if (f.length < 16) continue;
     final clipId = int.tryParse(f[0]);
     final trackId = int.tryParse(f[1]);
     final startTime = double.tryParse(f[2]);
@@ -88,13 +97,17 @@ List<EngineAudioClipInfo> parseAudioClipsInfo(String raw) {
         transposeSemitones: int.tryParse(f[10]) ?? 0,
         transposeCents: int.tryParse(f[11]) ?? 0,
         reversed: f[12] == '1',
+        loopLength: _positiveOrNull(double.tryParse(f[13])),
+        loopStart: double.tryParse(f[14]) ?? 0.0,
         // The path is last; rejoin in case an unencoded comma slipped in.
-        filePath: decodeCsvField(f.sublist(13).join(',')),
+        filePath: decodeCsvField(f.sublist(15).join(',')),
       ),
     );
   }
   return clips;
 }
+
+double? _positiveOrNull(double? v) => (v != null && v > 0) ? v : null;
 
 /// Build the arrangement's audio clips from the engine's copy of the song,
 /// merging the UI-only extras saved in `ui_layout.json`.
@@ -159,6 +172,7 @@ ClipData _mergeClip(
     color: saved?.color,
     editData: saved?.editData,
     loopLength: _loopLength(saved),
+    loopStart: saved?.loopStart ?? 0.0,
     canRepeat: saved?.canRepeat ?? true,
   );
 }

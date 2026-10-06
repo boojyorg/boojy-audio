@@ -978,6 +978,29 @@ void main() {
       },
     );
 
+    test('each half carries the loop on from its cut; undo puts it back', () {
+      // A 1 s loop stretched to 4 s, split 2.5 s in: the right half starts
+      // half-way into the loop.
+      final looped = original.copyWith(loopLength: 1.0);
+      final command = SplitAudioClipCommand(
+        originalClipId: looped.clipId,
+        originalTrackId: looped.trackId,
+        originalDuration: looped.duration,
+        originalOffset: looped.offset,
+        loopLength: looped.engineLoopLength,
+        originalLoopStart: looped.loopStart,
+        splitPointSeconds: 3.5,
+        split: looped.splitAt(3.5, 120),
+      );
+
+      command.execute(mockEngine);
+      expect(mockEngine.clipLoops[50], (1.0, 0.0));
+      expect(mockEngine.clipLoops[1], (1.0, 0.5));
+
+      command.undo(mockEngine);
+      expect(mockEngine.clipLoops[50], (1.0, 0.0));
+    });
+
     test('redo brings the right clip back under the same id', () async {
       int? rightEngineId;
       final command = build(onSplit: (id) => rightEngineId = id);

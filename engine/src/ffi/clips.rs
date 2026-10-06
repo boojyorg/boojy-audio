@@ -180,6 +180,22 @@ pub extern "C" fn set_audio_clip_reverse_ffi(
     })
 }
 
+/// Set how an audio clip repeats (`loop_length <= 0` = no repeats)
+#[no_mangle]
+pub extern "C" fn set_audio_clip_loop_ffi(
+    track_id: u64,
+    clip_id: u64,
+    loop_length: f64,
+    loop_start: f64,
+) -> *mut c_char {
+    ffi_catch(std::ptr::null_mut(), || {
+        match api::set_audio_clip_loop(track_id, clip_id, loop_length, loop_start) {
+            Ok(msg) => safe_cstring(msg).into_raw(),
+            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+        }
+    })
+}
+
 /// Get waveform peaks
 /// Returns pointer to float array, and writes the length to `out_length`
 /// Caller must free the returned array with `free_waveform_peaks_ffi`

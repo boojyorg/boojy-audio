@@ -167,6 +167,21 @@ class MockAudioEngine implements AudioEngineInterface {
     return 'OK';
   }
 
+  /// Last loop sent per clip ID: (loop length, loop start).
+  final Map<int, (double, double)> clipLoops = {};
+
+  @override
+  String setAudioClipLoop(
+    int trackId,
+    int clipId,
+    double loopLength,
+    double loopStart,
+  ) {
+    _record('setAudioClipLoop');
+    clipLoops[clipId] = (loopLength, loopStart);
+    return 'OK';
+  }
+
   @override
   int loadAudioFileToTrack(
     String filePath,

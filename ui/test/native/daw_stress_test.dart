@@ -66,6 +66,7 @@ class _StressRun {
     (1, 'add a MIDI clip', _addMidiClip),
     (3, 'add a note', _addNote),
     (1, 'extend a MIDI clip to repeat', _extendMidiClip),
+    (1, 'extend an audio clip to repeat', _extendAudioClip),
     (2, 'copy an audio clip', _copyAudioClip),
     (1, 'copy a MIDI clip', _copyMidiClip),
     (1, 'split a MIDI clip', _splitMidiClip),
@@ -204,14 +205,17 @@ class _StressRun {
   List<String> _fingerprint() {
     final engine = EngineSnapshot.read(h.engine);
     final names = {for (final t in _tracks) t.id: '${t.type} ${t.name}'};
-    String r(double v) => v.toStringAsFixed(3);
+    // Six places: at three, 0.9375 and a float hair under it straddled a
+    // rounding edge (0.938 vs 0.937) and failed a reopen.
+    String r(double v) => v.toStringAsFixed(6);
     String audio(EngineAudioClipInfo c) {
       final length = c.duration ?? c.fileDuration - c.offset;
       final warp = 'warp ${c.warpEnabled} ${r(c.stretchFactor)}';
       final pitch = 'pitch ${c.transposeSemitones}.${c.transposeCents}';
       return 'audio on ${names[c.trackId]} at ${r(c.startTime)} from '
           '${r(c.offset)} for ${r(length)} gain ${r(c.gainDb)} $warp $pitch '
-          'rev ${c.reversed}';
+          'rev ${c.reversed} loop ${r(c.loopLength ?? -1)} '
+          'from ${r(c.loopStart)}';
     }
 
     String midi(EngineMidiClipInfo c) =>
@@ -294,6 +298,39 @@ class _StressRun {
     return true;
   }
 
+  /// What dragging the clip's right edge past its audio does: the same
+  /// command, so the clip repeats its loop (when it can).
+  Future<bool> _extendAudioClip() async {
+    final clip = _pick(_audioClips.where((c) => c.canRepeat).toList());
+    if (clip == null) return false;
+    final duration = clip.loopLength * (2 + random.nextInt(2));
+    final end =
+        clip.startTime + clip.timelineSeconds(duration, h.daw.tempo) + 1e-6;
+    final blocked = _audioClips.any(
+      (c) =>
+          c.trackId == clip.trackId &&
+          c.clipId != clip.clipId &&
+          c.startTime >= clip.startTime &&
+          c.startTime < end,
+    );
+    if (blocked) return false;
+    final timeline = h.daw.timelineKey.currentState!;
+    await h.daw.undoRedoManager.execute(
+      ResizeAudioClipCommand(
+        trackId: clip.trackId,
+        clipId: clip.clipId,
+        clipName: clip.fileName,
+        oldDuration: clip.duration,
+        newDuration: duration,
+        onClipResized: (id, d, _, _) {
+          final c = timeline.clips.firstWhere((c) => c.clipId == id);
+          timeline.updateClip(c.copyWith(duration: d));
+        },
+      ),
+    );
+    return true;
+  }
+
   Future<bool> _copyAudioClip() async {
     final clip = _pick(_audioClips);
     if (clip == null) return false;
@@ -342,9 +379,22 @@ class _StressRun {
   Future<bool> _editAudioClip() async {
     final clip = _pick(_audioClips);
     if (clip == null) return false;
-    final before = clip.editData ?? const AudioClipEditData();
+    // As the Audio Editor starts it: the loop region is the clip's loop.
+    final tempo = h.daw.tempo;
+    final before =
+        (clip.editData ??
+                AudioClipEditData(
+                  loopEnabled: clip.canRepeat,
+                  lengthBeats: clip.duration * tempo / 60,
+                ))
+            .withLoopSeconds(clip.loopLength, tempo);
     final after = switch (random.nextInt(4)) {
-      0 => before.copyWith(syncEnabled: true, bpm: _pick([90.0, 120.0, 150.0])),
+      // Setting the clip's BPM keeps its loop on the same audio.
+      0 =>
+        before
+            .withWarp(on: false, projectBpm: tempo)
+            .copyWith(bpm: _pick([90.0, 120.0, 150.0]))
+            .withWarp(on: true, projectBpm: tempo),
       1 => before.copyWith(transposeSemitones: random.nextInt(11) - 5),
       2 => before.copyWith(reversed: !before.reversed),
       _ => before.copyWith(gainDb: -random.nextInt(12).toDouble()),

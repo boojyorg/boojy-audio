@@ -121,6 +121,7 @@ List<String> compareScreenWithEngine({
     final cents = edit?.fineCents ?? 0;
     final reversed = edit?.reversed ?? false;
     final enginePitch = '${e.transposeSemitones} st ${e.transposeCents} ct';
+    final loop = clip.engineLoopLength > 0 ? clip.engineLoopLength : null;
     final differences = <String>[
       if (e.trackId != clip.trackId)
         'track: screen ${clip.trackId}, engine ${e.trackId}',
@@ -139,6 +140,11 @@ List<String> compareScreenWithEngine({
         'pitch: screen $semitones st $cents ct, engine $enginePitch',
       if (e.reversed != reversed)
         'reverse: screen $reversed, engine ${e.reversed}',
+      if ((loop == null) != (e.loopLength == null) ||
+          (loop != null && (loop - e.loopLength!).abs() > _seconds))
+        'loop: screen ${loop ?? 'off'}, engine ${e.loopLength ?? 'off'}',
+      if ((e.loopStart - clip.loopStart).abs() > _seconds)
+        'loop start: screen ${clip.loopStart}s, engine ${e.loopStart}s',
     ];
     if (differences.isNotEmpty) {
       problems.add('$label differs: ${differences.join('; ')}');

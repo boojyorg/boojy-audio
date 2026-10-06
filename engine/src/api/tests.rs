@@ -410,7 +410,7 @@ fn audio_clip_rows() -> Vec<AudioClipRow> {
         .filter(|e| !e.is_empty())
         .map(|entry| {
             let f: Vec<&str> = entry.split(',').collect();
-            assert_eq!(f.len(), 14, "14 fields per audio clip row: {entry}");
+            assert_eq!(f.len(), 16, "16 fields per audio clip row: {entry}");
             AudioClipRow {
                 clip_id: f[0].parse().unwrap(),
                 track_id: f[1].parse().unwrap(),
@@ -418,7 +418,7 @@ fn audio_clip_rows() -> Vec<AudioClipRow> {
                 offset: f[3].parse().unwrap(),
                 duration: f[4].parse().unwrap(),
                 file_duration: f[5].parse().unwrap(),
-                file_path: f[13]
+                file_path: f[15]
                     .replace("%2C", ",")
                     .replace("%3B", ";")
                     .replace("%25", "%"),
@@ -1577,4 +1577,71 @@ fn undo_and_redo_can_bring_tracks_and_clips_back_under_their_ids() {
     );
     let later = duplicate_audio_clip(track, clip, 2.0, None).unwrap();
     assert!(later > copy_clip, "fresh clip ids stay above restored ones");
+}
+
+// ============================================================================
+// REPEATING AUDIO CLIPS
+// ============================================================================
+
+#[test]
+fn audio_clip_loop_is_set_reported_and_copied() {
+    let _guard = engine_lock();
+
+    let dir = temp_dir("clip_loop");
+    let wav = write_sine_wav(&dir, "tone.wav", 1.0, 0.5);
+    let track = create_track("Audio", "Tone".to_string()).unwrap();
+    let clip = load_audio_file_to_track_api(path_str(&wav), track, 0.0).unwrap();
+    let loop_fields = |id: u64| -> (f64, f64) {
+        let info = get_all_audio_clips_info().unwrap();
+        let row = info
+            .split(';')
+            .find(|r| r.starts_with(&format!("{id},")))
+            .expect("clip row");
+        let f: Vec<&str> = row.split(',').collect();
+        (f[13].parse().unwrap(), f[14].parse().unwrap())
+    };
+
+    // A new clip loops its whole file, as the timeline assumes.
+    assert_eq!(loop_fields(clip), (1.0, 0.0));
+
+    set_audio_clip_loop(track, clip, 0.25, 0.1).unwrap();
+    assert_eq!(loop_fields(clip), (0.25, 0.1));
+
+    // Copies (split's right piece, Duplicate) keep the loop.
+    let copy = duplicate_audio_clip(track, clip, 2.0, None).unwrap();
+    assert_eq!(loop_fields(copy), (0.25, 0.1));
+
+    // Zero turns repeats off.
+    set_audio_clip_loop(track, clip, 0.0, 0.0).unwrap();
+    assert_eq!(loop_fields(clip), (-1.0, 0.0));
+    assert!(set_audio_clip_loop(track, 9_999, 0.25, 0.0).is_err());
+}
+
+#[test]
+fn export_plays_a_repeating_clip_in_wav_and_mp3() {
+    let _guard = engine_lock();
+
+    let dir = temp_dir("export_repeats");
+    let wav = write_sine_wav(&dir, "loop.wav", 1.0, 0.5);
+    let track = create_track("Audio", "Loop".to_string()).unwrap();
+    let clip = load_audio_file_to_track_api(path_str(&wav), track, 0.0).unwrap();
+    set_clip_duration(track, clip, 3.0).unwrap(); // three passes of the 1 s loop
+
+    let out = dir.join("mix.wav");
+    export_wav_with_options(path_str(&out), 32, TARGET_SAMPLE_RATE, false, false, false).unwrap();
+    let (_, samples) = read_wav_samples(&out);
+    let peak = |from: f64, to: f64| {
+        let frame = |s: f64| (s * f64::from(TARGET_SAMPLE_RATE)) as usize * 2;
+        samples[frame(from)..frame(to)]
+            .iter()
+            .fold(0.0f32, |m, s| m.max(s.abs()))
+    };
+    assert!(peak(1.2, 1.8) > 0.1, "second pass is audible");
+    assert!(peak(2.2, 2.8) > 0.1, "third pass is audible");
+
+    if crate::export::is_ffmpeg_available() {
+        let mp3 = dir.join("mix.mp3");
+        export_mp3_with_options(path_str(&mp3), 192, TARGET_SAMPLE_RATE, false, false).unwrap();
+        assert!(std::fs::metadata(&mp3).unwrap().len() > 10_000);
+    }
 }

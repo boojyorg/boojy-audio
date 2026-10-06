@@ -746,15 +746,16 @@ mixin DAWProjectMixin
     );
   }
 
-  /// Re-push per-clip edit parameters (gain/warp/transpose/reverse) to the
-  /// engine after load. The engine's own project file only stores clip
-  /// position; edit params live in ui_layout.json, so without this re-push
-  /// saved processing is silently absent from playback until the user opens
-  /// the audio editor for that clip.
+  /// Re-push per-clip edit parameters (gain/warp/transpose/reverse) and
+  /// loops to the engine after load. The engine's own project file only
+  /// stores clip position; edit params live in ui_layout.json, so without
+  /// this re-push saved processing is silently absent from playback until
+  /// the user opens the audio editor for that clip.
   void _syncAudioClipEditDataToEngine(List<ClipData> clips) {
     final engine = audioEngine;
     if (engine == null) return;
     for (final clip in clips) {
+      pushAudioClipLoop(engine, clip);
       final edit = clip.editData;
       if (edit != null) {
         pushAudioClipEdits(engine, clip.trackId, clip.clipId, edit);

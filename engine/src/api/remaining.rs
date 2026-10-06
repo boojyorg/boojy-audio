@@ -51,10 +51,10 @@ pub fn add_existing_clip_to_track(
 /// Returns a `;`-separated list, one entry per clip. Each entry is
 /// `clip_id,track_id,start_time,offset,duration,file_duration,gain_db,`
 /// `warp_enabled,stretch_factor,warp_mode,transpose_semitones,transpose_cents,`
-/// `reversed,file_path`
+/// `reversed,loop_length,loop_start,file_path`
 ///
 /// `duration` is `-1` when the clip plays to the end of its file (no explicit
-/// duration). Booleans are `0`/`1`. `file_path` is last and percent-encoded
+/// duration), `loop_length` `-1` when the clip doesn't repeat. Booleans are `0`/`1`. `file_path` is last and percent-encoded
 /// (`encode_csv_field`; decode with `decodeCsvField` on the Dart side).
 pub fn get_all_audio_clips_info() -> Result<String, String> {
     use super::helpers::encode_csv_field;
@@ -68,7 +68,7 @@ pub fn get_all_audio_clips_info() -> Result<String, String> {
         let track = track_arc.lock();
         for clip in &track.audio_clips {
             entries.push(format!(
-                "{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
                 clip.id,
                 track.id,
                 clip.start_time,
@@ -82,6 +82,8 @@ pub fn get_all_audio_clips_info() -> Result<String, String> {
                 clip.transpose_semitones,
                 clip.transpose_cents,
                 u8::from(clip.reversed),
+                clip.loop_length.unwrap_or(-1.0),
+                clip.loop_start,
                 encode_csv_field(&clip.clip.file_path),
             ));
         }
@@ -659,6 +661,31 @@ pub fn set_audio_clip_reverse(
     } else {
         Err(format!("Track {track_id} not found"))
     }
+}
+
+/// Set how an audio clip repeats when it is longer than its loop:
+/// `loop_length` seconds of its own audio from its trim offset (`<= 0` = no
+/// repeats), starting `loop_start` seconds into the loop.
+pub fn set_audio_clip_loop(
+    track_id: TrackId,
+    clip_id: u64,
+    loop_length: f64,
+    loop_start: f64,
+) -> Result<String, String> {
+    let graph_mutex = graph()?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
+
+    let Some(track_arc) = track_manager.get_track(track_id) else {
+        return Err(format!("Track {track_id} not found"));
+    };
+    let mut track = track_arc.lock();
+    let Some(clip) = track.audio_clips.iter_mut().find(|c| c.id == clip_id) else {
+        return Err(format!("Clip {clip_id} not found on track {track_id}"));
+    };
+    clip.loop_length = (loop_length > 0.0).then_some(loop_length);
+    clip.loop_start = loop_start.max(0.0);
+    Ok(format!("Clip {clip_id} loop: {loop_length:.3}s from {loop_start:.3}s"))
 }
 
 /// Remove an audio clip from a track

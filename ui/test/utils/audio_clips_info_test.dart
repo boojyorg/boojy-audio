@@ -28,6 +28,8 @@ EngineAudioClipInfo _engine({
   transposeSemitones: 0,
   transposeCents: 0,
   reversed: false,
+  loopLength: null,
+  loopStart: 0,
   filePath: path,
 );
 
@@ -59,8 +61,8 @@ void main() {
   group('parseAudioClipsInfo', () {
     test('parses rows, -1 duration means "to the end of the file"', () {
       final clips = parseAudioClipsInfo(
-        '3,2,1.5,0.25,-1,4,-3,1,1.5,0,2,10,1,/a/b.wav;'
-        '7,2,9,0,2.5,4,0,0,1,0,0,0,0,/a/c.wav',
+        '3,2,1.5,0.25,-1,4,-3,1,1.5,0,2,10,1,0.5,0.125,/a/b.wav;'
+        '7,2,9,0,2.5,4,0,0,1,0,0,0,0,-1,0,/a/c.wav',
       );
       expect(clips, hasLength(2));
       expect(clips[0].clipId, 3);
@@ -75,13 +77,16 @@ void main() {
       expect(clips[0].transposeSemitones, 2);
       expect(clips[0].transposeCents, 10);
       expect(clips[0].reversed, isTrue);
+      expect(clips[0].loopLength, 0.5);
+      expect(clips[0].loopStart, 0.125);
       expect(clips[0].filePath, '/a/b.wav');
       expect(clips[1].duration, 2.5);
+      expect(clips[1].loopLength, isNull, reason: '-1 = does not repeat');
     });
 
     test('decodes the percent-encoded path', () {
       final clips = parseAudioClipsInfo(
-        '1,1,0,0,-1,1,0,0,1,0,0,0,0,/a/Drums%2C Kit%3B v2 100%25.wav',
+        '1,1,0,0,-1,1,0,0,1,0,0,0,0,-1,0,/a/Drums%2C Kit%3B v2 100%25.wav',
       );
       expect(clips.single.filePath, '/a/Drums, Kit; v2 100%.wav');
     });
@@ -90,7 +95,7 @@ void main() {
       expect(parseAudioClipsInfo(''), isEmpty);
       expect(parseAudioClipsInfo('Error: nope'), isEmpty);
       expect(
-        parseAudioClipsInfo('oops;1,1,0,0,-1,1,0,0,1,0,0,0,0,/x.wav'),
+        parseAudioClipsInfo('oops;1,1,0,0,-1,1,0,0,1,0,0,0,0,-1,0,/x.wav'),
         hasLength(1),
       );
     });

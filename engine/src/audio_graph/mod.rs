@@ -307,23 +307,7 @@ impl AudioGraph {
             id
         };
 
-        clips.push(TimelineClip {
-            id,
-            clip,
-            start_time,
-            offset: 0.0,
-            duration: None,
-            gain_db: 0.0,
-            warp_enabled: false,
-            stretch_factor: 1.0,
-            warp_mode: 0,
-            stretched_cache: None,
-            cached_stretch_factor: 0.0,
-            cached_transpose_cents: 0,
-            transpose_semitones: 0,
-            transpose_cents: 0,
-            reversed: false,
-        });
+        clips.push(TimelineClip::new(id, clip, start_time, 0.0, None));
 
         id
     }
@@ -378,23 +362,9 @@ impl AudioGraph {
         let track_manager = self.track_manager.lock();
         if let Some(track_arc) = track_manager.get_track(track_id) {
             let mut track = track_arc.lock();
-            track.audio_clips.push(TimelineClip {
-                id,
-                clip,
-                start_time,
-                offset,
-                duration,
-                gain_db: 0.0,
-                warp_enabled: false,
-                stretch_factor: 1.0,
-                warp_mode: 0,
-                stretched_cache: None,
-                cached_stretch_factor: 0.0,
-                cached_transpose_cents: 0,
-                transpose_semitones: 0,
-                transpose_cents: 0,
-                reversed: false,
-            });
+            track
+                .audio_clips
+                .push(TimelineClip::new(id, clip, start_time, offset, duration));
             Some(id)
         } else {
             None
@@ -441,23 +411,9 @@ impl AudioGraph {
         let track_manager = self.track_manager.lock();
         if let Some(track_arc) = track_manager.get_track(track_id) {
             let mut track = track_arc.lock();
-            track.audio_clips.push(TimelineClip {
-                id: clip_id,
-                clip,
-                start_time,
-                offset,
-                duration,
-                gain_db: 0.0,
-                warp_enabled: false,
-                stretch_factor: 1.0,
-                warp_mode: 0,
-                stretched_cache: None,
-                cached_stretch_factor: 0.0,
-                cached_transpose_cents: 0,
-                transpose_semitones: 0,
-                transpose_cents: 0,
-                reversed: false,
-            });
+            track.audio_clips.push(TimelineClip::new(
+                clip_id, clip, start_time, offset, duration,
+            ));
             true
         } else {
             false

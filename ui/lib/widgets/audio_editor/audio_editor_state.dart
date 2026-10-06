@@ -251,20 +251,27 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
     // Store the full audio content duration (waveform always shows this)
     contentDurationBeats = clipTimelineBeats;
 
-    // If clip has no saved edit data, use clip's timeline duration
+    // If clip has no saved edit data, the loop region is the clip's loop
+    // (its whole audio unless set). Its arrangement length counted the
+    // repeats of an extended clip, so the first edit dropped them.
     if (!hasEditData) {
-      loopEnabled = true;
+      final loopBeats = clip.loopLength * (bpmForConversion / 60.0);
+      loopEnabled = clip.canRepeat;
       loopStartBeats = 0.0;
-      loopEndBeats = clipTimelineBeats;
+      loopEndBeats = loopBeats;
       editData = editData.copyWith(
+        loopEnabled: clip.canRepeat,
         lengthBeats: clipTimelineBeats,
         loopStartBeats: 0.0,
-        loopEndBeats: clipTimelineBeats,
+        loopEndBeats: loopBeats,
       );
       // Zoom to fit content on first load
       shouldZoomToFit = true;
     } else {
-      // Use saved values from edit data
+      // Saved values, with the region's length re-counted from the clip's
+      // loop: beats saved at an older project tempo moved the loop on the
+      // next edit.
+      editData = editData.withLoopSeconds(clip.loopLength, projectTempo);
       loopEnabled = editData.loopEnabled;
       loopStartBeats = editData.loopStartBeats;
       loopEndBeats = editData.loopEndBeats;
