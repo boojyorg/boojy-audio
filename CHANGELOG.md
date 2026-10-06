@@ -88,6 +88,11 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Export no longer says "Couldn't export" when it worked.** The file was written, but the
+  screen misread the engine's reply and reported every export as failed, with the progress
+  window saying "Export Complete" at 0%. The progress window now closes when the export is
+  done, so only the summary with *Show in Finder* stays (closing it showed the progress window
+  again underneath), and a real failure says so in the progress window.
 - **An audio clip stretched past its audio repeats it.** The arrangement drew the waveform again
   in each repeat, but the repeats were silent. They now play, in playback, export and Join, each
   repeat backwards on a reversed clip. Splitting a repeating clip carries the pattern on: the

@@ -92,10 +92,11 @@ class _ExportProgressDialogState extends State<ExportProgressDialog> {
             _progressTimer?.cancel();
           }
         })
-        .catchError((error) {
+        .catchError((Object error) {
+          Log.e('Export failed: $error');
           if (mounted) {
             setState(() {
-              _exportError = error.toString();
+              _exportError = "Boojy couldn't export the file.";
               _exportComplete = true;
             });
             _progressTimer?.cancel();
@@ -319,7 +320,9 @@ class ExportResult {
       fileSize: json['file_size'] as int,
       duration: (json['duration'] as num).toDouble(),
       sampleRate: json['sample_rate'] as int,
-      format: json['format'] as String,
+      // The engine's name for it; reading 'format' threw on every export,
+      // so a written file was reported as "Couldn't export".
+      format: json['format_description'] as String,
     );
   }
 
@@ -632,9 +635,16 @@ class _ExportDialogState extends State<ExportDialog> {
               }
             }
 
+            // Close the progress window before the success window opens on
+            // top (it was left underneath, saying "Export Complete" again
+            // once OK was pressed). It is still the top route here: the
+            // success window waits for the completer.
+            if (completer.isCompleted) return; // cancelled: already closed
+            if (dialogContext.mounted) Navigator.of(dialogContext).pop();
             completer.complete(results);
           } catch (e) {
-            completer.completeError(e);
+            if (!completer.isCompleted) completer.completeError(e);
+            rethrow; // the progress dialog says it failed, not "Complete"
           }
         },
         onCancel: () {
@@ -707,16 +717,24 @@ class _ExportDialogState extends State<ExportDialog> {
       _saveSettingsToUserSettings();
 
       // Perform export with progress dialog
-      final results = await _performExportWithProgress(
-        baseName: baseName,
-        folderPath: folderPath,
-        filePath: filePath,
-      );
+      final List<ExportResult> results;
+      try {
+        results = await _performExportWithProgress(
+          baseName: baseName,
+          folderPath: folderPath,
+          filePath: filePath,
+        );
+      } catch (e) {
+        if (e.toString() == 'Export cancelled') rethrow;
+        throw const _ExportShownFailure();
+      }
 
       // Show success dialog after progress dialog closes
       if (mounted && results.isNotEmpty) {
         _showSuccessDialog(results);
       }
+    } on _ExportShownFailure {
+      // The progress dialog already says so.
     } catch (e) {
       if (e.toString() != 'Export cancelled') {
         Notices.problem("Couldn't export", error: e);
@@ -1411,4 +1429,9 @@ class _ExportDialogState extends State<ExportDialog> {
       ],
     );
   }
+}
+
+/// An export that failed inside the progress dialog, which has said so.
+class _ExportShownFailure implements Exception {
+  const _ExportShownFailure();
 }

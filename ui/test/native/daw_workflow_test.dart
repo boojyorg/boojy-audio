@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:boojy_audio/models/audio_clip_edit_data.dart';
@@ -8,6 +10,7 @@ import 'package:boojy_audio/services/audio_clip_engine_sync.dart';
 import 'package:boojy_audio/services/commands/clip_commands.dart';
 import 'package:boojy_audio/services/state_consistency.dart';
 import 'package:boojy_audio/widgets/audio_editor/audio_editor.dart';
+import 'package:boojy_audio/widgets/export_dialog.dart';
 import 'package:boojy_audio/widgets/audio_editor/operations/parameter_operations.dart';
 import 'package:boojy_audio/widgets/timeline_view.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -146,6 +149,33 @@ void main() {
       expect(now.isLooped, isTrue);
       expect(now.editData?.reversed, isTrue);
       h.expectScreenMatchesEngine(after: 'reversing in the editor');
+    } finally {
+      await h.close();
+    }
+  });
+
+  testWidgets('export writes a repeating clip and reads back the result', (
+    tester,
+  ) async {
+    // Found by Tyr: every export said "Couldn't export" although the file was
+    // written (the screen read 'format', the engine sends
+    // 'format_description').
+    final h = await DawHarness.start(tester);
+    try {
+      final clip = await dropClip(h, 'loop.wav');
+      h.engine.setClipDuration(clip.trackId, clip.clipId, clip.duration * 2);
+      final out = '${Directory.systemTemp.createTempSync('export').path}/a.wav';
+      var json = '';
+      await h.realTime(() async {
+        json = h.engine.exportWavWithOptions(outputPath: out);
+      });
+      final result = ExportResult.fromJson(
+        jsonDecode(json) as Map<String, dynamic>,
+      );
+      expect(result.format, 'WAV 16-bit');
+      expect(File(out).existsSync(), isTrue);
+      // Two passes of the loop plus the one-second tail.
+      expect(result.duration, closeTo(clip.duration * 2 + 1, 0.01));
     } finally {
       await h.close();
     }
