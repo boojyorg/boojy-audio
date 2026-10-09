@@ -67,6 +67,7 @@ class _StressRun {
     (3, 'add a note', _addNote),
     (1, 'extend a MIDI clip to repeat', _extendMidiClip),
     (1, 'extend an audio clip to repeat', _extendAudioClip),
+    (2, 'trim an audio clip edge', _trimAudioClip),
     (2, 'copy an audio clip', _copyAudioClip),
     (1, 'copy a MIDI clip', _copyMidiClip),
     (1, 'split a MIDI clip', _splitMidiClip),
@@ -315,19 +316,34 @@ class _StressRun {
     );
     if (blocked) return false;
     final timeline = h.daw.timelineKey.currentState!;
-    await h.daw.undoRedoManager.execute(
-      ResizeAudioClipCommand(
-        trackId: clip.trackId,
-        clipId: clip.clipId,
-        clipName: clip.fileName,
-        oldDuration: clip.duration,
-        newDuration: duration,
-        onClipResized: (id, d, _, _) {
-          final c = timeline.clips.firstWhere((c) => c.clipId == id);
-          timeline.updateClip(c.copyWith(duration: d));
-        },
+    await timeline.resizeAudioClip(
+      clip,
+      clip.withEdges(
+        start: clip.startTime,
+        end: clip.startTime + clip.timelineSeconds(duration, h.daw.tempo),
+        projectBpm: h.daw.tempo,
       ),
     );
+    return true;
+  }
+
+  /// Drag one edge of an audio clip in or out, as its trim handle does.
+  Future<bool> _trimAudioClip() async {
+    final clip = _pick(_audioClips);
+    if (clip == null) return false;
+    final timeline = h.daw.timelineKey.currentState!;
+    final move = (random.nextInt(13) - 6) / 4; // -1.5 to 1.5 s
+    final after = random.nextBool()
+        ? timeline.audioClipWithEdges(clip, start: clip.startTime + move)
+        : timeline.audioClipWithEdges(
+            clip,
+            end: clip.timelineEnd(h.daw.tempo) + move,
+          );
+    if ((after.startTime - clip.startTime).abs() < 1e-6 &&
+        (after.duration - clip.duration).abs() < 1e-6) {
+      return false;
+    }
+    await timeline.resizeAudioClip(clip, after);
     return true;
   }
 

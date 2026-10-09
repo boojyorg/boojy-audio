@@ -134,11 +134,8 @@ class ResolveAudioOverlapCommand extends Command {
 
     // Updates: trims (id is stable — the clip is resized in place).
     for (final u in result.updates) {
-      final c = u.updated;
-      engine.setClipStartTime(c.trackId, c.clipId, c.startTime);
-      engine.setClipOffset(c.trackId, c.clipId, c.offset);
-      engine.setClipDuration(c.trackId, c.clipId, c.duration);
-      uiUpdateClip?.call(c);
+      _setEdges(engine, u.updated);
+      uiUpdateClip?.call(u.updated);
     }
 
     // Splits: duplicate Part B BEFORE modifying the original (the duplicate
@@ -155,15 +152,14 @@ class ResolveAudioOverlapCommand extends Command {
           newClipId: _splitPartBIds[i], // redo: the id it had
         );
         if (partBId >= 0) {
-          engine.setClipOffset(s.original.trackId, partBId, tmpl.offset);
-          engine.setClipDuration(s.original.trackId, partBId, tmpl.duration);
+          _setEdges(engine, tmpl.copyWith(clipId: partBId));
           _splitPartBIds[i] = partBId;
           uiAddClip?.call(tmpl.copyWith(clipId: partBId));
         }
       }
       final partA = s.partA;
       if (partA != null) {
-        engine.setClipDuration(s.original.trackId, origId, partA.duration);
+        _setEdges(engine, partA.copyWith(clipId: origId));
         uiUpdateClip?.call(partA.copyWith(clipId: origId));
       } else {
         engine.removeAudioClip(s.original.trackId, origId);
@@ -190,13 +186,7 @@ class ResolveAudioOverlapCommand extends Command {
 
       if (s.partA != null) {
         // Original was trimmed in place → restore it fully.
-        engine.setClipStartTime(
-          s.original.trackId,
-          origId,
-          s.original.startTime,
-        );
-        engine.setClipOffset(s.original.trackId, origId, s.original.offset);
-        engine.setClipDuration(s.original.trackId, origId, s.original.duration);
+        _setEdges(engine, s.original.copyWith(clipId: origId));
         uiUpdateClip?.call(s.original.copyWith(clipId: origId));
       } else {
         // Original was removed → reload it (engine assigns a new id).
@@ -210,9 +200,7 @@ class ResolveAudioOverlapCommand extends Command {
 
     for (var i = result.updates.length - 1; i >= 0; i--) {
       final o = result.updates[i].original;
-      engine.setClipStartTime(o.trackId, o.clipId, o.startTime);
-      engine.setClipOffset(o.trackId, o.clipId, o.offset);
-      engine.setClipDuration(o.trackId, o.clipId, o.duration);
+      _setEdges(engine, o);
       uiUpdateClip?.call(o);
     }
 
@@ -226,6 +214,14 @@ class ResolveAudioOverlapCommand extends Command {
         uiAddClip?.call(clip);
       }
     }
+  }
+
+  /// Send [clip]'s edges (start, trim, length, loop start) to the engine.
+  static void _setEdges(AudioEngineInterface engine, ClipData clip) {
+    engine.setClipStartTime(clip.trackId, clip.clipId, clip.startTime);
+    engine.setClipOffset(clip.trackId, clip.clipId, clip.offset);
+    engine.setClipDuration(clip.trackId, clip.clipId, clip.duration);
+    pushAudioClipLoop(engine, clip);
   }
 
   @override
@@ -1013,68 +1009,41 @@ class DuplicateAudioClipCommand extends Command {
   String get description => 'Duplicate Clip: ${originalClip.fileName}';
 }
 
-/// Command to resize/trim an audio clip (change duration, offset, and optionally startTime for left edge trim)
+/// Move an audio clip's edges: a trim, or dragging an edge out to uncover
+/// audio or repeat the loop. [before] and [after] are the whole clip; the
+/// edges are its start, offset, length and loop start
+/// ([ClipData.withEdges] works them out).
 class ResizeAudioClipCommand extends Command {
-  final int trackId;
-  final int clipId;
-  final String clipName;
-  final double oldDuration;
-  final double newDuration;
-  final double? oldOffset;
-  final double? newOffset;
-  final double? oldStartTime;
-  final double? newStartTime;
+  final ClipData before;
+  final ClipData after;
 
-  /// Callback to update clip in UI state
-  final void Function(
-    int clipId,
-    double duration,
-    double? offset,
-    double? startTime,
-  )?
-  onClipResized;
+  /// Show the clip with these edges (only the edge fields are meant).
+  final void Function(ClipData edges)? onClipResized;
 
   ResizeAudioClipCommand({
-    required this.trackId,
-    required this.clipId,
-    required this.clipName,
-    required this.oldDuration,
-    required this.newDuration,
-    this.oldOffset,
-    this.newOffset,
-    this.oldStartTime,
-    this.newStartTime,
+    required this.before,
+    required this.after,
     this.onClipResized,
   });
 
   @override
-  Future<void> execute(AudioEngineInterface engine) async {
-    // Sync all changed properties to the engine
-    if (newStartTime != null) {
-      engine.setClipStartTime(trackId, clipId, newStartTime!);
-    }
-    if (newOffset != null) {
-      engine.setClipOffset(trackId, clipId, newOffset!);
-    }
-    engine.setClipDuration(trackId, clipId, newDuration);
-    onClipResized?.call(clipId, newDuration, newOffset, newStartTime);
+  Future<void> execute(AudioEngineInterface engine) async =>
+      _apply(engine, after);
+
+  @override
+  Future<void> undo(AudioEngineInterface engine) async =>
+      _apply(engine, before);
+
+  void _apply(AudioEngineInterface engine, ClipData clip) {
+    engine.setClipStartTime(clip.trackId, clip.clipId, clip.startTime);
+    engine.setClipOffset(clip.trackId, clip.clipId, clip.offset);
+    engine.setClipDuration(clip.trackId, clip.clipId, clip.duration);
+    pushAudioClipLoop(engine, clip);
+    onClipResized?.call(clip);
   }
 
   @override
-  Future<void> undo(AudioEngineInterface engine) async {
-    // Restore all properties to the engine
-    if (oldStartTime != null) {
-      engine.setClipStartTime(trackId, clipId, oldStartTime!);
-    }
-    if (oldOffset != null) {
-      engine.setClipOffset(trackId, clipId, oldOffset!);
-    }
-    engine.setClipDuration(trackId, clipId, oldDuration);
-    onClipResized?.call(clipId, oldDuration, oldOffset, oldStartTime);
-  }
-
-  @override
-  String get description => 'Resize Clip: $clipName';
+  String get description => 'Resize Clip: ${after.fileName}';
 }
 
 /// Command to rename a clip

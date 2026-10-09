@@ -4,6 +4,8 @@ import 'package:boojy_audio/models/audio_clip_edit_data.dart';
 import 'package:boojy_audio/models/clip_data.dart';
 import 'package:boojy_audio/models/midi_note_data.dart';
 
+import '../helpers/clip_audio.dart';
+
 // Helper to create audio clips
 ClipData _audioClip({
   int clipId = 1,
@@ -133,7 +135,10 @@ void main() {
       expect(kept.clipId, equals(7));
       expect(kept.startTime, closeTo(2.25, 1e-9));
       expect(kept.duration, closeTo(0.15, 1e-9));
-      expect(kept.offset, closeTo(0.25, 1e-9));
+      // It plays from 0.25 s into its audio: Loop is on, so it enters its
+      // loop there and the loop stays put.
+      expect(kept.offset, 0.0);
+      expect(kept.loopStart, closeTo(0.25, 1e-9));
     });
 
     test('Case 4: inside existing — keeps short parts on both sides', () {
@@ -214,6 +219,60 @@ void main() {
       );
       // All 3 clips are completely covered
       expect(result.removals.length, equals(3));
+    });
+
+    group('the part left keeps its audio', () {
+      ClipData existing({bool reversed = false, bool warped = false}) =>
+          ClipData(
+            clipId: 1,
+            trackId: 0,
+            filePath: 'test.wav',
+            startTime: 0,
+            duration: 4,
+            // 240 BPM audio warped to 120 BPM plays at half speed.
+            editData: AudioClipEditData(
+              reversed: reversed,
+              bpm: 240,
+              syncEnabled: warped,
+            ),
+          );
+
+      /// What [clip] plays at [t] seconds on the timeline.
+      double at(ClipData clip, double t) =>
+          audioAt(clip, (t - clip.startTime) * clip.editData!.stretchAt(120));
+
+      for (final reversed in [false, true]) {
+        for (final warped in [false, true]) {
+          test('reversed $reversed, warped $warped', () {
+            final clip = existing(reversed: reversed, warped: warped);
+            final end = clip.timelineEnd(120);
+            AudioOverlapResult cover(double from, double to) =>
+                ClipOverlapHandler.resolveAudioOverlaps(
+                  tempo: 120,
+                  newStart: from,
+                  newEnd: to,
+                  existingClips: [clip],
+                  trackId: 0,
+                );
+            // Its end covered.
+            final tail = cover(end * 0.6, end + 1).updates.single.updated;
+            expect(tail.timelineEnd(120), closeTo(end * 0.6, 1e-9));
+            expect(at(tail, end * 0.3), closeTo(at(clip, end * 0.3), 1e-9));
+            // Its start covered.
+            final head = cover(-1, end * 0.4).updates.single.updated;
+            expect(head.startTime, closeTo(end * 0.4, 1e-9));
+            expect(at(head, end * 0.7), closeTo(at(clip, end * 0.7), 1e-9));
+            // Its middle covered.
+            final split = cover(end * 0.3, end * 0.6).splits.single;
+            final a = split.partA!;
+            final b = split.partBTemplate!;
+            expect(at(a, end * 0.2), closeTo(at(clip, end * 0.2), 1e-9));
+            expect(b.startTime, closeTo(end * 0.6, 1e-9));
+            expect(b.timelineEnd(120), closeTo(end, 1e-9));
+            expect(at(b, end * 0.8), closeTo(at(clip, end * 0.8), 1e-9));
+          });
+        }
+      }
     });
 
     test('a warped clip overlaps for as long as it is drawn', () {

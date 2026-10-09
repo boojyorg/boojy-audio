@@ -118,7 +118,9 @@ class MidiSplitOperation {
 /// 4. **Inside existing**: new is inside existing → split into two parts
 ///
 /// Only case 1 deletes. A partial overlap keeps whatever remains of the
-/// existing clip, however short (see [_minRemainder]).
+/// existing clip, however short (see [_minRemainder]), with the audio it
+/// had there ([ClipData.withEdges]: reversed, warped and repeating clips
+/// keep the right part).
 ///
 /// Returns a pure result describing the operations needed. The caller is
 /// responsible for applying the result to the engine and UI state.
@@ -188,7 +190,11 @@ class ClipOverlapHandler {
           updates.add(
             AudioClipUpdate(
               original: clip,
-              updated: clip.copyWith(duration: newDuration),
+              updated: clip.withEdges(
+                start: clip.startTime,
+                end: newStart,
+                projectBpm: tempo,
+              ),
             ),
           );
         }
@@ -206,17 +212,16 @@ class ClipOverlapHandler {
           );
           removals.add(clip);
         } else {
-          final trimDelta = newEnd - clip.startTime;
           Log.d(
             '[OVERLAP]   Case 3 TRIM START: clip ${clip.clipId} start ${clip.startTime.toStringAsFixed(3)} → ${newEnd.toStringAsFixed(3)}s, duration ${clip.duration.toStringAsFixed(3)} → ${newDuration.toStringAsFixed(3)}s',
           );
           updates.add(
             AudioClipUpdate(
               original: clip,
-              updated: clip.copyWith(
-                startTime: newEnd,
-                duration: newDuration,
-                offset: clip.offset + trimDelta,
+              updated: clip.withEdges(
+                start: newEnd,
+                end: clipEnd,
+                projectBpm: tempo,
               ),
             ),
           );
@@ -228,7 +233,6 @@ class ClipOverlapHandler {
       if (newStart > clip.startTime && newEnd < clipEnd) {
         final partADuration = newStart - clip.startTime;
         final partBDuration = clipEnd - newEnd;
-        final trimDelta = newEnd - clip.startTime;
 
         Log.d(
           '[OVERLAP]   Case 4 SPLIT: clip ${clip.clipId} (${clip.startTime.toStringAsFixed(3)}-${clipEnd.toStringAsFixed(3)}s) → partA=${partADuration.toStringAsFixed(3)}s, partB=${partBDuration.toStringAsFixed(3)}s',
@@ -236,17 +240,18 @@ class ClipOverlapHandler {
 
         ClipData? partA;
         if (partADuration >= _minRemainder) {
-          partA = clip.copyWith(duration: partADuration);
+          partA = clip.withEdges(
+            start: clip.startTime,
+            end: newStart,
+            projectBpm: tempo,
+          );
         }
 
         ClipData? partBTemplate;
         if (partBDuration >= _minRemainder) {
-          partBTemplate = clip.copyWith(
-            clipId: -1, // Placeholder — caller assigns from engine
-            startTime: newEnd,
-            duration: partBDuration,
-            offset: clip.offset + trimDelta,
-          );
+          partBTemplate = clip
+              .withEdges(start: newEnd, end: clipEnd, projectBpm: tempo)
+              .copyWith(clipId: -1); // Placeholder — caller assigns from engine
         }
 
         splits.add(
@@ -421,99 +426,6 @@ class ClipOverlapHandler {
   // -------------------------------------------------------------------------
   // Apply helpers — execute overlap results against engine + UI
   // -------------------------------------------------------------------------
-
-  /// Apply audio overlap result to engine and UI.
-  ///
-  /// Engine callbacks perform Rust FFI operations (trim, remove, duplicate).
-  /// UI callbacks update the Flutter clip list.
-  static void applyAudioResult({
-    required AudioOverlapResult result,
-    void Function(int trackId, int clipId)? engineRemoveClip,
-    void Function(int trackId, int clipId, double startTime)?
-    engineSetStartTime,
-    void Function(int trackId, int clipId, double offset)? engineSetOffset,
-    void Function(int trackId, int clipId, double duration)? engineSetDuration,
-    int Function(int trackId, int clipId, double newStart)? engineDuplicateClip,
-    void Function(int clipId)? uiRemoveClip,
-    void Function(ClipData clip)? uiUpdateClip,
-    void Function(ClipData clip)? uiAddClip,
-  }) {
-    if (!result.hasChanges) return;
-
-    Log.d(
-      '[OVERLAP] applyAudioResult: ${result.removals.length} removals, ${result.updates.length} updates, ${result.splits.length} splits',
-    );
-
-    // Removals
-    for (final clip in result.removals) {
-      Log.d(
-        '[OVERLAP]   APPLY REMOVE: clip ${clip.clipId} from track ${clip.trackId}',
-      );
-      engineRemoveClip?.call(clip.trackId, clip.clipId);
-      uiRemoveClip?.call(clip.clipId);
-    }
-
-    // Updates (trims)
-    for (final update in result.updates) {
-      final clip = update.updated;
-      final orig = update.original;
-      Log.d(
-        '[OVERLAP]   APPLY TRIM: clip ${clip.clipId} start=${clip.startTime.toStringAsFixed(3)}s dur=${clip.duration.toStringAsFixed(3)}s offset=${clip.offset.toStringAsFixed(3)}s',
-      );
-      if (clip.startTime != orig.startTime) {
-        engineSetStartTime?.call(clip.trackId, clip.clipId, clip.startTime);
-      }
-      if (clip.offset != orig.offset) {
-        engineSetOffset?.call(clip.trackId, clip.clipId, clip.offset);
-      }
-      if (clip.duration != orig.duration) {
-        engineSetDuration?.call(clip.trackId, clip.clipId, clip.duration);
-      }
-      uiUpdateClip?.call(clip);
-    }
-
-    // Splits — Part B must be duplicated BEFORE modifying original
-    for (final split in result.splits) {
-      final orig = split.original;
-
-      if (split.partBTemplate != null) {
-        final tmpl = split.partBTemplate!;
-        final partBId =
-            engineDuplicateClip?.call(
-              orig.trackId,
-              orig.clipId,
-              tmpl.startTime,
-            ) ??
-            -1;
-        if (partBId > 0) {
-          Log.d(
-            '[OVERLAP]   APPLY SPLIT partB: new clip $partBId at ${tmpl.startTime.toStringAsFixed(3)}s dur=${tmpl.duration.toStringAsFixed(3)}s',
-          );
-          engineSetOffset?.call(orig.trackId, partBId, tmpl.offset);
-          engineSetDuration?.call(orig.trackId, partBId, tmpl.duration);
-          uiAddClip?.call(tmpl.copyWith(clipId: partBId));
-        }
-      }
-
-      if (split.partA != null) {
-        Log.d(
-          '[OVERLAP]   APPLY SPLIT partA: clip ${orig.clipId} trimmed to dur=${split.partA!.duration.toStringAsFixed(3)}s',
-        );
-        engineSetDuration?.call(
-          orig.trackId,
-          orig.clipId,
-          split.partA!.duration,
-        );
-        uiUpdateClip?.call(split.partA!);
-      } else {
-        Log.d(
-          '[OVERLAP]   APPLY SPLIT: no partA, removing original clip ${orig.clipId}',
-        );
-        engineRemoveClip?.call(orig.trackId, orig.clipId);
-        uiRemoveClip?.call(orig.clipId);
-      }
-    }
-  }
 
   /// Apply MIDI overlap result to MIDI clip controller and playback manager.
   static void applyMidiResult({

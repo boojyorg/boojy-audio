@@ -47,9 +47,12 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
   /// Current edit parameters for the clip.
   AudioClipEditData editData = const AudioClipEditData();
 
-  /// Full audio content duration in beats (does not change when Length field changes).
+  /// The clip's whole audio file in beats (does not change when Length field changes).
   /// This is used for waveform rendering - the waveform always shows the full audio.
   double contentDurationBeats = 4.0;
+
+  /// The clip's whole audio file in seconds.
+  double contentSeconds = 2.0;
 
   // ============================================
   // LOOP SETTINGS
@@ -125,18 +128,15 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
   /// Calculate total visible beats (extends beyond loop for scrolling).
   /// Matches Piano Roll behavior: adds 16 bars buffer beyond content.
   double calculateTotalBeats() {
-    final loopLength = getLoopLength();
-
     if (currentClip == null) {
       // Default: 8 bars when no clip loaded
       return 8 * beatsPerBar.toDouble();
     }
 
-    // Calculate based on clip duration in beats
-    final clipDurationBeats = editData.lengthBeats;
-    final maxBeat = clipDurationBeats > loopLength
-        ? clipDurationBeats
-        : loopLength;
+    // The audio, or the loop region if it runs past it.
+    final maxBeat = contentDurationBeats > loopEndBeats
+        ? contentDurationBeats
+        : loopEndBeats;
 
     // Add 16 bars (64 beats at 4/4) buffer for scrolling, matching Piano Roll
     final scrollBufferBeats = 16 * beatsPerBar.toDouble();
@@ -231,51 +231,44 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
   /// Initialize state from clip data.
   /// [projectTempo] is the current project BPM, used to calculate visual beat duration
   /// when warp is OFF (clip is fixed-length in seconds).
+  ///
+  /// The editor shows the clip's whole audio file from its start; the loop
+  /// region is where in it the clip's loop is ([ClipData.loopWindowStart]
+  /// and [ClipData.loopLength], the truth: saved region beats go stale when
+  /// the clip is trimmed or the tempo changes while the editor is closed).
   void initFromClip(ClipData? clip, {double projectTempo = 120.0}) {
     if (clip == null) return;
 
     currentClip = clip;
-    final hasEditData = clip.editData != null;
     editData = clip.editData ?? const AudioClipEditData();
+    if (clip.editData == null) {
+      editData = editData.copyWith(loopEnabled: clip.canRepeat);
+      // Zoom to fit content on first load
+      shouldZoomToFit = true;
+    }
 
     // Get BPM and time signature from edit data
     beatsPerBar = editData.beatsPerBar;
     beatUnit = editData.beatUnit;
 
-    // Calculate clip's visual duration in beats
-    // - Warp ON: clip syncs to project tempo, so use original BPM (fixed beats)
-    // - Warp OFF: clip is fixed-length in seconds, convert using project tempo
-    final bpmForConversion = editData.syncEnabled ? editData.bpm : projectTempo;
-    final clipTimelineBeats = clip.duration * (bpmForConversion / 60.0);
+    // Beats per second of the clip's audio: warp ON counts at the clip's own
+    // BPM (fixed beats), warp OFF at the project's.
+    final beatsPerSecond =
+        (editData.syncEnabled ? editData.bpm : projectTempo) / 60.0;
+    final fileSeconds = widget.audioEngine?.getClipDuration(clip.clipId) ?? 0;
+    contentSeconds = fileSeconds > 0
+        ? fileSeconds
+        : clip.loopWindowStart + clip.loopLength;
+    contentDurationBeats = contentSeconds * beatsPerSecond;
 
-    // Store the full audio content duration (waveform always shows this)
-    contentDurationBeats = clipTimelineBeats;
-
-    // If clip has no saved edit data, the loop region is the clip's loop
-    // (its whole audio unless set). Its arrangement length counted the
-    // repeats of an extended clip, so the first edit dropped them.
-    if (!hasEditData) {
-      final loopBeats = clip.loopLength * (bpmForConversion / 60.0);
-      loopEnabled = clip.canRepeat;
-      loopStartBeats = 0.0;
-      loopEndBeats = loopBeats;
-      editData = editData.copyWith(
-        loopEnabled: clip.canRepeat,
-        lengthBeats: clipTimelineBeats,
-        loopStartBeats: 0.0,
-        loopEndBeats: loopBeats,
-      );
-      // Zoom to fit content on first load
-      shouldZoomToFit = true;
-    } else {
-      // Saved values, with the region's length re-counted from the clip's
-      // loop: beats saved at an older project tempo moved the loop on the
-      // next edit.
-      editData = editData.withLoopSeconds(clip.loopLength, projectTempo);
-      loopEnabled = editData.loopEnabled;
-      loopStartBeats = editData.loopStartBeats;
-      loopEndBeats = editData.loopEndBeats;
-    }
+    loopEnabled = editData.loopEnabled;
+    loopStartBeats = clip.loopWindowStart * beatsPerSecond;
+    loopEndBeats = loopStartBeats + clip.loopLength * beatsPerSecond;
+    editData = editData.copyWith(
+      lengthBeats: contentDurationBeats,
+      loopStartBeats: loopStartBeats,
+      loopEndBeats: loopEndBeats,
+    );
   }
 
   /// Update clip when widget changes.
@@ -284,56 +277,34 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
     initFromClip(clip, projectTempo: projectTempo);
   }
 
-  /// Recalculate contentDurationBeats when project tempo changes (only affects warp OFF clips).
+  /// Recount the beats when the project tempo changes (only warp OFF clips,
+  /// which are counted at the project's tempo).
   void recalculateBeatsForTempo(double projectTempo) {
-    if (currentClip == null) return;
-
-    // Only recalculate if warp is OFF (clip uses time-based display)
-    if (!editData.syncEnabled) {
-      final clipTimelineBeats = currentClip!.duration * (projectTempo / 60.0);
-      contentDurationBeats = clipTimelineBeats;
-
-      // Also update loop region to match new beat scale
-      // This keeps the same proportion of the clip selected
-      final oldLoopLength = loopEndBeats - loopStartBeats;
-      final oldContentBeats = editData.lengthBeats > 0
-          ? editData.lengthBeats
-          : 4.0;
-      final proportion = oldLoopLength / oldContentBeats;
-
-      loopEndBeats = loopStartBeats + (clipTimelineBeats * proportion);
-      editData = editData.copyWith(
-        lengthBeats: clipTimelineBeats,
-        loopEndBeats: loopEndBeats,
-      );
-    }
+    if (currentClip == null || editData.syncEnabled) return;
+    _rescaleBeats(contentSeconds * projectTempo / 60.0);
   }
 
-  /// Recalculate contentDurationBeats when original BPM changes (only affects warp ON clips).
-  /// When warp is ON, the clip is beat-based, so changing original BPM changes how many
-  /// beats the clip represents: beats = duration_seconds * (bpm / 60)
+  /// Recount the beats when the clip's own BPM changes (only warp ON clips,
+  /// which are counted at it): beats = seconds * bpm / 60.
   void recalculateBeatsForOriginalBpm(double originalBpm) {
-    if (currentClip == null) return;
+    if (currentClip == null || !editData.syncEnabled) return;
+    _rescaleBeats(contentSeconds * originalBpm / 60.0);
+  }
 
-    // Only recalculate if warp is ON (clip uses beat-based display)
-    if (editData.syncEnabled) {
-      final clipTimelineBeats = currentClip!.duration * (originalBpm / 60.0);
-      final oldContentBeats = contentDurationBeats > 0
-          ? contentDurationBeats
-          : 4.0;
-      contentDurationBeats = clipTimelineBeats;
-
-      // Scale loop region proportionally to new beat length
-      final proportion = clipTimelineBeats / oldContentBeats;
-      loopStartBeats = loopStartBeats * proportion;
-      loopEndBeats = loopEndBeats * proportion;
-
-      editData = editData.copyWith(
-        lengthBeats: clipTimelineBeats,
-        loopStartBeats: loopStartBeats,
-        loopEndBeats: loopEndBeats,
-      );
-    }
+  /// Count the audio as [newContentBeats], with the loop region on the
+  /// same audio.
+  void _rescaleBeats(double newContentBeats) {
+    final scale = contentDurationBeats > 0
+        ? newContentBeats / contentDurationBeats
+        : 1.0;
+    contentDurationBeats = newContentBeats;
+    loopStartBeats *= scale;
+    loopEndBeats *= scale;
+    editData = editData.copyWith(
+      lengthBeats: contentDurationBeats,
+      loopStartBeats: loopStartBeats,
+      loopEndBeats: loopEndBeats,
+    );
   }
 }
 
