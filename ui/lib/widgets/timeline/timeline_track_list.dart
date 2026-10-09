@@ -1311,7 +1311,8 @@ mixin TimelineTrackListMixin
                                   .where(
                                     (clip) => isClipVisible(
                                       clip.startTime * pixelsPerSecond,
-                                      clip.duration * pixelsPerSecond,
+                                      clip.timelineLength(widget.tempo) *
+                                          pixelsPerSecond,
                                     ),
                                   )
                                   .map(

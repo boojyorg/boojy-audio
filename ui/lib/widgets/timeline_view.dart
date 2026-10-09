@@ -424,7 +424,8 @@ class TimelineViewState extends State<TimelineView>
     }
 
     // Check if playhead is within clip bounds
-    if (playheadSeconds <= clip.startTime || playheadSeconds >= clip.endTime) {
+    if (playheadSeconds <= clip.startTime ||
+        playheadSeconds >= clip.timelineEnd(widget.tempo)) {
       return false;
     }
 

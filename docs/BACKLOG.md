@@ -63,21 +63,9 @@ reproduces them.
 
 **Fix before release**
 
-- **Trimming the left edge of a repeating audio clip slides its pattern** (found 2026-10-06
-  with repeats). The trim moves the clip's audio window, so the loop restarts from the new edge
-  instead of staying put as a split does (`loopStart`, as MIDI's `contentStartOffset`). The
-  screen and engine agree; it's the behaviour that's off. Same for overlap trims.
-- **The Audio Editor's loop Start does nothing on the timeline.** Its Length sets the clip's
-  loop; its Start is saved but never moves the audio the clip repeats.
-- **Trimming or covering a reversed or warped audio clip keeps the wrong part** (found
-  2026-10-04 while fixing split). A reversed clip plays its window backwards, so dragging its
-  left edge should cut the end of its audio, but the trim handles and the overlap trims
-  (`ClipOverlapHandler`) always cut from the window's start. They also move the window by
-  timeline seconds, which are the clip's own seconds only when it isn't warped. Split does
-  this right (`splitAudioWindow` in `clip_data.dart`); reuse it.
-- **Warped audio clips' length on the timeline is taken as their unwarped length** in ~20
-  places (`clip.endTime`, `startTime + duration`): overlap checks, trim limits, the split
-  menu's "playhead inside the clip" check. Use `clip.timelineSeconds(clip.duration, tempo)`.
+- **Audio Editor loop changes aren't undoable.** Its loop Start, Length, Loop toggle and loop
+  region drag change the clip but add no undo step (they skip `commitToHistory`), so ⌘Z undoes
+  the edit before them instead.
 - **Recording onto two armed audio tracks shows only the first take.** The engine records a
   clip on every armed audio track, but the UI adds (and undoes) only the first, so the others
   exist in the engine unseen. `RecordingCompleteCommand` needs to cover several tracks.
@@ -101,10 +89,14 @@ reproduces them.
   - **Boojy can't start on a machine with no audio output** (no default output device): the
     audio graph opens the output stream when it starts. Starting without one and saying so in a
     notice would also let `test/native` run on Windows CI, whose machines have no sound card.
+  - Undoing a recording doesn't bring back the clips it recorded over: the overlap trims run
+    outside `RecordingCompleteCommand` (`_applyAudioOverlap`, `_applyMidiOverlap`).
+  - The Audio Editor shows a clip as it was when opened: trimming the clip while it's open
+    leaves the editor's loop region on the old audio until another clip is opened.
+  - Trimming a MIDI clip's left edge drops the notes before it (`adjustNotesForTrim`), so
+    dragging the edge back out shows an empty start; audio clips now keep theirs.
   - "Mute Clip" on a MIDI clip may not silence it: the menu sets a flag that nothing in the
     engine reads.
-  - Trimming the start of a warped clip may play from the wrong point: the engine reads the
-    offset in stretched time, the timeline stores it in the clip's own time.
   - Save As renames before the folder is picked; cancel leaves it renamed (U5).
   - No unsaved-changes signal (U6): a quiet dot beside the name; close warns only when dirty.
   - The drag-to-create preview drifts when scrolled (U10).

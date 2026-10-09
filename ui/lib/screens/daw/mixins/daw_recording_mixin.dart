@@ -282,25 +282,22 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
 
     final clips = List<ClipData>.from(timelineState.clips);
     final result = ClipOverlapHandler.resolveAudioOverlaps(
+      tempo: tempo,
       newStart: newStart,
       newEnd: newEnd,
       existingClips: clips,
       trackId: trackId,
     );
-    ClipOverlapHandler.applyAudioResult(
+    final engine = audioEngine;
+    if (engine == null || !result.hasChanges) return;
+    // Run directly, not as an undo step: undoing the take leaves these
+    // trims (BACKLOG).
+    ResolveAudioOverlapCommand(
       result: result,
-      engineRemoveClip: (tId, cId) => audioEngine?.removeAudioClip(tId, cId),
-      engineSetStartTime: (tId, cId, s) =>
-          audioEngine?.setClipStartTime(tId, cId, s),
-      engineSetOffset: (tId, cId, o) => audioEngine?.setClipOffset(tId, cId, o),
-      engineSetDuration: (tId, cId, d) =>
-          audioEngine?.setClipDuration(tId, cId, d),
-      engineDuplicateClip: (tId, cId, s) =>
-          audioEngine?.duplicateAudioClip(tId, cId, s) ?? -1,
       uiRemoveClip: (cId) => timelineState.removeClip(cId),
       uiUpdateClip: (clip) => timelineState.updateClip(clip),
       uiAddClip: (clip) => timelineState.addClip(clip),
-    );
+    ).execute(engine);
   }
 
   /// Generate a unique clip ID for split clips

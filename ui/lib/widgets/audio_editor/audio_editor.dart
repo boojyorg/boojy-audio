@@ -1,4 +1,4 @@
-import 'dart:math' show pow;
+import 'dart:math' show max, pow;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -399,9 +399,10 @@ class _AudioEditorState extends State<AudioEditor>
   }
 
   void _onStartChanged(double beats) {
-    // Start controls the loop region start (like Piano Roll contentStartOffset)
-    // The length stays the same, only the start position shifts
+    // Start is where in the audio the loop region begins; the clip repeats
+    // the region from there. The length stays the same.
     final loopLength = loopEndBeats - loopStartBeats;
+    beats = beats.clamp(0.0, max(0.0, contentDurationBeats - loopLength));
     setState(() {
       loopStartBeats = beats;
       loopEndBeats = beats + loopLength;

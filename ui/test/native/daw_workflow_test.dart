@@ -7,14 +7,15 @@ import 'package:boojy_audio/models/clip_data.dart';
 import 'package:boojy_audio/models/midi_note_data.dart';
 import 'package:boojy_audio/models/track_data.dart';
 import 'package:boojy_audio/services/audio_clip_engine_sync.dart';
-import 'package:boojy_audio/services/commands/clip_commands.dart';
 import 'package:boojy_audio/services/state_consistency.dart';
 import 'package:boojy_audio/widgets/audio_editor/audio_editor.dart';
+import 'package:boojy_audio/widgets/audio_editor/audio_editor_controls_bar.dart';
 import 'package:boojy_audio/widgets/export_dialog.dart';
 import 'package:boojy_audio/widgets/audio_editor/operations/parameter_operations.dart';
 import 'package:boojy_audio/widgets/timeline_view.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../helpers/clip_audio.dart';
 import 'support/daw_harness.dart';
 import 'support/native_engine_harness.dart';
 
@@ -123,18 +124,12 @@ void main() {
 
       final timeline = h.daw.timelineKey.currentState!;
       final twice = clip.loopLength * 2;
-      await h.daw.undoRedoManager.execute(
-        ResizeAudioClipCommand(
-          trackId: clip.trackId,
-          clipId: clip.clipId,
-          clipName: clip.fileName,
-          oldDuration: clip.duration,
-          newDuration: twice,
-          onClipResized: (id, d, _, _) => timeline.updateClip(
-            timeline.clips
-                .firstWhere((c) => c.clipId == id)
-                .copyWith(duration: d),
-          ),
+      await timeline.resizeAudioClip(
+        clip,
+        clip.withEdges(
+          start: clip.startTime,
+          end: clip.startTime + clip.timelineSeconds(twice, h.daw.tempo),
+          projectBpm: h.daw.tempo,
         ),
       );
       await h.settle();
@@ -307,6 +302,173 @@ void main() {
         expect(engineStretch(h, reopened.clipId), closeTo(140 / 150, 1e-3));
       }
       h.expectScreenMatchesEngine(after: 'reopening');
+    } finally {
+      await h.close();
+    }
+  });
+
+  testWidgets('trimming keeps the audio under what stays, however it plays', (
+    tester,
+  ) async {
+    final h = await DawHarness.start(tester);
+    try {
+      final timeline = h.daw.timelineKey.currentState!;
+      ClipData current(int id) =>
+          timeline.clips.firstWhere((c) => c.clipId == id);
+      // What a clip plays at [t] seconds on the timeline.
+      double at(ClipData c, double t) => audioAt(
+        c,
+        (t - c.startTime) * (c.editData?.stretchAt(h.daw.tempo) ?? 1.0),
+      );
+      final edits = [
+        ('plain', const AudioClipEditData()),
+        ('reversed', const AudioClipEditData(reversed: true)),
+        ('warped', const AudioClipEditData(syncEnabled: true, bpm: 60)),
+        (
+          'reversed and warped',
+          const AudioClipEditData(reversed: true, syncEnabled: true, bpm: 60),
+        ),
+      ];
+      for (final (what, edit) in edits) {
+        for (final loop in [true, false]) {
+          final name = '$what, Loop ${loop ? 'on' : 'off'}';
+          var clip = await editClip(h, await dropClip(h, '$name.wav'), edit);
+          if (!loop) {
+            clip = clip.copyWith(canRepeat: false);
+            timeline.updateClip(clip);
+            pushAudioClipLoop(h.engine, clip);
+          }
+          final original = clip;
+          final start = clip.startTime;
+          final end = clip.timelineEnd(h.daw.tempo);
+          final quarter = (end - start) / 4;
+
+          // Each edge dragged in by a quarter.
+          await timeline.resizeAudioClip(
+            clip,
+            timeline.audioClipWithEdges(clip, start: start + quarter),
+          );
+          await h.settle();
+          clip = current(clip.clipId);
+          await timeline.resizeAudioClip(
+            clip,
+            timeline.audioClipWithEdges(clip, end: end - quarter),
+          );
+          await h.settle();
+          clip = current(clip.clipId);
+          expect(clip.startTime, closeTo(start + quarter, 1e-9), reason: name);
+          expect(clip.timelineEnd(h.daw.tempo), closeTo(end - quarter, 1e-9));
+          for (final t in [0.3, 0.5, 0.7]) {
+            final time = start + (end - start) * t;
+            expect(
+              at(clip, time),
+              closeTo(at(original, time), 1e-6),
+              reason: '$name at $time',
+            );
+          }
+          h.expectScreenMatchesEngine(after: 'trimming the $name clip');
+
+          if (!loop) {
+            // Dragged out again, the edges stop at the ends of the audio.
+            await timeline.resizeAudioClip(
+              clip,
+              timeline.audioClipWithEdges(clip, end: end + 5),
+            );
+            await h.settle();
+            expect(
+              current(clip.clipId).timelineEnd(h.daw.tempo),
+              closeTo(end, 1e-6),
+              reason: name,
+            );
+            await h.daw.undoRedoManager.undo();
+          }
+
+          // Undo puts the clip back as it was.
+          await h.daw.undoRedoManager.undo();
+          await h.daw.undoRedoManager.undo();
+          await h.settle();
+          clip = current(clip.clipId);
+          expect(
+            (clip.startTime, clip.offset, clip.duration, clip.loopStart),
+            (original.startTime, original.offset, original.duration, 0.0),
+            reason: name,
+          );
+          h.expectScreenMatchesEngine(after: 'undoing the $name trims');
+        }
+      }
+    } finally {
+      await h.close();
+    }
+  });
+
+  testWidgets('a clip shorter than the trim minimum can still be dragged', (
+    tester,
+  ) async {
+    final h = await DawHarness.start(tester);
+    try {
+      final timeline = h.daw.timelineKey.currentState!;
+      var clip = await dropClip(h, 'short.wav');
+      // An overlap can leave a remainder this short.
+      await timeline.resizeAudioClip(
+        clip,
+        clip.withEdges(
+          start: clip.startTime,
+          end: clip.startTime + 0.05,
+          projectBpm: h.daw.tempo,
+        ),
+      );
+      await h.settle();
+      clip = timeline.clips.firstWhere((c) => c.clipId == clip.clipId);
+      final inLeft = timeline.audioClipWithEdges(
+        clip,
+        start: clip.startTime + 0.02,
+      );
+      final inRight = timeline.audioClipWithEdges(
+        clip,
+        end: clip.timelineEnd(h.daw.tempo) - 0.02,
+      );
+      expect(inLeft.duration, closeTo(0.05, 1e-9), reason: 'not further in');
+      expect(inRight.duration, closeTo(0.05, 1e-9), reason: 'not further in');
+      final out = timeline.audioClipWithEdges(
+        clip,
+        end: clip.timelineEnd(h.daw.tempo) + 0.5,
+      );
+      expect(out.duration, closeTo(0.55, 1e-9));
+    } finally {
+      await h.close();
+    }
+  });
+
+  testWidgets("the Audio Editor's loop Start picks which part repeats", (
+    tester,
+  ) async {
+    final h = await DawHarness.start(tester);
+    try {
+      final timeline = h.daw.timelineKey.currentState!;
+      final clip = await dropClip(h, 'loop.wav'); // 2 s at 120 BPM: 4 beats
+      final callbacks = tester
+          .widget<TimelineView>(find.byType(TimelineView))
+          .audioClipCallbacks;
+      callbacks.onSelected!(clip.clipId, clip);
+      callbacks.onOpenEditor!();
+      await h.settle();
+      AudioEditorControlsBar bar() => tester.widget<AudioEditorControlsBar>(
+        find.byType(AudioEditorControlsBar),
+      );
+
+      // Repeat just the second beat (0.5–1.0 s of the file).
+      bar().onLengthChanged!(1.0);
+      await h.settle();
+      bar().onStartChanged!(1.0);
+      await h.settle();
+
+      final now = timeline.clips.firstWhere((c) => c.clipId == clip.clipId);
+      expect(now.loopLength, closeTo(0.5, 1e-9));
+      expect(now.loopWindowStart, closeTo(0.5, 1e-9));
+      for (final x in [0.1, 0.6, 1.1, 1.6]) {
+        expect(audioAt(now, x), closeTo(0.6, 1e-9), reason: 'at $x s');
+      }
+      h.expectScreenMatchesEngine(after: 'moving the loop Start');
     } finally {
       await h.close();
     }
@@ -538,17 +700,18 @@ void main() {
           // A 2 s clip, split 0.5 s in. Reversed, the first 0.5 s on the
           // timeline is the file's last 0.5 s, so the left half keeps that.
           // Warped from 60 to 120 BPM (twice as fast), 0.5 s on the
-          // timeline is the file's first 1 s.
+          // timeline is the file's first 1 s. Each right half enters the
+          // clip's loop where the cut is, so the loop stays put.
           final cases = [
             (
               'reversed',
               const AudioClipEditData(reversed: true),
-              (left: (1.5, 0.5), right: (0.0, 1.5)),
+              (left: (1.5, 0.0, 0.5), right: (0.0, 0.5, 1.5)),
             ),
             (
               'warped',
               const AudioClipEditData(syncEnabled: true, bpm: 60),
-              (left: (0.0, 1.0), right: (1.0, 1.0)),
+              (left: (0.0, 0.0, 1.0), right: (0.0, 1.0, 1.0)),
             ),
           ];
           for (final (what, edit, want) in cases) {
@@ -562,11 +725,12 @@ void main() {
             final halves =
                 timeline.clips.where((c) => c.trackId == clip.trackId).toList()
                   ..sort((a, b) => a.startTime.compareTo(b.startTime));
-            (double, double) window(ClipData c) => (c.offset, c.duration);
+            (double, double, double) window(ClipData c) =>
+                (c.offset, c.loopStart, c.duration);
             expect(halves.map(window).toList(), [
               want.left,
               want.right,
-            ], reason: '$what: (offset, length) of each half');
+            ], reason: '$what: (offset, loop start, length) of each half');
             h.expectScreenMatchesEngine(after: 'splitting the $what clip');
           }
         } finally {

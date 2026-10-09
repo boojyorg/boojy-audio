@@ -88,6 +88,20 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Trimming an audio clip keeps the audio under what stays.** Dragging an edge in, or dropping
+  a clip over part of another, kept the wrong part of a reversed clip (dragging its left edge cut
+  the start of its audio, which it plays last), and moved a warped clip's audio by the wrong
+  amount, so its edges also drifted from the pointer. Trimming the left edge of a repeating clip
+  slid its pattern along. All of these now keep what was there, and dragging an edge back out
+  brings the clip back. With Loop on, dragging the left edge out past the audio's start carries
+  on the pattern backwards, as the right edge does forwards; with Loop off, both edges stop at
+  the ends of the audio.
+- **Warped clips are as long as they look.** Overlaps, box selection, the eraser, the Slice tool,
+  Split at Playhead ("Put the playhead inside the clip"), Duplicate's placement and Convert to
+  MIDI used a warped clip's unstretched length, so they missed or cut it in the wrong place.
+- **The Audio Editor's loop Start picks which part repeats.** It was saved but changed nothing.
+  The editor now shows the clip's whole file at its real length, and the clip repeats the loop
+  region from where Start puts it, from the region's beginning.
 - **Export no longer says "Couldn't export" when it worked.** The file was written, but the
   screen misread the engine's reply and reported every export as failed, with the progress
   window saying "Export Complete" at 0%. The progress window now closes when the export is

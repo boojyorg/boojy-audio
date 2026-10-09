@@ -305,14 +305,8 @@ mixin TimelineViewStateMixin on State<TimelineView>
   /// Whether trimming left edge.
   bool isTrimmingLeftEdge = false;
 
-  /// Clip start time at audio trim begin.
-  double audioTrimStartTime = 0.0;
-
-  /// Clip duration at audio trim begin.
-  double audioTrimStartDuration = 0.0;
-
-  /// Clip offset at audio trim begin.
-  double audioTrimStartOffset = 0.0;
+  /// The clip as it was when the audio trim began.
+  ClipData? audioTrimOriginal;
 
   /// Mouse X at audio trim begin.
   double audioTrimStartX = 0.0;

@@ -152,7 +152,7 @@ mixin TimelineGestureLayerMixin
       // Convert clip times from seconds to beats for comparison
       final beatsPerSecond = widget.tempo / 60.0;
       final clipStartBeats = clip.startTime * beatsPerSecond;
-      final clipEndBeats = (clip.startTime + clip.duration) * beatsPerSecond;
+      final clipEndBeats = clip.timelineEnd(widget.tempo) * beatsPerSecond;
 
       // Find track Y position using actual track heights (regularTracks matches rendering order)
       final trackIndex = regularTracks.indexWhere((t) => t.id == clip.trackId);
@@ -381,6 +381,146 @@ mixin TimelineGestureLayerMixin
     UndoRedoManager().execute(command);
   }
 
+  /// Shortest an audio clip can be trimmed to, in seconds on the timeline.
+  static const double _minAudioClipSeconds = 0.1;
+
+  /// [clip] with its left edge at [start] and its right edge at [end]
+  /// (seconds on the timeline; null leaves an edge where it is), kept off
+  /// its neighbours, past zero and at least [_minAudioClipSeconds] long.
+  /// The audio under what stays doesn't move ([ClipData.withEdges]).
+  ClipData audioClipWithEdges(ClipData clip, {double? start, double? end}) {
+    final tempo = widget.tempo;
+    final oldEnd = clip.timelineEnd(tempo);
+    var lowest = 0.0;
+    var highest = double.infinity;
+    for (final other in clips) {
+      if (other.trackId != clip.trackId || other.clipId == clip.clipId) {
+        continue;
+      }
+      final otherEnd = other.timelineEnd(tempo);
+      if (otherEnd <= clip.startTime + 1e-9) {
+        lowest = math.max(lowest, otherEnd);
+      } else if (other.startTime >= oldEnd - 1e-9) {
+        highest = math.min(highest, other.startTime);
+      }
+    }
+    var newStart = start ?? clip.startTime;
+    var newEnd = end ?? oldEnd;
+    // A clip already shorter than the minimum (an overlap remainder) can
+    // still be dragged out, never further in.
+    if (start != null) {
+      final latest = math.max(newEnd - _minAudioClipSeconds, clip.startTime);
+      newStart = newStart.clamp(lowest, latest);
+    }
+    if (end != null) {
+      final earliest = math.min(newStart + _minAudioClipSeconds, oldEnd);
+      newEnd = newEnd.clamp(earliest, highest);
+    }
+    return clip.withEdges(
+      start: newStart,
+      end: newEnd,
+      projectBpm: tempo,
+      audioSeconds: _audioFileSeconds(clip),
+    );
+  }
+
+  /// Move [before]'s edges to where [after] has them, as one undoable step.
+  Future<void> resizeAudioClip(ClipData before, ClipData after) =>
+      UndoRedoManager().execute(
+        ResizeAudioClipCommand(
+          before: before,
+          after: after,
+          onClipResized: (edges) {
+            if (!mounted) return;
+            setState(() {
+              final index = clips.indexWhere((c) => c.clipId == edges.clipId);
+              if (index >= 0) {
+                clips[index] = clips[index].copyWith(
+                  startTime: edges.startTime,
+                  offset: edges.offset,
+                  duration: edges.duration,
+                  loopStart: edges.loopStart,
+                );
+              }
+            });
+          },
+        ),
+      );
+
+  void _startAudioTrim(
+    ClipData clip,
+    DragStartDetails details, {
+    required bool leftEdge,
+  }) {
+    setState(() {
+      trimmingAudioClipId = clip.clipId;
+      isTrimmingLeftEdge = leftEdge;
+      audioTrimOriginal = clip;
+      audioTrimStartX = details.globalPosition.dx;
+    });
+  }
+
+  void _updateAudioTrim(
+    ClipData clip,
+    DragUpdateDetails details, {
+    required bool leftEdge,
+  }) {
+    final original = audioTrimOriginal;
+    if (trimmingAudioClipId != clip.clipId ||
+        isTrimmingLeftEdge != leftEdge ||
+        original == null) {
+      return;
+    }
+    final delta =
+        (details.globalPosition.dx - audioTrimStartX) / pixelsPerSecond;
+    final trimmed = leftEdge
+        ? audioClipWithEdges(original, start: original.startTime + delta)
+        : audioClipWithEdges(
+            original,
+            end: original.timelineEnd(widget.tempo) + delta,
+          );
+    setState(() {
+      final index = clips.indexWhere((c) => c.clipId == clip.clipId);
+      if (index >= 0) clips[index] = trimmed;
+    });
+  }
+
+  Future<void> _endAudioTrim(ClipData clip) async {
+    final original = audioTrimOriginal;
+    final trimmed = clips.where((c) => c.clipId == clip.clipId).firstOrNull;
+    if (original != null &&
+        trimmed != null &&
+        ((trimmed.startTime - original.startTime).abs() > 0.001 ||
+            (trimmed.duration - original.duration).abs() > 0.001)) {
+      await resizeAudioClip(original, trimmed);
+    }
+    if (mounted) {
+      setState(() {
+        trimmingAudioClipId = null;
+        isTrimmingLeftEdge = false;
+        audioTrimOriginal = null;
+      });
+    }
+  }
+
+  /// Seconds of audio in [clip]'s file, when the engine knows it.
+  double? _audioFileSeconds(ClipData clip) {
+    final cached = _peaksDurations[clip.clipId];
+    if (cached != null) return cached;
+    final seconds = widget.audioEngine?.getClipDuration(clip.clipId) ?? 0.0;
+    if (seconds <= 0) return null;
+    return _peaksDurations[clip.clipId] = seconds;
+  }
+
+  /// Whether [clip] can't be dragged any longer: Loop is off and its right
+  /// edge is at the end of its audio (the start, reversed).
+  bool _atEndOfAudio(ClipData clip) {
+    if (clip.canRepeat) return false;
+    if (clip.editData?.reversed ?? false) return clip.offset <= 0.001;
+    final file = _audioFileSeconds(clip);
+    return file != null && clip.offset + clip.duration >= file - 0.001;
+  }
+
   /// Split MIDI clip at preview position
   Future<void> _splitMidiClipAtPreview(MidiClipData clip) async {
     if (splitPreviewMidiClipId != clip.clipId) return;
@@ -601,8 +741,7 @@ mixin TimelineGestureLayerMixin
     // Check if this clip has split preview active
     final hasSplitPreview = splitPreviewAudioClipId == clip.clipId;
     final splitPreviewX = hasSplitPreview
-        ? (splitPreviewBeatPosition / (clip.duration * (widget.tempo / 60.0))) *
-              clipWidth
+        ? splitPreviewBeatPosition / (widget.tempo / 60.0) * pixelsPerSecond
         : 0.0;
 
     return Positioned(
@@ -644,7 +783,7 @@ mixin TimelineGestureLayerMixin
               final clickXInClip = details.localPosition.dx;
               final clickSecondsInClip = clickXInClip / pixelsPerSecond;
               if (clickSecondsInClip > 0 &&
-                  clickSecondsInClip < clip.duration) {
+                  clickSecondsInClip < clip.timelineLength(widget.tempo)) {
                 // Convert to beats for split preview
                 final beatsPerSecond = widget.tempo / 60.0;
                 setState(() {
@@ -934,8 +1073,11 @@ mixin TimelineGestureLayerMixin
 
                   // Resolve overlaps at the new position (exclude the moved clip).
                   final overlapResult = ClipOverlapHandler.resolveAudioOverlaps(
+                    tempo: widget.tempo,
                     newStart: newStartTime,
-                    newEnd: newStartTime + selectedClip.duration,
+                    newEnd:
+                        newStartTime +
+                        selectedClip.timelineLength(widget.tempo),
                     existingClips: List<ClipData>.from(clips),
                     trackId: selectedClip.trackId,
                     excludeClipId: selectedClip.clipId,
@@ -1211,124 +1353,11 @@ mixin TimelineGestureLayerMixin
                       top: 0,
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        onHorizontalDragStart: (details) {
-                          setState(() {
-                            trimmingAudioClipId = clip.clipId;
-                            isTrimmingLeftEdge = true;
-                            audioTrimStartTime = clip.startTime;
-                            audioTrimStartDuration = clip.duration;
-                            audioTrimStartOffset = clip.offset;
-                            audioTrimStartX = details.globalPosition.dx;
-                          });
-                        },
-                        onHorizontalDragUpdate: (details) {
-                          if (trimmingAudioClipId != clip.clipId ||
-                              !isTrimmingLeftEdge) {
-                            return;
-                          }
-                          final deltaX =
-                              details.globalPosition.dx - audioTrimStartX;
-                          final deltaSeconds = deltaX / pixelsPerSecond;
-
-                          // Calculate new start time and duration
-                          var newStartTime = audioTrimStartTime + deltaSeconds;
-                          var newDuration =
-                              audioTrimStartDuration - deltaSeconds;
-                          var newOffset = audioTrimStartOffset + deltaSeconds;
-
-                          // Clamp to valid bounds
-                          double minStartTime = 0.0;
-
-                          // Overlap blocking: clamp to nearest clip on the left
-                          final leftSiblings = clips.where(
-                            (c) =>
-                                c.trackId == clip.trackId &&
-                                c.clipId != clip.clipId,
-                          );
-                          for (final sibling in leftSiblings) {
-                            final siblingEnd =
-                                sibling.startTime + sibling.duration;
-                            if (siblingEnd <=
-                                    audioTrimStartTime +
-                                        audioTrimStartDuration &&
-                                siblingEnd > minStartTime) {
-                              minStartTime = siblingEnd;
-                            }
-                          }
-
-                          newStartTime = newStartTime.clamp(
-                            minStartTime,
-                            audioTrimStartTime + audioTrimStartDuration - 0.1,
-                          );
-                          newDuration =
-                              (audioTrimStartTime + audioTrimStartDuration) -
-                              newStartTime;
-                          newDuration = newDuration.clamp(0.1, double.infinity);
-                          newOffset = newOffset.clamp(0.0, double.infinity);
-
-                          setState(() {
-                            final index = clips.indexWhere(
-                              (c) => c.clipId == clip.clipId,
-                            );
-                            if (index >= 0) {
-                              clips[index] = clips[index].copyWith(
-                                startTime: newStartTime,
-                                duration: newDuration,
-                                offset: newOffset,
-                              );
-                            }
-                          });
-                        },
-                        onHorizontalDragEnd: (details) async {
-                          // Get the trimmed clip values
-                          final trimmedClip = clips.firstWhere(
-                            (c) => c.clipId == clip.clipId,
-                            orElse: () => clip,
-                          );
-
-                          // Only create command if values actually changed
-                          if ((trimmedClip.startTime - audioTrimStartTime)
-                                      .abs() >
-                                  0.001 ||
-                              (trimmedClip.duration - audioTrimStartDuration)
-                                      .abs() >
-                                  0.001) {
-                            final command = ResizeAudioClipCommand(
-                              trackId: trimmedClip.trackId,
-                              clipId: trimmedClip.clipId,
-                              clipName: trimmedClip.fileName,
-                              oldDuration: audioTrimStartDuration,
-                              newDuration: trimmedClip.duration,
-                              oldOffset: audioTrimStartOffset,
-                              newOffset: trimmedClip.offset,
-                              oldStartTime: audioTrimStartTime,
-                              newStartTime: trimmedClip.startTime,
-                              onClipResized:
-                                  (clipId, duration, offset, startTime) {
-                                    setState(() {
-                                      final index = clips.indexWhere(
-                                        (c) => c.clipId == clipId,
-                                      );
-                                      if (index >= 0) {
-                                        clips[index] = clips[index].copyWith(
-                                          duration: duration,
-                                          offset: offset,
-                                          startTime: startTime,
-                                        );
-                                      }
-                                    });
-                                  },
-                            );
-                            await UndoRedoManager().execute(command);
-                          }
-
-                          if (mounted) {
-                            setState(() {
-                              trimmingAudioClipId = null;
-                              isTrimmingLeftEdge = false;
-                            });
-                          }
-                        },
+                        onHorizontalDragStart: (details) =>
+                            _startAudioTrim(clip, details, leftEdge: true),
+                        onHorizontalDragUpdate: (details) =>
+                            _updateAudioTrim(clip, details, leftEdge: true),
+                        onHorizontalDragEnd: (_) => _endAudioTrim(clip),
                         child: MouseRegion(
                           cursor: SystemMouseCursors.resizeLeft,
                           child: Container(
@@ -1339,140 +1368,31 @@ mixin TimelineGestureLayerMixin
                         ),
                       ),
                     ),
-                    // Right edge trim handle
-                    // Audio clips: canRepeat=false limits to loopLength, canRepeat=true allows looping
+                    // Right edge trim handle: with Loop on the clip repeats
+                    // past its audio; with Loop off it stops there.
                     Positioned(
                       right: 0,
                       top: 0,
-                      child: Builder(
-                        builder: (context) {
-                          // Determine if clip can be extended (looping enabled)
-                          final canExtend = clip.canRepeat;
-                          // Check if we're at or beyond the loop limit
-                          final atLoopLimit =
-                              !canExtend &&
-                              clip.duration >= clip.loopLength - 0.001;
-
-                          return GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onHorizontalDragStart: (details) {
-                              setState(() {
-                                trimmingAudioClipId = clip.clipId;
-                                isTrimmingLeftEdge = false;
-                                audioTrimStartDuration = clip.duration;
-                                audioTrimStartX = details.globalPosition.dx;
-                              });
-                            },
-                            onHorizontalDragUpdate: (details) {
-                              if (trimmingAudioClipId != clip.clipId ||
-                                  isTrimmingLeftEdge) {
-                                return;
-                              }
-                              final deltaX =
-                                  details.globalPosition.dx - audioTrimStartX;
-                              final deltaSeconds = deltaX / pixelsPerSecond;
-
-                              // Calculate new duration
-                              var newDuration =
-                                  audioTrimStartDuration + deltaSeconds;
-
-                              // Audio clips: limit based on canRepeat
-                              if (clip.canRepeat) {
-                                // Loop enabled: can extend beyond loopLength (content tiles)
-                                newDuration = newDuration.clamp(
-                                  0.1,
-                                  double.infinity,
-                                );
-                              } else {
-                                // Loop disabled: cannot extend beyond loopLength
-                                newDuration = newDuration.clamp(
-                                  0.1,
-                                  clip.loopLength,
-                                );
-                              }
-
-                              // Overlap blocking: clamp to nearest clip on the right
-                              final siblingClips = clips.where(
-                                (c) =>
-                                    c.trackId == clip.trackId &&
-                                    c.clipId != clip.clipId,
-                              );
-                              for (final sibling in siblingClips) {
-                                if (sibling.startTime > clip.startTime) {
-                                  final maxDuration =
-                                      sibling.startTime - clip.startTime;
-                                  if (newDuration > maxDuration) {
-                                    newDuration = maxDuration;
-                                  }
-                                }
-                              }
-
-                              setState(() {
-                                final index = clips.indexWhere(
-                                  (c) => c.clipId == clip.clipId,
-                                );
-                                if (index >= 0) {
-                                  clips[index] = clips[index].copyWith(
-                                    duration: newDuration,
-                                  );
-                                }
-                              });
-                            },
-                            onHorizontalDragEnd: (details) async {
-                              // Get the trimmed clip values
-                              final trimmedClip = clips.firstWhere(
-                                (c) => c.clipId == clip.clipId,
-                                orElse: () => clip,
-                              );
-
-                              // Only create command if duration actually changed
-                              if ((trimmedClip.duration -
-                                          audioTrimStartDuration)
-                                      .abs() >
-                                  0.001) {
-                                final command = ResizeAudioClipCommand(
-                                  trackId: trimmedClip.trackId,
-                                  clipId: trimmedClip.clipId,
-                                  clipName: trimmedClip.fileName,
-                                  oldDuration: audioTrimStartDuration,
-                                  newDuration: trimmedClip.duration,
-                                  onClipResized:
-                                      (clipId, duration, offset, startTime) {
-                                        setState(() {
-                                          final index = clips.indexWhere(
-                                            (c) => c.clipId == clipId,
-                                          );
-                                          if (index >= 0) {
-                                            clips[index] = clips[index]
-                                                .copyWith(duration: duration);
-                                          }
-                                        });
-                                      },
-                                );
-                                await UndoRedoManager().execute(command);
-                              }
-
-                              if (mounted) {
-                                setState(() {
-                                  trimmingAudioClipId = null;
-                                });
-                              }
-                            },
-                            child: Tooltip(
-                              message: atLoopLimit
-                                  ? 'Drag left to trim, or enable Loop to extend'
-                                  : 'Drag to resize',
-                              child: MouseRegion(
-                                cursor: SystemMouseCursors.resizeRight,
-                                child: Container(
-                                  width: UIConstants.clipResizeHandleWidth,
-                                  height: totalHeight,
-                                  color: Colors.transparent,
-                                ),
-                              ),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onHorizontalDragStart: (details) =>
+                            _startAudioTrim(clip, details, leftEdge: false),
+                        onHorizontalDragUpdate: (details) =>
+                            _updateAudioTrim(clip, details, leftEdge: false),
+                        onHorizontalDragEnd: (_) => _endAudioTrim(clip),
+                        child: Tooltip(
+                          message: _atEndOfAudio(clip)
+                              ? 'Drag left to trim, or enable Loop to extend'
+                              : 'Drag to resize',
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.resizeRight,
+                            child: Container(
+                              width: UIConstants.clipResizeHandleWidth,
+                              height: totalHeight,
+                              color: Colors.transparent,
                             ),
-                          );
-                        },
+                          ),
+                        ),
                       ),
                     ),
                     // Split preview line (shown when Alt is pressed and hovering)
@@ -2033,8 +1953,11 @@ mixin TimelineGestureLayerMixin
                           // Resolve overlaps at new position (exclude the moved clip itself)
                           final overlapResult =
                               ClipOverlapHandler.resolveAudioOverlaps(
+                                tempo: widget.tempo,
                                 newStart: newStartTime,
-                                newEnd: newStartTime + audioClip.duration,
+                                newEnd:
+                                    newStartTime +
+                                    audioClip.timelineLength(widget.tempo),
                                 existingClips: List<ClipData>.from(clips),
                                 trackId: audioClip.trackId,
                                 excludeClipId: audioClip.clipId,
@@ -2484,13 +2407,8 @@ mixin TimelineGestureLayerMixin
   /// loop length stood in for it, which squeezed the drawing whenever the
   /// loop was shorter than the file.) The engine's answer never changes for
   /// a clip ID, so it is asked once.
-  double _peaksDuration(ClipData clip) {
-    final cached = _peaksDurations[clip.clipId];
-    if (cached != null) return cached;
-    final seconds = widget.audioEngine?.getClipDuration(clip.clipId) ?? 0.0;
-    if (seconds <= 0) return clip.loopLength;
-    return _peaksDurations[clip.clipId] = seconds;
-  }
+  double _peaksDuration(ClipData clip) =>
+      _audioFileSeconds(clip) ?? clip.loopLength;
 
   final Map<int, double> _peaksDurations = {};
 
@@ -2528,7 +2446,7 @@ mixin TimelineGestureLayerMixin
     final beatsPerSecond = widget.tempo / 60.0;
     for (final clip in audioClips) {
       final clipStartBeats = clip.startTime * beatsPerSecond;
-      final clipEndBeats = (clip.startTime + clip.duration) * beatsPerSecond;
+      final clipEndBeats = clip.timelineEnd(widget.tempo) * beatsPerSecond;
       if (beatPosition >= clipStartBeats && beatPosition <= clipEndBeats) {
         return true;
       }

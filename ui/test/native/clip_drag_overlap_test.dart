@@ -243,9 +243,11 @@ void main() {
           reason: 'a partial overlap must trim the neighbour, never delete it',
         );
         final trimmedB = uiClip(state, b.clipId);
-        expect(trimmedB.startTime, closeTo(movedA.endTime, 1e-6));
+        expect(trimmedB.startTime, closeTo(movedA.timelineEnd(120), 1e-6));
         expect(trimmedB.duration, closeTo(0.15, 1e-6));
-        expect(trimmedB.offset, closeTo(0.25, 1e-6));
+        // 0.25 s into its audio, as the loop it enters there.
+        expect(trimmedB.offset, 0.0);
+        expect(trimmedB.loopStart, closeTo(0.25, 1e-6));
         expect(trimmedB.duration, lessThan(0.25)); // the old deletion floor
         expect(find.byKey(ValueKey('audio_clip_${b.clipId}')), findsOneWidget);
 
@@ -254,7 +256,9 @@ void main() {
         expectScreenMatchesEngine(state);
         expect(engineClips[a.clipId]!.start, closeTo(0.25, 1e-6));
         expect(engineClips[b.clipId]!.start, closeTo(2.25, 1e-6));
-        expect(engineClips[b.clipId]!.offset, closeTo(0.25, 1e-6));
+        // Its loop stays put (the loop start, checked against the engine
+        // above, carries the 0.25 s).
+        expect(engineClips[b.clipId]!.offset, closeTo(0.0, 1e-6));
         expect(engineClips[b.clipId]!.duration, closeTo(0.15, 1e-6));
 
         // Undo: one Cmd+Z restores both the move and the trim.
@@ -279,11 +283,12 @@ void main() {
         final redoneB = uiClip(state, b.clipId);
         expect(redoneB.startTime, closeTo(2.25, 1e-6));
         expect(redoneB.duration, closeTo(0.15, 1e-6));
-        expect(redoneB.offset, closeTo(0.25, 1e-6));
+        expect(redoneB.offset, closeTo(0.0, 1e-6));
+        expect(redoneB.loopStart, closeTo(0.25, 1e-6));
         engineClips = await engineClipsOnTrack(engine, dir, trackId);
         expectScreenMatchesEngine(state);
         expect(engineClips[b.clipId]!.start, closeTo(2.25, 1e-6));
-        expect(engineClips[b.clipId]!.offset, closeTo(0.25, 1e-6));
+        expect(engineClips[b.clipId]!.offset, closeTo(0.0, 1e-6));
         expect(engineClips[b.clipId]!.duration, closeTo(0.15, 1e-6));
 
         await disposeTimeline(tester);
@@ -305,13 +310,15 @@ void main() {
         final trimmedB = uiClip(state, b.clipId);
         expect(trimmedB.startTime, closeTo(3.0, 1e-6));
         expect(trimmedB.duration, closeTo(1.0, 1e-6));
-        expect(trimmedB.offset, closeTo(1.0, 1e-6));
+        // 1 s into its audio: it enters its loop there.
+        expect(trimmedB.offset, closeTo(0.0, 1e-6));
+        expect(trimmedB.loopStart, closeTo(1.0, 1e-6));
 
         final engineClips = await engineClipsOnTrack(engine, dir, trackId);
 
         expectScreenMatchesEngine(state);
         expect(engineClips[b.clipId]!.start, closeTo(3.0, 1e-6));
-        expect(engineClips[b.clipId]!.offset, closeTo(1.0, 1e-6));
+        expect(engineClips[b.clipId]!.offset, closeTo(0.0, 1e-6));
         expect(engineClips[b.clipId]!.duration, closeTo(1.0, 1e-6));
 
         await disposeTimeline(tester);

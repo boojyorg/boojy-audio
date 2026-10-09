@@ -123,6 +123,10 @@ class AudioClipEditData {
   double loopLengthSeconds(double projectBpm) =>
       loopLengthBeats * 60.0 / (syncEnabled ? bpm : projectBpm);
 
+  /// Where the loop region starts in the clip's audio, in seconds of it.
+  double loopStartSeconds(double projectBpm) =>
+      loopStartBeats * 60.0 / (syncEnabled ? bpm : projectBpm);
+
   /// This edit with warp turned [on] or off, its loop region kept on the
   /// same audio. The region is counted in beats at the clip's own [bpm] when
   /// warped, at [projectBpm] otherwise, so switching recounts it; keeping the

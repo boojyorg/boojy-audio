@@ -93,8 +93,9 @@ mixin DAWClipMixin
       // source isn't excluded: a copy over its own source trims it.
       resolveOverlaps: (copyId) {
         final result = ClipOverlapHandler.resolveAudioOverlaps(
+          tempo: tempo,
           newStart: newStartTime,
-          newEnd: newStartTime + sourceClip.duration,
+          newEnd: newStartTime + sourceClip.timelineLength(tempo),
           existingClips: List<ClipData>.from(
             timelineKey.currentState?.clips ?? [],
           ),
