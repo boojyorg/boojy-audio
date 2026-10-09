@@ -133,7 +133,22 @@ void main() {
       });
     });
 
-    group('endTime', () {
+    group('timelineEnd', () {
+      test('a warped clip ends where its stretched length does', () {
+        // 6.4 s of 150 BPM audio warped to 120 BPM fills 8 s.
+        final clip = ClipData(
+          clipId: 1,
+          trackId: 2,
+          filePath: '/audio/drums.wav',
+          startTime: 2.0,
+          duration: 6.4,
+          editData: const AudioClipEditData(bpm: 150, syncEnabled: true),
+        );
+
+        expect(clip.timelineLength(120), closeTo(8.0, 1e-9));
+        expect(clip.timelineEnd(120), closeTo(10.0, 1e-9));
+      });
+
       test('calculates end time correctly', () {
         final clip = ClipData(
           clipId: 1,
@@ -143,7 +158,7 @@ void main() {
           duration: 4.5,
         );
 
-        expect(clip.endTime, 6.5);
+        expect(clip.timelineEnd(120), 6.5);
       });
 
       test('returns startTime when duration is 0', () {
@@ -155,7 +170,7 @@ void main() {
           duration: 0.0,
         );
 
-        expect(clip.endTime, 3.0);
+        expect(clip.timelineEnd(120), 3.0);
       });
 
       test('calculates end time for clip at start', () {
@@ -167,7 +182,7 @@ void main() {
           duration: 10.0,
         );
 
-        expect(clip.endTime, 10.0);
+        expect(clip.timelineEnd(120), 10.0);
       });
     });
 
@@ -350,7 +365,7 @@ void main() {
           duration: 3600.0, // 1 hour
         );
 
-        expect(clip.endTime, 3600.0);
+        expect(clip.timelineEnd(120), 3600.0);
       });
 
       test('handles fractional times', () {
@@ -362,7 +377,7 @@ void main() {
           duration: 2.666,
         );
 
-        expect(clip.endTime, closeTo(3.999, 0.001));
+        expect(clip.timelineEnd(120), closeTo(3.999, 0.001));
       });
 
       test('handles empty waveform peaks', () {

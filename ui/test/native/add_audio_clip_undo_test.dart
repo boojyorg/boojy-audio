@@ -71,6 +71,7 @@ void main() {
       clipName: 'b.wav',
       resolveOverlaps: (clipId, duration) {
         final result = ClipOverlapHandler.resolveAudioOverlaps(
+          tempo: 120,
           newStart: 1.0,
           newEnd: 1.0 + duration,
           existingClips: List<ClipData>.from(ui),

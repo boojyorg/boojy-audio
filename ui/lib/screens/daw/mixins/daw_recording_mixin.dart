@@ -282,6 +282,7 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
 
     final clips = List<ClipData>.from(timelineState.clips);
     final result = ClipOverlapHandler.resolveAudioOverlaps(
+      tempo: tempo,
       newStart: newStart,
       newEnd: newEnd,
       existingClips: clips,

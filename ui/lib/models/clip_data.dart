@@ -176,8 +176,6 @@ class ClipData {
   /// file sits in a project's audio folder).
   String get fileName => cleanAudioFileName(filePath);
 
-  double get endTime => startTime + duration;
-
   /// Whether the clip repeats its loop: it is longer than the loop, or
   /// begins partway into it. Mirrors the engine's `TimelineClip::active_loop`.
   bool get isLooped =>
@@ -193,6 +191,16 @@ class ClipData {
   /// clip's own audio; warp stretches that to the project tempo.
   double timelineSeconds(double sourceSeconds, double projectBpm) =>
       sourceSeconds / (editData?.stretchAt(projectBpm) ?? 1.0);
+
+  /// Seconds the clip covers on the timeline at [projectBpm]. [duration] is
+  /// in the clip's own seconds, so it is this only when the clip isn't
+  /// warped: use this for anything compared with timeline positions.
+  double timelineLength(double projectBpm) =>
+      timelineSeconds(duration, projectBpm);
+
+  /// Where the clip ends on the timeline at [projectBpm].
+  double timelineEnd(double projectBpm) =>
+      startTime + timelineLength(projectBpm);
 
   /// [splitAudioWindow] at [splitTime] (seconds on the timeline): warp
   /// stretches the timeline distance into the clip's own seconds.

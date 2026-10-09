@@ -152,7 +152,7 @@ mixin TimelineGestureLayerMixin
       // Convert clip times from seconds to beats for comparison
       final beatsPerSecond = widget.tempo / 60.0;
       final clipStartBeats = clip.startTime * beatsPerSecond;
-      final clipEndBeats = (clip.startTime + clip.duration) * beatsPerSecond;
+      final clipEndBeats = clip.timelineEnd(widget.tempo) * beatsPerSecond;
 
       // Find track Y position using actual track heights (regularTracks matches rendering order)
       final trackIndex = regularTracks.indexWhere((t) => t.id == clip.trackId);
@@ -601,8 +601,7 @@ mixin TimelineGestureLayerMixin
     // Check if this clip has split preview active
     final hasSplitPreview = splitPreviewAudioClipId == clip.clipId;
     final splitPreviewX = hasSplitPreview
-        ? (splitPreviewBeatPosition / (clip.duration * (widget.tempo / 60.0))) *
-              clipWidth
+        ? splitPreviewBeatPosition / (widget.tempo / 60.0) * pixelsPerSecond
         : 0.0;
 
     return Positioned(
@@ -644,7 +643,7 @@ mixin TimelineGestureLayerMixin
               final clickXInClip = details.localPosition.dx;
               final clickSecondsInClip = clickXInClip / pixelsPerSecond;
               if (clickSecondsInClip > 0 &&
-                  clickSecondsInClip < clip.duration) {
+                  clickSecondsInClip < clip.timelineLength(widget.tempo)) {
                 // Convert to beats for split preview
                 final beatsPerSecond = widget.tempo / 60.0;
                 setState(() {
@@ -934,8 +933,11 @@ mixin TimelineGestureLayerMixin
 
                   // Resolve overlaps at the new position (exclude the moved clip).
                   final overlapResult = ClipOverlapHandler.resolveAudioOverlaps(
+                    tempo: widget.tempo,
                     newStart: newStartTime,
-                    newEnd: newStartTime + selectedClip.duration,
+                    newEnd:
+                        newStartTime +
+                        selectedClip.timelineLength(widget.tempo),
                     existingClips: List<ClipData>.from(clips),
                     trackId: selectedClip.trackId,
                     excludeClipId: selectedClip.clipId,
@@ -2033,8 +2035,11 @@ mixin TimelineGestureLayerMixin
                           // Resolve overlaps at new position (exclude the moved clip itself)
                           final overlapResult =
                               ClipOverlapHandler.resolveAudioOverlaps(
+                                tempo: widget.tempo,
                                 newStart: newStartTime,
-                                newEnd: newStartTime + audioClip.duration,
+                                newEnd:
+                                    newStartTime +
+                                    audioClip.timelineLength(widget.tempo),
                                 existingClips: List<ClipData>.from(clips),
                                 trackId: audioClip.trackId,
                                 excludeClipId: audioClip.clipId,
@@ -2528,7 +2533,7 @@ mixin TimelineGestureLayerMixin
     final beatsPerSecond = widget.tempo / 60.0;
     for (final clip in audioClips) {
       final clipStartBeats = clip.startTime * beatsPerSecond;
-      final clipEndBeats = (clip.startTime + clip.duration) * beatsPerSecond;
+      final clipEndBeats = clip.timelineEnd(widget.tempo) * beatsPerSecond;
       if (beatPosition >= clipStartBeats && beatPosition <= clipEndBeats) {
         return true;
       }

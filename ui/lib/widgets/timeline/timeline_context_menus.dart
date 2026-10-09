@@ -46,7 +46,8 @@ mixin TimelineContextMenusMixin
           break;
         case 'split':
           final playhead = widget.playheadNotifier.value;
-          if (playhead > clip.startTime && playhead < clip.endTime) {
+          if (playhead > clip.startTime &&
+              playhead < clip.timelineEnd(widget.tempo)) {
             runAudioSplit(clip, playhead);
           } else {
             Notices.info('Put the playhead inside the clip to split it');
@@ -285,7 +286,7 @@ mixin TimelineContextMenusMixin
 
   /// Duplicate an audio clip (place copy at specified position or after original)
   void duplicateAudioClip(ClipData clip, {double? atPosition}) {
-    final newStartTime = atPosition ?? clip.startTime + clip.duration;
+    final newStartTime = atPosition ?? clip.timelineEnd(widget.tempo);
     widget.audioClipCallbacks.onCopied?.call(clip, newStartTime);
   }
 

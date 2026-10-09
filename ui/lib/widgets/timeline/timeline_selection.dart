@@ -272,7 +272,7 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
     final beatsPerSecond = widget.tempo / 60.0;
     for (final clip in clips) {
       final clipStartBeats = clip.startTime * beatsPerSecond;
-      final clipEndBeats = (clip.startTime + clip.duration) * beatsPerSecond;
+      final clipEndBeats = clip.timelineEnd(widget.tempo) * beatsPerSecond;
 
       if (clipStartBeats < maxBeats &&
           clipEndBeats > minBeats &&

@@ -149,7 +149,7 @@ mixin DAWLibraryMixin
     for (final clip in audioClips) {
       // ClipData times are seconds; MidiClipData stores beats.
       final startBeats = clip.startTime * beatsPerSecond;
-      final durationBeats = clip.duration * beatsPerSecond;
+      final durationBeats = clip.timelineLength(tempo) * beatsPerSecond;
 
       // Calculate MIDI note based on transpose (if any)
       // Default root note is 60 (C4), transpose shifts it
@@ -279,6 +279,7 @@ mixin DAWLibraryMixin
         clipName: fileName,
         resolveOverlaps: (clipId, duration) {
           final result = ClipOverlapHandler.resolveAudioOverlaps(
+            tempo: tempo,
             newStart: startTimeSeconds,
             newEnd: startTimeSeconds + duration,
             existingClips: List<ClipData>.from(

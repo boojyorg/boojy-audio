@@ -243,7 +243,7 @@ void main() {
           reason: 'a partial overlap must trim the neighbour, never delete it',
         );
         final trimmedB = uiClip(state, b.clipId);
-        expect(trimmedB.startTime, closeTo(movedA.endTime, 1e-6));
+        expect(trimmedB.startTime, closeTo(movedA.timelineEnd(120), 1e-6));
         expect(trimmedB.duration, closeTo(0.15, 1e-6));
         expect(trimmedB.offset, closeTo(0.25, 1e-6));
         expect(trimmedB.duration, lessThan(0.25)); // the old deletion floor

@@ -135,11 +135,14 @@ class ClipOverlapHandler {
   /// [newStart] / [newEnd] define the new clip's time range (seconds).
   /// [existingClips] is all audio clips (handler filters by trackId).
   /// [excludeClipId] skips a clip (useful for move operations).
+  /// [tempo] is the project's: a warped clip's length on the timeline
+  /// depends on it.
   static AudioOverlapResult resolveAudioOverlaps({
     required double newStart,
     required double newEnd,
     required List<ClipData> existingClips,
     required int trackId,
+    required double tempo,
     int? excludeClipId,
   }) {
     final removals = <ClipData>[];
@@ -154,7 +157,7 @@ class ClipOverlapHandler {
     );
 
     for (final clip in trackClips) {
-      final clipEnd = clip.startTime + clip.duration;
+      final clipEnd = clip.timelineEnd(tempo);
 
       // No overlap — skip
       if (newEnd <= clip.startTime || newStart >= clipEnd) continue;

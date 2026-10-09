@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:boojy_audio/utils/clip_overlap_handler.dart';
+import 'package:boojy_audio/models/audio_clip_edit_data.dart';
 import 'package:boojy_audio/models/clip_data.dart';
 import 'package:boojy_audio/models/midi_note_data.dart';
 
@@ -42,6 +43,7 @@ void main() {
   group('ClipOverlapHandler.resolveAudioOverlaps', () {
     test('no overlaps returns empty result', () {
       final result = ClipOverlapHandler.resolveAudioOverlaps(
+        tempo: 120,
         newStart: 10,
         newEnd: 14,
         existingClips: [_audioClip(startTime: 0, duration: 4)],
@@ -52,6 +54,7 @@ void main() {
 
     test('ignores clips on different tracks', () {
       final result = ClipOverlapHandler.resolveAudioOverlaps(
+        tempo: 120,
         newStart: 0,
         newEnd: 4,
         existingClips: [_audioClip(trackId: 1, startTime: 0, duration: 4)],
@@ -62,6 +65,7 @@ void main() {
 
     test('excludes specified clip', () {
       final result = ClipOverlapHandler.resolveAudioOverlaps(
+        tempo: 120,
         newStart: 0,
         newEnd: 4,
         existingClips: [_audioClip(clipId: 5, startTime: 0, duration: 4)],
@@ -74,6 +78,7 @@ void main() {
     test('Case 1: complete cover — deletes existing', () {
       // New clip (0-8) completely covers existing (2-6)
       final result = ClipOverlapHandler.resolveAudioOverlaps(
+        tempo: 120,
         newStart: 0,
         newEnd: 8,
         existingClips: [_audioClip(startTime: 2, duration: 4)],
@@ -86,6 +91,7 @@ void main() {
     test('Case 2: overlaps end — trims existing', () {
       // Existing (0-4), new starts at 2 → trim existing to (0-2)
       final result = ClipOverlapHandler.resolveAudioOverlaps(
+        tempo: 120,
         newStart: 2,
         newEnd: 6,
         existingClips: [_audioClip(startTime: 0, duration: 4)],
@@ -99,6 +105,7 @@ void main() {
       // Existing (0-4), new starts at 0.1 → existing keeps its first 0.1s.
       // This used to delete the clip (remainder under the old 0.25s floor).
       final result = ClipOverlapHandler.resolveAudioOverlaps(
+        tempo: 120,
         newStart: 0.1,
         newEnd: 6,
         existingClips: [_audioClip(startTime: 0, duration: 4)],
@@ -113,6 +120,7 @@ void main() {
       // The dogfooding repro: a 2s clip dragged so it ends 0.25s into a 0.4s
       // drum one-shot at 2.0s. Expected: the one-shot keeps its last 0.15s.
       final result = ClipOverlapHandler.resolveAudioOverlaps(
+        tempo: 120,
         newStart: 0.25,
         newEnd: 2.25,
         existingClips: [_audioClip(clipId: 7, startTime: 2.0, duration: 0.4)],
@@ -131,6 +139,7 @@ void main() {
     test('Case 4: inside existing — keeps short parts on both sides', () {
       // Existing (0-4), new (0.1-3.9) → partA 0.1s + partB 0.1s, both kept.
       final result = ClipOverlapHandler.resolveAudioOverlaps(
+        tempo: 120,
         newStart: 0.1,
         newEnd: 3.9,
         existingClips: [_audioClip(startTime: 0, duration: 4)],
@@ -149,6 +158,7 @@ void main() {
     test('a sub-millisecond sliver is dropped as float noise', () {
       // Existing (0-4), new starts 0.5µs in → nothing usable remains.
       final result = ClipOverlapHandler.resolveAudioOverlaps(
+        tempo: 120,
         newStart: 0.0000005,
         newEnd: 6,
         existingClips: [_audioClip(startTime: 0, duration: 4)],
@@ -161,6 +171,7 @@ void main() {
     test('Case 3: overlaps start — trims existing start', () {
       // Existing (0-4), new ends at 2 → existing becomes (2-4)
       final result = ClipOverlapHandler.resolveAudioOverlaps(
+        tempo: 120,
         newStart: -2,
         newEnd: 2,
         existingClips: [_audioClip(startTime: 0, duration: 4)],
@@ -174,6 +185,7 @@ void main() {
     test('Case 4: inside existing — splits into two', () {
       // Existing (0-10), new (3-7) → partA(0-3) + partB(7-10)
       final result = ClipOverlapHandler.resolveAudioOverlaps(
+        tempo: 120,
         newStart: 3,
         newEnd: 7,
         existingClips: [_audioClip(startTime: 0, duration: 10)],
@@ -190,6 +202,7 @@ void main() {
 
     test('handles multiple overlapping clips', () {
       final result = ClipOverlapHandler.resolveAudioOverlaps(
+        tempo: 120,
         newStart: 0,
         newEnd: 20,
         existingClips: [
@@ -201,6 +214,34 @@ void main() {
       );
       // All 3 clips are completely covered
       expect(result.removals.length, equals(3));
+    });
+
+    test('a warped clip overlaps for as long as it is drawn', () {
+      // 4 s of 240 BPM audio warped to 120 BPM fills 0–8 s on the timeline.
+      final warped = ClipData(
+        clipId: 1,
+        trackId: 0,
+        filePath: 'test.wav',
+        startTime: 0,
+        duration: 4,
+        editData: const AudioClipEditData(bpm: 240, syncEnabled: true),
+      );
+      final result = ClipOverlapHandler.resolveAudioOverlaps(
+        tempo: 120,
+        newStart: 6,
+        newEnd: 10,
+        existingClips: [warped],
+        trackId: 0,
+      );
+      expect(result.updates, hasLength(1));
+      final covered = ClipOverlapHandler.resolveAudioOverlaps(
+        tempo: 120,
+        newStart: 0,
+        newEnd: 6,
+        existingClips: [warped],
+        trackId: 0,
+      );
+      expect(covered.removals, isEmpty, reason: 'its last 2 s are uncovered');
     });
   });
 
