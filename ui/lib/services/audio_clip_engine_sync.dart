@@ -23,6 +23,17 @@ void pushAudioClipEdits(
   engine.setAudioClipReverse(trackId, clipId, reversed: edit.reversed);
 }
 
+/// Whether [a] and [b] sound the same: the edits [pushAudioClipEdits]
+/// sends. Each send re-renders the clip's audio, so a loop-only change
+/// skips it.
+bool sameSound(AudioClipEditData a, AudioClipEditData b) =>
+    a.gainDb == b.gainDb &&
+    a.syncEnabled == b.syncEnabled &&
+    a.bpm == b.bpm &&
+    a.transposeSemitones == b.transposeSemitones &&
+    a.fineCents == b.fineCents &&
+    a.reversed == b.reversed;
+
 /// Send how a clip repeats to the engine: its loop when it can repeat, from
 /// its loop start. The engine compares the loop with the clip's length
 /// itself, so trims and resizes don't need to send it again.

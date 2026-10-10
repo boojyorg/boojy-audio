@@ -30,7 +30,6 @@ import '../models/vst3_plugin_data.dart';
 import '../models/clip_data.dart';
 import '../models/library_item.dart';
 import '../models/track_data.dart';
-import '../services/audio_clip_engine_sync.dart';
 import '../services/commands/command.dart';
 import '../services/user_settings.dart';
 import '../services/commands/track_commands.dart';
@@ -199,7 +198,8 @@ class _DAWScreenState extends State<DAWScreen>
 
   void _onUndoRedoChanged() {
     _deferSetState(() {
-      // Trigger rebuild to update Edit menu state
+      // Rebuild for the Edit menu, and the Audio Editor follows its clip.
+      followOpenAudioClip();
     });
     scheduleScreenEngineCheck();
   }
@@ -704,54 +704,6 @@ class _DAWScreenState extends State<DAWScreen>
         midiPlaybackManager?.selectClip(null, null);
       }
     });
-  }
-
-  /// Handle audio clip updates from Audio Editor
-  void _onAudioClipUpdated(ClipData edited) {
-    // The editor holds the clip as it was when it opened: take only what it
-    // edits onto the clip as it is now. Taking its whole copy put a clip
-    // stretched since then back to its old length.
-    final timeline = timelineKey.currentState;
-    final index =
-        timeline?.clips.indexWhere((c) => c.clipId == edited.clipId) ?? -1;
-    final current = index < 0 ? edited : timeline!.clips[index];
-    var clip = current.copyWith(
-      editData: edited.editData,
-      canRepeat: edited.canRepeat,
-      loopLength: edited.loopLength,
-    );
-    // The editor's loop Start moved: the clip repeats the region from there,
-    // from its beginning. (Only when this edit moved it: the editor's copy
-    // goes stale when the clip is trimmed while it's open.)
-    final edit = edited.editData;
-    if (edit != null) {
-      final before = current.editData?.loopStartBeats;
-      final start = edit.loopStartSeconds(tempo);
-      if ((before == null || (edit.loopStartBeats - before).abs() > 1e-9) &&
-          (start - current.loopWindowStart).abs() > 1e-6) {
-        clip = clip.withLoopWindow(start, clip.loopLength);
-      }
-    }
-    // With Loop off, a clip that started partway into its loop becomes the
-    // plain window it was playing.
-    if (!clip.canRepeat) clip = clip.asOneWindow();
-    setState(() {
-      selectedAudioClip = clip;
-    });
-    // The editor's Loop toggle and Length change how the clip repeats.
-    final engine = audioEngine;
-    if (engine != null) {
-      if (clip.offset != current.offset) {
-        // The length too: a clip never trimmed has none in the engine, which
-        // then plays to the end of the file from the new offset.
-        engine.setClipOffset(clip.trackId, clip.clipId, clip.offset);
-        engine.setClipDuration(clip.trackId, clip.clipId, clip.duration);
-      }
-      pushAudioClipLoop(engine, clip);
-    }
-
-    // Update the clip in the timeline view so waveform reflects gain changes
-    timelineKey.currentState?.updateClip(clip);
   }
 
   /// Called when a track is created from the mixer panel - refresh timeline immediately
@@ -2108,7 +2060,8 @@ class _DAWScreenState extends State<DAWScreen>
                               onInstrumentParameterChanged:
                                   onInstrumentParameterChanged,
                               currentEditingAudioClip: selectedAudioClip,
-                              onAudioClipUpdated: _onAudioClipUpdated,
+                              onAudioClipUpdated: onAudioClipEdited,
+                              onAudioClipEditFinished: onAudioClipEditFinished,
                               currentTrackPlugins:
                                   selectedTrackId !=
                                       null // M10

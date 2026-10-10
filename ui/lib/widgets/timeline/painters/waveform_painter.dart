@@ -50,7 +50,7 @@ class WaveformPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (peaks.isEmpty) return;
+    if (peaks.isEmpty || size.width <= 0) return;
 
     final centerY = size.height / 2;
 

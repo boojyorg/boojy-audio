@@ -24,6 +24,12 @@ class AudioEditorControlsBar extends StatefulWidget {
   final Function(double)? onStartChanged;
   final Function(double)? onLengthChanged;
 
+  /// A drag on the Start or Length box starts and ends (one undo step).
+  final VoidCallback? onStartDragStart;
+  final VoidCallback? onStartDragEnd;
+  final VoidCallback? onLengthDragStart;
+  final VoidCallback? onLengthDragEnd;
+
   // === Warp/Tempo ===
   final bool warpEnabled;
   final VoidCallback? onWarpToggle;
@@ -62,6 +68,10 @@ class AudioEditorControlsBar extends StatefulWidget {
     this.beatsPerBar = 4,
     this.onStartChanged,
     this.onLengthChanged,
+    this.onStartDragStart,
+    this.onStartDragEnd,
+    this.onLengthDragStart,
+    this.onLengthDragEnd,
     this.warpEnabled = true,
     this.onWarpToggle,
     this.originalBpm = 120.0,
@@ -211,6 +221,8 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
             beats: widget.startOffsetBeats,
             label: '',
             onChanged: widget.onStartChanged,
+            onDragStart: widget.onStartDragStart,
+            onDragEnd: widget.onStartDragEnd,
             beatsPerBar: widget.beatsPerBar,
             isPosition: true, // 1-indexed position (1.1.1 = start)
           ),
@@ -234,6 +246,8 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
             beats: widget.lengthBeats,
             label: '',
             onChanged: widget.onLengthChanged,
+            onDragStart: widget.onLengthDragStart,
+            onDragEnd: widget.onLengthDragEnd,
             beatsPerBar: widget.beatsPerBar,
             isPosition: false, // 0-indexed length (1.0.0 = 1 bar)
           ),

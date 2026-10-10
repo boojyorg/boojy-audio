@@ -3,6 +3,7 @@ import '../../../utils/logger.dart';
 import '../../../models/clip_data.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../models/midi_event.dart';
+import '../../../services/audio_clip_engine_sync.dart';
 import '../../../services/commands/command.dart';
 import '../../../services/commands/clip_commands.dart';
 import '../../../utils/clip_overlap_handler.dart';
@@ -238,6 +239,136 @@ mixin DAWClipMixin
   /// Select all clips in the timeline view
   void selectAllClips() {
     timelineKey.currentState?.selectAllClips();
+  }
+
+  // ============================================
+  // AUDIO EDITOR EDITS
+  // ============================================
+
+  /// The clip as it was before the Audio Editor edit in progress: every
+  /// change up to [onAudioClipEditFinished] is one undo step.
+  ClipData? _audioEditBefore;
+
+  ClipData? _timelineAudioClip(int clipId) {
+    for (final clip in timelineKey.currentState?.clips ?? const <ClipData>[]) {
+      if (clip.clipId == clipId) return clip;
+    }
+    return null;
+  }
+
+  /// The Audio Editor changed a clip (on every step of a drag too). The
+  /// engine gets how it repeats now; its sound edits, which re-render the
+  /// audio, wait for [onAudioClipEditFinished].
+  void onAudioClipEdited(ClipData edited) {
+    // The editor holds the clip as it was when it opened: take only what it
+    // edits onto the clip as it is now. Taking its whole copy put a clip
+    // stretched since then back to its old length.
+    final current = _timelineAudioClip(edited.clipId) ?? edited;
+    if (_audioEditBefore?.clipId != current.clipId) _audioEditBefore = current;
+    var clip = current.copyWith(
+      editData: edited.editData,
+      canRepeat: edited.canRepeat,
+      loopLength: edited.loopLength,
+    );
+    // The editor's loop Start moved: the clip repeats the region from there,
+    // from its beginning. (Only when this edit moved it: the editor's copy
+    // goes stale when the clip is trimmed while it's open.)
+    final edit = edited.editData;
+    if (edit != null) {
+      final before = current.editData?.loopStartBeats;
+      final start = edit.loopStartSeconds(tempo);
+      if ((before == null || (edit.loopStartBeats - before).abs() > 1e-9) &&
+          (start - current.loopWindowStart).abs() > 1e-6) {
+        clip = clip.withLoopWindow(start, clip.loopLength);
+      }
+    }
+    // With Loop off, a clip that started partway into its loop becomes the
+    // plain window it was playing, and ends where its audio does (it kept
+    // its repeats' length and played silence).
+    final engine = audioEngine;
+    if (!clip.canRepeat) {
+      clip = clip.asOneWindow();
+      final file = engine?.getClipDuration(clip.clipId) ?? 0.0;
+      if (file > 0 && clip.offset + clip.duration > file + loopEpsilon) {
+        clip = clip.withEdges(
+          start: clip.startTime,
+          end: clip.timelineEnd(tempo),
+          projectBpm: tempo,
+          audioSeconds: file,
+        );
+      }
+    }
+    setState(() {
+      selectedAudioClip = clip;
+    });
+    // The editor's Loop toggle and Length change how the clip repeats.
+    if (engine != null) {
+      if (clip.offset != current.offset ||
+          clip.duration != current.duration ||
+          clip.startTime != current.startTime) {
+        // The length too: a clip never trimmed has none in the engine, which
+        // then plays to the end of the file from the new offset.
+        engine.setClipStartTime(clip.trackId, clip.clipId, clip.startTime);
+        engine.setClipOffset(clip.trackId, clip.clipId, clip.offset);
+        engine.setClipDuration(clip.trackId, clip.clipId, clip.duration);
+      }
+      pushAudioClipLoop(engine, clip);
+    }
+    timelineKey.currentState?.updateClip(clip);
+  }
+
+  /// The Audio Editor finished an edit (a click, a typed value, the end of a
+  /// drag): record the clip before and after it as one undo step.
+  Future<void> onAudioClipEditFinished(String description) async {
+    final before = _audioEditBefore;
+    _audioEditBefore = null;
+    if (before == null) return;
+    final after = _timelineAudioClip(before.clipId);
+    if (after == null || _sameAudioClipEdit(before, after)) return;
+    await undoRedoManager.execute(
+      EditAudioClipCommand(
+        before: before,
+        after: after,
+        description: description,
+        onClipEdited: _showEditedAudioClip,
+      ),
+    );
+  }
+
+  static bool _sameAudioClipEdit(ClipData a, ClipData b) =>
+      a.editData == b.editData &&
+      a.canRepeat == b.canRepeat &&
+      a.loopLength == b.loopLength &&
+      a.loopStart == b.loopStart &&
+      a.offset == b.offset &&
+      a.duration == b.duration &&
+      a.startTime == b.startTime;
+
+  /// Put what an Audio Editor edit changes back on the timeline's clip.
+  void _showEditedAudioClip(ClipData edited) {
+    final current = _timelineAudioClip(edited.clipId);
+    if (current == null) return;
+    timelineKey.currentState?.updateClip(
+      current.copyWith(
+        editData: edited.editData,
+        clearEditData: edited.editData == null, // undoing a first edit
+        canRepeat: edited.canRepeat,
+        loopLength: edited.loopLength,
+        loopStart: edited.loopStart,
+        offset: edited.offset,
+        duration: edited.duration,
+        startTime: edited.startTime,
+      ),
+    );
+  }
+
+  /// Keep the Audio Editor on the clip as the timeline has it: trims, and
+  /// undo and redo, change it from outside the editor.
+  void followOpenAudioClip() {
+    final open = selectedAudioClip;
+    if (open == null) return;
+    final clip = _timelineAudioClip(open.clipId);
+    if (clip != null && !identical(clip, open)) selectedAudioClip = clip;
   }
 
   // ============================================

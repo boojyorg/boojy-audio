@@ -28,6 +28,10 @@ class LoopTimeDisplay extends StatefulWidget {
   /// Called when value changes
   final Function(double)? onChanged;
 
+  /// A drag on a segment starts and ends (its moves call [onChanged]).
+  final VoidCallback? onDragStart;
+  final VoidCallback? onDragEnd;
+
   /// Beats per bar (default 4 for 4/4 time)
   final int beatsPerBar;
 
@@ -46,6 +50,8 @@ class LoopTimeDisplay extends StatefulWidget {
     required this.beats,
     required this.label,
     this.onChanged,
+    this.onDragStart,
+    this.onDragEnd,
     this.beatsPerBar = 4,
     this.subsPerBeat = 4, // 4 sixteenths per beat
     this.isPosition = false, // Default to length display
@@ -308,6 +314,11 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
   // Accumulated drag delta for smooth dragging
   double _dragAccumulator = 0.0;
 
+  void _endDrag() {
+    _pointerHold.end();
+    widget.onDragEnd?.call();
+  }
+
   /// Handle vertical drag to increment/decrement values
   void _handleDrag(int segment, double deltaY) {
     // Accumulate drag delta - need ~3 pixels to trigger one increment
@@ -415,17 +426,20 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
       },
       child: GestureDetector(
         onTap: () => _startEditing(segment),
-        onVerticalDragStart: (details) => _pointerHold.start(
-          details.kind,
-          (delta) => _handleDrag(segment, delta.dy),
-        ),
+        onVerticalDragStart: (details) {
+          widget.onDragStart?.call();
+          _pointerHold.start(
+            details.kind,
+            (delta) => _handleDrag(segment, delta.dy),
+          );
+        },
         onVerticalDragUpdate: (details) {
           // Dragging up (negative dy) = increase value
           // Scale: ~3 pixels per increment
           _handleDrag(segment, details.delta.dy);
         },
-        onVerticalDragEnd: (_) => _pointerHold.end(),
-        onVerticalDragCancel: _pointerHold.end,
+        onVerticalDragEnd: (_) => _endDrag(),
+        onVerticalDragCancel: _endDrag,
         child: MouseRegion(
           cursor: SystemMouseCursors.resizeUpDown,
           child: Container(
