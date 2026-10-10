@@ -149,6 +149,10 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
   in the piano-roll controls bar.
 - **Tooltip coverage is uneven**: piano-roll Quantize/Legato/Snap use the plain tooltip;
   track-header Mute/Solo have none.
+- **Move the Audio Editor's loop region in one go:** grab its middle on the ruler and drag
+  (`LoopMarkerDrag.middle` exists, unwired). Start now keeps the region's end (2026-10-10), so
+  moving a 1-bar loop to bar 3 takes Start then Length. The Piano Roll's Start box still slides
+  its region with Length kept; settle one rule when its loop undo is fixed.
 - **Two `showMenu` calls remain** in `track_mixer_strip.dart`; migrate to `showBoojyMenu`.
 - **MP3 export shells out to `ffmpeg`.** Replace with the `mp3lame-encoder` crate.
 - **Zoom spec** *(Tyr)*: anchor, modifiers, pinch, ruler drag, zoom-to-fit, independent axes.

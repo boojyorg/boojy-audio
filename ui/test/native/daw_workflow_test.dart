@@ -450,13 +450,22 @@ void main() {
         find.byType(AudioEditorControlsBar),
       );
 
-      // Repeat just the second beat (0.5–1.0 s of the file).
-      bar().onLengthChanged!(1.0);
-      await h.settle();
+      // On a new clip the region is the whole file. Start moves its
+      // beginning and keeps its end: beats 2–4 (0.5–2.0 s of the file).
       bar().onStartChanged!(1.0);
       await h.settle();
+      expect(bar().startOffsetBeats, closeTo(1.0, 1e-9));
+      expect(bar().lengthBeats, closeTo(3.0, 1e-9));
+      var now = timeline.clips.firstWhere((c) => c.clipId == clip.clipId);
+      expect(now.loopWindowStart, closeTo(0.5, 1e-9));
+      expect(now.loopLength, closeTo(1.5, 1e-9));
+      h.expectScreenMatchesEngine(after: 'moving the loop Start');
 
-      final now = timeline.clips.firstWhere((c) => c.clipId == clip.clipId);
+      // Then repeat just the second beat (0.5–1.0 s of the file).
+      bar().onLengthChanged!(1.0);
+      await h.settle();
+
+      now = timeline.clips.firstWhere((c) => c.clipId == clip.clipId);
       expect(now.loopLength, closeTo(0.5, 1e-9));
       expect(now.loopWindowStart, closeTo(0.5, 1e-9));
       for (final x in [0.1, 0.6, 1.1, 1.6]) {

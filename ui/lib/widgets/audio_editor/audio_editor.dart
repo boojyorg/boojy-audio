@@ -411,18 +411,20 @@ class _AudioEditorState extends State<AudioEditor>
     finishEdit(loopEnabled ? 'Turn loop on' : 'Turn loop off');
   }
 
+  /// Shortest loop region the Start box leaves: one sixteenth.
+  static const _minLoopBeats = 0.25;
+
   void _onStartChanged(double beats) {
     // Start is where in the audio the loop region begins; the clip repeats
-    // the region from there. The length stays the same.
-    final loopLength = loopEndBeats - loopStartBeats;
-    beats = beats.clamp(0.0, max(0.0, contentDurationBeats - loopLength));
+    // the region from there. Its end stays put, like dragging the region's
+    // left edge (sliding the region with Length kept was stuck on a new
+    // clip, whose region is the whole file).
+    beats = beats.clamp(0.0, max(0.0, loopEndBeats - _minLoopBeats));
     setState(() {
       loopStartBeats = beats;
-      loopEndBeats = beats + loopLength;
       editData = editData.copyWith(
         startOffsetBeats: beats,
         loopStartBeats: beats,
-        loopEndBeats: beats + loopLength,
       );
     });
     finishEdit('Move loop start');
