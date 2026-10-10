@@ -51,7 +51,7 @@ mixin DAWPlaybackMixin on State<DAWScreen>, DAWScreenStateMixin {
   }
 
   /// Loop button / L: turn loop on or off, straight away when playing.
-  /// (Loop-on recording is undecided, so a take in progress isn't changed.)
+  /// (Recording ignores the loop, so a take in progress isn't changed.)
   void toggleLoop() {
     uiLayout.toggleLoopPlayback();
     if (!isPlaying || isRecording) return;

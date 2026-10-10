@@ -88,6 +88,11 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Recording ignores the loop.** With loop on, a take now runs straight on from where you
+  pressed Record until you press Stop, and the backing plays on with it. The loop used to jump
+  the backing back while the take kept growing past it, so what you played landed where you
+  hadn't heard it, and the playhead showed negative times. Playing (not recording) with loop on
+  still cycles.
 - **Recording onto two armed audio tracks keeps both takes.** The engine recorded a take on
   every armed audio track, but only the first stayed on screen when you stopped; the others
   played unseen. Every take now shows, one undo takes them all away together, and a repeating
