@@ -63,14 +63,15 @@ reproduces them.
 
 **Fix before release**
 
-- **Audio Editor loop changes aren't undoable.** Its loop Start, Length, Loop toggle and loop
-  region drag change the clip but add no undo step (they skip `commitToHistory`), so ⌘Z undoes
-  the edit before them instead.
+- **Piano Roll loop changes aren't undoable.** Its loop Start, Length and loop-ruler drags change
+  the clip but add no undo step, so ⌘Z undoes the edit before them instead (the Audio Editor's
+  were fixed by making each edit an `EditAudioClipCommand`).
 - **Recording onto two armed audio tracks shows only the first take.** The engine records a
   clip on every armed audio track, but the UI adds (and undoes) only the first, so the others
   exist in the engine unseen. `RecordingCompleteCommand` needs to cover several tracks.
 - **Recording with loop on shows a negative playhead** (−0.9s, −1.9s after the loop wraps).
-  *(Tyr)* decide what loop-on recording does (stop at loop end, or ignore the loop) first.
+  Decided (2026-10-10): recording ignores the loop and carries straight on until Stop, so no
+  part of a take is lost.
 - **`appcast.xml` still says `minimumSystemVersion` 11.0, but the app now needs macOS 12**
   (CHANGELOG). `release.yml` generates the file (hard-coded in its "Generate appcast.xml" step),
   so fix it there, or Sparkle offers the update to Macs that can't run it.
@@ -91,8 +92,6 @@ reproduces them.
     notice would also let `test/native` run on Windows CI, whose machines have no sound card.
   - Undoing a recording doesn't bring back the clips it recorded over: the overlap trims run
     outside `RecordingCompleteCommand` (`_applyAudioOverlap`, `_applyMidiOverlap`).
-  - The Audio Editor shows a clip as it was when opened: trimming the clip while it's open
-    leaves the editor's loop region on the old audio until another clip is opened.
   - Trimming a MIDI clip's left edge drops the notes before it (`adjustNotesForTrim`), so
     dragging the edge back out shows an empty start; audio clips now keep theirs.
   - "Mute Clip" on a MIDI clip may not silence it: the menu sets a flag that nothing in the
@@ -150,6 +149,10 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
   in the piano-roll controls bar.
 - **Tooltip coverage is uneven**: piano-roll Quantize/Legato/Snap use the plain tooltip;
   track-header Mute/Solo have none.
+- **Move the Audio Editor's loop region in one go:** grab its middle on the ruler and drag
+  (`LoopMarkerDrag.middle` exists, unwired). Start now keeps the region's end (2026-10-10), so
+  moving a 1-bar loop to bar 3 takes Start then Length. The Piano Roll's Start box still slides
+  its region with Length kept; settle one rule when its loop undo is fixed.
 - **Two `showMenu` calls remain** in `track_mixer_strip.dart`; migrate to `showBoojyMenu`.
 - **MP3 export shells out to `ffmpeg`.** Replace with the `mp3lame-encoder` crate.
 - **Zoom spec** *(Tyr)*: anchor, modifiers, pinch, ruler drag, zoom-to-fit, independent axes.

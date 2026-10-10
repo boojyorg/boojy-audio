@@ -2,6 +2,7 @@ import 'package:boojy_audio/models/audio_clip_edit_data.dart';
 import 'package:boojy_audio/models/clip_data.dart';
 import 'package:boojy_audio/theme/theme_provider.dart';
 import 'package:boojy_audio/widgets/audio_editor/audio_editor.dart';
+import 'package:boojy_audio/widgets/shared/editors/capsule_slider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,10 +12,9 @@ import '../../mocks/mock_audio_engine.dart';
 
 void main() {
   // Every warp send re-renders the clip's stretched audio, so a BPM drag
-  // sends once, on release, not on every step.
-  Future<(MockAudioEngine, List<ClipData>)> pumpEditor(
-    WidgetTester tester,
-  ) async {
+  // finishes one edit (the DAW's one send and undo step), on release, not
+  // one on every step.
+  Future<(List<ClipData>, List<String>)> pumpEditor(WidgetTester tester) async {
     tester.view.physicalSize = const Size(1600, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -34,6 +34,7 @@ void main() {
       ),
     );
     final updates = <ClipData>[];
+    final finished = <String>[];
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -44,12 +45,13 @@ void main() {
               clipData: clip,
               projectTempo: 120,
               onClipUpdated: updates.add,
+              onEditFinished: finished.add,
             ),
           ),
         ),
       ),
     );
-    return (engine, updates);
+    return (updates, finished);
   }
 
   /// Press [target] and drag up in steps, still holding the button.
@@ -65,40 +67,76 @@ void main() {
     return gesture;
   }
 
-  testWidgets('dragging the clip BPM re-stretches once, on release', (
+  testWidgets('dragging the clip BPM finishes one edit, on release', (
     tester,
   ) async {
-    final (engine, updates) = await pumpEditor(tester);
+    final (updates, finished) = await pumpEditor(tester);
 
     final drag = await dragUp(tester, find.text('150 BPM'));
-    expect(engine.warpCalls, isEmpty, reason: 'no re-stretch mid-drag');
+    expect(finished, isEmpty, reason: 'no re-stretch mid-drag');
     expect(updates.last.editData!.bpm, greaterThan(150));
 
     await drag.up();
     await tester.pump();
     final bpm = updates.last.editData!.bpm;
-    expect(engine.warpCalls, hasLength(1));
-    expect(engine.warpCalls.single.stretch, closeTo(120 / bpm, 1e-9));
+    expect(finished, ['Set original BPM to ${bpm.toStringAsFixed(1)}']);
     await tester.pump(kDoubleTapTimeout); // let the double-click timer lapse
   });
 
-  testWidgets('dragging the pitch re-renders once, on release', (tester) async {
-    final (engine, updates) = await pumpEditor(tester);
+  testWidgets('dragging the pitch finishes one edit, on release', (
+    tester,
+  ) async {
+    final (updates, finished) = await pumpEditor(tester);
 
     final drag = await dragUp(tester, find.text(' st'));
-    expect(
-      engine.calls.where((c) => c == 'setAudioClipTranspose'),
-      isEmpty,
-      reason: 'no re-render mid-drag',
-    );
+    expect(finished, isEmpty, reason: 'no re-render mid-drag');
     expect(updates.last.editData!.transposeSemitones, greaterThan(0));
 
     await drag.up();
     await tester.pump();
-    expect(
-      engine.calls.where((c) => c == 'setAudioClipTranspose'),
-      hasLength(1),
-    );
+    expect(finished, ['Set pitch']);
     await tester.pump(kDoubleTapTimeout);
+  });
+
+  group('volume', () {
+    Finder slider() => find.byType(CapsuleSlider);
+
+    testWidgets('a drag is one edit, finished on release', (tester) async {
+      final (updates, finished) = await pumpEditor(tester);
+      final start = tester.getCenter(slider());
+      final drag = await tester.startGesture(
+        start,
+        kind: PointerDeviceKind.mouse,
+      );
+      for (var i = 0; i < 6; i++) {
+        await drag.moveBy(const Offset(8, 0));
+        await tester.pump();
+      }
+      expect(finished, isEmpty, reason: 'nothing finished mid-drag');
+      await drag.up();
+      await tester.pump();
+      final gain = updates.last.editData!.gainDb;
+      expect(gain, greaterThan(0));
+      expect(finished, ['Set gain to ${gain.toStringAsFixed(1)} dB']);
+      await tester.pump(kDoubleTapTimeout);
+    });
+
+    testWidgets('a click is one edit', (tester) async {
+      final (_, finished) = await pumpEditor(tester);
+      await tester.tapAt(tester.getCenter(slider()) + const Offset(30, 0));
+      await tester.pump(kDoubleTapTimeout);
+      expect(finished, hasLength(1));
+    });
+
+    testWidgets('a double-click resets to 0 dB in one edit', (tester) async {
+      final (updates, finished) = await pumpEditor(tester);
+      final at = tester.getCenter(slider()) + const Offset(30, 0);
+      await tester.tapAt(at);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(at);
+      await tester.pump(kDoubleTapTimeout);
+      expect(updates.last.editData!.gainDb, 0);
+      expect(finished, hasLength(1), reason: 'one step back to before');
+    });
   });
 }

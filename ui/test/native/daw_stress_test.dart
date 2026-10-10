@@ -1,13 +1,13 @@
 import 'dart:math';
 
-import 'package:boojy_audio/models/audio_clip_edit_data.dart';
 import 'package:boojy_audio/models/clip_data.dart';
 import 'package:boojy_audio/models/midi_note_data.dart';
 import 'package:boojy_audio/models/track_data.dart';
 import 'package:boojy_audio/services/commands/clip_commands.dart';
 import 'package:boojy_audio/services/state_consistency.dart';
 import 'package:boojy_audio/utils/audio_clips_info.dart';
-import 'package:boojy_audio/widgets/audio_editor/operations/parameter_operations.dart';
+import 'package:boojy_audio/widgets/audio_editor/audio_editor_controls_bar.dart';
+import 'package:boojy_audio/widgets/timeline_view.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/daw_harness.dart';
@@ -75,6 +75,7 @@ class _StressRun {
     (1, 'delete an audio clip', _deleteAudioClip),
     (1, 'delete a MIDI clip', _deleteMidiClip),
     (2, 'edit an audio clip', _editAudioClip),
+    (2, 'change the loop in the editor', _editAudioClipLoop),
     (1, 'change tempo', _changeTempo),
     (1, 'duplicate a track', _duplicateTrack),
     (1, 'delete a track', _deleteTrack),
@@ -392,39 +393,52 @@ class _StressRun {
     return true;
   }
 
-  Future<bool> _editAudioClip() async {
+  /// Open the Audio Editor on a random audio clip, as a double-click does.
+  Future<AudioEditorControlsBar Function()?> _openEditor() async {
     final clip = _pick(_audioClips);
-    if (clip == null) return false;
-    // As the Audio Editor starts it: the loop region is the clip's loop.
-    final tempo = h.daw.tempo;
-    final before =
-        (clip.editData ??
-                AudioClipEditData(
-                  loopEnabled: clip.canRepeat,
-                  lengthBeats: clip.duration * tempo / 60,
-                ))
-            .withLoopSeconds(clip.loopLength, tempo);
-    final after = switch (random.nextInt(4)) {
-      // Setting the clip's BPM keeps its loop on the same audio.
-      0 =>
-        before
-            .withWarp(on: false, projectBpm: tempo)
-            .copyWith(bpm: _pick([90.0, 120.0, 150.0]))
-            .withWarp(on: true, projectBpm: tempo),
-      1 => before.copyWith(transposeSemitones: random.nextInt(11) - 5),
-      2 => before.copyWith(reversed: !before.reversed),
-      _ => before.copyWith(gainDb: -random.nextInt(12).toDouble()),
-    };
-    await h.daw.undoRedoManager.execute(
-      AudioClipEditCommand(
-        beforeState: before,
-        afterState: after,
-        clipData: clip,
-        actionDescription: 'Edit clip',
-        onApplyState: (state, data) => h.daw.timelineKey.currentState!
-            .updateClip(data.copyWith(editData: state)),
-      ),
+    if (clip == null) return null;
+    final callbacks = h.tester
+        .widget<TimelineView>(find.byType(TimelineView))
+        .audioClipCallbacks;
+    callbacks.onSelected!(clip.clipId, clip);
+    callbacks.onOpenEditor!();
+    await h.settle();
+    return () => h.tester.widget<AudioEditorControlsBar>(
+      find.byType(AudioEditorControlsBar),
     );
+  }
+
+  Future<bool> _editAudioClip() async {
+    final bar = await _openEditor();
+    if (bar == null) return false;
+    switch (random.nextInt(4)) {
+      case 0: // set the clip's BPM, warped
+        if (!bar().warpEnabled) {
+          bar().onWarpToggle!();
+          await h.settle();
+        }
+        bar().onOriginalBpmChanged!(_pick([90.0, 120.0, 150.0])!);
+      case 1:
+        bar().onTransposeChanged!(random.nextInt(11) - 5);
+      case 2:
+        bar().onReverseToggle!();
+      default:
+        bar().onGainChanged!((-random.nextInt(12)).toDouble());
+    }
+    return true;
+  }
+
+  Future<bool> _editAudioClipLoop() async {
+    final bar = await _openEditor();
+    if (bar == null) return false;
+    switch (random.nextInt(3)) {
+      case 0:
+        bar().onLoopToggle!();
+      case 1:
+        bar().onLengthChanged!(_pick([1.0, 2.0, 3.0])!);
+      default:
+        bar().onStartChanged!(_pick([0.0, 0.5, 1.0])!);
+    }
     return true;
   }
 

@@ -1,3 +1,4 @@
+import '../../models/audio_clip_edit_data.dart';
 import '../../models/clip_data.dart';
 import '../../utils/logger.dart';
 import '../../models/midi_note_data.dart';
@@ -1044,6 +1045,55 @@ class ResizeAudioClipCommand extends Command {
 
   @override
   String get description => 'Resize Clip: ${after.fileName}';
+}
+
+/// An Audio Editor edit (gain, pitch, warp, reverse, loop) as one undo step.
+/// It keeps the whole clip before and after: a loop change also moves where
+/// the clip reads its audio, which the edit settings alone can't put back.
+/// Undo works the same with the editor open, closed or on another clip.
+class EditAudioClipCommand extends Command {
+  final ClipData before;
+  final ClipData after;
+  final String _description;
+
+  /// Show the clip as [clip] has it (its edits, edges and loop).
+  final void Function(ClipData clip)? onClipEdited;
+
+  EditAudioClipCommand({
+    required this.before,
+    required this.after,
+    required String description,
+    this.onClipEdited,
+  }) : _description = description;
+
+  @override
+  Future<void> execute(AudioEngineInterface engine) async =>
+      _apply(engine, after, from: before);
+
+  @override
+  Future<void> undo(AudioEngineInterface engine) async =>
+      _apply(engine, before, from: after);
+
+  void _apply(
+    AudioEngineInterface engine,
+    ClipData clip, {
+    required ClipData from,
+  }) {
+    // Sending the edits re-renders the clip's audio: only when they changed.
+    const plain = AudioClipEditData();
+    final edit = clip.editData ?? plain;
+    if (!sameSound(edit, from.editData ?? plain)) {
+      pushAudioClipEdits(engine, clip.trackId, clip.clipId, edit);
+    }
+    engine.setClipStartTime(clip.trackId, clip.clipId, clip.startTime);
+    engine.setClipOffset(clip.trackId, clip.clipId, clip.offset);
+    engine.setClipDuration(clip.trackId, clip.clipId, clip.duration);
+    pushAudioClipLoop(engine, clip);
+    onClipEdited?.call(clip);
+  }
+
+  @override
+  String get description => _description;
 }
 
 /// Command to rename a clip
