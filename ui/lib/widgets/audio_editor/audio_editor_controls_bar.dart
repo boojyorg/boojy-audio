@@ -24,6 +24,12 @@ class AudioEditorControlsBar extends StatefulWidget {
   final Function(double)? onStartChanged;
   final Function(double)? onLengthChanged;
 
+  /// A drag on the Start or Length box starts and ends (one undo step).
+  final VoidCallback? onStartDragStart;
+  final VoidCallback? onStartDragEnd;
+  final VoidCallback? onLengthDragStart;
+  final VoidCallback? onLengthDragEnd;
+
   // === Warp/Tempo ===
   final bool warpEnabled;
   final VoidCallback? onWarpToggle;
@@ -50,6 +56,10 @@ class AudioEditorControlsBar extends StatefulWidget {
   final double gainDb;
   final Function(double)? onGainChanged;
 
+  /// A press or drag on the volume slider starts and ends (one undo step).
+  final VoidCallback? onGainDragStart;
+  final VoidCallback? onGainDragEnd;
+
   // === Create Sampler ===
   final VoidCallback? onCreateSamplerFromClip;
 
@@ -62,6 +72,10 @@ class AudioEditorControlsBar extends StatefulWidget {
     this.beatsPerBar = 4,
     this.onStartChanged,
     this.onLengthChanged,
+    this.onStartDragStart,
+    this.onStartDragEnd,
+    this.onLengthDragStart,
+    this.onLengthDragEnd,
     this.warpEnabled = true,
     this.onWarpToggle,
     this.originalBpm = 120.0,
@@ -80,6 +94,8 @@ class AudioEditorControlsBar extends StatefulWidget {
     this.onReverseToggle,
     this.gainDb = 0.0,
     this.onGainChanged,
+    this.onGainDragStart,
+    this.onGainDragEnd,
     this.onCreateSamplerFromClip,
   });
 
@@ -211,6 +227,8 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
             beats: widget.startOffsetBeats,
             label: '',
             onChanged: widget.onStartChanged,
+            onDragStart: widget.onStartDragStart,
+            onDragEnd: widget.onStartDragEnd,
             beatsPerBar: widget.beatsPerBar,
             isPosition: true, // 1-indexed position (1.1.1 = start)
           ),
@@ -234,6 +252,8 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
             beats: widget.lengthBeats,
             label: '',
             onChanged: widget.onLengthChanged,
+            onDragStart: widget.onLengthDragStart,
+            onDragEnd: widget.onLengthDragEnd,
             beatsPerBar: widget.beatsPerBar,
             isPosition: false, // 0-indexed length (1.0.0 = 1 bar)
           ),
@@ -354,7 +374,12 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
               final db = sliderToDb(value);
               widget.onGainChanged?.call(db);
             },
-            onDoubleTap: () => widget.onGainChanged?.call(0.0), // Reset to 0 dB
+            onChangeStart: widget.onGainDragStart,
+            onChangeEnd: widget.onGainDragEnd,
+            onDoubleTap: () {
+              widget.onGainChanged?.call(0.0); // Reset to 0 dB
+              widget.onGainDragEnd?.call(); // a double-click has no tap-up
+            },
           ),
         ),
       ],

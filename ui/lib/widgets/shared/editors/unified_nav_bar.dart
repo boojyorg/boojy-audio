@@ -54,6 +54,9 @@ class UnifiedNavBarCallbacks {
   /// Called when loop region is changed (via edge drag).
   final void Function(double start, double end)? onLoopRegionChanged;
 
+  /// Called when a loop edge drag ends.
+  final VoidCallback? onLoopRegionDragEnd;
+
   /// Called when loop is toggled on/off.
   final void Function({required bool enabled})? onLoopToggled;
 
@@ -63,6 +66,7 @@ class UnifiedNavBarCallbacks {
     this.onPlayheadSet,
     this.onPlayheadDrag,
     this.onLoopRegionChanged,
+    this.onLoopRegionDragEnd,
     this.onLoopToggled,
   });
 }
@@ -354,6 +358,9 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
 
   void _endPan() {
     _pointerHold.end();
+    if (_dragMode == _DragMode.loopStart || _dragMode == _DragMode.loopEnd) {
+      widget.callbacks.onLoopRegionDragEnd?.call();
+    }
     setState(() {
       _dragMode = _DragMode.none;
       _navAnchorBeat = null;

@@ -27,6 +27,11 @@ class AudioEditor extends StatefulWidget {
   final VoidCallback? onClose;
   final Function(ClipData)? onClipUpdated;
 
+  /// An edit is finished (a click, a typed value, the end of a drag): the
+  /// DAW sends it to the engine and makes it one undo step, described as
+  /// given.
+  final void Function(String description)? onEditFinished;
+
   /// Current tool mode (managed by parent EditorPanel)
   /// Note: Tools are greyed out in v1 but we keep the prop for consistency
   final ToolMode toolMode;
@@ -53,6 +58,7 @@ class AudioEditor extends StatefulWidget {
     this.clipData,
     this.onClose,
     this.onClipUpdated,
+    this.onEditFinished,
     this.toolMode = ToolMode.draw,
     this.onToolModeChanged,
     this.projectTempo = 120.0,
@@ -150,6 +156,10 @@ class _AudioEditorState extends State<AudioEditor>
                   beatsPerBar: beatsPerBar,
                   onStartChanged: _onStartChanged,
                   onLengthChanged: _onLengthChanged,
+                  onStartDragStart: beginLiveDrag,
+                  onStartDragEnd: () => endLiveDrag('Move loop start'),
+                  onLengthDragStart: beginLiveDrag,
+                  onLengthDragEnd: () => endLiveDrag('Change loop length'),
                   // Warp controls
                   warpEnabled: editData.syncEnabled,
                   onWarpToggle: _toggleWarp,
@@ -173,6 +183,10 @@ class _AudioEditorState extends State<AudioEditor>
                   onFineCentsChanged: setFineCents,
                   gainDb: editData.gainDb,
                   onGainChanged: setGain,
+                  onGainDragStart: beginLiveDrag,
+                  onGainDragEnd: () => endLiveDrag(
+                    'Set gain to ${editData.gainDb.toStringAsFixed(1)} dB',
+                  ),
                   onCreateSamplerFromClip: widget.onCreateSamplerFromClip,
                 ),
 
@@ -249,6 +263,7 @@ class _AudioEditorState extends State<AudioEditor>
           onPlayheadSet: null, // No playhead control for audio editor
           onPlayheadDrag: null,
           onLoopRegionChanged: _handleLoopRegionChanged,
+          onLoopRegionDragEnd: () => endLiveDrag('Change loop region'),
         ),
         scrollController: loopBarScroll,
         height: 24.0,
@@ -296,7 +311,9 @@ class _AudioEditorState extends State<AudioEditor>
     );
   }
 
+  /// A loop marker drag on the nav bar: one undo step when it ends.
   void _handleLoopRegionChanged(double start, double end) {
+    beginLiveDrag();
     setState(() {
       loopStartBeats = start;
       loopEndBeats = end;
@@ -395,24 +412,26 @@ class _AudioEditorState extends State<AudioEditor>
       loopEnabled = !loopEnabled;
       editData = editData.copyWith(loopEnabled: loopEnabled);
     });
-    notifyClipUpdated();
+    finishEdit(loopEnabled ? 'Turn loop on' : 'Turn loop off');
   }
+
+  /// Shortest loop region the Start box leaves: one sixteenth.
+  static const _minLoopBeats = 0.25;
 
   void _onStartChanged(double beats) {
     // Start is where in the audio the loop region begins; the clip repeats
-    // the region from there. The length stays the same.
-    final loopLength = loopEndBeats - loopStartBeats;
-    beats = beats.clamp(0.0, max(0.0, contentDurationBeats - loopLength));
+    // the region from there. Its end stays put, like dragging the region's
+    // left edge (sliding the region with Length kept was stuck on a new
+    // clip, whose region is the whole file).
+    beats = beats.clamp(0.0, max(0.0, loopEndBeats - _minLoopBeats));
     setState(() {
       loopStartBeats = beats;
-      loopEndBeats = beats + loopLength;
       editData = editData.copyWith(
         startOffsetBeats: beats,
         loopStartBeats: beats,
-        loopEndBeats: beats + loopLength,
       );
     });
-    notifyClipUpdated();
+    finishEdit('Move loop start');
   }
 
   void _onLengthChanged(double beats) {
@@ -422,11 +441,10 @@ class _AudioEditorState extends State<AudioEditor>
       loopEndBeats = loopStartBeats + beats;
       editData = editData.copyWith(loopEndBeats: loopStartBeats + beats);
     });
-    notifyClipUpdated();
+    finishEdit('Change loop length');
   }
 
   void _toggleWarp() {
-    saveToHistory();
     final newValue = !editData.syncEnabled;
     setState(() {
       final scale = newValue
@@ -440,13 +458,10 @@ class _AudioEditorState extends State<AudioEditor>
       loopEndBeats = editData.loopEndBeats;
       contentDurationBeats *= scale;
     });
-    notifyClipUpdated();
-    sendToAudioEngine();
-    commitToHistory(newValue ? 'Enable warp' : 'Disable warp');
+    finishEdit(newValue ? 'Enable warp' : 'Disable warp');
   }
 
   void _onOriginalBpmChanged(double value) {
-    if (!liveDragging) saveToHistory();
     final clampedBpm = value.clamp(20.0, 999.0);
     setState(() {
       editData = editData.copyWith(bpm: clampedBpm);

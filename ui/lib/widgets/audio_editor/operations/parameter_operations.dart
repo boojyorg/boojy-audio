@@ -1,82 +1,33 @@
 import 'package:flutter/material.dart';
-import '../../../models/clip_data.dart';
-import '../../../models/audio_clip_edit_data.dart';
-import '../../../services/audio_clip_engine_sync.dart';
-import '../../../services/commands/audio_engine_interface.dart';
-import '../../../services/commands/command.dart';
 import '../audio_editor.dart';
 import '../audio_editor_state.dart';
 
-/// Mixin for audio clip parameter operations with undo/redo support.
+/// Mixin for audio clip parameter operations; the DAW makes each an undo
+/// step.
 mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
   // ============================================
-  // UNDO/REDO SUPPORT
+  // EDITS AND UNDO
   // ============================================
-
-  /// Save current state before making changes.
-  void saveToHistory() {
-    snapshotBeforeAction = editData;
-  }
 
   /// True while a control is being dragged: each step updates the editor and
   /// timeline, and the engine and undo history get the result once, on
   /// release (BPM and pitch changes re-render the clip's audio).
   bool liveDragging = false;
 
-  void beginLiveDrag() {
-    liveDragging = true;
-    saveToHistory();
-  }
+  void beginLiveDrag() => liveDragging = true;
 
   void endLiveDrag(String actionDescription) {
+    if (!liveDragging) return;
     liveDragging = false;
-    if (snapshotBeforeAction == editData) {
-      snapshotBeforeAction = null; // dragged back to where it started
-      return;
-    }
-    sendToAudioEngine();
-    commitToHistory(actionDescription);
+    widget.onEditFinished?.call(actionDescription);
   }
 
-  /// Finish one edit: tell the timeline, then (unless mid-drag) the engine
-  /// and the undo history.
+  /// Finish one edit: tell the timeline, then (unless mid-drag) the DAW,
+  /// which sends the edit to the engine and records it as an undo step.
   void finishEdit(String actionDescription) {
     notifyClipUpdated();
     if (liveDragging) return;
-    sendToAudioEngine();
-    commitToHistory(actionDescription);
-  }
-
-  /// Commit changes to history after making changes.
-  void commitToHistory(String actionDescription) {
-    if (snapshotBeforeAction == null || currentClip == null) return;
-
-    final command = AudioClipEditCommand(
-      beforeState: snapshotBeforeAction!,
-      afterState: editData,
-      clipData: currentClip!,
-      actionDescription: actionDescription,
-      onApplyState: applyEditState,
-    );
-
-    undoRedoManager.execute(command);
-    snapshotBeforeAction = null;
-  }
-
-  /// Apply edit state (used by undo/redo).
-  void applyEditState(AudioClipEditData newEditData, ClipData clipData) {
-    setState(() {
-      editData = newEditData;
-      currentClip = clipData.copyWith(editData: newEditData);
-
-      // Sync local state from edit data
-      loopEnabled = newEditData.loopEnabled;
-      loopStartBeats = newEditData.loopStartBeats;
-      loopEndBeats = newEditData.loopEndBeats;
-      beatsPerBar = newEditData.beatsPerBar;
-      beatUnit = newEditData.beatUnit;
-    });
-    notifyClipUpdated();
+    widget.onEditFinished?.call(actionDescription);
   }
 
   // ============================================
@@ -95,21 +46,12 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
     widget.onClipUpdated?.call(updatedClip);
   }
 
-  /// Send parameters to audio engine for real-time processing.
-  void sendToAudioEngine() {
-    final clip = currentClip;
-    final engine = widget.audioEngine;
-    if (clip == null || engine == null) return;
-    pushAudioClipEdits(engine, clip.trackId, clip.clipId, editData);
-  }
-
   // ============================================
   // TRANSPOSE OPERATIONS
   // ============================================
 
   /// Set transpose amount in semitones (-48 to +48).
   void setTranspose(int semitones) {
-    if (!liveDragging) saveToHistory();
     setState(() {
       editData = editData.copyWith(
         transposeSemitones: semitones.clamp(-48, 48),
@@ -120,7 +62,6 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
 
   /// Set fine pitch adjustment in cents (-50 to +50).
   void setFineCents(int cents) {
-    if (!liveDragging) saveToHistory();
     setState(() {
       editData = editData.copyWith(fineCents: cents.clamp(-50, 50));
     });
@@ -133,13 +74,10 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
 
   /// Set gain in decibels.
   void setGain(double db) {
-    saveToHistory();
     setState(() {
       editData = editData.copyWith(gainDb: db.clamp(-70.0, 24.0));
     });
-    notifyClipUpdated();
-    sendToAudioEngine();
-    commitToHistory('Set gain to ${db.toStringAsFixed(1)} dB');
+    finishEdit('Set gain to ${db.toStringAsFixed(1)} dB');
   }
 
   // ============================================
@@ -148,19 +86,15 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
 
   /// Toggle reverse playback.
   void toggleReverse() {
-    saveToHistory();
     final newValue = !editData.reversed;
     setState(() {
       editData = editData.copyWith(reversed: newValue);
     });
-    notifyClipUpdated();
-    sendToAudioEngine();
-    commitToHistory(newValue ? 'Enable reverse' : 'Disable reverse');
+    finishEdit(newValue ? 'Enable reverse' : 'Disable reverse');
   }
 
   /// Set normalize target level (null to disable).
   void setNormalize(double? targetDb) {
-    saveToHistory();
     setState(() {
       if (targetDb == null) {
         editData = editData.copyWith(clearNormalize: true);
@@ -170,13 +104,11 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
         );
       }
     });
-    notifyClipUpdated();
-    sendToAudioEngine();
-    if (targetDb != null) {
-      commitToHistory('Normalize to ${targetDb.toStringAsFixed(0)} dB');
-    } else {
-      commitToHistory('Disable normalization');
-    }
+    finishEdit(
+      targetDb != null
+          ? 'Normalize to ${targetDb.toStringAsFixed(0)} dB'
+          : 'Disable normalization',
+    );
   }
 
   // ============================================
@@ -185,18 +117,14 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
 
   /// Set BPM.
   void setBpm(double bpm) {
-    saveToHistory();
     setState(() {
       editData = editData.copyWith(bpm: bpm.clamp(20.0, 999.0));
     });
-    notifyClipUpdated();
-    sendToAudioEngine();
-    commitToHistory('Set BPM to ${bpm.toStringAsFixed(1)}');
+    finishEdit('Set BPM to ${bpm.toStringAsFixed(1)}');
   }
 
   /// Toggle tempo sync.
   void toggleSync() {
-    saveToHistory();
     final newValue = !editData.syncEnabled;
     setState(() {
       editData = editData.withWarp(
@@ -206,45 +134,6 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
       loopStartBeats = editData.loopStartBeats;
       loopEndBeats = editData.loopEndBeats;
     });
-    notifyClipUpdated();
-    sendToAudioEngine();
-    commitToHistory(newValue ? 'Enable tempo sync' : 'Disable tempo sync');
+    finishEdit(newValue ? 'Enable tempo sync' : 'Disable tempo sync');
   }
-}
-
-/// Command for undo/redo of audio clip edit operations.
-class AudioClipEditCommand extends Command {
-  final AudioClipEditData beforeState;
-  final AudioClipEditData afterState;
-  final ClipData clipData;
-  final String _actionDescription;
-  final void Function(AudioClipEditData, ClipData) onApplyState;
-
-  AudioClipEditCommand({
-    required this.beforeState,
-    required this.afterState,
-    required this.clipData,
-    required String actionDescription,
-    required this.onApplyState,
-  }) : _actionDescription = actionDescription;
-
-  @override
-  Future<void> execute(AudioEngineInterface engine) async {
-    _apply(engine, afterState);
-  }
-
-  @override
-  Future<void> undo(AudioEngineInterface engine) async {
-    _apply(engine, beforeState);
-  }
-
-  // The engine gets the state too: undo used to change only the editor, so
-  // an undone warp, gain or pitch edit kept playing.
-  void _apply(AudioEngineInterface engine, AudioClipEditData state) {
-    pushAudioClipEdits(engine, clipData.trackId, clipData.clipId, state);
-    onApplyState(state, clipData);
-  }
-
-  @override
-  String get description => _actionDescription;
 }

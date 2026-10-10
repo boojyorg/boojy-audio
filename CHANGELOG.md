@@ -88,6 +88,16 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Every Audio Editor change can be undone.** Loop on/off, Start, Length and dragging the loop
+  on the editor's ruler added no undo step, so ⌘Z undid the edit before them. Each change, gain,
+  pitch, warp and reverse included, is now one undo step that puts back how the clip sounds and
+  where its loop is, and a drag is one step. Undo also works after closing the editor (it used to
+  fail there), and the editor's loop follows the clip when you trim it in the arrangement.
+- **Turning Loop off ends a repeating clip where its audio does.** It kept its repeats' length
+  and played silence after the audio.
+- **The Audio Editor's Start keeps the loop's end.** Changing Start moves where the loop begins
+  and Length shrinks or grows to match, like dragging the loop's left edge. On a new clip, whose
+  loop is the whole file, Start used to be stuck.
 - **Trimming an audio clip keeps the audio under what stays.** Dragging an edge in, or dropping
   a clip over part of another, kept the wrong part of a reversed clip (dragging its left edge cut
   the start of its audio, which it plays last), and moved a warped clip's audio by the wrong

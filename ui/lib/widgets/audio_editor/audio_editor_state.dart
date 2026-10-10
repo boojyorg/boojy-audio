@@ -103,9 +103,6 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
   // UNDO/REDO STATE
   // ============================================
 
-  /// Snapshot of edit data before an action (for undo).
-  AudioClipEditData? snapshotBeforeAction;
-
   /// Global undo/redo manager.
   final UndoRedoManager undoRedoManager = UndoRedoManager();
 
@@ -271,10 +268,15 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
     );
   }
 
-  /// Update clip when widget changes.
+  /// Update clip when widget changes. The same clip changed from outside
+  /// (trimmed on the timeline, an undo or redo) keeps the zoom and scroll;
+  /// ignoring it left the loop region on the old audio.
   void updateFromClip(ClipData? clip, {double projectTempo = 120.0}) {
-    if (clip == null || clip.clipId == currentClip?.clipId) return;
+    if (clip == null) return;
+    final sameClip = clip.clipId == currentClip?.clipId;
+    final zoomToFit = shouldZoomToFit;
     initFromClip(clip, projectTempo: projectTempo);
+    if (sameClip) shouldZoomToFit = zoomToFit;
   }
 
   /// Recount the beats when the project tempo changes (only warp OFF clips,

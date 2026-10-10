@@ -48,6 +48,9 @@ class EditorPanel extends StatefulWidget {
   final ClipData? currentEditingAudioClip;
   final Function(ClipData)? onAudioClipUpdated;
 
+  /// The Audio Editor finished an edit (one undo step), described as given.
+  final void Function(String description)? onAudioClipEditFinished;
+
   // M10: VST3 Plugin support
   final List<Vst3PluginInstance>? currentTrackPlugins;
 
@@ -113,6 +116,7 @@ class EditorPanel extends StatefulWidget {
     this.onInstrumentParameterChanged,
     this.currentEditingAudioClip,
     this.onAudioClipUpdated,
+    this.onAudioClipEditFinished,
     this.currentTrackPlugins,
     this.availableVst3Plugins = const [],
     this.isCollapsed = false,
@@ -1323,6 +1327,7 @@ class _EditorPanelState extends State<EditorPanel>
       audioEngine: widget.audioEngine,
       clipData: clipData,
       onClipUpdated: widget.onAudioClipUpdated,
+      onEditFinished: widget.onAudioClipEditFinished,
       toolMode: widget.toolMode,
       onToolModeChanged: widget.callbacks.onToolModeChanged,
       projectTempo: widget.projectTempo,
