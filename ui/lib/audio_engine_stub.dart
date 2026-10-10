@@ -418,6 +418,7 @@ class AudioEngine implements AudioEngineInterface {
 
   void startRecording() => throw UnsupportedError('stub');
   int stopRecording() => throw UnsupportedError('stub');
+  List<int> getLastRecordedClipIds() => throw UnsupportedError('stub');
   void startMidiRecording() => throw UnsupportedError('stub');
   int stopMidiRecording() => throw UnsupportedError('stub');
   int getRecordingState() => throw UnsupportedError('stub');

@@ -27,6 +27,22 @@ mixin _RecordingMixin on _AudioEngineBase {
     }
   }
 
+  /// Every audio clip the last [stopRecording] made, one per armed audio
+  /// track ([stopRecording] returns only the first).
+  List<int> getLastRecordedClipIds() {
+    try {
+      final resultPtr = _getLastRecordedClipIds();
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return [
+        for (final id in result.split(','))
+          if (int.tryParse(id) case final clipId?) clipId,
+      ];
+    } catch (e) {
+      return const [];
+    }
+  }
+
   /// Get recording state (0=Idle, 1=CountingIn, 2=Recording)
   int getRecordingState() {
     try {
