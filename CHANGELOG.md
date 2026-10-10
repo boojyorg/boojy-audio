@@ -88,6 +88,8 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Macs on macOS 11 aren't offered updates they can't open.** Boojy needs macOS 12 now, but the
+  update feed and the release page still said 11.
 - **Every Audio Editor change can be undone.** Loop on/off, Start, Length and dragging the loop
   on the editor's ruler added no undo step, so ⌘Z undid the edit before them. Each change, gain,
   pitch, warp and reverse included, is now one undo step that puts back how the clip sounds and
