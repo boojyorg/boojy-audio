@@ -157,6 +157,9 @@ typedef _StartRecordingFfi = ffi.Pointer<Utf8> Function();
 typedef _StopRecordingFfiNative = ffi.Int64 Function();
 typedef _StopRecordingFfi = int Function();
 
+typedef _GetLastRecordedClipIdsFfiNative = ffi.Pointer<Utf8> Function();
+typedef _GetLastRecordedClipIdsFfi = ffi.Pointer<Utf8> Function();
+
 typedef _GetRecordingStateFfiNative = ffi.Int32 Function();
 typedef _GetRecordingStateFfi = int Function();
 

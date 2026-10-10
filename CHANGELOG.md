@@ -88,6 +88,10 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Recording onto two armed audio tracks keeps both takes.** The engine recorded a take on
+  every armed audio track, but only the first stayed on screen when you stopped; the others
+  played unseen. Every take now shows, one undo takes them all away together, and a repeating
+  clip a take recorded over comes back as it was (its pattern used to shift).
 - **Trimming an audio clip keeps the audio under what stays.** Dragging an edge in, or dropping
   a clip over part of another, kept the wrong part of a reversed clip (dragging its left edge cut
   the start of its audio, which it plays last), and moved a warped clip's audio by the wrong
