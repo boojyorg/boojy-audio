@@ -7,6 +7,10 @@ use crate::audio_input::InputChoice;
 use std::fmt::Write as _;
 use std::sync::Arc;
 
+/// Every audio clip the last [`stop_recording`] made, one per armed audio
+/// track. `stop_recording` returns only the first.
+static LAST_RECORDED_CLIPS: parking_lot::Mutex<Vec<u64>> = parking_lot::Mutex::new(Vec::new());
+
 // ============================================================================
 // AUDIO INPUT DEVICES
 // ============================================================================
@@ -283,6 +287,7 @@ pub fn start_recording() -> Result<String, String> {
 
 /// Stop recording and return the recorded clip ID
 pub fn stop_recording() -> Result<Option<u64>, String> {
+    LAST_RECORDED_CLIPS.lock().clear();
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
 
@@ -368,6 +373,7 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
                 .ok_or(format!("Failed to add recorded clip to track {track_id}"))?;
 
             clips_map.insert(clip_id, track_clip_arc);
+            LAST_RECORDED_CLIPS.lock().push(clip_id);
 
             if first_clip_id.is_none() {
                 first_clip_id = Some(clip_id);
@@ -390,6 +396,18 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
     } else {
         Ok(None)
     }
+}
+
+/// Every audio clip the last [`stop_recording`] made, comma-separated (empty
+/// if it made none).
+#[must_use]
+pub fn get_last_recorded_clip_ids() -> String {
+    LAST_RECORDED_CLIPS
+        .lock()
+        .iter()
+        .map(u64::to_string)
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 /// Get current recording state (0=Idle, 1=CountingIn, 2=Recording, 3=WaitingForPunchIn)

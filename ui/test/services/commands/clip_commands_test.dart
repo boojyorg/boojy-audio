@@ -1054,7 +1054,7 @@ void main() {
       List<MidiClipData> midiAfter = const [],
     }) {
       return RecordingCompleteCommand(
-        audioTrackId: 1,
+        audioTrackIds: const [1],
         audioClipsBefore: [neighborBefore],
         audioClipsAfter: [neighborAfter, recordedClip],
         midiTrackId: midiBefore.isEmpty && midiAfter.isEmpty ? null : 1,

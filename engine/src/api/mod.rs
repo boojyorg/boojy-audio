@@ -74,11 +74,11 @@ pub use recording::{
     get_audio_input_devices, get_audio_input_health, get_audio_input_status,
     get_audio_output_devices, get_audio_stream_error, get_count_in_bars, get_count_in_beat,
     get_count_in_progress, get_input_channel_count, get_input_channel_level,
-    get_live_recording_peaks, get_punch_in_seconds, get_punch_out_seconds, get_recorded_duration,
-    get_recording_state, get_sample_rate, get_selected_audio_output_device, is_punch_complete,
-    is_punch_in_enabled, is_punch_out_enabled, set_audio_input_choice, set_audio_output_device,
-    set_count_in_bars, set_punch_in_enabled, set_punch_out_enabled, set_punch_region,
-    start_recording, stop_recording,
+    get_last_recorded_clip_ids, get_live_recording_peaks, get_punch_in_seconds,
+    get_punch_out_seconds, get_recorded_duration, get_recording_state, get_sample_rate,
+    get_selected_audio_output_device, is_punch_complete, is_punch_in_enabled, is_punch_out_enabled,
+    set_audio_input_choice, set_audio_output_device, set_count_in_bars, set_punch_in_enabled,
+    set_punch_out_enabled, set_punch_region, start_recording, stop_recording,
 };
 pub use sends::{
     add_send, add_shared_send, count_sends_to_return, create_return_with_effect, db_to_linear,

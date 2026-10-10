@@ -30,6 +30,14 @@ pub extern "C" fn stop_recording_ffi() -> i64 {
     })
 }
 
+/// Every audio clip the last stop_recording made, comma-separated
+#[no_mangle]
+pub extern "C" fn get_last_recorded_clip_ids_ffi() -> *mut c_char {
+    ffi_catch(std::ptr::null_mut(), || {
+        safe_cstring(api::get_last_recorded_clip_ids()).into_raw()
+    })
+}
+
 /// Get recording state (0=Idle, 1=CountingIn, 2=Recording)
 #[no_mangle]
 pub extern "C" fn get_recording_state_ffi() -> i32 {

@@ -134,11 +134,11 @@ class DawHarness {
     expect(problems, isEmpty, reason: 'After $after');
   }
 
-  /// A 2 s mono 48 kHz WAV in [tempDir]: a short 1 kHz click every half
-  /// second (on the beat at 120 BPM), silence between.
-  String writeClickWav(String name) {
+  /// A mono 48 kHz WAV of [seconds] (2 by default) in [tempDir]: a short
+  /// 1 kHz click every half second (on the beat at 120 BPM), silence between.
+  String writeClickWav(String name, {double seconds = 2}) {
     const rate = 48000;
-    const frames = rate * 2;
+    final frames = (rate * seconds).round();
     final data = ByteData(44 + frames * 2);
     void ascii(int at, String s) {
       for (var i = 0; i < s.length; i++) {

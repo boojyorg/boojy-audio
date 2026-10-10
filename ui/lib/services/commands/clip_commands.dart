@@ -1247,15 +1247,16 @@ class CreateMidiClipCommand extends Command {
 /// Stores before/after snapshots of all clips on the affected track(s).
 /// Handles both MIDI and audio clips, syncing UI and engine state.
 class RecordingCompleteCommand extends Command {
-  /// Track IDs affected by this recording
+  /// Track IDs affected by this recording: the MIDI track, and every armed
+  /// audio track (each gets a take).
   final int? midiTrackId;
-  final int? audioTrackId;
+  final List<int> audioTrackIds;
 
   /// MIDI clip snapshots (all clips on the track before/after recording)
   final List<MidiClipData> midiClipsBefore;
   final List<MidiClipData> midiClipsAfter;
 
-  /// Audio clip snapshots (all clips on the track before/after recording)
+  /// Audio clip snapshots (all clips on the tracks before/after recording)
   final List<ClipData> audioClipsBefore;
   final List<ClipData> audioClipsAfter;
 
@@ -1270,7 +1271,7 @@ class RecordingCompleteCommand extends Command {
 
   RecordingCompleteCommand({
     this.midiTrackId,
-    this.audioTrackId,
+    this.audioTrackIds = const [],
     this.midiClipsBefore = const [],
     this.midiClipsAfter = const [],
     this.audioClipsBefore = const [],
@@ -1313,21 +1314,23 @@ class RecordingCompleteCommand extends Command {
     List<MidiClipData> toMidiClips,
   ) {
     // Sync audio clips with engine
-    if (audioTrackId != null) {
-      final fromIds = fromAudioClips.map((c) => c.clipId).toSet();
+    if (audioTrackIds.isNotEmpty) {
       final toIds = toAudioClips.map((c) => c.clipId).toSet();
+      final fromIds = fromAudioClips.map((c) => c.clipId).toSet();
 
       // Remove clips that are in "from" but not in "to"
-      for (final id in fromIds.difference(toIds)) {
-        engine.removeAudioClip(audioTrackId!, id);
+      for (final clip in fromAudioClips) {
+        if (!toIds.contains(clip.clipId)) {
+          engine.removeAudioClip(clip.trackId, clip.clipId);
+        }
       }
 
-      // Add clips that are in "to" but not in "from"
       for (final clip in toAudioClips) {
         if (!fromIds.contains(clip.clipId)) {
+          // Add clips that are in "to" but not in "from"
           engine.addExistingClipToTrack(
             clip.clipId,
-            audioTrackId!,
+            clip.trackId,
             clip.startTime,
             offset: clip.offset,
             duration: clip.duration,
@@ -1335,25 +1338,28 @@ class RecordingCompleteCommand extends Command {
           // Re-added clips start with default processing: restore edits too.
           final edit = clip.editData;
           if (edit != null) {
-            pushAudioClipEdits(engine, audioTrackId!, clip.clipId, edit);
+            pushAudioClipEdits(engine, clip.trackId, clip.clipId, edit);
           }
+        } else {
+          // Update clips that exist in both. Recording over a neighbor trims
+          // its offset/duration, so undo/redo must re-push all three: start
+          // time alone left the engine playing the trimmed audio while the
+          // UI showed the restored clip (#15).
+          engine.setClipStartTime(clip.trackId, clip.clipId, clip.startTime);
+          engine.setClipOffset(clip.trackId, clip.clipId, clip.offset);
+          engine.setClipDuration(clip.trackId, clip.clipId, clip.duration);
         }
-      }
-
-      // Update positions/durations for clips that exist in both. Recording
-      // over a neighbor trims its offset/duration, so undo/redo must re-push
-      // all three — start time alone left the engine playing the trimmed
-      // audio while the UI showed the restored clip (#15).
-      for (final clip in toAudioClips) {
-        if (fromIds.contains(clip.clipId)) {
-          engine.setClipStartTime(audioTrackId!, clip.clipId, clip.startTime);
-          engine.setClipOffset(audioTrackId!, clip.clipId, clip.offset);
-          engine.setClipDuration(audioTrackId!, clip.clipId, clip.duration);
-        }
+        // And how it repeats: a trim moves a repeating clip's loop start.
+        pushAudioClipLoop(engine, clip);
       }
 
       // Apply to UI
-      onApplyAudioState?.call(audioTrackId!, toAudioClips);
+      for (final trackId in audioTrackIds) {
+        onApplyAudioState?.call(trackId, [
+          for (final clip in toAudioClips)
+            if (clip.trackId == trackId) clip,
+        ]);
+      }
     }
 
     // Apply MIDI state to UI (engine sync handled by midiPlaybackManager)
