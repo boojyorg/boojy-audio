@@ -88,6 +88,8 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Macs on macOS 11 aren't offered updates they can't open.** Boojy needs macOS 12 now, but the
+  update feed and the release page still said 11.
 - **Trimming an audio clip keeps the audio under what stays.** Dragging an edge in, or dropping
   a clip over part of another, kept the wrong part of a reversed clip (dragging its left edge cut
   the start of its audio, which it plays last), and moved a warped clip's audio by the wrong
