@@ -45,6 +45,7 @@ class _AudioEngineBase {
   // M2 functions - Recording & Input
   late final _StartRecordingFfi _startRecording;
   late final _StopRecordingFfi _stopRecording;
+  late final _GetLastRecordedClipIdsFfi _getLastRecordedClipIds;
   late final _GetRecordingStateFfi _getRecordingState;
   late final _GetRecordedDurationFfi _getRecordedDuration;
   late final _GetLiveRecordingPeaksFfi _getLiveRecordingPeaks;
@@ -532,6 +533,12 @@ class _AudioEngineBase {
       _stopRecording = _lib
           .lookup<ffi.NativeFunction<_StopRecordingFfiNative>>(
             'stop_recording_ffi',
+          )
+          .asFunction();
+
+      _getLastRecordedClipIds = _lib
+          .lookup<ffi.NativeFunction<_GetLastRecordedClipIdsFfiNative>>(
+            'get_last_recorded_clip_ids_ffi',
           )
           .asFunction();
 

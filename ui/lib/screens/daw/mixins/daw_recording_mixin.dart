@@ -290,8 +290,9 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     );
     final engine = audioEngine;
     if (engine == null || !result.hasChanges) return;
-    // Run directly, not as an undo step: undoing the take leaves these
-    // trims (BACKLOG).
+    // Run directly, not as its own undo step: the take's
+    // RecordingCompleteCommand holds the track before and after, so undoing
+    // the take undoes these trims too.
     ResolveAudioOverlapCommand(
       result: result,
       uiRemoveClip: (cId) => timelineState.removeClip(cId),
@@ -341,59 +342,64 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     final timelineState = timelineKey.currentState;
 
     // Track IDs affected by this recording (for undo command)
-    int? audioTrackIdForUndo;
+    final audioTrackIdsForUndo = <int>[];
     int? midiTrackIdForUndo;
 
     // Before snapshots (captured before overlap handling)
-    List<ClipData> audioClipsBefore = [];
+    final audioClipsBefore = <ClipData>[];
     List<MidiClipData> midiClipsBefore = [];
 
-    // Handle audio clip
+    // Handle audio: a take on every armed audio track.
+    final audioTakes = result.audioTakes.isNotEmpty
+        ? result.audioTakes
+        : {
+            if (result.audioClipId case final id?)
+              id: result.waveformPeaks ?? const <double>[],
+          };
     if (result.audioClipId != null) {
       setState(() {
         loadedClipId = result.audioClipId;
         clipDuration = result.duration;
         waveformPeaks = result.waveformPeaks ?? [];
       });
+    }
 
-      // Place it where the engine put it. The mixer's armed flags can lag
-      // (Record → New Audio Track arms the track a moment before recording),
-      // and the engine knows the take's real start (count-in, punch-in).
-      final placement = _engineAudioClipPlacement(result.audioClipId!);
+    // Place each where the engine put it. The mixer's armed flags can lag
+    // (Record → New Audio Track arms the track a moment before recording),
+    // and the engine knows the take's real start (count-in, punch-in).
+    final takes = [
+      for (final MapEntry(key: clipId, value: peaks) in audioTakes.entries)
+        if (_engineAudioClipPlacement(clipId) case final placement?
+            when placement.duration > 0)
+          ClipData(
+            clipId: clipId,
+            trackId: placement.trackId,
+            filePath: 'recorded_t${placement.trackId}_$clipId.wav',
+            startTime: placement.startTime,
+            duration: placement.duration,
+            waveformPeaks: peaks,
+          ),
+    ];
 
-      if (placement != null && placement.duration > 0) {
-        final audioTrackId = placement.trackId;
-        audioTrackIdForUndo = audioTrackId;
-        final startTime = placement.startTime;
-        final duration = placement.duration;
-        final peaks = result.waveformPeaks ?? [];
+    // Capture before snapshot of every track that gets a take, before any
+    // overlap handling.
+    for (final take in takes) {
+      if (audioTrackIdsForUndo.contains(take.trackId)) continue;
+      audioTrackIdsForUndo.add(take.trackId);
+      audioClipsBefore.addAll(
+        timelineState?.getAudioClipsOnTrack(take.trackId) ?? const [],
+      );
+    }
 
-        // Capture before snapshot
-        audioClipsBefore =
-            timelineState?.getAudioClipsOnTrack(audioTrackId) ?? [];
-
-        // Handle overlap: trim, split, or delete existing clips
-        _handleRecordingOverlap(
-          trackId: audioTrackId,
-          startTime: startTime,
-          duration: duration,
-          isMidiClip: false,
-        );
-
-        // Create ClipData and add to timeline
-        final clipData = ClipData(
-          clipId: result.audioClipId!,
-          trackId: audioTrackId,
-          filePath: 'recorded_t${audioTrackId}_${result.audioClipId}.wav',
-          startTime: startTime,
-          duration: duration,
-          waveformPeaks: peaks,
-        );
-
-        if (timelineState != null) {
-          timelineState.addClip(clipData);
-        }
-      }
+    for (final take in takes) {
+      // Handle overlap: trim, split, or delete existing clips
+      _handleRecordingOverlap(
+        trackId: take.trackId,
+        startTime: take.startTime,
+        duration: take.duration,
+        isMidiClip: false,
+      );
+      timelineState?.addClip(take);
     }
 
     // Handle MIDI clip
@@ -461,11 +467,12 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     }
 
     // Push undo command if any clips were recorded
-    if (audioTrackIdForUndo != null || midiTrackIdForUndo != null) {
+    if (audioTrackIdsForUndo.isNotEmpty || midiTrackIdForUndo != null) {
       // Capture after snapshots
-      final audioClipsAfter = audioTrackIdForUndo != null
-          ? (timelineState?.getAudioClipsOnTrack(audioTrackIdForUndo) ?? [])
-          : <ClipData>[];
+      final audioClipsAfter = [
+        for (final trackId in audioTrackIdsForUndo)
+          ...?timelineState?.getAudioClipsOnTrack(trackId),
+      ];
       final midiClipsAfter = midiTrackIdForUndo != null
           ? (midiPlaybackManager?.midiClips
                     .where((c) => c.trackId == midiTrackIdForUndo)
@@ -474,7 +481,7 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
           : <MidiClipData>[];
 
       final command = RecordingCompleteCommand(
-        audioTrackId: audioTrackIdForUndo,
+        audioTrackIds: audioTrackIdsForUndo,
         midiTrackId: midiTrackIdForUndo,
         audioClipsBefore: audioClipsBefore,
         audioClipsAfter: audioClipsAfter,

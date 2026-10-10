@@ -88,6 +88,10 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Recording onto two armed audio tracks keeps both takes.** The engine recorded a take on
+  every armed audio track, but only the first stayed on screen when you stopped; the others
+  played unseen. Every take now shows, one undo takes them all away together, and a repeating
+  clip a take recorded over comes back as it was (its pattern used to shift).
 - **Macs on macOS 11 aren't offered updates they can't open.** Boojy needs macOS 12 now, but the
   update feed and the release page still said 11.
 - **Every Audio Editor change can be undone.** Loop on/off, Start, Length and dragging the loop

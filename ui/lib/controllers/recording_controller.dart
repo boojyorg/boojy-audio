@@ -12,12 +12,17 @@ class RecordingResult {
   final List<double>? waveformPeaks;
   final String? midiClipInfo;
 
+  /// Every audio take, one per armed audio track ([audioClipId] is the
+  /// first), with its waveform.
+  final Map<int, List<double>> audioTakes;
+
   RecordingResult({
     this.audioClipId,
     this.midiClipId,
     this.duration,
     this.waveformPeaks,
     this.midiClipInfo,
+    this.audioTakes = const {},
   });
 }
 
@@ -313,7 +318,16 @@ class RecordingController extends ChangeNotifier {
         'midiClipId=${midiClipId >= 0 ? midiClipId : null}',
       );
 
+      // The engine records a take on every armed audio track.
+      final takeIds = audioClipId < 0
+          ? const <int>[]
+          : _audioEngine!.getLastRecordedClipIds();
       final result = RecordingResult(
+        audioTakes: {
+          for (final id
+              in takeIds.isEmpty && audioClipId >= 0 ? [audioClipId] : takeIds)
+            id: _audioEngine!.getWaveformPeaks(id, peakResolution),
+        },
         audioClipId: audioClipId >= 0 ? audioClipId : null,
         midiClipId: midiClipId >= 0 ? midiClipId : null,
         duration: duration > 0 ? duration : null,

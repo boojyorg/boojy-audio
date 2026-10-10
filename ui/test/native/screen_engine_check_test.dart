@@ -170,14 +170,13 @@ void main() {
     expect(midiCheck(), isEmpty);
   });
 
-  // Known bug (BACKLOG, Fix before release): with two audio tracks armed the
-  // engine records a take on each, but the screen gets only the first. Needs
-  // a real input, so it also skips where none opens.
+  // With two audio tracks armed the engine records a take on each, and the
+  // result hands over both. Needs a real input, so it skips where none opens.
   test('recording onto two armed tracks shows every take', () async {
     engine.setAudioInputChoice('');
     engine.setCountInBars(0);
     final first = engine.createTrack('audio', 'Audio 1');
-    engine.createTrack('audio', 'Audio 2');
+    final second = engine.createTrack('audio', 'Audio 2');
     await Future<void>.delayed(const Duration(milliseconds: 300));
     final health = engine.getAudioInputHealth().state;
     if (health == InputHealthState.failed || health == InputHealthState.off) {
@@ -194,16 +193,20 @@ void main() {
     controller.dispose();
     engine.setAudioInputChoice(kAudioInputOff);
 
-    // What the app puts on screen: the one take the result reports.
+    // What the app puts on screen: every take the result reports, in the
+    // order the engine made them (one per armed track).
+    final ids = result.audioTakes.keys.toList();
+    expect(ids, hasLength(2));
     final shown = [
-      ClipData(
-        clipId: result.audioClipId!,
-        trackId: first,
-        filePath: '',
-        startTime: 0,
-        duration: engine.getClipDuration(result.audioClipId!),
-      ),
+      for (final (i, id) in ids.indexed)
+        ClipData(
+          clipId: id,
+          trackId: [first, second][i],
+          filePath: '',
+          startTime: 0,
+          duration: engine.getClipDuration(id),
+        ),
     ];
     expect(check(audio: shown), isEmpty);
-  }, skip: 'Known bug: two armed tracks show only the first take (BACKLOG)');
+  });
 }

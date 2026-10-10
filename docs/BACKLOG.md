@@ -66,9 +66,6 @@ reproduces them.
 - **Piano Roll loop changes aren't undoable.** Its loop Start, Length and loop-ruler drags change
   the clip but add no undo step, so ⌘Z undoes the edit before them instead (the Audio Editor's
   were fixed by making each edit an `EditAudioClipCommand`).
-- **Recording onto two armed audio tracks shows only the first take.** The engine records a
-  clip on every armed audio track, but the UI adds (and undoes) only the first, so the others
-  exist in the engine unseen. `RecordingCompleteCommand` needs to cover several tracks.
 - **Recording with loop on shows a negative playhead** (−0.9s, −1.9s after the loop wraps).
   Decided (2026-10-10): recording ignores the loop and carries straight on until Stop, so no
   part of a take is lost.
@@ -87,8 +84,6 @@ reproduces them.
   - **Boojy can't start on a machine with no audio output** (no default output device): the
     audio graph opens the output stream when it starts. Starting without one and saying so in a
     notice would also let `test/native` run on Windows CI, whose machines have no sound card.
-  - Undoing a recording doesn't bring back the clips it recorded over: the overlap trims run
-    outside `RecordingCompleteCommand` (`_applyAudioOverlap`, `_applyMidiOverlap`).
   - Trimming a MIDI clip's left edge drops the notes before it (`adjustNotesForTrim`), so
     dragging the edge back out shows an empty start; audio clips now keep theirs.
   - "Mute Clip" on a MIDI clip may not silence it: the menu sets a flag that nothing in the
