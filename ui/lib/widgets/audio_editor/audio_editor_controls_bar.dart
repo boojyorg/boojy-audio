@@ -56,6 +56,10 @@ class AudioEditorControlsBar extends StatefulWidget {
   final double gainDb;
   final Function(double)? onGainChanged;
 
+  /// A press or drag on the volume slider starts and ends (one undo step).
+  final VoidCallback? onGainDragStart;
+  final VoidCallback? onGainDragEnd;
+
   // === Create Sampler ===
   final VoidCallback? onCreateSamplerFromClip;
 
@@ -90,6 +94,8 @@ class AudioEditorControlsBar extends StatefulWidget {
     this.onReverseToggle,
     this.gainDb = 0.0,
     this.onGainChanged,
+    this.onGainDragStart,
+    this.onGainDragEnd,
     this.onCreateSamplerFromClip,
   });
 
@@ -368,7 +374,12 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
               final db = sliderToDb(value);
               widget.onGainChanged?.call(db);
             },
-            onDoubleTap: () => widget.onGainChanged?.call(0.0), // Reset to 0 dB
+            onChangeStart: widget.onGainDragStart,
+            onChangeEnd: widget.onGainDragEnd,
+            onDoubleTap: () {
+              widget.onGainChanged?.call(0.0); // Reset to 0 dB
+              widget.onGainDragEnd?.call(); // a double-click has no tap-up
+            },
           ),
         ),
       ],

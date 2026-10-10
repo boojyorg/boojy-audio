@@ -2,6 +2,7 @@ import 'package:boojy_audio/models/audio_clip_edit_data.dart';
 import 'package:boojy_audio/models/clip_data.dart';
 import 'package:boojy_audio/theme/theme_provider.dart';
 import 'package:boojy_audio/widgets/audio_editor/audio_editor.dart';
+import 'package:boojy_audio/widgets/shared/editors/capsule_slider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -95,5 +96,47 @@ void main() {
     await tester.pump();
     expect(finished, ['Set pitch']);
     await tester.pump(kDoubleTapTimeout);
+  });
+
+  group('volume', () {
+    Finder slider() => find.byType(CapsuleSlider);
+
+    testWidgets('a drag is one edit, finished on release', (tester) async {
+      final (updates, finished) = await pumpEditor(tester);
+      final start = tester.getCenter(slider());
+      final drag = await tester.startGesture(
+        start,
+        kind: PointerDeviceKind.mouse,
+      );
+      for (var i = 0; i < 6; i++) {
+        await drag.moveBy(const Offset(8, 0));
+        await tester.pump();
+      }
+      expect(finished, isEmpty, reason: 'nothing finished mid-drag');
+      await drag.up();
+      await tester.pump();
+      final gain = updates.last.editData!.gainDb;
+      expect(gain, greaterThan(0));
+      expect(finished, ['Set gain to ${gain.toStringAsFixed(1)} dB']);
+      await tester.pump(kDoubleTapTimeout);
+    });
+
+    testWidgets('a click is one edit', (tester) async {
+      final (_, finished) = await pumpEditor(tester);
+      await tester.tapAt(tester.getCenter(slider()) + const Offset(30, 0));
+      await tester.pump(kDoubleTapTimeout);
+      expect(finished, hasLength(1));
+    });
+
+    testWidgets('a double-click resets to 0 dB in one edit', (tester) async {
+      final (updates, finished) = await pumpEditor(tester);
+      final at = tester.getCenter(slider()) + const Offset(30, 0);
+      await tester.tapAt(at);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(at);
+      await tester.pump(kDoubleTapTimeout);
+      expect(updates.last.editData!.gainDb, 0);
+      expect(finished, hasLength(1), reason: 'one step back to before');
+    });
   });
 }

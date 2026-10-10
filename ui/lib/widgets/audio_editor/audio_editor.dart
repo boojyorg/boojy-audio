@@ -183,6 +183,10 @@ class _AudioEditorState extends State<AudioEditor>
                   onFineCentsChanged: setFineCents,
                   gainDb: editData.gainDb,
                   onGainChanged: setGain,
+                  onGainDragStart: beginLiveDrag,
+                  onGainDragEnd: () => endLiveDrag(
+                    'Set gain to ${editData.gainDb.toStringAsFixed(1)} dB',
+                  ),
                   onCreateSamplerFromClip: widget.onCreateSamplerFromClip,
                 ),
 
