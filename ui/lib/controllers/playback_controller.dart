@@ -305,10 +305,16 @@ class PlaybackController extends ChangeNotifier {
   /// PlaybackController.play() was not called.
   /// [displayOffset] is subtracted from the engine position so that count-in
   /// time doesn't visually advance the playhead.
+  ///
+  /// Recording ignores the loop: the take runs straight on until Stop. A
+  /// jump back replayed the backing while the take kept growing past the
+  /// loop (what you played landed where you didn't hear it), and showed a
+  /// negative playhead. The next Play reads the loop setting again.
   void startPlayheadPolling({double displayOffset = 0.0}) {
     Log.d(
       '▶️ [PLAYBACK] startPlayheadPolling(displayOffset=${displayOffset.toStringAsFixed(3)}s)',
     );
+    _isLoopCycling = false;
     _playheadDisplayOffset = displayOffset;
     _startPlayheadTimer();
   }
