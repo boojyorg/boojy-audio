@@ -71,9 +71,6 @@ reproduces them.
   exist in the engine unseen. `RecordingCompleteCommand` needs to cover several tracks.
 - **Recording with loop on shows a negative playhead** (−0.9s, −1.9s after the loop wraps).
   *(Tyr)* decide what loop-on recording does (stop at loop end, or ignore the loop) first.
-- **`appcast.xml` still says `minimumSystemVersion` 11.0, but the app now needs macOS 12**
-  (CHANGELOG). `release.yml` generates the file (hard-coded in its "Generate appcast.xml" step),
-  so fix it there, or Sparkle offers the update to Macs that can't run it.
 - **The appcast commit can't reach `master`** (branch protection). Details and options in
   [RELEASING.md](RELEASING.md#what-the-release-workflow-does).
 - **Export freezes the window, and its progress bar never moves.** The export runs on the UI

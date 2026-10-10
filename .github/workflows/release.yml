@@ -374,7 +374,7 @@ jobs:
                 <pubDate>DATE_PLACEHOLDER</pubDate>
                 <sparkle:version>${{ steps.version.outputs.build }}</sparkle:version>
                 <sparkle:shortVersionString>${{ steps.version.outputs.version }}</sparkle:shortVersionString>
-                <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
+                <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
                 <enclosure
                   url="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Boojy-Audio-mac.dmg"
                   sparkle:edSignature="${{ steps.sparkle.outputs.signature }}"
@@ -399,7 +399,7 @@ jobs:
             ## Boojy Audio ${{ github.ref_name }}
 
             ### Downloads
-            - **macOS** (11.0+): [Boojy-Audio-mac.dmg](https://github.com/${{ github.repository }}/releases/latest/download/Boojy-Audio-mac.dmg)
+            - **macOS** (12.0+): [Boojy-Audio-mac.dmg](https://github.com/${{ github.repository }}/releases/latest/download/Boojy-Audio-mac.dmg)
             - **Windows** (10+): [Boojy-Audio-win.exe](https://github.com/${{ github.repository }}/releases/latest/download/Boojy-Audio-win.exe)
 
             ### What's New
