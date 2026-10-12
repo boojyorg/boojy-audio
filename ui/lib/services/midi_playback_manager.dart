@@ -221,81 +221,11 @@ class MidiPlaybackManager extends ChangeNotifier {
   /// The notes are stored in beats, so we need to recalculate
   /// their positions in seconds based on the new tempo.
   void rescheduleAllClips(double newTempo) {
-    final beatsPerSecond = newTempo / 60.0;
-
     for (final clip in _midiClips) {
-      // Get the Rust clip ID
-      final rustClipId = _dartToRustClipIds[clip.clipId];
-      if (rustClipId == null) continue;
-
-      // Clear existing notes
-      _audioEngine.clearMidiClip(rustClipId);
-
-      // Reschedule notes with new tempo (respecting contentStartOffset)
-      final loopLengthSeconds = clip.loopLength / beatsPerSecond;
-      final contentOffset = clip.contentStartOffset;
-      final numLoops = clip.canRepeat && clip.duration >= clip.loopLength
-          ? (clip.duration / clip.loopLength).ceil()
-          : 1;
-
-      for (int loop = 0; loop < numLoops; loop++) {
-        final loopOffsetBeats = loop * clip.loopLength;
-        final loopOffsetSeconds = loop * loopLengthSeconds;
-
-        for (final note in clip.notes) {
-          // Calculate note position relative to content start offset
-          final noteRelativeStart = note.startTime - contentOffset;
-
-          // Skip notes that start before the content offset
-          if (noteRelativeStart < 0) continue;
-
-          // Only include notes within the loopLength boundary (relative to content start)
-          if (noteRelativeStart >= clip.loopLength) continue;
-
-          final noteStartBeats = loopOffsetBeats + noteRelativeStart;
-          final noteEndBeats =
-              loopOffsetBeats + noteRelativeStart + note.duration;
-
-          if (noteStartBeats >= clip.duration) continue;
-
-          // Convert to seconds (using relative start time)
-          final noteStartSeconds =
-              (noteRelativeStart / beatsPerSecond) + loopOffsetSeconds;
-          var durationSeconds = note.durationInSeconds(newTempo);
-
-          if (noteEndBeats > clip.duration) {
-            final truncatedDurationBeats = clip.duration - noteStartBeats;
-            durationSeconds = truncatedDurationBeats / beatsPerSecond;
-          }
-
-          final noteEndInLoop = noteRelativeStart + note.duration;
-          if (noteEndInLoop > clip.loopLength) {
-            final truncatedDurationBeats = clip.loopLength - noteRelativeStart;
-            final truncatedSeconds = truncatedDurationBeats / beatsPerSecond;
-            durationSeconds = durationSeconds < truncatedSeconds
-                ? durationSeconds
-                : truncatedSeconds;
-          }
-
-          if (durationSeconds > 0) {
-            _audioEngine.addMidiNoteToClip(
-              rustClipId,
-              note.note,
-              note.velocity,
-              noteStartSeconds,
-              durationSeconds,
-            );
-          }
-        }
-      }
-
-      // Update clip start time in engine (convert beats to seconds)
-      final clipStartTimeSeconds = clip.startTime / beatsPerSecond;
-      _audioEngine.setClipStartTime(
-        clip.trackId,
-        rustClipId,
-        clipStartTimeSeconds,
-      );
+      // Only clips the engine already knows about; the shared scheduler
+      // clears and re-adds their notes and re-syncs the start time.
+      if (!_dartToRustClipIds.containsKey(clip.clipId)) continue;
+      _scheduleMidiClipPlayback(clip, newTempo);
     }
   }
 

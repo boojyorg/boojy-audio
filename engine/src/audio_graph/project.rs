@@ -273,8 +273,8 @@ impl AudioGraph {
             })
             .collect();
 
-        eprintln!("   - {} tracks", tracks_data.len());
-        eprintln!("   - {} audio files", audio_files.len());
+        dlog!("   - {} tracks", tracks_data.len());
+        dlog!("   - {} audio files", audio_files.len());
 
         // Get project-level settings
         let metronome_enabled = self.recorder.is_metronome_enabled();
@@ -357,7 +357,7 @@ impl AudioGraph {
             for effect_id in &effect_ids {
                 effect_manager.remove_effect(*effect_id);
             }
-            eprintln!(
+            dlog!(
                 "🧹 [Graph] Removed {} effects from cleared tracks",
                 effect_ids.len()
             );
@@ -389,11 +389,11 @@ impl AudioGraph {
         // stray MIDI clips, id counters). Tracks and clips keep their SAVED ids
         // below, so anything left over would attach itself to the new project.
         self.teardown_project_state();
-        eprintln!("   - Cleared existing project state");
+        dlog!("   - Cleared existing project state");
 
         // Restore tempo (via recorder)
         self.recorder.set_tempo(project_data.tempo);
-        eprintln!("   - Tempo: {} BPM", project_data.tempo);
+        dlog!("   - Tempo: {} BPM", project_data.tempo);
 
         // Restore time signature numerator (beats per bar). Previously this was
         // never restored, so 3/4 or 6/8 projects silently reopened in 4/4. Guard
@@ -401,7 +401,7 @@ impl AudioGraph {
         if project_data.time_sig_numerator > 0 {
             self.recorder
                 .set_time_signature(project_data.time_sig_numerator);
-            eprintln!(
+            dlog!(
                 "   - Time signature: {} beats/bar",
                 project_data.time_sig_numerator
             );
@@ -411,7 +411,7 @@ impl AudioGraph {
         self.recorder
             .set_metronome_enabled(project_data.metronome_enabled);
         self.recorder.set_count_in_bars(project_data.count_in_bars);
-        eprintln!(
+        dlog!(
             "   - Metronome: {}, Count-in: {} bars",
             if project_data.metronome_enabled {
                 "ON"
@@ -432,7 +432,7 @@ impl AudioGraph {
         if let Err(e) = self.set_buffer_size(buffer_preset) {
             eprintln!("⚠️  Failed to restore buffer size: {e}");
         } else {
-            eprintln!("   - Buffer size: {buffer_preset:?}");
+            dlog!("   - Buffer size: {buffer_preset:?}");
         }
 
         // Save-time track ids to restored track ids. Healthy projects map every
@@ -501,7 +501,7 @@ impl AudioGraph {
                     if !master.volume_automation.is_empty() {
                         master.timeline_visible = true;
                     }
-                    eprintln!("   - Updated Master track");
+                    dlog!("   - Updated Master track");
                 }
                 continue;
             }
@@ -730,9 +730,10 @@ impl AudioGraph {
                 use base64::Engine as _;
 
                 for vst3_data in &track_data.vst3_plugins {
-                    eprintln!(
+                    dlog!(
                         "   - Restoring VST3 plugin: {} from {}",
-                        vst3_data.plugin_name, vst3_data.plugin_path
+                        vst3_data.plugin_name,
+                        vst3_data.plugin_path
                     );
 
                     // Load the VST3 plugin.
@@ -770,7 +771,7 @@ impl AudioGraph {
                                                 vst3_data.plugin_name, e
                                             );
                                         } else {
-                                            eprintln!(
+                                            dlog!(
                                                 "   ✅ Restored VST3 state ({} bytes)",
                                                 state_bytes.len()
                                             );
@@ -796,9 +797,10 @@ impl AudioGraph {
                                 track.fx_chain.push(effect_id);
                             }
 
-                            eprintln!(
+                            dlog!(
                                 "   ✅ Loaded VST3 plugin {} (effect_id={})",
-                                vst3_data.plugin_name, effect_id
+                                vst3_data.plugin_name,
+                                effect_id
                             );
                         }
                         Err(e) => {
@@ -864,7 +866,7 @@ impl AudioGraph {
                 // Note: Audio clips are restored in the API layer after audio files are loaded
             }
 
-            eprintln!(
+            dlog!(
                 "   - Created track '{}' (type: {:?}, {} effects, {} MIDI clips)",
                 track_data.name,
                 track_type,

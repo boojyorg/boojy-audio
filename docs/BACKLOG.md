@@ -140,8 +140,8 @@ speed or recording.
 11. **A test input in the engine** that feeds a known signal where the microphone would be, so
     workflow tests can record and check the exact take (row 2 has no automated tests).
 12. **A coarse speed budget**: render 16 tracks with effects offline and fail if it takes more
-    than ~25% of real time; catches a 10× slowdown, not 5%. Replaces the Criterion benches in
-    `engine/benches/`, which CI never runs.
+    than ~25% of real time; catches a 10× slowdown, not 5%. Nothing measures speed today (the
+    unused Criterion benches were deleted 2026-10-12).
 13. **More seeds nightly**: a scheduled CI run of stress seeds 1–200, so PR checks stay quick.
 
 Dogfood a release engine (`./build.sh release`); the debug engine glitches under load. The
@@ -164,9 +164,9 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
 - **Sampler workflow** *(Tyr)*: research what it should be before touching it again.
 - **Windows updater**: no native `boojy_audio/updater` channel; the Updates section is hidden on
   Windows until it exists.
-- **Engineering gaps**: `eprintln!` in `audio_graph/` with no CI gate; macOS CI links the
-  committed VST3 `.a` instead of rebuilding it; no test loads a real VST3; `daw_screen.dart`
-  (~2,300 lines, no more mixin duplicates) is the next file to split.
+- **Engineering gaps**: macOS CI links the committed VST3 `.a` instead of rebuilding it; no
+  test loads a real VST3; `daw_screen.dart` (~2,300 lines, no more mixin duplicates) is the
+  next file to split.
 
 ## Later
 

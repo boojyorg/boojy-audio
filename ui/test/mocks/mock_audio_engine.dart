@@ -52,6 +52,16 @@ class MockAudioEngine implements AudioEngineInterface {
   /// Clip ids passed to [clearMidiClip], in call order.
   final List<int> clearedMidiClipIds = [];
 
+  /// Notes passed to [addMidiNoteToClip], in call order (times in seconds).
+  final List<
+    ({int clipId, int note, int velocity, double start, double length})
+  >
+  addedMidiNotes = [];
+
+  /// Arguments passed to [setClipStartTime], in call order (seconds).
+  final List<({int trackId, int clipId, double startTime})> clipStartTimeCalls =
+      [];
+
   /// trackIds passed to deleteTrack, in call order — lets DeleteTrackCommand
   /// redo tests assert it targets the recreated id, not the stale original (C62).
   final List<int> deletedTrackIds = [];
@@ -106,6 +116,11 @@ class MockAudioEngine implements AudioEngineInterface {
   @override
   String setClipStartTime(int trackId, int clipId, double startTime) {
     _record('setClipStartTime');
+    clipStartTimeCalls.add((
+      trackId: trackId,
+      clipId: clipId,
+      startTime: startTime,
+    ));
     return 'OK';
   }
 
@@ -540,6 +555,13 @@ class MockAudioEngine implements AudioEngineInterface {
     double duration,
   ) {
     _record('addMidiNoteToClip');
+    addedMidiNotes.add((
+      clipId: clipId,
+      note: note,
+      velocity: velocity,
+      start: startTime,
+      length: duration,
+    ));
     return 'OK';
   }
 

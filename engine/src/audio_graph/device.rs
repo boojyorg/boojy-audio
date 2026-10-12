@@ -19,7 +19,7 @@ impl AudioGraph {
             *current = preset;
         }
 
-        eprintln!(
+        dlog!(
             "🔊 [AudioGraph] Setting buffer size to {:?} ({} samples, {:.1}ms)",
             preset,
             preset.samples(),
@@ -83,7 +83,7 @@ impl AudioGraph {
             if status != 0 {
                 eprintln!("⚠️ [LATENCY] Failed to get output latency (status: {status})");
             } else {
-                eprintln!("🎚️ [LATENCY] Output device latency: {output_latency_frames} frames");
+                dlog!("🎚️ [LATENCY] Output device latency: {output_latency_frames} frames");
             }
 
             // Get safety offset (output)
@@ -101,7 +101,7 @@ impl AudioGraph {
             if status != 0 {
                 eprintln!("⚠️ [LATENCY] Failed to get output safety offset (status: {status})");
             } else {
-                eprintln!("🎚️ [LATENCY] Output safety offset: {output_safety_offset} frames");
+                dlog!("🎚️ [LATENCY] Output safety offset: {output_safety_offset} frames");
             }
         }
 
@@ -129,7 +129,7 @@ impl AudioGraph {
             if status != 0 {
                 eprintln!("⚠️ [LATENCY] Failed to get input latency (status: {status})");
             } else {
-                eprintln!("🎚️ [LATENCY] Input device latency: {input_latency_frames} frames");
+                dlog!("🎚️ [LATENCY] Input device latency: {input_latency_frames} frames");
             }
 
             // Get safety offset (input)
@@ -147,7 +147,7 @@ impl AudioGraph {
             if status != 0 {
                 eprintln!("⚠️ [LATENCY] Failed to get input safety offset (status: {status})");
             } else {
-                eprintln!("🎚️ [LATENCY] Input safety offset: {input_safety_offset} frames");
+                dlog!("🎚️ [LATENCY] Input safety offset: {input_safety_offset} frames");
             }
         }
 
@@ -158,7 +158,7 @@ impl AudioGraph {
         let output_latency_ms =
             (output_latency_frames + output_safety_offset) as f32 / sample_rate * 1000.0;
 
-        eprintln!("🎚️ [LATENCY] Hardware latency: input={input_latency_ms:.2}ms, output={output_latency_ms:.2}ms");
+        dlog!("🎚️ [LATENCY] Hardware latency: input={input_latency_ms:.2}ms, output={output_latency_ms:.2}ms");
 
         // Update stored values
         *self.hardware_input_latency_ms.lock() = input_latency_ms;
@@ -180,7 +180,7 @@ impl AudioGraph {
         *self.hardware_input_latency_ms.lock() = estimated_latency_ms;
         *self.hardware_output_latency_ms.lock() = estimated_latency_ms;
 
-        eprintln!("🎚️ [LATENCY] Estimated latency (non-macOS): {estimated_latency_ms:.2}ms");
+        dlog!("🎚️ [LATENCY] Estimated latency (non-macOS): {estimated_latency_ms:.2}ms");
         Ok(())
     }
 
@@ -193,14 +193,14 @@ impl AudioGraph {
         }
 
         // Create new stream with updated settings
-        eprintln!("🔊 [AudioGraph] Restarting audio stream...");
+        dlog!("🔊 [AudioGraph] Restarting audio stream...");
         let stream = self.create_audio_stream()?;
 
         // Always keep stream running for MIDI preview
         stream.play()?;
 
         self.stream = Some(stream);
-        eprintln!("✅ [AudioGraph] Audio stream restarted");
+        dlog!("✅ [AudioGraph] Audio stream restarted");
 
         // Re-query hardware latency after stream change
         if let Err(e) = self.query_coreaudio_latency() {
@@ -221,7 +221,7 @@ impl AudioGraph {
         // ASIO devices (when feature enabled, Windows only)
         #[cfg(all(windows, feature = "asio"))]
         {
-            eprintln!("🔊 [AudioGraph] Enumerating ASIO devices...");
+            dlog!("🔊 [AudioGraph] Enumerating ASIO devices...");
             if let Ok(asio_host) = cpal::host_from_id(cpal::HostId::Asio) {
                 let asio_default = asio_host
                     .default_output_device()
@@ -232,7 +232,7 @@ impl AudioGraph {
                         if let Ok(name) = device.name() {
                             let is_default = asio_default.as_ref() == Some(&name);
                             let prefixed_name = format!("[ASIO] {}", name);
-                            eprintln!(
+                            dlog!(
                                 "  🎛️ ASIO: {} {}",
                                 name,
                                 if is_default { "(default)" } else { "" }
@@ -241,7 +241,7 @@ impl AudioGraph {
                         }
                     }
                 }
-                eprintln!("🔊 [AudioGraph] Found {} ASIO devices", all_devices.len());
+                dlog!("🔊 [AudioGraph] Found {} ASIO devices", all_devices.len());
             } else {
                 eprintln!("⚠️ [AudioGraph] ASIO host not available");
             }
@@ -249,10 +249,10 @@ impl AudioGraph {
 
         // Standard devices (WASAPI on Windows, CoreAudio on macOS, etc.)
         let host = cpal::default_host();
-        eprintln!("🔊 [AudioGraph] Enumerating standard output devices...");
+        dlog!("🔊 [AudioGraph] Enumerating standard output devices...");
 
         let default_name = host.default_output_device().and_then(|d| d.name().ok());
-        eprintln!("🔊 [AudioGraph] Default output device: {default_name:?}");
+        dlog!("🔊 [AudioGraph] Default output device: {default_name:?}");
 
         match host.output_devices() {
             Ok(devices) => {
@@ -260,7 +260,7 @@ impl AudioGraph {
                     .filter_map(|d| {
                         d.name().ok().map(|name| {
                             let is_default = default_name.as_ref() == Some(&name);
-                            eprintln!(
+                            dlog!(
                                 "  📢 Output: {} {}",
                                 name,
                                 if is_default { "(default)" } else { "" }
@@ -269,7 +269,7 @@ impl AudioGraph {
                         })
                     })
                     .collect();
-                eprintln!(
+                dlog!(
                     "🔊 [AudioGraph] Found {} standard output devices",
                     standard_devices.len()
                 );
@@ -280,7 +280,7 @@ impl AudioGraph {
             }
         }
 
-        eprintln!("🔊 [AudioGraph] Total devices: {}", all_devices.len());
+        dlog!("🔊 [AudioGraph] Total devices: {}", all_devices.len());
         all_devices
     }
 
@@ -289,7 +289,7 @@ impl AudioGraph {
     pub fn set_output_device(&mut self, device_name: Option<String>) -> anyhow::Result<()> {
         let device_name = device_name.filter(|s| !s.is_empty());
 
-        eprintln!("🔊 [AudioGraph] Setting output device to: {device_name:?}");
+        dlog!("🔊 [AudioGraph] Setting output device to: {device_name:?}");
 
         // Update selected device
         {
@@ -301,9 +301,9 @@ impl AudioGraph {
         self.restart_audio_stream()?;
 
         if let Some(ref name) = device_name {
-            eprintln!("✅ [AudioGraph] Output device changed to: {name}");
+            dlog!("✅ [AudioGraph] Output device changed to: {name}");
         } else {
-            eprintln!("✅ [AudioGraph] Output device changed to system default");
+            dlog!("✅ [AudioGraph] Output device changed to system default");
         }
 
         Ok(())
