@@ -1,4 +1,3 @@
-import '../../../models/scale_data.dart';
 import '../../../utils/grid_utils.dart';
 
 /// Utility class for piano roll coordinate calculations.
@@ -85,31 +84,6 @@ class PianoRollCoordinates {
       maxMidiNote: maxMidiNote ?? this.maxMidiNote,
       minMidiNote: minMidiNote ?? this.minMidiNote,
     );
-  }
-}
-
-/// Utility class for scale-related operations.
-class ScaleUtils {
-  /// Snap a MIDI note to the nearest note in the given scale.
-  static int snapNoteToScale(int midiNote, Scale scale) {
-    if (scale.containsNote(midiNote)) return midiNote;
-
-    // Find nearest note in scale
-    int below = midiNote;
-    int above = midiNote;
-
-    while (!scale.containsNote(below) && below >= 0) {
-      below--;
-    }
-    while (!scale.containsNote(above) && above <= 127) {
-      above++;
-    }
-
-    // Return the closest one
-    if (below < 0) return above;
-    if (above > 127) return below;
-
-    return (midiNote - below <= above - midiNote) ? below : above;
   }
 }
 

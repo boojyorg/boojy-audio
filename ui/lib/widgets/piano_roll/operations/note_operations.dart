@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../services/commands/clip_commands.dart';
@@ -346,39 +345,6 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
     });
 
     commitToHistory('Apply legato');
-    notifyClipUpdated();
-  }
-
-  /// Randomize velocity of selected notes.
-  void applyVelocityRandomize() {
-    if (currentClip == null || velocityRandomizeAmount <= 0) return;
-
-    final notes = currentClip!.notes;
-    final selectedNotes = notes.where((n) => n.isSelected).toList();
-    final targetNotes = selectedNotes.isNotEmpty ? selectedNotes : notes;
-
-    if (targetNotes.isEmpty) return;
-
-    saveToHistory();
-
-    final maxVariation = (velocityRandomizeAmount * 50).round();
-    final random = Random();
-
-    setState(() {
-      currentClip = currentClip!.copyWith(
-        notes: currentClip!.notes.map((note) {
-          final isTarget = selectedNotes.isEmpty || note.isSelected;
-          if (!isTarget) return note;
-
-          final variation = random.nextInt(maxVariation * 2 + 1) - maxVariation;
-          final newVelocity = (note.velocity + variation).clamp(1, 127);
-
-          return note.copyWith(velocity: newVelocity);
-        }).toList(),
-      );
-    });
-
-    commitToHistory('Randomize velocity');
     notifyClipUpdated();
   }
 

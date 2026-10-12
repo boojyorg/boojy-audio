@@ -98,18 +98,6 @@ class UndoRedoManager extends ChangeNotifier {
     }
   }
 
-  /// Execute a command without adding to history (for internal use)
-  /// Useful when you want to batch multiple small changes
-  Future<void> executeWithoutHistory(Command command) async {
-    if (_engine == null) return;
-    await _acquireLock();
-    try {
-      await command.execute(_engine!);
-    } finally {
-      _releaseLock();
-    }
-  }
-
   /// Undo the last action.
   ///
   /// Failure contract is asymmetric by design: in RELEASE a failing command

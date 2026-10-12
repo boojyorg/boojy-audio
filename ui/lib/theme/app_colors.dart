@@ -138,9 +138,6 @@ class BoojyColors {
   /// Border for a selected/active control.
   Color get selectionBorder => accent.withValues(alpha: 0.50);
 
-  /// Border for a selected/active control while hovered.
-  Color get selectionBorderHover => accent.withValues(alpha: 0.65);
-
   // ============================================
   // SEMANTIC COLORS (Theme-independent)
   // ============================================
@@ -188,23 +185,11 @@ class BoojyColors {
   /// Transport Stop button - Orange, distinct from the amber Pause beside it
   Color get transportStop => const Color(0xFFF97316);
 
-  /// Inactive button background
-  Color get buttonInactive => const Color(0xFF909090);
-
-  /// Piano white key
-  Color get pianoWhiteKey => const Color(0xFFF5F5F5);
-
-  /// Piano black key
-  Color get pianoBlackKey => const Color(0xFF2A2A2A);
-
   /// Playhead color
   Color get playhead => const Color(0xFFFF5252);
 
   /// Selection highlight
   Color get selection => accent.withValues(alpha: 0.3);
-
-  /// Grid lines
-  Color get gridLine => divider.withValues(alpha: 0.5);
 
   /// Dim overlay for outside-the-loop grid regions. Scrims toward the editor
   /// background so the out-of-loop area recedes on dark AND light themes

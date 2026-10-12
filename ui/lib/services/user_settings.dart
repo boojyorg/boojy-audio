@@ -196,9 +196,6 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
-  /// Last clean exit timestamp (for crash detection)
-  DateTime? get lastCleanExit => _lastCleanExit;
-
   /// Recent projects list (most recent first)
   List<RecentProject> get recentProjects => List.unmodifiable(_recentProjects);
 
@@ -857,29 +854,10 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
-  /// Clear clean exit marker (call on app start, after crash check)
-  Future<void> clearCleanExit() async {
-    if (_prefs == null) return;
-
-    try {
-      await _prefs!.remove(_keyLastCleanExit);
-      _lastCleanExit = null;
-    } catch (e) {
-      Log.e('UserSettings: Failed to clear clean exit: $e');
-    }
-  }
-
   /// Check if the app crashed last time (no clean exit recorded)
   bool get didCrashLastTime {
     // If we have a clean exit marker, the app exited normally
     // If no marker, the app likely crashed
     return _lastCleanExit == null;
-  }
-
-  /// Reset all settings to defaults
-  Future<void> resetToDefaults() async {
-    _undoLimit = defaultUndoLimit;
-    await _save();
-    notifyListeners();
   }
 }

@@ -213,9 +213,6 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   /// ID of note currently being hovered in velocity lane.
   String? velocityHoveredNoteId;
 
-  /// Velocity randomization amount (0-100%).
-  double velocityRandomizeAmount = 0.0;
-
   // ============================================
   // MULTI-SELECT STATE
   // ============================================

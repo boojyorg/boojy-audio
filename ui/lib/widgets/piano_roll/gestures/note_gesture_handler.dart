@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import '../../../constants/ui_constants.dart';
 import '../../../models/midi_note_data.dart';
-import '../../../models/tool_mode.dart';
 import '../../piano_roll.dart';
 import '../piano_roll_state.dart';
 import '../audition_mixin.dart';
@@ -10,8 +7,7 @@ import '../operations/note_operations.dart';
 import '../operations/selection_operations.dart';
 import '../operations/clipboard_operations.dart';
 
-/// Mixin containing note gesture handling for PianoRoll.
-/// Handles tap, drag, and context menu interactions with notes.
+/// Mixin for PianoRoll note lookups.
 mixin NoteGestureHandlerMixin
     on
         State<PianoRoll>,
@@ -20,48 +16,6 @@ mixin NoteGestureHandlerMixin
         NoteOperationsMixin,
         SelectionOperationsMixin,
         ClipboardOperationsMixin {
-  // ============================================
-  // NOTE FINDING
-  // ============================================
-
-  /// Find note at position.
-  MidiNoteData? findNoteAtPosition(Offset position) {
-    final beat = getBeatAtX(position.dx);
-    final note = getNoteAtY(position.dy);
-
-    for (final midiNote in currentClip?.notes ?? <MidiNoteData>[]) {
-      if (midiNote.contains(beat, note)) {
-        return midiNote;
-      }
-    }
-    return null;
-  }
-
-  /// Check if position is near left or right edge of note.
-  /// Returns 'left', 'right', or null.
-  String? getEdgeAtPosition(Offset position, MidiNoteData note) {
-    const edgeThreshold = 9.0;
-
-    final noteStartX = calculateBeatX(note.startTime);
-    final noteEndX = calculateBeatX(note.endTime);
-    final noteY = calculateNoteY(note.note);
-
-    final isInVerticalRange =
-        (position.dy >= noteY) && (position.dy <= noteY + pixelsPerNote);
-
-    if (!isInVerticalRange) return null;
-
-    if ((position.dx - noteStartX).abs() < edgeThreshold) {
-      return 'left';
-    }
-
-    if ((position.dx - noteEndX).abs() < edgeThreshold) {
-      return 'right';
-    }
-
-    return null;
-  }
-
   /// Find note nearest to velocity lane position (by start time).
   /// Returns the note whose circle is closest to cursor X,
   /// but only if within pixel threshold (FL Studio style).
@@ -99,197 +53,5 @@ mixin NoteGestureHandlerMixin
     }
 
     return nearest;
-  }
-
-  // ============================================
-  // TAP HANDLING
-  // ============================================
-
-  /// Handle tap down on piano roll grid.
-  void handleTapDown(TapDownDetails details) {
-    focusNode.requestFocus();
-
-    final clickedNote = findNoteAtPosition(details.localPosition);
-    final isCtrlOrCmd =
-        HardwareKeyboard.instance.isMetaPressed ||
-        HardwareKeyboard.instance.isControlPressed;
-    final isAltPressed = HardwareKeyboard.instance.isAltPressed;
-    final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
-    final toolMode = effectiveToolMode;
-
-    // Alt+click OR Erase tool = delete note
-    if (isAltPressed || toolMode == ToolMode.eraser) {
-      if (clickedNote != null) {
-        saveToHistory();
-        setState(() {
-          currentClip = currentClip?.copyWith(
-            notes: currentClip!.notes
-                .where((n) => n.id != clickedNote.id)
-                .toList(),
-          );
-        });
-        commitToHistory('Delete note');
-        notifyClipUpdated();
-      }
-      return;
-    }
-
-    // Slice tool = slice note
-    if (toolMode == ToolMode.slice) {
-      if (clickedNote != null) {
-        final beatPosition = getBeatAtX(details.localPosition.dx);
-        sliceNoteAt(clickedNote, beatPosition);
-      }
-      return;
-    }
-
-    // Duplicate tool OR Cmd+click on note = duplicate in place
-    if (toolMode == ToolMode.duplicate ||
-        (isCtrlOrCmd && clickedNote != null)) {
-      if (clickedNote != null) {
-        saveToHistory();
-        final duplicate = clickedNote.copyWith(
-          id: '${clickedNote.note}_${DateTime.now().microsecondsSinceEpoch}',
-          isSelected: false,
-        );
-        setState(() {
-          currentClip = currentClip?.addNote(duplicate);
-        });
-        commitToHistory('Duplicate note');
-        notifyClipUpdated();
-        startAudition(clickedNote.note, clickedNote.velocity);
-      }
-      return;
-    }
-
-    // Select tool = only select notes, don't create new ones
-    if (toolMode == ToolMode.select) {
-      if (clickedNote != null) {
-        if (isShiftPressed) {
-          toggleNoteSelection(clickedNote.id);
-        } else {
-          selectSingleNote(clickedNote.id);
-        }
-        startAudition(clickedNote.note, clickedNote.velocity);
-      } else {
-        deselectAllNotes();
-        notifyClipUpdated();
-      }
-      return;
-    }
-
-    // Draw tool (default behavior)
-    if (isCtrlOrCmd && clickedNote == null) {
-      final beat = getBeatAtX(details.localPosition.dx);
-      final noteToSlice = currentClip?.notes.firstWhere(
-        (n) => n.startTime < beat && (n.startTime + n.duration) > beat,
-        orElse: () =>
-            MidiNoteData(note: -1, velocity: 0, startTime: 0, duration: 0),
-      );
-      if (noteToSlice != null && noteToSlice.note >= 0) {
-        sliceNoteAt(noteToSlice, beat);
-      }
-      return;
-    }
-
-    if (clickedNote != null) {
-      if (isShiftPressed) {
-        toggleNoteSelection(clickedNote.id);
-        return;
-      }
-
-      setState(() {
-        currentClip = currentClip?.copyWith(
-          notes: currentClip!.notes.map((n) {
-            if (n.id == clickedNote.id) {
-              return n.copyWith(isSelected: !n.isSelected);
-            } else {
-              return n.copyWith(isSelected: false);
-            }
-          }).toList(),
-        );
-      });
-      notifyClipUpdated();
-      startAudition(clickedNote.note, clickedNote.velocity);
-      justCreatedNoteId = null;
-    } else {
-      // Single-click on empty space = create note
-      final beat = getBeatAtX(details.localPosition.dx);
-      final noteRow = getNoteAtY(details.localPosition.dy);
-
-      saveToHistory();
-      final snappedBeat = snapToGrid(beat);
-
-      // Create single note
-      final newNote = MidiNoteData(
-        note: noteRow,
-        velocity: UIConstants.defaultMidiVelocity,
-        startTime: snappedBeat,
-        duration: lastNoteDuration,
-        isSelected: true,
-      );
-
-      setState(() {
-        currentClip = currentClip?.copyWith(
-          notes: currentClip!.notes
-              .map((n) => n.copyWith(isSelected: false))
-              .toList(),
-        );
-        currentClip = currentClip?.addNote(newNote);
-        autoExtendLoopIfNeeded(newNote);
-      });
-
-      justCreatedNoteId = newNote.id;
-      commitToHistory('Add note');
-      notifyClipUpdated();
-      startAudition(noteRow, 100);
-    }
-  }
-
-  // ============================================
-  // AUDITION SUPPORT — provided by AuditionMixin (on-clause).
-  // This mixin used to carry its own diverged copies of startAudition /
-  // stopAudition / changeAuditionPitch; they were shadowed dead code
-  // (AuditionMixin is mixed in later). One implementation only.
-  // ============================================
-
-  // ============================================
-  // ERASER MODE
-  // ============================================
-
-  /// Start eraser mode.
-  void startErasing(Offset position) {
-    saveToHistory();
-    isErasing = true;
-    erasedNoteIds = {};
-    setState(() => currentCursor = SystemMouseCursors.forbidden);
-    eraseNotesAt(position);
-  }
-
-  /// Erase notes at the given position.
-  void eraseNotesAt(Offset position) {
-    final note = findNoteAtPosition(position);
-    if (note != null && !erasedNoteIds.contains(note.id)) {
-      erasedNoteIds.add(note.id);
-      setState(() {
-        currentClip = currentClip?.copyWith(
-          notes: currentClip!.notes.where((n) => n.id != note.id).toList(),
-        );
-      });
-      // Don't call notifyClipUpdated() here - batch all deletions
-      // and notify once in stopErasing() for single undo action
-    }
-  }
-
-  /// Stop eraser mode.
-  void stopErasing() {
-    if (erasedNoteIds.isNotEmpty) {
-      // Notify parent once with all deletions batched together
-      notifyClipUpdated();
-      commitToHistory('Delete ${erasedNoteIds.length} notes');
-    }
-    isErasing = false;
-    erasedNoteIds = {};
-    setState(() => currentCursor = SystemMouseCursors.basic);
   }
 }
