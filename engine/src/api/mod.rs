@@ -39,75 +39,61 @@ mod tests;
 
 // Re-export all public functions from submodules
 pub use effects::{
-    add_effect_to_track, add_eq_band, get_effect_bypass, get_effect_info, get_effect_peak_levels,
-    get_track_effects, insert_eq_band, remove_effect_from_track, remove_eq_band,
-    reorder_track_effects, set_effect_bypass, set_effect_parameter,
+    add_effect_to_track, add_eq_band, get_effect_info, get_effect_peak_levels, get_track_effects,
+    insert_eq_band, remove_effect_from_track, remove_eq_band, reorder_track_effects,
+    set_effect_bypass, set_effect_parameter,
 };
 pub use helpers::{get_audio_clips, get_audio_graph, AUDIO_CLIPS, AUDIO_GRAPH};
-pub use init::{init_audio_engine, init_audio_graph, play_sine_wave};
-pub use latency::{
-    get_actual_buffer_size, get_buffer_size_preset, get_clip_duration, get_latency_info,
-    get_waveform_peaks, set_buffer_size,
-};
+pub use init::{init_audio_engine, init_audio_graph};
+pub use latency::{get_clip_duration, get_waveform_peaks, set_buffer_size};
 pub use midi_clips::{
     add_midi_clip_to_track_api, add_midi_clip_to_track_api as add_midi_clip_to_track,
     add_midi_note_to_clip, clear_midi_clip, create_midi_clip, get_all_midi_clips_info,
-    get_midi_clip_events, get_midi_clip_info, get_midi_clip_notes, quantize_midi_clip,
-    remove_midi_clip, remove_midi_event, send_midi_note_off, send_midi_note_on,
+    get_midi_clip_info, get_midi_clip_notes, quantize_midi_clip, remove_midi_clip,
+    send_midi_note_off, send_midi_note_on,
 };
 pub use midi_input::{
-    get_midi_input_devices, get_midi_recorder_live_events, get_midi_recording_state,
-    refresh_midi_devices, select_midi_input_device, set_synth_oscillator_type, set_synth_volume,
-    start_midi_input, start_midi_recording, stop_midi_input, stop_midi_recording,
+    get_midi_input_devices, get_midi_recorder_live_events, refresh_midi_devices,
+    select_midi_input_device, start_midi_input, start_midi_recording, stop_midi_recording,
 };
 pub use preview::{
-    preview_check_full_clip, preview_get_duration, preview_get_position, preview_get_waveform,
-    preview_is_fully_decoded, preview_is_loaded, preview_is_looping, preview_is_playing,
-    preview_load_audio, preview_load_audio_async, preview_play, preview_process_sample,
-    preview_seek, preview_set_looping, preview_stop,
+    preview_get_duration, preview_get_position, preview_get_waveform, preview_is_fully_decoded,
+    preview_is_loaded, preview_is_playing, preview_load_audio_async, preview_play,
+    preview_process_sample, preview_seek, preview_set_looping, preview_stop,
 };
 pub use project::{
-    export_audio, export_mp3_with_options, export_stems, export_to_wav, export_wav_with_options,
+    export_mp3_with_options, export_stems, export_to_wav, export_wav_with_options,
     get_tracks_for_stems, is_ffmpeg_available, load_project, save_project, write_mp3_metadata,
 };
 pub use recording::{
     get_audio_input_devices, get_audio_input_health, get_audio_input_status,
-    get_audio_output_devices, get_audio_stream_error, get_count_in_bars, get_count_in_beat,
-    get_count_in_progress, get_input_channel_count, get_input_channel_level,
-    get_last_recorded_clip_ids, get_live_recording_peaks, get_punch_in_seconds,
-    get_punch_out_seconds, get_recorded_duration, get_recording_state, get_sample_rate,
-    get_selected_audio_output_device, is_punch_complete, is_punch_in_enabled, is_punch_out_enabled,
-    set_audio_input_choice, set_audio_output_device, set_count_in_bars, set_punch_in_enabled,
-    set_punch_out_enabled, set_punch_region, start_recording, stop_recording,
+    get_audio_output_devices, get_audio_stream_error, get_count_in_beat, get_count_in_progress,
+    get_input_channel_level, get_last_recorded_clip_ids, get_live_recording_peaks,
+    get_recorded_duration, get_recording_state, set_audio_input_choice, set_audio_output_device,
+    set_count_in_bars, start_recording, stop_recording,
 };
 pub use sends::{
     add_send, add_shared_send, count_sends_to_return, create_return_with_effect, db_to_linear,
-    find_return_by_effect_type, get_all_returns, get_master_timeline_visible, get_track_sends,
-    linear_to_db, remove_return, remove_send, set_master_timeline_visible, set_send_amount,
-    sync_master_timeline_visibility, DEFAULT_SEND_DB,
+    find_return_by_effect_type, get_all_returns, get_track_sends, linear_to_db, remove_return,
+    remove_send, set_master_timeline_visible, set_send_amount, DEFAULT_SEND_DB,
 };
 pub use synthesizer::{
     add_drum_pad, create_drum_kit_for_track, create_sampler_for_track, drum_next_free_note,
     get_drum_kit_info, get_drum_pad_waveform_peaks, get_sampler_info, get_sampler_sample_path,
-    get_sampler_waveform_peaks, get_synth_parameters, is_drum_kit_track, is_sampler_track,
-    load_drum_pad_sample, load_sample_for_track, remove_drum_pad, send_track_midi_note_off,
-    send_track_midi_note_on, set_drum_pad_parameter, set_sampler_parameter, set_synth_bypass,
-    set_synth_parameter, set_track_instrument, unload_sample_for_track,
+    get_sampler_waveform_peaks, is_drum_kit_track, is_sampler_track, load_drum_pad_sample,
+    load_sample_for_track, send_track_midi_note_off, send_track_midi_note_on,
+    set_drum_pad_parameter, set_sampler_parameter, set_synth_bypass, set_synth_parameter,
+    set_track_instrument, unload_sample_for_track,
 };
-pub use timing::{
-    get_tempo, get_time_signature, is_metronome_enabled, set_metronome_enabled, set_tempo,
-    set_time_signature,
-};
+pub use timing::{get_tempo, set_metronome_enabled, set_tempo, set_time_signature};
 pub use tracks::{
     create_track, create_track_with_id, get_all_track_ids, get_track_count, get_track_info,
-    get_track_input, get_track_peak_levels, set_track_armed, set_track_input,
-    set_track_input_monitoring, set_track_mute, set_track_name, set_track_pan, set_track_solo,
-    set_track_volume, set_track_volume_automation,
+    get_track_peak_levels, set_track_armed, set_track_input, set_track_input_monitoring,
+    set_track_mute, set_track_name, set_track_pan, set_track_solo, set_track_volume,
+    set_track_volume_automation,
 };
 pub use transport::{
-    get_play_start_position, get_playhead_position, get_record_start_position, get_transport_state,
-    set_play_start_position, set_record_start_position, transport_pause, transport_play,
-    transport_seek, transport_stop,
+    get_playhead_position, transport_pause, transport_play, transport_seek, transport_stop,
 };
 
 #[cfg(all(feature = "vst3", not(target_os = "ios")))]
@@ -151,59 +137,6 @@ pub fn load_audio_file_to_track_api(
     let clip_id = graph
         .add_clip_to_track(track_id, clip_arc.clone(), start_time)
         .ok_or(format!("Failed to add clip to track {track_id}"))?;
-
-    clips_map.insert(clip_id, clip_arc);
-
-    Ok(clip_id)
-}
-
-/// Load an audio file and return a clip ID (legacy - adds to first available track)
-pub fn load_audio_file_api(path: String) -> Result<u64, String> {
-    let clip = load_audio_file(&path).map_err(|e| e.to_string())?;
-    let clip_arc = Arc::new(clip);
-
-    // Lock GRAPH before CLIPS — the canonical order (see C44 above).
-    let graph_mutex = graph()?;
-    let graph = graph_mutex.lock();
-
-    let clips_mutex = clips()?;
-    let mut clips_map = clips_mutex.lock();
-
-    // Find armed audio track first, then any audio track
-    let target_track_id = {
-        let track_manager = graph.track_manager.lock();
-        let all_tracks = track_manager.get_all_tracks();
-
-        let mut armed_track_id = None;
-        let mut any_audio_track_id = None;
-
-        for track_arc in all_tracks {
-            let track = track_arc.lock();
-            if track.track_type == crate::track::TrackType::Audio {
-                if any_audio_track_id.is_none() {
-                    any_audio_track_id = Some(track.id);
-                }
-                if track.armed {
-                    armed_track_id = Some(track.id);
-                    break;
-                }
-            }
-        }
-
-        if let Some(id) = armed_track_id {
-            id
-        } else if let Some(id) = any_audio_track_id {
-            id
-        } else {
-            drop(track_manager);
-            let mut tm = graph.track_manager.lock();
-            tm.create_track(crate::track::TrackType::Audio, "Audio 1".to_string())
-        }
-    };
-
-    let clip_id = graph
-        .add_clip_to_track(target_track_id, clip_arc.clone(), 0.0)
-        .ok_or(format!("Failed to add clip to track {target_track_id}"))?;
 
     clips_map.insert(clip_id, clip_arc);
 

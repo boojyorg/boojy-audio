@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+
 import '../audio_engine.dart';
 import '../services/live_recording_notifier.dart';
 import '../utils/logger.dart';
@@ -38,7 +40,6 @@ class RecordingController extends ChangeNotifier {
   // Recording state
   bool _isRecording = false;
   bool _isCountingIn = false;
-  bool _isWaitingForPunchIn = false;
   bool _isMidiRecording = false;
   bool _isMetronomeEnabled = true;
   double _tempo = 120.0;
@@ -93,7 +94,6 @@ class RecordingController extends ChangeNotifier {
   // Getters
   bool get isRecording => _isRecording;
   bool get isCountingIn => _isCountingIn;
-  bool get isWaitingForPunchIn => _isWaitingForPunchIn;
   bool get isMidiRecording => _isMidiRecording;
   bool get isMetronomeEnabled => _isMetronomeEnabled;
   double get tempo => _tempo;
@@ -290,7 +290,6 @@ class RecordingController extends ChangeNotifier {
 
       _isRecording = false;
       _isCountingIn = false;
-      _isWaitingForPunchIn = false;
       _isMidiRecording = false;
       _countInBeat = 0;
       _countInProgress = 0.0;
@@ -346,7 +345,6 @@ class RecordingController extends ChangeNotifier {
       Log.e('🎙️ [REC_CTRL] ⚠️ stopRecording exception: $e');
       _isRecording = false;
       _isCountingIn = false;
-      _isWaitingForPunchIn = false;
       _isMidiRecording = false;
       _countInBeat = 0;
       _countInProgress = 0.0;
@@ -362,8 +360,7 @@ class RecordingController extends ChangeNotifier {
     _recordingStateTimer = Timer.periodic(const Duration(milliseconds: 33), (
       timer,
     ) {
-      if (_audioEngine == null ||
-          (!_isRecording && !_isCountingIn && !_isWaitingForPunchIn)) {
+      if (_audioEngine == null || (!_isRecording && !_isCountingIn)) {
         timer.cancel();
         _recordingStateTimer = null;
         return;
@@ -380,29 +377,12 @@ class RecordingController extends ChangeNotifier {
           _isCountingIn = true;
         }
         notifyListeners();
-      } else if (state == 3) {
-        // WaitingForPunchIn — transport playing, waiting for region start
-        if (!_isWaitingForPunchIn) {
-          Log.d('🎙️ [REC_CTRL] State timer: → WaitingForPunchIn (state=3)');
-          _isWaitingForPunchIn = true;
-          _isCountingIn = false;
-          _countInBeat = 0;
-          _countInProgress = 0.0;
-          notifyListeners();
-        }
       } else if (state == 2 && !_isRecording) {
-        // Transition to Recording (from CountingIn or WaitingForPunchIn)
-        final wasWaiting = _isWaitingForPunchIn;
+        // Transition to Recording (from CountingIn)
         final currentPosition = _audioEngine!.getPlayheadPosition();
-        _countInDurationSeconds = wasWaiting
-            ? 0.0
-            : (currentPosition - _recordingStartPosition).clamp(
-                0.0,
-                double.infinity,
-              );
-        Log.d(
-          '🎙️ [REC_CTRL] State timer: ${wasWaiting ? "WaitingForPunchIn" : "CountingIn"} → Recording (state=2)',
-        );
+        _countInDurationSeconds = (currentPosition - _recordingStartPosition)
+            .clamp(0.0, double.infinity);
+        Log.d('🎙️ [REC_CTRL] State timer: CountingIn → Recording (state=2)');
         Log.d(
           '🎙️ [REC_CTRL]   countInDurationSeconds=${_countInDurationSeconds.toStringAsFixed(3)}s',
         );
@@ -411,7 +391,6 @@ class RecordingController extends ChangeNotifier {
         );
 
         _isCountingIn = false;
-        _isWaitingForPunchIn = false;
         _isRecording = true;
         _countInBeat = 0;
         _countInProgress = 0.0;
@@ -445,31 +424,26 @@ class RecordingController extends ChangeNotifier {
           );
         }
 
-        // Live audio clips: the take lands at the punch-in point when the
-        // engine waited for one, else where recording was started.
+        // Live audio clips: the take lands where recording was started.
         final audioTracks = getArmedAudioTracks?.call() ?? const [];
         if (_liveRecordingNotifier != null && audioTracks.isNotEmpty) {
           _liveRecordingNotifier!.startAudio(
-            startSeconds: wasWaiting
-                ? _audioEngine!.getPunchInSeconds()
-                : _recordingStartPosition,
+            startSeconds: _recordingStartPosition,
             tracks: audioTracks,
           );
         }
 
         notifyListeners();
-      } else if (state == 0 &&
-          (_isRecording || _isCountingIn || _isWaitingForPunchIn)) {
+      } else if (state == 0 && (_isRecording || _isCountingIn)) {
         Log.d(
           '🎙️ [REC_CTRL] State timer: → Idle (state=0), was recording=$_isRecording, '
-          'countingIn=$_isCountingIn, waitingForPunch=$_isWaitingForPunchIn',
+          'countingIn=$_isCountingIn',
         );
         timer.cancel();
         _recordingStateTimer = null;
         _liveRecordingNotifier?.clear();
         _isRecording = false;
         _isCountingIn = false;
-        _isWaitingForPunchIn = false;
         _countInBeat = 0;
         _countInProgress = 0.0;
         notifyListeners();

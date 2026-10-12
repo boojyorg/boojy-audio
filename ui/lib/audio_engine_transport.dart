@@ -8,26 +8,10 @@ mixin _TransportMixin on _AudioEngineBase {
 
   /// Initialize the audio engine
   String initAudioEngine() {
-    try {
-      final resultPtr = _initAudioEngine();
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Play a sine wave at the specified frequency
-  String playSineWave(double frequency, int durationMs) {
-    try {
-      final resultPtr = _playSineWave(frequency, durationMs);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _initAudioEngine();
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   // ========================================================================
@@ -36,97 +20,55 @@ mixin _TransportMixin on _AudioEngineBase {
 
   /// Initialize the audio graph
   String initAudioGraph() {
-    try {
-      final resultPtr = _initAudioGraph();
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Load an audio file and return clip ID (-1 on error)
-  /// Legacy method - adds clip to first available audio track
-  int loadAudioFile(String path) {
-    try {
-      final pathPtr = path.toNativeUtf8();
-      final clipId = _loadAudioFile(pathPtr.cast());
-      malloc.free(pathPtr);
-
-      if (clipId < 0) {
-        return -1;
-      }
-
-      return clipId;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _initAudioGraph();
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Load an audio file to a specific track and return clip ID (-1 on error)
   int loadAudioFileToTrack(String path, int trackId, {double startTime = 0.0}) {
-    try {
-      final pathPtr = path.toNativeUtf8();
-      final clipId = _loadAudioFileToTrack(pathPtr.cast(), trackId, startTime);
-      malloc.free(pathPtr);
+    final pathPtr = path.toNativeUtf8();
+    final clipId = _loadAudioFileToTrack(pathPtr.cast(), trackId, startTime);
+    malloc.free(pathPtr);
 
-      if (clipId < 0) {
-        return -1;
-      }
-
-      return clipId;
-    } catch (e) {
-      rethrow;
+    if (clipId < 0) {
+      return -1;
     }
+
+    return clipId;
   }
 
   /// Start playback
   String transportPlay() {
-    try {
-      final resultPtr = _transportPlay();
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _transportPlay();
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Pause playback
   String transportPause() {
-    try {
-      final resultPtr = _transportPause();
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _transportPause();
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Stop playback
   String transportStop() {
-    try {
-      final resultPtr = _transportStop();
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _transportStop();
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Seek to position in seconds
   String transportSeek(double positionSeconds) {
-    try {
-      final resultPtr = _transportSeek(positionSeconds);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _transportSeek(positionSeconds);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Get current playhead position in seconds
@@ -135,57 +77,6 @@ mixin _TransportMixin on _AudioEngineBase {
       return _getPlayheadPosition();
     } catch (e) {
       return 0.0;
-    }
-  }
-
-  /// Get transport state (0=Stopped, 1=Playing, 2=Paused)
-  int getTransportState() {
-    try {
-      return _getTransportState();
-    } catch (e) {
-      return 0;
-    }
-  }
-
-  /// Get position when Play was pressed (in seconds)
-  double getPlayStartPosition() {
-    try {
-      return _getPlayStartPosition();
-    } catch (e) {
-      return 0.0;
-    }
-  }
-
-  /// Set position when Play was pressed (in seconds)
-  String setPlayStartPosition(double positionSeconds) {
-    try {
-      final resultPtr = _setPlayStartPosition(positionSeconds);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      return 'Error: $e';
-    }
-  }
-
-  /// Get position when recording started (after count-in, in seconds)
-  double getRecordStartPosition() {
-    try {
-      return _getRecordStartPosition();
-    } catch (e) {
-      return 0.0;
-    }
-  }
-
-  /// Set position when recording started (after count-in, in seconds)
-  String setRecordStartPosition(double positionSeconds) {
-    try {
-      final resultPtr = _setRecordStartPosition(positionSeconds);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      return 'Error: $e';
     }
   }
 
@@ -203,61 +94,6 @@ mixin _TransportMixin on _AudioEngineBase {
       return str;
     } catch (e) {
       return 'Error: $e';
-    }
-  }
-
-  /// Get current buffer size preset (0-4)
-  int getBufferSizePreset() {
-    try {
-      return _getBufferSizePreset();
-    } catch (e) {
-      return 2; // Default to Balanced
-    }
-  }
-
-  /// Get actual buffer size in samples
-  int getActualBufferSize() {
-    try {
-      return _getActualBufferSize();
-    } catch (e) {
-      return 256;
-    }
-  }
-
-  /// Get audio latency info
-  /// Returns: {bufferSize, inputLatencyMs, outputLatencyMs, roundtripMs}
-  Map<String, double> getLatencyInfo() {
-    final bufferSizePtr = calloc<ffi.Uint32>();
-    final inputLatencyPtr = calloc<ffi.Float>();
-    final outputLatencyPtr = calloc<ffi.Float>();
-    final roundtripPtr = calloc<ffi.Float>();
-
-    try {
-      _getLatencyInfo(
-        bufferSizePtr,
-        inputLatencyPtr,
-        outputLatencyPtr,
-        roundtripPtr,
-      );
-
-      return {
-        'bufferSize': bufferSizePtr.value.toDouble(),
-        'inputLatencyMs': inputLatencyPtr.value,
-        'outputLatencyMs': outputLatencyPtr.value,
-        'roundtripMs': roundtripPtr.value,
-      };
-    } catch (e) {
-      return {
-        'bufferSize': 256,
-        'inputLatencyMs': 5.3,
-        'outputLatencyMs': 5.3,
-        'roundtripMs': 10.7,
-      };
-    } finally {
-      calloc.free(bufferSizePtr);
-      calloc.free(inputLatencyPtr);
-      calloc.free(outputLatencyPtr);
-      calloc.free(roundtripPtr);
     }
   }
 

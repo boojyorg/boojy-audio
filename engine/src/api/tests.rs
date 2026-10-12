@@ -225,7 +225,15 @@ fn midi_project_round_trips_through_save_and_load() {
         (get_tempo().unwrap() - 100.0).abs() < 1e-6,
         "tempo restored"
     );
-    assert_eq!(get_time_signature().unwrap(), 3, "time signature restored");
+    assert_eq!(
+        get_audio_graph()
+            .unwrap()
+            .lock()
+            .recorder
+            .get_time_signature(),
+        3,
+        "time signature restored"
+    );
 
     let tracks = track_ids_and_names();
     assert_eq!(tracks.len(), 1, "exactly the one saved track");
@@ -814,8 +822,17 @@ fn deleted_clip_restores_with_its_original_id_for_undo() {
 // EXPORT SMOKE (locks Phase 4: C16/C18/C68)
 // ============================================================================
 
-fn export_options_json(options: &crate::export::ExportOptions) -> String {
-    serde_json::to_string(options).expect("options serialize")
+/// Render the project offline and write it as a WAV with `options`: the same
+/// steps the export commands run (render, then `export_wav`).
+fn export_with_options(
+    out: &Path,
+    options: &crate::export::ExportOptions,
+) -> Result<String, String> {
+    let samples = {
+        let graph = get_audio_graph().unwrap().lock();
+        graph.render_offline(graph.calculate_project_duration())
+    };
+    crate::export::export_wav(&samples, out, options).map(|result| result.to_json())
 }
 
 #[test]
@@ -833,7 +850,7 @@ fn export_honors_the_requested_range() {
         .with_sample_rate(TARGET_SAMPLE_RATE)
         .with_range(1.0, 3.0);
     let out = dir.join("range.wav");
-    export_audio(path_str(&out), export_options_json(&options)).unwrap();
+    export_with_options(&out, &options).unwrap();
 
     let mut reader = hound::WavReader::open(&out).unwrap();
     let spec = reader.spec();
@@ -866,7 +883,7 @@ fn export_with_an_empty_range_is_a_hard_error() {
         .with_sample_rate(TARGET_SAMPLE_RATE)
         .with_range(2.0, 2.0);
     let out = dir.join("empty.wav");
-    let err = export_audio(path_str(&out), export_options_json(&options))
+    let err = export_with_options(&out, &options)
         .expect_err("an empty export range must fail, not silently export everything (C18)");
     assert!(
         err.to_lowercase().contains("range"),
@@ -889,7 +906,7 @@ fn export_platform_target_lands_at_the_target_loudness() {
         .with_sample_rate(TARGET_SAMPLE_RATE)
         .with_platform(PlatformTarget::Spotify); // −14 LUFS
     let out = dir.join("spotify.wav");
-    export_audio(path_str(&out), export_options_json(&options)).unwrap();
+    export_with_options(&out, &options).unwrap();
 
     let mut reader = hound::WavReader::open(&out).unwrap();
     let samples: Vec<f32> = reader.samples::<f32>().map(|s| s.unwrap()).collect();
@@ -1131,7 +1148,7 @@ fn metronome_stays_in_phase_after_a_live_tempo_change() {
     };
     let mut first_click = None;
     for i in 0..20_000 {
-        let (out, _) = refs.process_frame(0.0, 0.0, true, 0.0);
+        let (out, _) = refs.process_frame(0.0, 0.0, true);
         if out.abs() > 1e-6 {
             first_click = Some(i);
             break;
@@ -1265,7 +1282,7 @@ fn exported_wav_holds_the_render_at_every_bit_depth() {
     ] {
         let options = ExportOptions::wav(depth).with_sample_rate(TARGET_SAMPLE_RATE);
         let out = dir.join(format!("{depth:?}.wav"));
-        export_audio(path_str(&out), export_options_json(&options)).unwrap();
+        export_with_options(&out, &options).unwrap();
 
         let (spec, file) = read_wav_samples(&out);
         assert_eq!(spec.channels, 2, "{depth:?}: stereo");
@@ -1308,7 +1325,7 @@ fn export_at_44_1_khz_keeps_length_pitch_and_smoothness() {
 
     let options = ExportOptions::wav(WavBitDepth::Float32).with_sample_rate(44_100);
     let out = dir.join("cd.wav");
-    export_audio(path_str(&out), export_options_json(&options)).unwrap();
+    export_with_options(&out, &options).unwrap();
     let (spec, file) = read_wav_samples(&out);
     assert_eq!(spec.sample_rate, 44_100);
     assert_valid(&file, "44.1 kHz export");

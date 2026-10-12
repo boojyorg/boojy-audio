@@ -273,23 +273,6 @@ pub fn set_track_input(
     }
 }
 
-/// Get audio input device and channel for a track
-///
-/// Returns: "`device_index,channel`" (-1 if no input assigned)
-pub fn get_track_input(track_id: TrackId) -> Result<String, String> {
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-    let track_manager = graph.track_manager.lock();
-
-    if let Some(track_arc) = track_manager.get_track(track_id) {
-        let track = track_arc.lock();
-        let device_idx = track.input_device_index.map_or(-1, |i| i as i32);
-        Ok(format!("{},{}", device_idx, track.input_channel))
-    } else {
-        Err(format!("Track {track_id} not found"))
-    }
-}
-
 /// Set input monitoring for a track (hear input through track when armed)
 pub fn set_track_input_monitoring(track_id: TrackId, enabled: bool) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;

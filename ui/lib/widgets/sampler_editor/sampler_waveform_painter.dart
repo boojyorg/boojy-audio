@@ -337,7 +337,7 @@ class SamplerRulerPainter extends CustomPainter {
 
     final loopRect = Rect.fromLTWH(loopStartX, 0, loopWidth, size.height);
 
-    // Colors matching UnifiedNavBarPainter (no punch-in for sampler)
+    // Colors matching UnifiedNavBarPainter
     Color fillColor;
     Color borderColor;
 

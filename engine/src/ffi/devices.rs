@@ -91,12 +91,6 @@ pub extern "C" fn get_audio_input_health_ffi() -> i32 {
     ffi_catch(-1, || api::get_audio_input_health().unwrap_or(-1))
 }
 
-/// Get current sample rate
-#[no_mangle]
-pub extern "C" fn get_sample_rate_ffi() -> u32 {
-    ffi_catch(0, api::get_sample_rate)
-}
-
 /// Set audio output device by name
 /// Pass empty string to use system default
 #[no_mangle]
@@ -121,19 +115,6 @@ pub extern "C" fn set_audio_output_device_ffi(device_name: *const c_char) -> *mu
                 Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
             }
         }),
-    )
-}
-
-/// Get currently selected audio output device name
-/// Returns empty string for system default
-#[no_mangle]
-pub extern "C" fn get_selected_audio_output_device_ffi() -> *mut c_char {
-    ffi_catch(
-        std::ptr::null_mut(),
-        || match api::get_selected_audio_output_device() {
-            Ok(name) => safe_cstring(name).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        },
     )
 }
 

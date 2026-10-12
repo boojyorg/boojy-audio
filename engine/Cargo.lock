@@ -589,10 +589,8 @@ dependencies = [
  "coreaudio-rs",
  "cpal",
  "criterion",
- "flate2",
  "hound",
  "id3",
- "lazy_static",
  "midir",
  "parking_lot",
  "ringbuf",
@@ -601,7 +599,6 @@ dependencies = [
  "serde_json",
  "signalsmith-stretch",
  "symphonia",
- "walkdir",
 ]
 
 [[package]]

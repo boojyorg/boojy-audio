@@ -543,11 +543,6 @@ impl AudioInputManager {
         self.input_stream.is_some()
     }
 
-    /// Get the number of input channels (1 = mono, 2 = stereo)
-    pub fn get_input_channels(&self) -> u16 {
-        self.input_channels
-    }
-
     /// Get peak level for a specific input channel (0 = left, 1 = right)
     /// Returns the peak amplitude (0.0 to 1.0+) from the most recent input callback.
     /// Used for live input metering in the UI.

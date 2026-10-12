@@ -29,77 +29,53 @@ mixin _TracksMixin on _AudioEngineBase {
 
   /// Set track volume in dB (-∞ to +6 dB)
   String setTrackVolume(int trackId, double volumeDb) {
-    try {
-      final resultPtr = _setTrackVolume(trackId, volumeDb);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _setTrackVolume(trackId, volumeDb);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Set volume automation curve for a track
   /// csvData format: "time_seconds,db;time_seconds,db;..." or empty to clear
   String setTrackVolumeAutomation(int trackId, String csvData) {
-    try {
-      final csvPtr = csvData.toNativeUtf8();
-      final resultPtr = _setTrackVolumeAutomation(trackId, csvPtr);
-      calloc.free(csvPtr);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final csvPtr = csvData.toNativeUtf8();
+    final resultPtr = _setTrackVolumeAutomation(trackId, csvPtr);
+    calloc.free(csvPtr);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Set track pan (-1.0 = full left, 0.0 = center, 1.0 = full right)
   String setTrackPan(int trackId, double pan) {
-    try {
-      final resultPtr = _setTrackPan(trackId, pan);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _setTrackPan(trackId, pan);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Mute or unmute a track
   String setTrackMute(int trackId, {required bool mute}) {
-    try {
-      final resultPtr = _setTrackMute(trackId, mute);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _setTrackMute(trackId, mute);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Solo or unsolo a track
   String setTrackSolo(int trackId, {required bool solo}) {
-    try {
-      final resultPtr = _setTrackSolo(trackId, solo);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _setTrackSolo(trackId, solo);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Arm or disarm a track for recording
   String setTrackArmed(int trackId, {required bool armed}) {
-    try {
-      final resultPtr = _setTrackArmed(trackId, armed);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _setTrackArmed(trackId, armed);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Set audio input device and channel for a track
@@ -113,29 +89,6 @@ mixin _TracksMixin on _AudioEngineBase {
       return result;
     } catch (e) {
       return 'Error: $e';
-    }
-  }
-
-  /// Get audio input device and channel for a track
-  /// Returns map with 'deviceIndex' (-1 if none) and 'channel'
-  Map<String, int> getTrackInput(int trackId) {
-    try {
-      final resultPtr = _getTrackInput(trackId);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      if (result.startsWith('Error')) {
-        return {'deviceIndex': -1, 'channel': 0};
-      }
-      final parts = result.split(',');
-      if (parts.length >= 2) {
-        return {
-          'deviceIndex': int.tryParse(parts[0]) ?? -1,
-          'channel': int.tryParse(parts[1]) ?? 0,
-        };
-      }
-      return {'deviceIndex': -1, 'channel': 0};
-    } catch (e) {
-      return {'deviceIndex': -1, 'channel': 0};
     }
   }
 
@@ -165,27 +118,14 @@ mixin _TracksMixin on _AudioEngineBase {
     }
   }
 
-  /// Get number of input channels for the current device
-  int getInputChannelCount() {
-    try {
-      return _getInputChannelCount();
-    } catch (e) {
-      return 0;
-    }
-  }
-
   /// Rename a track
   String setTrackName(int trackId, String name) {
-    try {
-      final namePtr = name.toNativeUtf8();
-      final resultPtr = _setTrackName(trackId, namePtr);
-      calloc.free(namePtr);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final namePtr = name.toNativeUtf8();
+    final resultPtr = _setTrackName(trackId, namePtr);
+    calloc.free(namePtr);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Get total number of tracks
@@ -253,14 +193,10 @@ mixin _TracksMixin on _AudioEngineBase {
 
   /// Delete a track (cannot delete master track)
   String deleteTrack(int trackId) {
-    try {
-      final resultPtr = _deleteTrack(trackId);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _deleteTrack(trackId);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Duplicate a track (cannot duplicate master track), under [newTrackId]
@@ -380,14 +316,10 @@ mixin _TracksMixin on _AudioEngineBase {
 
   /// Clear all tracks except master - used for New Project / Close Project
   String clearAllTracks() {
-    try {
-      final resultPtr = _clearAllTracks();
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _clearAllTracks();
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   // ========================================================================
@@ -424,38 +356,26 @@ mixin _TracksMixin on _AudioEngineBase {
 
   /// Remove the band at [index] from a Graphic EQ effect.
   String removeEqBand(int effectId, int index) {
-    try {
-      final resultPtr = _removeEqBand(effectId, index);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _removeEqBand(effectId, index);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Insert a default band at [index] in a Graphic EQ effect (undo of a removal).
   String insertEqBand(int effectId, int index) {
-    try {
-      final resultPtr = _insertEqBand(effectId, index);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _insertEqBand(effectId, index);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Remove an effect from a track's FX chain
   String removeEffectFromTrack(int trackId, int effectId) {
-    try {
-      final resultPtr = _removeEffectFromTrack(trackId, effectId);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _removeEffectFromTrack(trackId, effectId);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Get all effects on a track (returns CSV of effect IDs)
@@ -485,16 +405,12 @@ mixin _TracksMixin on _AudioEngineBase {
 
   /// Set an effect parameter
   String setEffectParameter(int effectId, String paramName, double value) {
-    try {
-      final namePtr = paramName.toNativeUtf8();
-      final resultPtr = _setEffectParameter(effectId, namePtr.cast(), value);
-      malloc.free(namePtr);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final namePtr = paramName.toNativeUtf8();
+    final resultPtr = _setEffectParameter(effectId, namePtr.cast(), value);
+    malloc.free(namePtr);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Set effect bypass state
@@ -502,17 +418,6 @@ mixin _TracksMixin on _AudioEngineBase {
   bool setEffectBypass(int effectId, {required bool bypassed}) {
     try {
       final result = _setEffectBypass(effectId, bypassed ? 1 : 0);
-      return result == 1;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// Get effect bypass state
-  /// Returns true if bypassed, false if not bypassed or on error
-  bool getEffectBypass(int effectId) {
-    try {
-      final result = _getEffectBypass(effectId);
       return result == 1;
     } catch (e) {
       return false;

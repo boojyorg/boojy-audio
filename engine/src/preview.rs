@@ -7,7 +7,7 @@
 /// - Fade in/out to prevent clicks
 /// - Waveform peak extraction for UI
 use crate::audio_file::{
-    load_wav_for_preview, start_streaming_decode, AudioClip, RawPreviewClip, StreamingPreviewClip,
+    load_wav_for_preview, start_streaming_decode, RawPreviewClip, StreamingPreviewClip,
     TARGET_SAMPLE_RATE,
 };
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -18,7 +18,6 @@ const FADE_SAMPLES: usize = 882; // ~20ms at 44.1kHz, ~18ms at 48kHz
 /// Either a raw preview clip (WAV), decoded clip, or streaming clip (MP3/FLAC)
 enum PreviewClipData {
     Raw(RawPreviewClip),
-    Decoded(AudioClip),
     Streaming(StreamingPreviewClip),
 }
 
@@ -27,7 +26,6 @@ impl PreviewClipData {
     fn get_sample(&self, frame: usize, channel: usize) -> f32 {
         match self {
             Self::Raw(c) => c.get_sample(frame, channel),
-            Self::Decoded(c) => c.get_sample(frame, channel).unwrap_or(0.0),
             Self::Streaming(c) => c.get_sample(frame, channel),
         }
     }
@@ -35,7 +33,6 @@ impl PreviewClipData {
     fn frame_count(&self) -> usize {
         match self {
             Self::Raw(c) => c.frame_count,
-            Self::Decoded(c) => c.frame_count(),
             Self::Streaming(c) => c.frame_count(),
         }
     }
@@ -43,7 +40,6 @@ impl PreviewClipData {
     fn channels(&self) -> usize {
         match self {
             Self::Raw(c) => c.channels,
-            Self::Decoded(c) => c.channels,
             Self::Streaming(c) => c.channels,
         }
     }
@@ -51,7 +47,6 @@ impl PreviewClipData {
     fn sample_rate(&self) -> u32 {
         match self {
             Self::Raw(c) => c.sample_rate,
-            Self::Decoded(c) => c.sample_rate,
             Self::Streaming(c) => c.sample_rate,
         }
     }
@@ -59,7 +54,6 @@ impl PreviewClipData {
     fn duration_seconds(&self) -> f64 {
         match self {
             Self::Raw(c) => c.duration_seconds,
-            Self::Decoded(c) => c.duration_seconds,
             Self::Streaming(c) => c.duration_seconds(),
         }
     }
@@ -116,30 +110,6 @@ impl PreviewPlayer {
             async_loading: Arc::new(AtomicBool::new(false)),
             pending_load: Arc::new(parking_lot::Mutex::new(None)),
         }
-    }
-
-    /// Load an audio file for preview
-    pub fn load_file(&mut self, path: &str) -> Result<(), String> {
-        // Stop any current playback
-        self.stop();
-
-        // Load the audio file
-        let clip = crate::audio_file::load_audio_file(path).map_err(|e| e.to_string())?;
-        let total_samples = (clip.duration_seconds * f64::from(TARGET_SAMPLE_RATE)) as u64;
-
-        let should_loop = clip.duration_seconds < 3.0;
-        self.is_looping.store(should_loop, Ordering::SeqCst);
-
-        self.waveform_peaks = extract_waveform_peaks_from_clip(&clip, 200);
-
-        self.clip = Some(Arc::new(PreviewClipData::Decoded(clip)));
-        self.total_samples = total_samples;
-        self.position_samples.store(0, Ordering::SeqCst);
-        self.loaded_path = Some(path.to_string());
-        self.playback_rate = 1.0; // sync load always resamples to 48kHz
-        self.position_frac = 0.0;
-
-        Ok(())
     }
 
     /// Start loading an audio file asynchronously (returns immediately)
@@ -248,12 +218,6 @@ impl PreviewPlayer {
         false
     }
 
-    /// Check if a full clip is ready to hot-swap (after partial decode started playing)
-    /// Whether an async load is currently in progress
-    pub fn is_async_loading(&self) -> bool {
-        self.async_loading.load(Ordering::SeqCst)
-    }
-
     /// Whether the loaded clip has finished decoding. Always true once a
     /// non-streaming clip (raw WAV / decoded) is installed; for streaming
     /// clips (MP3/FLAC) it tracks the background decode thread, so callers
@@ -320,11 +284,6 @@ impl PreviewPlayer {
         self.is_looping.store(should_loop, Ordering::SeqCst);
     }
 
-    /// Get looping mode
-    pub fn is_looping(&self) -> bool {
-        self.is_looping.load(Ordering::SeqCst)
-    }
-
     /// Compute waveform peaks fresh from the loaded clip (no caching).
     /// Returns an empty vec if there is no clip / no decoded frames yet.
     fn compute_peaks(&self, resolution: usize) -> Vec<f32> {
@@ -382,12 +341,6 @@ impl PreviewPlayer {
             return vec![0.0; resolution];
         }
         resample_peaks(&self.waveform_peaks, resolution)
-    }
-
-    /// Get the loaded file path
-    #[allow(dead_code)]
-    pub fn get_loaded_path(&self) -> Option<&str> {
-        self.loaded_path.as_deref()
     }
 
     /// Process a single stereo sample frame
@@ -501,37 +454,6 @@ impl Default for PreviewPlayer {
     fn default() -> Self {
         Self::new()
     }
-}
-
-/// Extract waveform peaks from a decoded AudioClip
-pub(crate) fn extract_waveform_peaks_from_clip(clip: &AudioClip, resolution: usize) -> Vec<f32> {
-    let frame_count = clip.frame_count();
-    if frame_count == 0 || resolution == 0 {
-        return vec![0.0; resolution];
-    }
-
-    let frames_per_peak = (frame_count as f64 / resolution as f64).max(1.0);
-    let mut peaks = Vec::with_capacity(resolution);
-
-    for i in 0..resolution {
-        let start_frame = (i as f64 * frames_per_peak) as usize;
-        let end_frame = ((i + 1) as f64 * frames_per_peak) as usize;
-        let end_frame = end_frame.min(frame_count);
-
-        let mut max_amplitude = 0.0f32;
-        for frame in start_frame..end_frame {
-            let left = clip.get_sample(frame, 0).unwrap_or(0.0).abs();
-            let right = if clip.channels > 1 {
-                clip.get_sample(frame, 1).unwrap_or(0.0).abs()
-            } else {
-                left
-            };
-            max_amplitude = max_amplitude.max(left).max(right);
-        }
-        peaks.push(max_amplitude);
-    }
-
-    peaks
 }
 
 /// Resample peaks to a different resolution

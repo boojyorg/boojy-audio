@@ -10,7 +10,7 @@ paths:
 
 The boundary is **raw `dart:ffi`**, three layers (`api/` → `ffi/` shim → Dart binding); the
 layout is in `docs/ARCHITECTURE.md`. **Use the `add-ffi` skill** to add a function: it wires all
-7 files, including the `ffi_catch` wrapper every shim needs. Keep `api/` free of `extern "C"` and
+6 files, including the `ffi_catch` wrapper every shim needs. Keep `api/` free of `extern "C"` and
 raw pointers (one commented exception in `api/vst3.rs`). Don't reintroduce `flutter_rust_bridge`:
 it was dropped on purpose.
 

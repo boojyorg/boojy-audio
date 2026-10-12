@@ -37,15 +37,6 @@ pub fn set_synth_parameter(
     Ok(format!("Set {param_name} = {value} for track {track_id}"))
 }
 
-/// Get synthesizer parameters for a track
-pub fn get_synth_parameters(_track_id: u64) -> Result<String, String> {
-    let graph_mutex = get_audio_graph()?;
-    let _graph = graph_mutex.lock();
-
-    // Future: Return real synth params for UI (v0.5.0)
-    Ok(String::new())
-}
-
 /// Set bypass state for a track's built-in instrument
 pub fn set_synth_bypass(track_id: u64, bypassed: bool) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
@@ -323,19 +314,6 @@ pub fn add_drum_pad(track_id: u64, pinned_note: u8) -> Result<i64, String> {
         .add_drum_pad(track_id, pinned_note)
         .map(i64::from)
         .ok_or_else(|| format!("Could not add pad on note {pinned_note} to track {track_id}"))
-}
-
-/// Remove a pad by index.
-pub fn remove_drum_pad(track_id: u64, pad_index: u8) -> Result<String, String> {
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-    let mut synth_manager = graph.track_synth_manager.lock();
-
-    if synth_manager.remove_drum_pad(track_id, pad_index) {
-        Ok(format!("Removed pad {pad_index} from track {track_id}"))
-    } else {
-        Err(format!("No pad {pad_index} on track {track_id}"))
-    }
 }
 
 /// Load a sample file into a drum pad.

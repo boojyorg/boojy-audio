@@ -2,7 +2,7 @@
 //!
 //! Functions for audio latency configuration and waveform visualization.
 
-use super::helpers::{get_audio_clips, get_audio_graph, with_graph, with_graph_mut};
+use super::helpers::{get_audio_clips, with_graph_mut};
 use crate::audio_graph::BufferSizePreset;
 
 // ============================================================================
@@ -33,34 +33,6 @@ pub fn set_buffer_size(preset: i32) -> Result<String, String> {
             buffer_preset.latency_ms()
         ))
     })
-}
-
-/// Get current buffer size preset (0-4)
-pub fn get_buffer_size_preset() -> Result<i32, String> {
-    with_graph(|graph| {
-        let preset = graph.get_buffer_size_preset();
-        let value = match preset {
-            BufferSizePreset::Lowest => 0,
-            BufferSizePreset::Low => 1,
-            BufferSizePreset::Balanced => 2,
-            BufferSizePreset::Safe => 3,
-            BufferSizePreset::HighStability => 4,
-        };
-        Ok(value)
-    })
-}
-
-/// Get actual buffer size in samples
-pub fn get_actual_buffer_size() -> Result<u32, String> {
-    with_graph(|graph| Ok(graph.get_actual_buffer_size()))
-}
-
-/// Get audio latency info
-/// Returns: (`buffer_size_samples`, `input_latency_ms`, `output_latency_ms`, `total_roundtrip_ms`)
-pub fn get_latency_info() -> Option<(u32, f32, f32, f32)> {
-    let graph_mutex = get_audio_graph().ok()?;
-    let graph = graph_mutex.lock();
-    Some(graph.get_latency_info())
 }
 
 // ============================================================================

@@ -40,11 +40,8 @@ id3 = "1.14"                     # ID3v2 tag writing for MP3 metadata
 # Note: MP3 encoding uses ffmpeg via command line (commonly available on macOS/Linux)
 
 # VST3 Plugin Hosting (M7)
-lazy_static = "1.4"              # Plugin registry singleton
 parking_lot = "0.12"             # Better mutexes for plugin thread safety
-flate2 = "1.0"                   # Plugin state compression
 base64 = "0.21"                  # Base64 encoding for plugin state
-walkdir = "2.4"                  # Directory traversal for plugin scanning
 
 # MIDI I/O (desktop only - midir doesn't support iOS)
 [target.'cfg(not(target_os = "ios"))'.dependencies]

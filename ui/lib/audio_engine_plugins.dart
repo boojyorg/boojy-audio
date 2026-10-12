@@ -8,46 +8,34 @@ mixin _PluginsMixin on _AudioEngineBase {
 
   /// Save project to .audio folder
   String saveProject(String projectName, String projectPath) {
-    try {
-      final namePtr = projectName.toNativeUtf8();
-      final pathPtr = projectPath.toNativeUtf8();
-      final resultPtr = _saveProject(namePtr.cast(), pathPtr.cast());
-      malloc.free(namePtr);
-      malloc.free(pathPtr);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final namePtr = projectName.toNativeUtf8();
+    final pathPtr = projectPath.toNativeUtf8();
+    final resultPtr = _saveProject(namePtr.cast(), pathPtr.cast());
+    malloc.free(namePtr);
+    malloc.free(pathPtr);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Load project from .audio folder
   String loadProject(String projectPath) {
-    try {
-      final pathPtr = projectPath.toNativeUtf8();
-      final resultPtr = _loadProject(pathPtr.cast());
-      malloc.free(pathPtr);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final pathPtr = projectPath.toNativeUtf8();
+    final resultPtr = _loadProject(pathPtr.cast());
+    malloc.free(pathPtr);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Export project to WAV file (legacy method - uses 32-bit float, 48kHz)
   String exportToWav(String outputPath, {required bool normalize}) {
-    try {
-      final pathPtr = outputPath.toNativeUtf8();
-      final resultPtr = _exportToWav(pathPtr.cast(), normalize);
-      malloc.free(pathPtr);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final pathPtr = outputPath.toNativeUtf8();
+    final resultPtr = _exportToWav(pathPtr.cast(), normalize);
+    malloc.free(pathPtr);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   // ========================================================================
@@ -57,28 +45,6 @@ mixin _PluginsMixin on _AudioEngineBase {
   /// Check if ffmpeg is available for MP3 encoding
   bool isFfmpegAvailable() {
     return _isFfmpegAvailable() == 1;
-  }
-
-  /// Export audio with generic JSON options
-  /// Returns JSON string with ExportResult on success
-  String exportAudio(String outputPath, String optionsJson) {
-    try {
-      final pathPtr = outputPath.toNativeUtf8();
-      final optionsPtr = optionsJson.toNativeUtf8();
-      final resultPtr = _exportAudio(pathPtr.cast(), optionsPtr.cast());
-      malloc.free(pathPtr);
-      malloc.free(optionsPtr);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-
-      if (result.startsWith('Error:')) {
-        throw Exception(result);
-      }
-
-      return result;
-    } catch (e) {
-      rethrow;
-    }
   }
 
   /// Export WAV with configurable options
@@ -93,28 +59,24 @@ mixin _PluginsMixin on _AudioEngineBase {
     bool dither = false,
     bool mono = false,
   }) {
-    try {
-      final pathPtr = outputPath.toNativeUtf8();
-      final resultPtr = _exportWavWithOptions(
-        pathPtr.cast(),
-        bitDepth,
-        sampleRate,
-        normalize,
-        dither,
-        mono,
-      );
-      malloc.free(pathPtr);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
+    final pathPtr = outputPath.toNativeUtf8();
+    final resultPtr = _exportWavWithOptions(
+      pathPtr.cast(),
+      bitDepth,
+      sampleRate,
+      normalize,
+      dither,
+      mono,
+    );
+    malloc.free(pathPtr);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
 
-      if (result.startsWith('Error:')) {
-        throw Exception(result);
-      }
-
-      return result;
-    } catch (e) {
-      rethrow;
+    if (result.startsWith('Error:')) {
+      throw Exception(result);
     }
+
+    return result;
   }
 
   /// Export MP3 with configurable options
@@ -128,67 +90,55 @@ mixin _PluginsMixin on _AudioEngineBase {
     bool normalize = false,
     bool mono = false,
   }) {
-    try {
-      final pathPtr = outputPath.toNativeUtf8();
-      final resultPtr = _exportMp3WithOptions(
-        pathPtr.cast(),
-        bitrate,
-        sampleRate,
-        normalize,
-        mono,
-      );
-      malloc.free(pathPtr);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
+    final pathPtr = outputPath.toNativeUtf8();
+    final resultPtr = _exportMp3WithOptions(
+      pathPtr.cast(),
+      bitrate,
+      sampleRate,
+      normalize,
+      mono,
+    );
+    malloc.free(pathPtr);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
 
-      if (result.startsWith('Error:')) {
-        throw Exception(result);
-      }
-
-      return result;
-    } catch (e) {
-      rethrow;
+    if (result.startsWith('Error:')) {
+      throw Exception(result);
     }
+
+    return result;
   }
 
   /// Write ID3 metadata to an MP3 file
   /// metadataJson: JSON string with title, artist, album, year, genre, etc.
   String writeMp3Metadata(String filePath, String metadataJson) {
-    try {
-      final pathPtr = filePath.toNativeUtf8();
-      final metadataPtr = metadataJson.toNativeUtf8();
-      final resultPtr = _writeMp3Metadata(pathPtr.cast(), metadataPtr.cast());
-      malloc.free(pathPtr);
-      malloc.free(metadataPtr);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
+    final pathPtr = filePath.toNativeUtf8();
+    final metadataPtr = metadataJson.toNativeUtf8();
+    final resultPtr = _writeMp3Metadata(pathPtr.cast(), metadataPtr.cast());
+    malloc.free(pathPtr);
+    malloc.free(metadataPtr);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
 
-      if (result.startsWith('Error:')) {
-        throw Exception(result);
-      }
-
-      return result;
-    } catch (e) {
-      rethrow;
+    if (result.startsWith('Error:')) {
+      throw Exception(result);
     }
+
+    return result;
   }
 
   /// Get tracks available for stem export
   /// Returns JSON array of {id, name, type} objects
   String getTracksForStems() {
-    try {
-      final resultPtr = _getTracksForStems();
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
+    final resultPtr = _getTracksForStems();
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
 
-      if (result.startsWith('Error:')) {
-        throw Exception(result);
-      }
-
-      return result;
-    } catch (e) {
-      rethrow;
+    if (result.startsWith('Error:')) {
+      throw Exception(result);
     }
+
+    return result;
   }
 
   /// Export stems (individual tracks) to a directory
@@ -203,35 +153,31 @@ mixin _PluginsMixin on _AudioEngineBase {
     String trackIdsJson = '',
     required String optionsJson,
   }) {
-    try {
-      final dirPtr = outputDir.toNativeUtf8();
-      final namePtr = baseName.toNativeUtf8();
-      final trackIdsPtr = trackIdsJson.toNativeUtf8();
-      final optionsPtr = optionsJson.toNativeUtf8();
+    final dirPtr = outputDir.toNativeUtf8();
+    final namePtr = baseName.toNativeUtf8();
+    final trackIdsPtr = trackIdsJson.toNativeUtf8();
+    final optionsPtr = optionsJson.toNativeUtf8();
 
-      final resultPtr = _exportStems(
-        dirPtr.cast(),
-        namePtr.cast(),
-        trackIdsPtr.cast(),
-        optionsPtr.cast(),
-      );
+    final resultPtr = _exportStems(
+      dirPtr.cast(),
+      namePtr.cast(),
+      trackIdsPtr.cast(),
+      optionsPtr.cast(),
+    );
 
-      malloc.free(dirPtr);
-      malloc.free(namePtr);
-      malloc.free(trackIdsPtr);
-      malloc.free(optionsPtr);
+    malloc.free(dirPtr);
+    malloc.free(namePtr);
+    malloc.free(trackIdsPtr);
+    malloc.free(optionsPtr);
 
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
 
-      if (result.startsWith('Error:')) {
-        throw Exception(result);
-      }
-
-      return result;
-    } catch (e) {
-      rethrow;
+    if (result.startsWith('Error:')) {
+      throw Exception(result);
     }
+
+    return result;
   }
 
   // ========================================================================
@@ -276,19 +222,15 @@ mixin _PluginsMixin on _AudioEngineBase {
   /// Set the instrument for a track
   /// Returns the instrument ID or -1 on error
   int setTrackInstrument(int trackId, String instrumentType) {
-    try {
-      final typePtr = instrumentType.toNativeUtf8();
-      final instrumentId = _setTrackInstrument(trackId, typePtr.cast());
-      malloc.free(typePtr);
+    final typePtr = instrumentType.toNativeUtf8();
+    final instrumentId = _setTrackInstrument(trackId, typePtr.cast());
+    malloc.free(typePtr);
 
-      if (instrumentId < 0) {
-        return -1;
-      }
-
-      return instrumentId;
-    } catch (e) {
-      rethrow;
+    if (instrumentId < 0) {
+      return -1;
     }
+
+    return instrumentId;
   }
 
   /// Set a synthesizer parameter for a track
@@ -305,36 +247,19 @@ mixin _PluginsMixin on _AudioEngineBase {
   /// paramName: parameter name (e.g., 'osc1_type', 'filter_cutoff')
   /// value: parameter value (will be converted to string)
   String setSynthParameter(int trackId, String paramName, dynamic value) {
-    try {
-      final namePtr = paramName.toNativeUtf8();
-      final valueStr = value.toString();
-      final valuePtr = valueStr.toNativeUtf8();
-      final resultPtr = _setSynthParameter(
-        trackId,
-        namePtr.cast(),
-        valuePtr.cast(),
-      );
-      malloc.free(namePtr);
-      malloc.free(valuePtr);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Get all synthesizer parameters for a track
-  /// Returns a comma-separated string of key:value pairs
-  String getSynthParameters(int trackId) {
-    try {
-      final resultPtr = _getSynthParameters(trackId);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final namePtr = paramName.toNativeUtf8();
+    final valueStr = value.toString();
+    final valuePtr = valueStr.toNativeUtf8();
+    final resultPtr = _setSynthParameter(
+      trackId,
+      namePtr.cast(),
+      valuePtr.cast(),
+    );
+    malloc.free(namePtr);
+    malloc.free(valuePtr);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Send MIDI note on to a specific track's instrument
@@ -342,14 +267,10 @@ mixin _PluginsMixin on _AudioEngineBase {
   /// note: MIDI note number (0-127)
   /// velocity: MIDI velocity (0-127)
   String sendTrackMidiNoteOn(int trackId, int note, int velocity) {
-    try {
-      final resultPtr = _sendTrackMidiNoteOn(trackId, note, velocity);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _sendTrackMidiNoteOn(trackId, note, velocity);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Send MIDI note off to a specific track's instrument
@@ -357,14 +278,10 @@ mixin _PluginsMixin on _AudioEngineBase {
   /// note: MIDI note number (0-127)
   /// velocity: MIDI velocity (0-127)
   String sendTrackMidiNoteOff(int trackId, int note, int velocity) {
-    try {
-      final resultPtr = _sendTrackMidiNoteOff(trackId, note, velocity);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _sendTrackMidiNoteOff(trackId, note, velocity);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   // ========================================================================
@@ -374,11 +291,7 @@ mixin _PluginsMixin on _AudioEngineBase {
   /// Create a sampler instrument for a track
   /// Returns instrument ID on success, or -1 on error
   int createSamplerForTrack(int trackId) {
-    try {
-      return _createSamplerForTrack(trackId);
-    } catch (e) {
-      rethrow;
-    }
+    return _createSamplerForTrack(trackId);
   }
 
   /// Load a sample file into a sampler track
@@ -560,14 +473,6 @@ mixin _PluginsMixin on _AudioEngineBase {
   /// Returns the new pad's index, or -1 on error (e.g. note already pinned).
   int addDrumPad(int trackId, int pinnedNote) {
     return _addDrumPad(trackId, pinnedNote);
-  }
-
-  /// Remove the pad at [padIndex]. Returns the engine's status string.
-  String removeDrumPad(int trackId, int padIndex) {
-    final resultPtr = _removeDrumPad(trackId, padIndex);
-    final result = resultPtr.toDartString();
-    _freeRustString(resultPtr);
-    return result;
   }
 
   /// Load an audio file into the pad at [padIndex]. Returns true on success.
@@ -973,20 +878,6 @@ mixin _PluginsMixin on _AudioEngineBase {
   // Library Preview API
   // ========================================================================
 
-  /// Load an audio file for library preview
-  String previewLoadAudio(String path) {
-    try {
-      final pathPtr = path.toNativeUtf8().cast<ffi.Char>();
-      final resultPtr = _previewLoadAudio(pathPtr);
-      final result = resultPtr.toDartString();
-      calloc.free(pathPtr);
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      return 'Error: $e';
-    }
-  }
-
   /// Start loading an audio file asynchronously (returns immediately)
   void previewLoadAudioAsync(String path) {
     try {
@@ -1002,15 +893,6 @@ mixin _PluginsMixin on _AudioEngineBase {
   bool previewIsLoaded() {
     try {
       return _previewIsLoaded();
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// Check if full clip is ready to hot-swap after partial decode
-  bool previewCheckFullClip() {
-    try {
-      return _previewCheckFullClip();
     } catch (e) {
       return false;
     }
@@ -1086,15 +968,6 @@ mixin _PluginsMixin on _AudioEngineBase {
       _previewSetLooping(shouldLoop);
     } catch (e) {
       // Ignore errors
-    }
-  }
-
-  /// Get looping mode
-  bool previewIsLooping() {
-    try {
-      return _previewIsLooping();
-    } catch (e) {
-      return false;
     }
   }
 

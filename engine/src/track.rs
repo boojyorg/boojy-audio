@@ -134,14 +134,6 @@ impl TimelineClip {
         })
     }
 
-    /// Get pitch shift ratio for playback
-    /// Combines semitones and cents: ratio = 2^((semitones + cents/100) / 12)
-    pub fn get_pitch_ratio(&self) -> f32 {
-        let total_semitones =
-            self.transpose_semitones as f32 + (self.transpose_cents as f32 / 100.0);
-        2_f32.powf(total_semitones / 12.0)
-    }
-
     fn transpose_total_cents(&self) -> i32 {
         self.transpose_semitones * 100 + self.transpose_cents
     }
@@ -459,17 +451,6 @@ impl Track {
         let p2 = &points[high];
         let t = (time_seconds - p1.time_seconds) / (p2.time_seconds - p1.time_seconds);
         p1.value_db + (p2.value_db - p1.value_db) * t as f32
-    }
-
-    /// Get interpolated gain (linear) at a specific time
-    /// Converts the dB value from `get_volume_at()` to linear gain
-    pub fn get_gain_at(&self, time_seconds: f64) -> f32 {
-        let db = self.get_volume_at(time_seconds);
-        if db <= -96.0 {
-            0.0
-        } else {
-            10_f32.powf(db / 20.0)
-        }
     }
 
     /// Set volume automation curve from a CSV string

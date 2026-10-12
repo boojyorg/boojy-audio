@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../controllers/controllers.dart';
 import '../../../models/audio_input_status.dart';
 import '../../../models/clip_data.dart';
@@ -26,8 +27,8 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     if (isRecording) {
       // During recording: Save and restart
       recordingController.restartRecording();
-    } else if (isCountingIn || recordingController.isWaitingForPunchIn) {
-      // During count-in or waiting for punch-in: Cancel and return to start
+    } else if (isCountingIn) {
+      // During count-in: Cancel and return to start
       stopRecordingAndReturn();
     } else {
       // Idle: Start new recording
@@ -121,13 +122,6 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
   /// keep the playhead parked until recording begins, then subtract the in-place
   /// count-in time so the displayed position matches the musical content.
   void _onRecordingStateChanged() {
-    // Start playhead polling when entering WaitingForPunchIn (transport is playing)
-    if (recordingController.isWaitingForPunchIn) {
-      recordingController.removeListener(_onRecordingStateChanged);
-      playbackController.startPlayheadPolling(displayOffset: 0.0);
-      return;
-    }
-
     final offset = _countInInPlaceOffsetSeconds();
 
     // Pre-roll has room: let the playhead move through the count-in immediately.
@@ -148,9 +142,7 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
 
   /// Pause recording: Stop recording, stay at current position
   void pauseRecording() {
-    if (!isRecording &&
-        !isCountingIn &&
-        !recordingController.isWaitingForPunchIn) {
+    if (!isRecording && !isCountingIn) {
       return;
     }
 
@@ -180,9 +172,7 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
 
   /// Stop recording: Stop recording, return to recordStartPosition
   void stopRecordingAndReturn() {
-    if (!isRecording &&
-        !isCountingIn &&
-        !recordingController.isWaitingForPunchIn) {
+    if (!isRecording && !isCountingIn) {
       return;
     }
 
@@ -366,7 +356,7 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
 
     // Place each where the engine put it. The mixer's armed flags can lag
     // (Record → New Audio Track arms the track a moment before recording),
-    // and the engine knows the take's real start (count-in, punch-in).
+    // and the engine knows the take's real start (after the count-in).
     final takes = [
       for (final MapEntry(key: clipId, value: peaks) in audioTakes.entries)
         if (_engineAudioClipPlacement(clipId) case final placement?

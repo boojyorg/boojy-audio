@@ -1,6 +1,6 @@
 ---
 name: add-ffi
-description: Add a new FFI function bridging the Rust audio engine and Flutter/Dart UI. Handles all 7 files that need updating.
+description: Add a new FFI function bridging the Rust audio engine and Flutter/Dart UI. Handles all 6 files that need updating.
 ---
 
 # Add FFI Function
@@ -121,30 +121,22 @@ Add a public method in the appropriate mixin (transport, tracks, recording, or p
 **String return:**
 ```dart
 String myFunction(int param) {
-  try {
-    final resultPtr = _myFunction(param);
-    final result = resultPtr.toDartString();
-    _freeRustString(resultPtr);
-    return result;
-  } catch (e) {
-    rethrow;
-  }
+  final resultPtr = _myFunction(param);
+  final result = resultPtr.toDartString();
+  _freeRustString(resultPtr);
+  return result;
 }
 ```
 
 **String param:**
 ```dart
 String myFunction(String name) {
-  try {
-    final namePtr = name.toNativeUtf8();
-    final resultPtr = _myFunction(namePtr.cast());
-    malloc.free(namePtr);
-    final result = resultPtr.toDartString();
-    _freeRustString(resultPtr);
-    return result;
-  } catch (e) {
-    rethrow;
-  }
+  final namePtr = name.toNativeUtf8();
+  final resultPtr = _myFunction(namePtr.cast());
+  malloc.free(namePtr);
+  final result = resultPtr.toDartString();
+  _freeRustString(resultPtr);
+  return result;
 }
 ```
 
@@ -157,14 +149,6 @@ String myFunction(String name) {
 Add the abstract method signature:
 ```dart
 String myFunction(int param);
-```
-
-## Step 7: Stub (`ui/lib/audio_engine_stub.dart`)
-
-Add the stub implementation:
-```dart
-@override
-String myFunction(int param) => throw UnsupportedError('stub');
 ```
 
 ## Verification Checklist

@@ -138,7 +138,6 @@ abstract class AudioEngineInterface {
   // Drum-kit operations (v0.6)
   int createDrumKitForTrack(int trackId);
   int addDrumPad(int trackId, int pinnedNote);
-  String removeDrumPad(int trackId, int padIndex);
   bool loadDrumPadSample(int trackId, int padIndex, String path);
   String setDrumPadParameter(
     int trackId,
@@ -177,10 +176,8 @@ abstract class AudioEngineInterface {
   void setCountInBars(int bars);
 
   // Library preview operations
-  String previewLoadAudio(String path);
   void previewLoadAudioAsync(String path);
   bool previewIsLoaded();
-  bool previewCheckFullClip();
   bool previewIsFullyDecoded();
   void previewPlay();
   void previewStop();
@@ -189,21 +186,9 @@ abstract class AudioEngineInterface {
   double previewGetDuration();
   bool previewIsPlaying();
   void previewSetLooping(bool shouldLoop);
-  bool previewIsLooping();
   List<double> previewGetWaveform(int resolution);
 
-  // Punch recording operations
-  String setPunchInEnabled({required bool enabled});
-  bool isPunchInEnabled();
-  String setPunchOutEnabled({required bool enabled});
-  bool isPunchOutEnabled();
-  String setPunchRegion(double inSeconds, double outSeconds);
-  double getPunchInSeconds();
-  double getPunchOutSeconds();
-  bool isPunchComplete();
-
   // Send/return operations
-  int findReturnByEffectType(String effectType);
   int createReturnWithEffect(String effectType, {String? name});
   String addSharedSend(int sourceTrackId, String effectType);
   String addSend(int sourceTrackId, int returnTrackId, double amountDb);
@@ -213,7 +198,5 @@ abstract class AudioEngineInterface {
   String getTrackSends(int trackId);
   String getAllReturns();
   int countSendsToReturn(int returnTrackId);
-  bool getMasterTimelineVisible();
   String setMasterTimelineVisible({required bool visible});
-  bool syncMasterTimelineVisibility();
 }

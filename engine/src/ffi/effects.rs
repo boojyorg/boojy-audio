@@ -134,19 +134,6 @@ pub extern "C" fn set_effect_bypass_ffi(effect_id: u64, bypassed: i32) -> i32 {
     })
 }
 
-/// Get effect bypass state
-/// Returns 1 if bypassed, 0 if not bypassed, -1 on error
-#[no_mangle]
-pub extern "C" fn get_effect_bypass_ffi(effect_id: u64) -> i32 {
-    ffi_catch(-1, || match api::get_effect_bypass(effect_id) {
-        Ok(bypassed) => i32::from(bypassed),
-        Err(e) => {
-            eprintln!("[FFI] get_effect_bypass error: {e}");
-            -1
-        }
-    })
-}
-
 /// Reorder effects in a track's FX chain
 /// `effect_ids_csv`: comma-separated list of effect IDs in the desired order
 #[no_mangle]

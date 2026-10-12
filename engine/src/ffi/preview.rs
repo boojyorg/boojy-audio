@@ -27,30 +27,6 @@ pub extern "C" fn preview_is_loaded_ffi() -> bool {
     ffi_catch(false, api::preview_is_loaded)
 }
 
-/// Load an audio file for library preview (synchronous, blocks until complete)
-#[no_mangle]
-pub extern "C" fn preview_load_audio_ffi(path: *const c_char) -> *mut c_char {
-    ffi_catch(
-        std::ptr::null_mut(),
-        AssertUnwindSafe(|| {
-            let Some(path_str) = (unsafe { cstr_arg(path) }) else {
-                return safe_cstring("Error: null path or invalid UTF-8".to_string()).into_raw();
-            };
-
-            match api::preview_load_audio(path_str.to_string()) {
-                Ok(()) => safe_cstring("OK".to_string()).into_raw(),
-                Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-            }
-        }),
-    )
-}
-
-/// Check if full clip is ready to hot-swap after partial decode
-#[no_mangle]
-pub extern "C" fn preview_check_full_clip_ffi() -> bool {
-    ffi_catch(false, api::preview_check_full_clip)
-}
-
 /// Check if the loaded preview clip has finished decoding (true for WAV once
 /// loaded; tracks the background decode for streaming MP3/FLAC)
 #[no_mangle]
@@ -106,12 +82,6 @@ pub extern "C" fn preview_set_looping_ffi(should_loop: bool) {
     ffi_catch((), || {
         let _ = api::preview_set_looping(should_loop);
     });
-}
-
-/// Get looping mode
-#[no_mangle]
-pub extern "C" fn preview_is_looping_ffi() -> bool {
-    ffi_catch(false, api::preview_is_looping)
 }
 
 /// Get waveform peaks for UI display

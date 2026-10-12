@@ -5,19 +5,6 @@ mixin _SendsMixin on _AudioEngineBase {
   // Send/Return API
   // ========================================================================
 
-  /// Find an existing return track for a built-in effect type.
-  /// Returns -1 on error, 0 if none, or the return track ID.
-  int findReturnByEffectType(String effectType) {
-    try {
-      final typePtr = effectType.toNativeUtf8();
-      final result = _findReturnByEffectType(typePtr.cast());
-      malloc.free(typePtr);
-      return result;
-    } catch (e) {
-      return -1;
-    }
-  }
-
   /// Create a return track with a built-in effect at 100% wet.
   /// Returns return track ID or -1 on error.
   int createReturnWithEffect(String effectType, {String? name}) {
@@ -127,14 +114,6 @@ mixin _SendsMixin on _AudioEngineBase {
     }
   }
 
-  bool getMasterTimelineVisible() {
-    try {
-      return _getMasterTimelineVisible() != 0;
-    } catch (e) {
-      return false;
-    }
-  }
-
   String setMasterTimelineVisible({required bool visible}) {
     try {
       final resultPtr = _setMasterTimelineVisible(visible ? 1 : 0);
@@ -143,14 +122,6 @@ mixin _SendsMixin on _AudioEngineBase {
       return result;
     } catch (e) {
       return 'Error: $e';
-    }
-  }
-
-  bool syncMasterTimelineVisibility() {
-    try {
-      return _syncMasterTimelineVisibility() != 0;
-    } catch (e) {
-      return false;
     }
   }
 }

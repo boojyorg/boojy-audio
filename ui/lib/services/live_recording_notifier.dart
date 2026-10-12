@@ -1,6 +1,7 @@
 import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
+
 import '../models/clip_data.dart';
 import '../models/live_peaks.dart';
 import '../models/midi_note_data.dart';
@@ -236,7 +237,7 @@ class LiveRecordingNotifier extends ChangeNotifier {
   void addPeaks(LivePeaksChunk chunk) {
     if (!isRecordingAudio) return;
     if (chunk.total < _peaksFetched) {
-      // A new take started in the engine (e.g. punch-in): start over.
+      // A new take started in the engine (e.g. a restart): start over.
       _peaksFetched = 0;
       _leftPairs.clear();
       _rightPairs.clear();

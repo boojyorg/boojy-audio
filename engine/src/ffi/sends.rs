@@ -5,31 +5,6 @@ use std::os::raw::c_char;
 use std::panic::AssertUnwindSafe;
 
 #[no_mangle]
-pub extern "C" fn find_return_by_effect_type_ffi(effect_type: *const c_char) -> i64 {
-    ffi_catch(
-        -1,
-        AssertUnwindSafe(|| {
-            let Some(effect_type_str) = (unsafe { cstr_arg(effect_type) }) else {
-                return -1;
-            };
-
-            // Sentinels: id (>0) found, 0 = none, -1 = error. 0 is unambiguous
-            // because this only ever returns Return-track ids, and Return tracks
-            // are always created with id > 0 — only the Master track is id 0, and
-            // it is excluded from the search. (C47)
-            match api::find_return_by_effect_type(effect_type_str) {
-                Ok(Some(id)) => id as i64,
-                Ok(None) => 0,
-                Err(e) => {
-                    eprintln!("[FFI] find_return_by_effect_type error: {e}");
-                    -1
-                }
-            }
-        }),
-    )
-}
-
-#[no_mangle]
 pub extern "C" fn create_return_with_effect_ffi(
     effect_type: *const c_char,
     name: *const c_char,
@@ -163,17 +138,6 @@ pub extern "C" fn count_sends_to_return_ffi(return_track_id: u64) -> i64 {
 }
 
 #[no_mangle]
-pub extern "C" fn get_master_timeline_visible_ffi() -> i32 {
-    ffi_catch(0, || match api::get_master_timeline_visible() {
-        Ok(visible) => i32::from(visible),
-        Err(e) => {
-            eprintln!("[FFI] get_master_timeline_visible error: {e}");
-            0
-        }
-    })
-}
-
-#[no_mangle]
 pub extern "C" fn set_master_timeline_visible_ffi(visible: i32) -> *mut c_char {
     ffi_catch(
         std::ptr::null_mut(),
@@ -182,15 +146,4 @@ pub extern "C" fn set_master_timeline_visible_ffi(visible: i32) -> *mut c_char {
             Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
         },
     )
-}
-
-#[no_mangle]
-pub extern "C" fn sync_master_timeline_visibility_ffi() -> i32 {
-    ffi_catch(0, || match api::sync_master_timeline_visibility() {
-        Ok(visible) => i32::from(visible),
-        Err(e) => {
-            eprintln!("[FFI] sync_master_timeline_visibility error: {e}");
-            0
-        }
-    })
 }

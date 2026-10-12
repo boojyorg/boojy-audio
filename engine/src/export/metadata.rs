@@ -113,50 +113,6 @@ pub fn write_id3_tags(mp3_path: &Path, metadata: &ExportMetadata) -> Result<(), 
     Ok(())
 }
 
-/// Read ID3 tags from an MP3 file
-///
-/// # Arguments
-/// * `mp3_path` - Path to the MP3 file
-///
-/// # Returns
-/// `ExportMetadata` with read values
-#[allow(clippy::field_reassign_with_default)]
-pub fn read_id3_tags(mp3_path: &Path) -> Result<ExportMetadata, String> {
-    let tag = Tag::read_from_path(mp3_path).map_err(|e| format!("Failed to read ID3 tags: {e}"))?;
-
-    let mut metadata = ExportMetadata::default();
-
-    metadata.title = tag.title().map(ToString::to_string);
-    metadata.artist = tag.artist().map(ToString::to_string);
-    metadata.album = tag.album().map(ToString::to_string);
-    metadata.year = tag.year().map(|y| y as u32);
-    metadata.genre = tag.genre().map(ToString::to_string);
-    metadata.track_number = tag.track();
-    metadata.track_total = tag.total_tracks();
-
-    // Read BPM
-    if let Some(frame) = tag.get("TBPM") {
-        if let Some(text) = frame.content().text() {
-            metadata.bpm = text.parse().ok();
-        }
-    }
-
-    // Read Key
-    if let Some(frame) = tag.get("TKEY") {
-        if let Some(text) = frame.content().text() {
-            metadata.key = Some(text.to_string());
-        }
-    }
-
-    // Read cover art
-    if let Some(picture) = tag.pictures().next() {
-        metadata.cover_art = Some(picture.data.clone());
-        metadata.cover_art_mime = Some(picture.mime_type.clone());
-    }
-
-    Ok(metadata)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

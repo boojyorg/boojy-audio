@@ -57,7 +57,7 @@ flaky, so read the matching file deliberately.
 
 ## Claude Code
 
-- Skills: `add-ffi` (wires a new engine function through all 7 files). Review workflows
+- Skills: `add-ffi` (wires a new engine function through all 6 files). Review workflows
   (`ui-ux-review`, `codebase-review`, `feature-gap-review`) are in `.claude/workflows/`; when to
   run them is in `docs/RELEASING.md`.
 - `CLAUDE.md` is a one-line pointer to this file (not a symlink).

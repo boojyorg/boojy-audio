@@ -167,15 +167,6 @@ impl MidiClip {
         }
     }
 
-    /// Get all events within a time range (in samples)
-    pub fn get_events_in_range(&self, start_samples: u64, end_samples: u64) -> Vec<MidiEvent> {
-        self.events
-            .iter()
-            .filter(|e| e.timestamp_samples >= start_samples && e.timestamp_samples < end_samples)
-            .copied()
-            .collect()
-    }
-
     /// Get duration in seconds
     pub fn duration_seconds(&self) -> f64 {
         self.duration_samples as f64 / f64::from(self.sample_rate)
@@ -205,56 +196,6 @@ impl MidiClip {
     pub fn clear(&mut self) {
         self.events.clear();
         self.duration_samples = 0;
-    }
-}
-
-/// MIDI note representation for piano roll editing (not to be confused with `MidiNote` type)
-#[derive(Debug, Clone, Copy)]
-pub struct Note {
-    /// MIDI note number (0-127)
-    pub pitch: MidiNote,
-    /// Velocity (0-127)
-    pub velocity: MidiVelocity,
-    /// Start time in samples
-    pub start_samples: u64,
-    /// Duration in samples
-    pub duration_samples: u64,
-}
-
-impl Note {
-    /// Convert note to `NoteOn` and `NoteOff` events
-    pub fn to_events(&self) -> (MidiEvent, MidiEvent) {
-        let note_on = MidiEvent::note_on(self.pitch, self.velocity, self.start_samples);
-        let note_off = MidiEvent::note_off(
-            self.pitch,
-            64, // Standard release velocity
-            self.start_samples + self.duration_samples,
-        );
-        (note_on, note_off)
-    }
-
-    /// Create a note from start/end events
-    pub fn from_events(note_on_event: &MidiEvent, note_off_event: &MidiEvent) -> Option<Self> {
-        match (note_on_event.event_type, note_off_event.event_type) {
-            (
-                MidiEventType::NoteOn { note, velocity },
-                MidiEventType::NoteOff {
-                    note: note_off_pitch,
-                    ..
-                },
-            ) if note == note_off_pitch
-                && note_off_event.timestamp_samples >= note_on_event.timestamp_samples =>
-            {
-                Some(Self {
-                    pitch: note,
-                    velocity,
-                    start_samples: note_on_event.timestamp_samples,
-                    duration_samples: note_off_event.timestamp_samples
-                        - note_on_event.timestamp_samples,
-                })
-            }
-            _ => None,
-        }
     }
 }
 
@@ -291,28 +232,5 @@ mod tests {
 
         assert_eq!(clip.events[0].timestamp_samples, 1000);
         assert_eq!(clip.events[1].timestamp_samples, 3000);
-    }
-
-    #[test]
-    fn test_note_conversion() {
-        let note = Note {
-            pitch: 60,
-            velocity: 100,
-            start_samples: 1000,
-            duration_samples: 1000,
-        };
-
-        let (note_on, note_off) = note.to_events();
-
-        assert_eq!(note_on.timestamp_samples, 1000);
-        assert_eq!(note_off.timestamp_samples, 2000);
-
-        match note_on.event_type {
-            MidiEventType::NoteOn { note, velocity } => {
-                assert_eq!(note, 60);
-                assert_eq!(velocity, 100);
-            }
-            _ => panic!("Expected NoteOn"),
-        }
     }
 }

@@ -9,20 +9,12 @@ part of 'audio_engine_native.dart';
 typedef _InitAudioEngineFfiNative = ffi.Pointer<Utf8> Function();
 typedef _InitAudioEngineFfi = ffi.Pointer<Utf8> Function();
 
-typedef _PlaySineWaveFfiNative =
-    ffi.Pointer<Utf8> Function(ffi.Float frequency, ffi.Uint32 durationMs);
-typedef _PlaySineWaveFfi =
-    ffi.Pointer<Utf8> Function(double frequency, int durationMs);
-
 typedef _FreeRustStringNative = ffi.Void Function(ffi.Pointer<Utf8>);
 typedef _FreeRustString = void Function(ffi.Pointer<Utf8>);
 
 // M1 types
 typedef _InitAudioGraphFfiNative = ffi.Pointer<Utf8> Function();
 typedef _InitAudioGraphFfi = ffi.Pointer<Utf8> Function();
-
-typedef _LoadAudioFileFfiNative = ffi.Int64 Function(ffi.Pointer<ffi.Char>);
-typedef _LoadAudioFileFfi = int Function(ffi.Pointer<ffi.Char>);
 
 typedef _LoadAudioFileToTrackFfiNative =
     ffi.Int64 Function(ffi.Pointer<ffi.Char>, ffi.Uint64, ffi.Double);
@@ -49,46 +41,9 @@ typedef _TransportSeekFfi = ffi.Pointer<Utf8> Function(double);
 typedef _GetPlayheadPositionFfiNative = ffi.Double Function();
 typedef _GetPlayheadPositionFfi = double Function();
 
-typedef _GetTransportStateFfiNative = ffi.Int32 Function();
-typedef _GetTransportStateFfi = int Function();
-
-typedef _GetPlayStartPositionFfiNative = ffi.Double Function();
-typedef _GetPlayStartPositionFfi = double Function();
-
-typedef _SetPlayStartPositionFfiNative = ffi.Pointer<Utf8> Function(ffi.Double);
-typedef _SetPlayStartPositionFfi = ffi.Pointer<Utf8> Function(double);
-
-typedef _GetRecordStartPositionFfiNative = ffi.Double Function();
-typedef _GetRecordStartPositionFfi = double Function();
-
-typedef _SetRecordStartPositionFfiNative =
-    ffi.Pointer<Utf8> Function(ffi.Double);
-typedef _SetRecordStartPositionFfi = ffi.Pointer<Utf8> Function(double);
-
 // Latency Control types
 typedef _SetBufferSizeFfiNative = ffi.Pointer<Utf8> Function(ffi.Int32);
 typedef _SetBufferSizeFfi = ffi.Pointer<Utf8> Function(int);
-
-typedef _GetBufferSizePresetFfiNative = ffi.Int32 Function();
-typedef _GetBufferSizePresetFfi = int Function();
-
-typedef _GetActualBufferSizeFfiNative = ffi.Uint32 Function();
-typedef _GetActualBufferSizeFfi = int Function();
-
-typedef _GetLatencyInfoFfiNative =
-    ffi.Void Function(
-      ffi.Pointer<ffi.Uint32>,
-      ffi.Pointer<ffi.Float>,
-      ffi.Pointer<ffi.Float>,
-      ffi.Pointer<ffi.Float>,
-    );
-typedef _GetLatencyInfoFfi =
-    void Function(
-      ffi.Pointer<ffi.Uint32>,
-      ffi.Pointer<ffi.Float>,
-      ffi.Pointer<ffi.Float>,
-      ffi.Pointer<ffi.Float>,
-    );
 
 typedef _GetClipDurationFfiNative = ffi.Double Function(ffi.Uint64);
 typedef _GetClipDurationFfi = double Function(int);
@@ -173,9 +128,6 @@ typedef _GetLiveRecordingPeaksFfi = ffi.Pointer<Utf8> Function(int);
 typedef _SetCountInBarsFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint32);
 typedef _SetCountInBarsFfi = ffi.Pointer<Utf8> Function(int);
 
-typedef _GetCountInBarsFfiNative = ffi.Uint32 Function();
-typedef _GetCountInBarsFfi = int Function();
-
 typedef _GetCountInBeatFfiNative = ffi.Uint32 Function();
 typedef _GetCountInBeatFfi = int Function();
 
@@ -191,28 +143,12 @@ typedef _GetTempoFfi = double Function();
 typedef _SetMetronomeEnabledFfiNative = ffi.Pointer<Utf8> Function(ffi.Int32);
 typedef _SetMetronomeEnabledFfi = ffi.Pointer<Utf8> Function(int);
 
-typedef _IsMetronomeEnabledFfiNative = ffi.Int32 Function();
-typedef _IsMetronomeEnabledFfi = int Function();
-
 typedef _SetTimeSignatureFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint32);
 typedef _SetTimeSignatureFfi = ffi.Pointer<Utf8> Function(int);
-
-typedef _GetTimeSignatureFfiNative = ffi.Uint32 Function();
-typedef _GetTimeSignatureFfi = int Function();
 
 // M3 types - MIDI
 typedef _StartMidiInputFfiNative = ffi.Pointer<Utf8> Function();
 typedef _StartMidiInputFfi = ffi.Pointer<Utf8> Function();
-
-typedef _StopMidiInputFfiNative = ffi.Pointer<Utf8> Function();
-typedef _StopMidiInputFfi = ffi.Pointer<Utf8> Function();
-
-typedef _SetSynthOscillatorTypeFfiNative =
-    ffi.Pointer<Utf8> Function(ffi.Int32);
-typedef _SetSynthOscillatorTypeFfi = ffi.Pointer<Utf8> Function(int);
-
-typedef _SetSynthVolumeFfiNative = ffi.Pointer<Utf8> Function(ffi.Float);
-typedef _SetSynthVolumeFfi = ffi.Pointer<Utf8> Function(double);
 
 typedef _SendMidiNoteOnFfiNative =
     ffi.Pointer<Utf8> Function(ffi.Uint8, ffi.Uint8);
@@ -282,18 +218,12 @@ typedef _SetTrackInputFfiNative =
     ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Int32, ffi.Uint32);
 typedef _SetTrackInputFfi = ffi.Pointer<Utf8> Function(int, int, int);
 
-typedef _GetTrackInputFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64);
-typedef _GetTrackInputFfi = ffi.Pointer<Utf8> Function(int);
-
 typedef _SetTrackInputMonitoringFfiNative =
     ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Bool);
 typedef _SetTrackInputMonitoringFfi = ffi.Pointer<Utf8> Function(int, bool);
 
 typedef _GetInputChannelLevelFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint32);
 typedef _GetInputChannelLevelFfi = ffi.Pointer<Utf8> Function(int);
-
-typedef _GetInputChannelCountFfiNative = ffi.Uint32 Function();
-typedef _GetInputChannelCountFfi = int Function();
 
 typedef _SetTrackNameFfiNative =
     ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Pointer<Utf8>);
@@ -387,9 +317,6 @@ typedef _SetEffectParameterFfi =
 typedef _SetEffectBypassFfiNative = ffi.Int32 Function(ffi.Uint64, ffi.Int32);
 typedef _SetEffectBypassFfi = int Function(int, int);
 
-typedef _GetEffectBypassFfiNative = ffi.Int32 Function(ffi.Uint64);
-typedef _GetEffectBypassFfi = int Function(int);
-
 typedef _ReorderTrackEffectsFfiNative =
     ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Pointer<ffi.Char>);
 typedef _ReorderTrackEffectsFfi =
@@ -413,11 +340,6 @@ typedef _ExportToWavFfi =
 // M8 types - Enhanced Export
 typedef _IsFfmpegAvailableFfiNative = ffi.Int32 Function();
 typedef _IsFfmpegAvailableFfi = int Function();
-
-typedef _ExportAudioFfiNative =
-    ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>);
-typedef _ExportAudioFfi =
-    ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>);
 
 typedef _ExportWavWithOptionsFfiNative =
     ffi.Pointer<Utf8> Function(
@@ -503,9 +425,6 @@ typedef _SetSynthParameterFfi =
       ffi.Pointer<ffi.Char>,
       ffi.Pointer<ffi.Char>,
     );
-
-typedef _GetSynthParametersFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64);
-typedef _GetSynthParametersFfi = ffi.Pointer<Utf8> Function(int);
 
 typedef _SendTrackMidiNoteOnFfiNative =
     ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint8, ffi.Uint8);
@@ -609,10 +528,6 @@ typedef _CreateDrumKitForTrackFfi = int Function(int);
 
 typedef _AddDrumPadFfiNative = ffi.Int64 Function(ffi.Uint64, ffi.Uint8);
 typedef _AddDrumPadFfi = int Function(int, int);
-
-typedef _RemoveDrumPadFfiNative =
-    ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint8);
-typedef _RemoveDrumPadFfi = ffi.Pointer<Utf8> Function(int, int);
 
 typedef _LoadDrumPadSampleFfiNative =
     ffi.Int32 Function(ffi.Uint64, ffi.Uint8, ffi.Pointer<ffi.Char>);
@@ -742,9 +657,6 @@ typedef _StartMidiRecordingFfi = ffi.Pointer<Utf8> Function();
 typedef _StopMidiRecordingFfiNative = ffi.Int64 Function();
 typedef _StopMidiRecordingFfi = int Function();
 
-typedef _GetMidiRecordingStateFfiNative = ffi.Int32 Function();
-typedef _GetMidiRecordingStateFfi = int Function();
-
 typedef _GetMidiRecorderLiveEventsFfiNative = ffi.Pointer<Utf8> Function();
 typedef _GetMidiRecorderLiveEventsFfi = ffi.Pointer<Utf8> Function();
 
@@ -782,20 +694,10 @@ typedef _SetAudioOutputDeviceFfiNative =
 typedef _SetAudioOutputDeviceFfi =
     ffi.Pointer<Utf8> Function(ffi.Pointer<Utf8>);
 
-typedef _GetSelectedAudioOutputDeviceFfiNative = ffi.Pointer<Utf8> Function();
-typedef _GetSelectedAudioOutputDeviceFfi = ffi.Pointer<Utf8> Function();
-
 typedef _GetAudioStreamErrorFfiNative = ffi.Pointer<Utf8> Function();
 typedef _GetAudioStreamErrorFfi = ffi.Pointer<Utf8> Function();
 
-typedef _GetSampleRateFfiNative = ffi.Uint32 Function();
-typedef _GetSampleRateFfi = int Function();
-
 // Library Preview types
-typedef _PreviewLoadAudioFfiNative =
-    ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Char>);
-typedef _PreviewLoadAudioFfi =
-    ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Char>);
 
 typedef _PreviewLoadAudioAsyncFfiNative =
     ffi.Void Function(ffi.Pointer<ffi.Char>);
@@ -803,9 +705,6 @@ typedef _PreviewLoadAudioAsyncFfi = void Function(ffi.Pointer<ffi.Char>);
 
 typedef _PreviewIsLoadedFfiNative = ffi.Bool Function();
 typedef _PreviewIsLoadedFfi = bool Function();
-
-typedef _PreviewCheckFullClipFfiNative = ffi.Bool Function();
-typedef _PreviewCheckFullClipFfi = bool Function();
 
 typedef _PreviewIsFullyDecodedFfiNative = ffi.Bool Function();
 typedef _PreviewIsFullyDecodedFfi = bool Function();
@@ -831,42 +730,10 @@ typedef _PreviewIsPlayingFfi = bool Function();
 typedef _PreviewSetLoopingFfiNative = ffi.Void Function(ffi.Bool);
 typedef _PreviewSetLoopingFfi = void Function(bool);
 
-typedef _PreviewIsLoopingFfiNative = ffi.Bool Function();
-typedef _PreviewIsLoopingFfi = bool Function();
-
 typedef _PreviewGetWaveformFfiNative = ffi.Pointer<Utf8> Function(ffi.Int32);
 typedef _PreviewGetWaveformFfi = ffi.Pointer<Utf8> Function(int);
 
-// Punch Recording types
-typedef _SetPunchInEnabledFfiNative = ffi.Pointer<Utf8> Function(ffi.Int32);
-typedef _SetPunchInEnabledFfi = ffi.Pointer<Utf8> Function(int);
-
-typedef _IsPunchInEnabledFfiNative = ffi.Int32 Function();
-typedef _IsPunchInEnabledFfi = int Function();
-
-typedef _SetPunchOutEnabledFfiNative = ffi.Pointer<Utf8> Function(ffi.Int32);
-typedef _SetPunchOutEnabledFfi = ffi.Pointer<Utf8> Function(int);
-
-typedef _IsPunchOutEnabledFfiNative = ffi.Int32 Function();
-typedef _IsPunchOutEnabledFfi = int Function();
-
-typedef _SetPunchRegionFfiNative =
-    ffi.Pointer<Utf8> Function(ffi.Double, ffi.Double);
-typedef _SetPunchRegionFfi = ffi.Pointer<Utf8> Function(double, double);
-
-typedef _GetPunchInSecondsFfiNative = ffi.Double Function();
-typedef _GetPunchInSecondsFfi = double Function();
-
-typedef _GetPunchOutSecondsFfiNative = ffi.Double Function();
-typedef _GetPunchOutSecondsFfi = double Function();
-
-typedef _IsPunchCompleteFfiNative = ffi.Int32 Function();
-typedef _IsPunchCompleteFfi = int Function();
-
 // Send/Return types
-typedef _FindReturnByEffectTypeFfiNative =
-    ffi.Int64 Function(ffi.Pointer<ffi.Char>);
-typedef _FindReturnByEffectTypeFfi = int Function(ffi.Pointer<ffi.Char>);
 
 typedef _CreateReturnWithEffectFfiNative =
     ffi.Int64 Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>);
@@ -902,12 +769,6 @@ typedef _GetAllReturnsFfi = ffi.Pointer<Utf8> Function();
 typedef _CountSendsToReturnFfiNative = ffi.Int64 Function(ffi.Uint64);
 typedef _CountSendsToReturnFfi = int Function(int);
 
-typedef _GetMasterTimelineVisibleFfiNative = ffi.Int32 Function();
-typedef _GetMasterTimelineVisibleFfi = int Function();
-
 typedef _SetMasterTimelineVisibleFfiNative =
     ffi.Pointer<Utf8> Function(ffi.Int32);
 typedef _SetMasterTimelineVisibleFfi = ffi.Pointer<Utf8> Function(int);
-
-typedef _SyncMasterTimelineVisibilityFfiNative = ffi.Int32 Function();
-typedef _SyncMasterTimelineVisibilityFfi = int Function();

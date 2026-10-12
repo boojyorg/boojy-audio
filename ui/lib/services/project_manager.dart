@@ -1,10 +1,4 @@
-// Project Manager - Platform-specific implementation selector
-//
-// This file uses conditional imports to select the appropriate
-// project manager implementation based on the target platform:
-// - Native (iOS, macOS, Windows, Linux, Android): Uses file system storage
-// - Web: Uses IndexedDB storage
+// Project Manager - file-system project storage (desktop only).
 
 export 'project_persistence.dart';
-export 'project_manager_stub.dart'
-    if (dart.library.io) 'project_manager_native.dart';
+export 'project_manager_native.dart';
