@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/library_item.dart';
 import '../utils/logger.dart';
 import 'commands/audio_engine_interface.dart';
 
@@ -113,21 +112,6 @@ class LibraryPreviewService extends ChangeNotifier {
 
     // Start timer to poll for load completion
     _startPositionTimer();
-    notifyListeners();
-  }
-
-  /// Preview a synth preset by playing Middle C for 2 seconds
-  void previewSynthPreset(PresetItem preset) {
-    if (_isRecording) return;
-    if (!_auditionEnabled) return;
-
-    // Stop any current audio preview
-    stop();
-
-    // For synth preset preview, we need a hidden preview track
-    // This will be implemented when we integrate with the track system
-    // For now, we'll use the track synth manager directly
-
     notifyListeners();
   }
 

@@ -508,7 +508,8 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
 
   /// Set count-in bars (Off or 1 bar)
   void setCountInBars(int bars) {
-    userSettings.countInBars = bars;
+    // setState: the toolbar's Count-in button reads the setting in build().
+    setState(() => userSettings.countInBars = bars);
     // Read back: the setting clamps to Off / 1 bar.
     final applied = userSettings.countInBars;
     audioEngine?.setCountInBars(applied);

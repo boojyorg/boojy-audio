@@ -172,8 +172,9 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
 
 - **"First Sound" theme (after v0.8):** thin synth presets, named effect patches, guided
   first-song onboarding (tour overlay exists), Capture Audio, EQ spectrum and reverb quality,
-  project templates, drum presets, tempo-synced library preview and a loop library. Content
-  before content-dependent onboarding.
+  project templates, drum presets, tempo-synced library preview, auditioning synth presets in
+  the library (never built: clicking one plays nothing) and a loop library. Content before
+  content-dependent onboarding.
 - **v1.0, unscheduled:** clip normalize; pan automation end to end; swing; LUFS platform targets
   in the export dialog (the engine supports them); localisation; loop recording and take
   comping. Platform prep for web, iPad and Linux is in [PLATFORMS.md](PLATFORMS.md).
