@@ -56,16 +56,6 @@ impl Mp3Bitrate {
             Mp3Bitrate::Kbps320 => 320,
         }
     }
-
-    /// Parse from integer kbps value
-    pub fn from_kbps(kbps: u32) -> Option<Self> {
-        match kbps {
-            128 => Some(Self::Kbps128),
-            192 => Some(Self::Kbps192),
-            320 => Some(Self::Kbps320),
-            _ => None,
-        }
-    }
 }
 
 /// Platform loudness targets (LUFS)

@@ -42,27 +42,6 @@ impl AudioGraph {
         self.actual_buffer_size.load(Ordering::SeqCst)
     }
 
-    /// Get current audio latency info
-    /// Returns: (`buffer_size_samples`, `input_latency_ms`, `output_latency_ms`, `total_roundtrip_ms`)
-    pub fn get_latency_info(&self) -> (u32, f32, f32, f32) {
-        let buffer_samples = self.get_actual_buffer_size();
-
-        // Use hardware-measured latency values (queried from CoreAudio on macOS)
-        let input_latency_ms = *self.hardware_input_latency_ms.lock();
-        let output_latency_ms = *self.hardware_output_latency_ms.lock();
-
-        // Total roundtrip = input + output + buffer latency
-        let buffer_latency_ms = buffer_samples as f32 / TARGET_SAMPLE_RATE as f32 * 1000.0;
-        let total_roundtrip_ms = input_latency_ms + output_latency_ms + buffer_latency_ms;
-
-        (
-            buffer_samples,
-            input_latency_ms,
-            output_latency_ms,
-            total_roundtrip_ms,
-        )
-    }
-
     /// Query hardware audio latency from `CoreAudio` device (macOS only)
     /// Updates the `hardware_input_latency_ms` and `hardware_output_latency_ms` fields
     #[cfg(target_os = "macos")]
@@ -305,28 +284,6 @@ impl AudioGraph {
         all_devices
     }
 
-    /// Get list of available audio input devices - native only
-    /// Returns: Vec of (id, name, `is_default`)
-    pub fn get_input_devices() -> Vec<(String, String, bool)> {
-        let host = cpal::default_host();
-        let default_name = host.default_input_device().and_then(|d| d.name().ok());
-
-        match host.input_devices() {
-            Ok(devices) => devices
-                .filter_map(|d| {
-                    d.name().ok().map(|name| {
-                        let is_default = default_name.as_ref() == Some(&name);
-                        (name.clone(), name, is_default)
-                    })
-                })
-                .collect(),
-            Err(e) => {
-                eprintln!("❌ [AudioGraph] Failed to enumerate input devices: {e}");
-                Vec::new()
-            }
-        }
-    }
-
     /// Set the audio output device by name - native only
     /// Pass empty string or None to use system default
     pub fn set_output_device(&mut self, device_name: Option<String>) -> anyhow::Result<()> {
@@ -350,10 +307,5 @@ impl AudioGraph {
         }
 
         Ok(())
-    }
-
-    /// Get the currently selected output device name (None = system default)
-    pub fn get_selected_output_device(&self) -> Option<String> {
-        self.selected_output_device.lock().clone()
     }
 }

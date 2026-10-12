@@ -413,16 +413,6 @@ pub fn count_sends_to_return(return_track_id: TrackId) -> Result<usize, String> 
     Ok(count)
 }
 
-/// Get whether the master track row is visible in the timeline.
-pub fn get_master_timeline_visible() -> Result<bool, String> {
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-    let track_manager = graph.track_manager.lock();
-    let master_arc = track_manager.get_master_track();
-    let master = master_arc.lock();
-    Ok(master.timeline_visible)
-}
-
 /// Explicitly show or hide the master timeline row.
 pub fn set_master_timeline_visible(visible: bool) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
@@ -432,15 +422,4 @@ pub fn set_master_timeline_visible(visible: bool) -> Result<String, String> {
     let mut master = master_arc.lock();
     master.timeline_visible = visible;
     Ok(format!("Master timeline row visible: {visible}"))
-}
-
-/// Sync master timeline visibility with automation presence.
-pub fn sync_master_timeline_visibility() -> Result<bool, String> {
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-    let track_manager = graph.track_manager.lock();
-    let master_arc = track_manager.get_master_track();
-    let mut master = master_arc.lock();
-    master.timeline_visible = master.has_volume_automation();
-    Ok(master.timeline_visible)
 }

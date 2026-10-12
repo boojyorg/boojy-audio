@@ -479,12 +479,6 @@ class MockAudioEngine implements AudioEngineInterface {
   }
 
   @override
-  String removeDrumPad(int trackId, int padIndex) {
-    _record('removeDrumPad');
-    return 'OK';
-  }
-
-  @override
   bool loadDrumPadSample(int trackId, int padIndex, String path) {
     _record('loadDrumPadSample');
     return true;
@@ -604,24 +598,12 @@ class MockAudioEngine implements AudioEngineInterface {
   // --- Library preview operations ---
 
   @override
-  String previewLoadAudio(String path) {
-    _record('previewLoadAudio');
-    return 'OK';
-  }
-
-  @override
   void previewLoadAudioAsync(String path) => _record('previewLoadAudioAsync');
 
   @override
   bool previewIsLoaded() {
     _record('previewIsLoaded');
     return true;
-  }
-
-  @override
-  bool previewCheckFullClip() {
-    _record('previewCheckFullClip');
-    return false;
   }
 
   @override
@@ -661,77 +643,15 @@ class MockAudioEngine implements AudioEngineInterface {
   void previewSetLooping(bool shouldLoop) => _record('previewSetLooping');
 
   @override
-  bool previewIsLooping() {
-    _record('previewIsLooping');
-    return false;
-  }
-
-  @override
   List<double> previewGetWaveform(int resolution) {
     _record('previewGetWaveform');
     return [];
-  }
-
-  // --- Punch recording operations ---
-
-  @override
-  String setPunchInEnabled({required bool enabled}) {
-    _record('setPunchInEnabled');
-    return 'OK';
-  }
-
-  @override
-  bool isPunchInEnabled() {
-    _record('isPunchInEnabled');
-    return false;
-  }
-
-  @override
-  String setPunchOutEnabled({required bool enabled}) {
-    _record('setPunchOutEnabled');
-    return 'OK';
-  }
-
-  @override
-  bool isPunchOutEnabled() {
-    _record('isPunchOutEnabled');
-    return false;
-  }
-
-  @override
-  String setPunchRegion(double inSeconds, double outSeconds) {
-    _record('setPunchRegion');
-    return 'OK';
-  }
-
-  @override
-  double getPunchInSeconds() {
-    _record('getPunchInSeconds');
-    return 0.0;
-  }
-
-  @override
-  double getPunchOutSeconds() {
-    _record('getPunchOutSeconds');
-    return 0.0;
-  }
-
-  @override
-  bool isPunchComplete() {
-    _record('isPunchComplete');
-    return false;
   }
 
   @override
   List<int> getAllTrackIds() {
     _record('getAllTrackIds');
     return [];
-  }
-
-  @override
-  int findReturnByEffectType(String effectType) {
-    _record('findReturnByEffectType');
-    return 0;
   }
 
   @override
@@ -790,20 +710,8 @@ class MockAudioEngine implements AudioEngineInterface {
   }
 
   @override
-  bool getMasterTimelineVisible() {
-    _record('getMasterTimelineVisible');
-    return false;
-  }
-
-  @override
   String setMasterTimelineVisible({required bool visible}) {
     _record('setMasterTimelineVisible');
     return 'OK';
-  }
-
-  @override
-  bool syncMasterTimelineVisibility() {
-    _record('syncMasterTimelineVisibility');
-    return false;
   }
 }

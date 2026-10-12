@@ -146,18 +146,6 @@ pub extern "C" fn set_track_input_ffi(
     })
 }
 
-/// Get track input device and channel
-/// Returns: "`device_index,channel`" (-1 if no input assigned)
-#[no_mangle]
-pub extern "C" fn get_track_input_ffi(track_id: u64) -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::get_track_input(track_id) {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
-    })
-}
-
 /// Set track input monitoring
 #[no_mangle]
 pub extern "C" fn set_track_input_monitoring_ffi(track_id: u64, enabled: bool) -> *mut c_char {
@@ -181,12 +169,6 @@ pub extern "C" fn get_input_channel_level_ffi(channel: u32) -> *mut c_char {
             Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
         },
     )
-}
-
-/// Get number of input channels for the current device
-#[no_mangle]
-pub extern "C" fn get_input_channel_count_ffi() -> u32 {
-    ffi_catch(0, || api::get_input_channel_count().unwrap_or(0))
 }
 
 /// Set track name

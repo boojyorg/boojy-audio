@@ -189,8 +189,8 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
 
 ## Decisions: don't re-raise
 
-- **Punch in/out is out of the UI** (2026-09-13). The engine code stays dormant; re-adding it is a
-  design decision.
+- **Punch in/out is gone** (UI removed 2026-09-13, engine code removed 2026-10-12). Re-adding it is
+  a design decision.
 - **Count-in is Off / 1 bar, default on, always clicks.** The user preference wins over the
   project file.
 - **No add-track or ? buttons in the toolbar.** Tracks come from the mixer header, the empty

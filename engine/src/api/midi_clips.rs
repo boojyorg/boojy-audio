@@ -385,65 +385,6 @@ pub fn add_midi_note_to_clip(
     ))
 }
 
-/// Get all MIDI events from a clip
-/// Returns: Vec<(`event_type`, note, velocity, `timestamp_seconds`)>
-/// `event_type`: 0 = `NoteOn`, 1 = `NoteOff`
-pub fn get_midi_clip_events(clip_id: u64) -> Result<Vec<(i32, u8, u8, f64)>, String> {
-    use crate::midi::MidiEventType;
-
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-
-    // Get the MIDI clip
-    let midi_clips = graph.get_midi_clips().lock();
-    let timeline_clip = midi_clips
-        .iter()
-        .find(|c| c.id == clip_id)
-        .ok_or("MIDI clip not found")?;
-
-    // Convert events to a format that can cross FFI
-    let events: Vec<(i32, u8, u8, f64)> = timeline_clip
-        .clip
-        .events
-        .iter()
-        .map(|event| {
-            let (event_type, note, velocity) = match event.event_type {
-                MidiEventType::NoteOn { note, velocity } => (0, note, velocity),
-                MidiEventType::NoteOff { note, velocity } => (1, note, velocity),
-                MidiEventType::ControlChange { controller, value } => (2, controller, value),
-            };
-            let timestamp_seconds =
-                event.timestamp_samples as f64 / f64::from(crate::audio_file::TARGET_SAMPLE_RATE);
-            (event_type, note, velocity, timestamp_seconds)
-        })
-        .collect();
-
-    Ok(events)
-}
-
-/// Remove a MIDI event at the specified index
-pub fn remove_midi_event(clip_id: u64, event_index: usize) -> Result<String, String> {
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-
-    // Get the MIDI clip
-    let mut midi_clips = graph.get_midi_clips().lock();
-    let timeline_clip = midi_clips
-        .iter_mut()
-        .find(|c| c.id == clip_id)
-        .ok_or("MIDI clip not found")?;
-
-    // Get mutable reference to the clip data
-    let clip_data: &mut crate::midi::MidiClip = Arc::make_mut(&mut timeline_clip.clip);
-
-    // Remove the event
-    clip_data
-        .remove_event(event_index)
-        .ok_or("Event index out of bounds")?;
-
-    Ok(format!("Removed event at index {event_index}"))
-}
-
 /// Clear all MIDI events from a clip
 pub fn clear_midi_clip(clip_id: u64) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;

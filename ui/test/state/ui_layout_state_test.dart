@@ -455,9 +455,9 @@ void main() {
       });
     });
 
-    // ── Loop/punch state ───────────────────────
+    // ── Loop state ───────────────────────
 
-    group('loop and punch state', () {
+    group('loop state', () {
       test('toggleLoopPlayback toggles state', () {
         expect(layout.loopPlaybackEnabled, isFalse);
         layout.toggleLoopPlayback();

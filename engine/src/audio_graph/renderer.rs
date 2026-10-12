@@ -12,8 +12,7 @@ use cpal::traits::DeviceTrait;
 /// `Relaxed` ordering when a per-buffer `try_lock` fails and we fall back to a
 /// blocking lock. These replace the `eprintln!`s that previously did blocking
 /// stderr I/O on the realtime thread — the exact window when an underrun is
-/// most likely. Read via [`lock_contention_counts`] from any non-realtime
-/// thread for diagnostics.
+/// most likely.
 static SYNTH_LOCK_CONTENTION: AtomicU64 = AtomicU64::new(0);
 static EFFECT_LOCK_CONTENTION: AtomicU64 = AtomicU64::new(0);
 
@@ -24,17 +23,6 @@ static EFFECT_LOCK_CONTENTION: AtomicU64 = AtomicU64::new(0);
 /// so the realtime path renders in sub-blocks of at most this many frames.
 /// Matches `OFFLINE_BLOCK` in `offline.rs`.
 const MAX_VST3_BLOCK: usize = 512;
-
-/// `(synth_manager, effect_manager)` realtime lock-contention counts since the
-/// process started. A non-zero, climbing value points at audio-thread stalls.
-// Exposed for future diagnostics / an audio-health FFI; not yet consumed.
-#[allow(dead_code)]
-pub fn lock_contention_counts() -> (u64, u64) {
-    (
-        SYNTH_LOCK_CONTENTION.load(Ordering::Relaxed),
-        EFFECT_LOCK_CONTENTION.load(Ordering::Relaxed),
-    )
-}
 
 /// Clamp a sample to the device's valid range and replace any non-finite value
 /// with silence. The device boundary is the last line of defence: a NaN/Inf
@@ -693,7 +681,7 @@ impl AudioGraph {
 
                         // Process recording and get metronome output
                         let (met_left, met_right) =
-                            recorder_refs.process_frame(input_left, input_right, false, 0.0);
+                            recorder_refs.process_frame(input_left, input_right, false);
 
                         // Start with metronome output
                         let mut out_left = met_left;
@@ -1277,17 +1265,10 @@ impl AudioGraph {
                         let mut limiter = master_limiter.lock();
                         for i in 0..sb_len {
                             let frame_idx = sb_start + i;
-                            let playhead_frame = current_playhead + frame_idx as u64;
-                            let playhead_seconds =
-                                playhead_frame as f64 / f64::from(TARGET_SAMPLE_RATE);
 
                             // Process recording (metronome handled separately below)
-                            let (met_left, met_right) = recorder_refs.process_frame(
-                                input_l[i],
-                                input_r[i],
-                                true,
-                                playhead_seconds,
-                            );
+                            let (met_left, met_right) =
+                                recorder_refs.process_frame(input_l[i], input_r[i], true);
 
                             // Apply master limiter to prevent clipping
                             let (limited_left, limited_right) =

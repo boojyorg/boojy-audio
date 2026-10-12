@@ -157,8 +157,6 @@ pub struct AudioGraph {
     pub playhead_samples: Arc<AtomicU64>,
     /// Position when Play was pressed (for Stop button to return to)
     pub(crate) play_start_position_samples: Arc<AtomicU64>,
-    /// Position when recording actually started (after count-in, for Stop button during recording)
-    pub(crate) record_start_position_samples: Arc<AtomicU64>,
     /// Transport state (atomic: 0=Stopped, 1=Playing, 2=Paused)
     pub(crate) state: Arc<AtomicU8>,
     /// Audio output stream (kept alive) - native only
@@ -251,7 +249,6 @@ impl AudioGraph {
             midi_clips: Arc::new(Mutex::new(Vec::new())),
             playhead_samples,
             play_start_position_samples: Arc::new(AtomicU64::new(0)),
-            record_start_position_samples: Arc::new(AtomicU64::new(0)),
             state: Arc::new(AtomicU8::new(TransportState::Stopped as u8)),
             stream: None,
             next_clip_id: Arc::new(Mutex::new(0)),
@@ -517,32 +514,6 @@ impl AudioGraph {
     /// Set the playhead position in samples (used for tempo change adjustment)
     pub fn set_playhead_samples(&self, samples: u64) {
         self.playhead_samples.store(samples, Ordering::SeqCst);
-    }
-
-    /// Get the position when Play was pressed (in seconds)
-    pub fn get_play_start_position(&self) -> f64 {
-        let samples = self.play_start_position_samples.load(Ordering::SeqCst);
-        samples as f64 / f64::from(TARGET_SAMPLE_RATE)
-    }
-
-    /// Set the position when Play was pressed (in seconds)
-    pub fn set_play_start_position(&self, position_seconds: f64) {
-        let samples = (position_seconds * f64::from(TARGET_SAMPLE_RATE)) as u64;
-        self.play_start_position_samples
-            .store(samples, Ordering::SeqCst);
-    }
-
-    /// Get the position when recording started (after count-in, in seconds)
-    pub fn get_record_start_position(&self) -> f64 {
-        let samples = self.record_start_position_samples.load(Ordering::SeqCst);
-        samples as f64 / f64::from(TARGET_SAMPLE_RATE)
-    }
-
-    /// Set the position when recording started (after count-in, in seconds)
-    pub fn set_record_start_position(&self, position_seconds: f64) {
-        let samples = (position_seconds * f64::from(TARGET_SAMPLE_RATE)) as u64;
-        self.record_start_position_samples
-            .store(samples, Ordering::SeqCst);
     }
 
     /// Seek to a specific position in seconds

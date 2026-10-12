@@ -28,24 +28,6 @@ pub extern "C" fn load_audio_file_to_track_ffi(
     )
 }
 
-/// Load an audio file and return clip ID (legacy - adds to first available track)
-#[no_mangle]
-pub extern "C" fn load_audio_file_ffi(path: *const c_char) -> i64 {
-    ffi_catch(
-        -1,
-        AssertUnwindSafe(|| {
-            let Some(path_str) = (unsafe { cstr_arg(path) }) else {
-                return -1;
-            };
-
-            match api::load_audio_file_api(path_str.to_string()) {
-                Ok(id) => id as i64,
-                Err(_) => -1,
-            }
-        }),
-    )
-}
-
 /// Get every audio clip on every track as a `;`-separated list of CSV rows.
 /// See `api::get_all_audio_clips_info` for the field order.
 #[no_mangle]

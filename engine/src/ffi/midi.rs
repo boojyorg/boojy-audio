@@ -15,38 +15,6 @@ pub extern "C" fn start_midi_input_ffi() -> *mut c_char {
     })
 }
 
-/// Stop MIDI input
-#[no_mangle]
-pub extern "C" fn stop_midi_input_ffi() -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || match api::stop_midi_input() {
-        Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-    })
-}
-
-/// Set synthesizer oscillator type (0=Sine, 1=Saw, 2=Square)
-#[no_mangle]
-pub extern "C" fn set_synth_oscillator_type_ffi(osc_type: i32) -> *mut c_char {
-    ffi_catch(
-        std::ptr::null_mut(),
-        || match api::set_synth_oscillator_type(osc_type) {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        },
-    )
-}
-
-/// Set synthesizer volume (0.0 to 1.0)
-#[no_mangle]
-pub extern "C" fn set_synth_volume_ffi(volume: f32) -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::set_synth_volume(volume) {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
-    })
-}
-
 /// Send MIDI note on event to synthesizer (for virtual piano)
 #[no_mangle]
 pub extern "C" fn send_midi_note_on_ffi(note: u8, velocity: u8) -> *mut c_char {
@@ -89,12 +57,6 @@ pub extern "C" fn stop_midi_recording_ffi() -> i64 {
         Ok(Some(clip_id)) => clip_id as i64,
         Ok(None) | Err(_) => -1,
     })
-}
-
-/// Get MIDI recording state (0 = Idle, 1 = Recording)
-#[no_mangle]
-pub extern "C" fn get_midi_recording_state_ffi() -> i32 {
-    ffi_catch(-1, || api::get_midi_recording_state().unwrap_or(-1))
 }
 
 /// Get live MIDI recording events for real-time UI preview

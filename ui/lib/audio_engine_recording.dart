@@ -7,14 +7,10 @@ mixin _RecordingMixin on _AudioEngineBase {
 
   /// Start recording audio
   String startRecording() {
-    try {
-      final resultPtr = _startRecording();
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _startRecording();
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Stop recording and return clip ID (-1 if no recording)
@@ -76,23 +72,10 @@ mixin _RecordingMixin on _AudioEngineBase {
 
   /// Set count-in duration in bars
   String setCountInBars(int bars) {
-    try {
-      final resultPtr = _setCountInBars(bars);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Get count-in duration in bars
-  int getCountInBars() {
-    try {
-      return _getCountInBars();
-    } catch (e) {
-      return 2;
-    }
+    final resultPtr = _setCountInBars(bars);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Get current count-in beat number (1-indexed, 0 when not counting in)
@@ -115,14 +98,10 @@ mixin _RecordingMixin on _AudioEngineBase {
 
   /// Set tempo in BPM
   String setTempo(double bpm) {
-    try {
-      final resultPtr = _setTempo(bpm);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _setTempo(bpm);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Get tempo in BPM
@@ -136,44 +115,18 @@ mixin _RecordingMixin on _AudioEngineBase {
 
   /// Enable or disable metronome
   String setMetronomeEnabled({required bool enabled}) {
-    try {
-      final resultPtr = _setMetronomeEnabled(enabled ? 1 : 0);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Check if metronome is enabled
-  bool isMetronomeEnabled() {
-    try {
-      return _isMetronomeEnabled() != 0;
-    } catch (e) {
-      return true;
-    }
+    final resultPtr = _setMetronomeEnabled(enabled ? 1 : 0);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Set time signature (beats per bar)
   String setTimeSignature(int beatsPerBar) {
-    try {
-      final resultPtr = _setTimeSignature(beatsPerBar);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Get time signature (beats per bar)
-  int getTimeSignature() {
-    try {
-      return _getTimeSignature();
-    } catch (e) {
-      return 4;
-    }
+    final resultPtr = _setTimeSignature(beatsPerBar);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   // ========================================================================
@@ -182,74 +135,26 @@ mixin _RecordingMixin on _AudioEngineBase {
 
   /// Start MIDI input (initializes MIDI system and synthesizer)
   String startMidiInput() {
-    try {
-      final resultPtr = _startMidiInput();
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Stop MIDI input
-  String stopMidiInput() {
-    try {
-      final resultPtr = _stopMidiInput();
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Set synthesizer oscillator type (0=Sine, 1=Saw, 2=Square)
-  String setSynthOscillatorType(int oscType) {
-    try {
-      final resultPtr = _setSynthOscillatorType(oscType);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Set synthesizer volume (0.0 to 1.0)
-  String setSynthVolume(double volume) {
-    try {
-      final resultPtr = _setSynthVolume(volume);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _startMidiInput();
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Send MIDI note on event to synthesizer (for virtual piano)
   String sendMidiNoteOn(int note, int velocity) {
-    try {
-      final resultPtr = _sendMidiNoteOn(note, velocity);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _sendMidiNoteOn(note, velocity);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Send MIDI note off event to synthesizer (for virtual piano)
   String sendMidiNoteOff(int note, int velocity) {
-    try {
-      final resultPtr = _sendMidiNoteOff(note, velocity);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+    final resultPtr = _sendMidiNoteOff(note, velocity);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
   }
 
   /// Create a new empty MIDI clip in Rust
@@ -505,22 +410,6 @@ mixin _RecordingMixin on _AudioEngineBase {
     }
   }
 
-  /// Get currently selected audio output device name
-  /// Returns empty string if using system default
-  String getSelectedAudioOutputDevice() {
-    try {
-      final resultPtr = _getSelectedAudioOutputDevice();
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      if (result.startsWith('Error:')) {
-        return '';
-      }
-      return result;
-    } catch (e) {
-      return '';
-    }
-  }
-
   /// Take (read-and-clear) the last audio output stream error (C99).
   /// Returns an empty string when the stream is healthy. Polled during
   /// playback so a disconnected device stops the transport with a message
@@ -536,15 +425,6 @@ mixin _RecordingMixin on _AudioEngineBase {
       return result;
     } catch (e) {
       return '';
-    }
-  }
-
-  /// Get current sample rate
-  int getSampleRate() {
-    try {
-      return _getSampleRate();
-    } catch (e) {
-      return 48000; // Default fallback
     }
   }
 
@@ -569,15 +449,6 @@ mixin _RecordingMixin on _AudioEngineBase {
       return clipId;
     } catch (e) {
       return -1;
-    }
-  }
-
-  /// Get MIDI recording state (0=Idle, 1=Recording)
-  int getMidiRecordingState() {
-    try {
-      return _getMidiRecordingState();
-    } catch (e) {
-      return 0;
     }
   }
 
@@ -646,91 +517,6 @@ mixin _RecordingMixin on _AudioEngineBase {
       return result;
     } catch (e) {
       return 'Error: $e';
-    }
-  }
-
-  // ========================================================================
-  // Punch Recording API
-  // ========================================================================
-
-  /// Enable or disable punch-in
-  String setPunchInEnabled({required bool enabled}) {
-    try {
-      final resultPtr = _setPunchInEnabled(enabled ? 1 : 0);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Check if punch-in is enabled
-  bool isPunchInEnabled() {
-    try {
-      return _isPunchInEnabled() != 0;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// Enable or disable punch-out
-  String setPunchOutEnabled({required bool enabled}) {
-    try {
-      final resultPtr = _setPunchOutEnabled(enabled ? 1 : 0);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Check if punch-out is enabled
-  bool isPunchOutEnabled() {
-    try {
-      return _isPunchOutEnabled() != 0;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// Set punch region (in and out points in seconds)
-  String setPunchRegion(double inSeconds, double outSeconds) {
-    try {
-      final resultPtr = _setPunchRegion(inSeconds, outSeconds);
-      final result = resultPtr.toDartString();
-      _freeRustString(resultPtr);
-      return result;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Get punch-in position in seconds
-  double getPunchInSeconds() {
-    try {
-      return _getPunchInSeconds();
-    } catch (e) {
-      return 0.0;
-    }
-  }
-
-  /// Get punch-out position in seconds
-  double getPunchOutSeconds() {
-    try {
-      return _getPunchOutSeconds();
-    } catch (e) {
-      return 0.0;
-    }
-  }
-
-  /// Check if punch recording is complete (punch-out reached)
-  bool isPunchComplete() {
-    try {
-      return _isPunchComplete() != 0;
-    } catch (e) {
-      return false;
     }
   }
 }

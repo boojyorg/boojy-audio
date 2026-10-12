@@ -32,33 +32,6 @@ pub extern "C" fn is_ffmpeg_available_ffi() -> i32 {
     ffi_catch(-1, || i32::from(api::is_ffmpeg_available()))
 }
 
-/// Export audio with configurable options (generic, accepts JSON options)
-/// `options_json`: JSON string of `ExportOptions`
-/// Returns JSON string with `ExportResult` on success, or "Error: <message>" on failure
-#[no_mangle]
-pub extern "C" fn export_audio_ffi(
-    output_path: *const c_char,
-    options_json: *const c_char,
-) -> *mut c_char {
-    ffi_catch(
-        std::ptr::null_mut(),
-        AssertUnwindSafe(|| {
-            let Some(output_path_str) = (unsafe { cstr_arg(output_path) }) else {
-                return safe_cstring("Error: Invalid output path".to_string()).into_raw();
-            };
-
-            let Some(options_json_str) = (unsafe { cstr_arg(options_json) }) else {
-                return safe_cstring("Error: Invalid options JSON".to_string()).into_raw();
-            };
-
-            match api::export_audio(output_path_str.to_string(), options_json_str.to_string()) {
-                Ok(result_json) => safe_cstring(result_json).into_raw(),
-                Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-            }
-        }),
-    )
-}
-
 /// Export WAV with configurable options
 /// `bit_depth`: 16, 24, or 32
 /// `sample_rate`: 44100 or 48000

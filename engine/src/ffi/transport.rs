@@ -46,48 +46,6 @@ pub extern "C" fn get_playhead_position_ffi() -> f64 {
     ffi_catch(0.0, || api::get_playhead_position().unwrap_or(0.0))
 }
 
-/// Get position when Play was pressed (in seconds)
-#[no_mangle]
-pub extern "C" fn get_play_start_position_ffi() -> f64 {
-    ffi_catch(0.0, || api::get_play_start_position().unwrap_or(0.0))
-}
-
-/// Set position when Play was pressed (in seconds)
-#[no_mangle]
-pub extern "C" fn set_play_start_position_ffi(position_seconds: f64) -> *mut c_char {
-    ffi_catch(
-        std::ptr::null_mut(),
-        || match api::set_play_start_position(position_seconds) {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        },
-    )
-}
-
-/// Get position when recording started (after count-in, in seconds)
-#[no_mangle]
-pub extern "C" fn get_record_start_position_ffi() -> f64 {
-    ffi_catch(0.0, || api::get_record_start_position().unwrap_or(0.0))
-}
-
-/// Set position when recording started (after count-in, in seconds)
-#[no_mangle]
-pub extern "C" fn set_record_start_position_ffi(position_seconds: f64) -> *mut c_char {
-    ffi_catch(
-        std::ptr::null_mut(),
-        || match api::set_record_start_position(position_seconds) {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        },
-    )
-}
-
-/// Get transport state (0=Stopped, 1=Playing, 2=Paused)
-#[no_mangle]
-pub extern "C" fn get_transport_state_ffi() -> i32 {
-    ffi_catch(-1, || api::get_transport_state().unwrap_or(0))
-}
-
 /// Set tempo in BPM
 #[no_mangle]
 pub extern "C" fn set_tempo_ffi(bpm: f64) -> *mut c_char {
@@ -114,14 +72,6 @@ pub extern "C" fn set_metronome_enabled_ffi(enabled: i32) -> *mut c_char {
     })
 }
 
-/// Check if metronome is enabled
-#[no_mangle]
-pub extern "C" fn is_metronome_enabled_ffi() -> i32 {
-    ffi_catch(-1, || {
-        i32::from(api::is_metronome_enabled().unwrap_or(true))
-    })
-}
-
 /// Set time signature (beats per bar)
 #[no_mangle]
 pub extern "C" fn set_time_signature_ffi(beats_per_bar: u32) -> *mut c_char {
@@ -131,10 +81,4 @@ pub extern "C" fn set_time_signature_ffi(beats_per_bar: u32) -> *mut c_char {
             Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
         }
     })
-}
-
-/// Get time signature (beats per bar)
-#[no_mangle]
-pub extern "C" fn get_time_signature_ffi() -> u32 {
-    ffi_catch(4, || api::get_time_signature().unwrap_or(4))
 }

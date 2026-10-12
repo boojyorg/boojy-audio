@@ -300,55 +300,6 @@ pub fn is_ffmpeg_available() -> bool {
     crate::export::is_ffmpeg_available()
 }
 
-/// Export project with configurable options (WAV or MP3)
-///
-/// # Arguments
-/// * `output_path_str` - Path to output file
-/// * `options_json` - JSON string of `ExportOptions`
-///
-/// # Returns
-/// JSON string with `ExportResult` on success
-pub fn export_audio(output_path_str: String, options_json: String) -> Result<String, String> {
-    use crate::export::{export_mp3, export_wav, ExportFormat, ExportOptions};
-
-    let output_path = Path::new(&output_path_str);
-
-    eprintln!("🎵 [API] Exporting audio to: {}", output_path.display());
-    eprintln!("🎵 [API] Options: {options_json}");
-
-    // Parse options from JSON
-    let options: ExportOptions =
-        serde_json::from_str(&options_json).map_err(|e| format!("Invalid options JSON: {e}"))?;
-
-    // Get audio graph
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-
-    // Calculate project duration
-    let duration = graph.calculate_project_duration();
-    if duration <= 1.0 {
-        return Err("No audio content to export".to_string());
-    }
-
-    eprintln!("🎵 [API] Project duration: {duration:.2}s");
-
-    // Render offline
-    let samples = graph.render_offline(duration);
-
-    if samples.is_empty() {
-        return Err("Render produced no audio".to_string());
-    }
-
-    // Export based on format
-    let result = match &options.format {
-        ExportFormat::Wav { .. } => export_wav(&samples, output_path, &options)?,
-        ExportFormat::Mp3 { .. } => export_mp3(&samples, output_path, &options)?,
-    };
-
-    // Return result as JSON
-    Ok(result.to_json())
-}
-
 /// Export project to WAV with configurable options
 ///
 /// # Arguments

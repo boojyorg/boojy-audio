@@ -70,19 +70,6 @@ pub extern "C" fn set_synth_parameter_ffi(
     )
 }
 
-/// Get all synthesizer parameters for a track
-#[no_mangle]
-pub extern "C" fn get_synth_parameters_ffi(track_id: u64) -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        println!("[FFI] Get synth parameters for track {track_id}");
-
-        match api::get_synth_parameters(track_id) {
-            Ok(json) => safe_cstring(json).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
-    })
-}
-
 /// Send MIDI note on event to track synthesizer
 #[no_mangle]
 pub extern "C" fn send_track_midi_note_on_ffi(
@@ -425,17 +412,6 @@ pub extern "C" fn add_drum_pad_ffi(track_id: u64, pinned_note: u8) -> i64 {
         Err(e) => {
             eprintln!("[FFI] Failed to add drum pad: {e}");
             -1
-        }
-    })
-}
-
-/// Remove a pad by index. Returns a status/error message.
-#[no_mangle]
-pub extern "C" fn remove_drum_pad_ffi(track_id: u64, pad_index: u8) -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::remove_drum_pad(track_id, pad_index) {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
         }
     })
 }

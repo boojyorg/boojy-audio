@@ -42,22 +42,6 @@ pub fn normalize_peak(samples: &mut [f32], target_db: f32) -> f32 {
     gain
 }
 
-/// Calculate RMS (Root Mean Square) level of audio
-///
-/// # Arguments
-/// * `samples` - Audio samples
-///
-/// # Returns
-/// RMS amplitude (0.0 to ~1.0)
-pub fn calculate_rms(samples: &[f32]) -> f32 {
-    if samples.is_empty() {
-        return 0.0;
-    }
-
-    let sum_squares: f64 = samples.iter().map(|&s| f64::from(s) * f64::from(s)).sum();
-    (sum_squares / samples.len() as f64).sqrt() as f32
-}
-
 /// Calculate integrated loudness using a simplified LUFS algorithm
 ///
 /// This is a simplified implementation of ITU-R BS.1770-4.
@@ -187,25 +171,6 @@ pub fn normalize_lufs(samples: &mut [f32], sample_rate: u32, target_lufs: f64) -
     gain_db
 }
 
-/// Apply a simple soft limiter to prevent clipping
-///
-/// # Arguments
-/// * `samples` - Audio samples (modified in place)
-/// * `threshold_db` - Threshold in dB (e.g., -0.1)
-pub fn apply_limiter(samples: &mut [f32], threshold_db: f32) {
-    let threshold = 10.0f32.powf(threshold_db / 20.0);
-
-    for sample in samples.iter_mut() {
-        let abs_sample = sample.abs();
-        if abs_sample > threshold {
-            // Soft clip using tanh
-            let sign = sample.signum();
-            let excess = abs_sample - threshold;
-            *sample = sign * (threshold + excess.tanh() * (1.0 - threshold));
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -222,19 +187,6 @@ mod tests {
         // Check new peak is at target
         let new_peak = samples.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
         assert!((new_peak - 0.989).abs() < 0.01);
-    }
-
-    #[test]
-    fn test_rms_calculation() {
-        // Constant signal should have RMS equal to amplitude
-        let samples = vec![0.5f32; 1000];
-        let rms = calculate_rms(&samples);
-        assert!((rms - 0.5).abs() < 0.01);
-
-        // Silence should have 0 RMS
-        let silence = vec![0.0f32; 1000];
-        let rms_silence = calculate_rms(&silence);
-        assert!(rms_silence.abs() < 0.001);
     }
 
     #[test]
@@ -256,17 +208,5 @@ mod tests {
         // Should be approximately -20 LUFS (simplified algorithm may differ slightly)
         assert!(lufs < -10.0);
         assert!(lufs > -40.0);
-    }
-
-    #[test]
-    fn test_limiter() {
-        let mut samples = vec![1.5f32, -1.2, 0.5, 0.8];
-
-        apply_limiter(&mut samples, -0.1);
-
-        // All samples should now be <= 1.0
-        for sample in &samples {
-            assert!(sample.abs() <= 1.0);
-        }
     }
 }

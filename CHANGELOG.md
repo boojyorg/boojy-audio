@@ -310,6 +310,8 @@ All notable changes to Boojy Audio will be documented in this file.
 
 - **Unused UI code removed.** About 1,400 lines of widgets, commands, settings and icons that
   nothing used are gone, along with two unused packages; nothing you see changes.
+- **Unused engine code removed.** About 4,000 lines: engine functions nothing called, the dormant
+  punch-in/out code and the web stand-ins. Nothing you see changes.
 - **Tracks stop changing themselves.** Colour and icon no longer follow the track's name or
   instrument (new tracks take the next palette colour; one icon per type), and new clips take
   the track's name. Dropping an instrument renames a track only while its name is still

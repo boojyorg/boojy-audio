@@ -235,17 +235,6 @@ pub fn set_effect_bypass(effect_id: u64, bypassed: bool) -> Result<String, Strin
     }
 }
 
-/// Get effect bypass state
-pub fn get_effect_bypass(effect_id: u64) -> Result<bool, String> {
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-    let effect_manager = graph.effect_manager.lock();
-
-    effect_manager
-        .get_bypass(effect_id)
-        .ok_or_else(|| format!("Effect {effect_id} not found"))
-}
-
 /// Reorder effects in a track's FX chain
 /// Takes a comma-separated list of effect IDs in the desired order
 pub fn reorder_track_effects(track_id: u64, effect_ids_csv: &str) -> Result<String, String> {

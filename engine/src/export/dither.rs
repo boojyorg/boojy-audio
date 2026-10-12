@@ -132,26 +132,6 @@ pub fn convert_to_24bit(samples: &[f32], apply_dither: bool) -> Vec<i32> {
         .collect()
 }
 
-/// Pack 24-bit samples into bytes (little-endian, 3 bytes per sample)
-///
-/// # Arguments
-/// * `samples` - 24-bit samples as i32
-///
-/// # Returns
-/// Packed bytes (3 bytes per sample)
-pub fn pack_24bit_to_bytes(samples: &[i32]) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(samples.len() * 3);
-
-    for &sample in samples {
-        // Little-endian: LSB first
-        bytes.push((sample & 0xFF) as u8);
-        bytes.push(((sample >> 8) & 0xFF) as u8);
-        bytes.push(((sample >> 16) & 0xFF) as u8);
-    }
-
-    bytes
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -195,22 +175,6 @@ mod tests {
             let val = rng.next_tpdf();
             assert!((-1.0..=1.0).contains(&val));
         }
-    }
-
-    #[test]
-    fn test_24bit_packing() {
-        let samples = vec![0x0012_3456_i32, -1i32];
-        let bytes = pack_24bit_to_bytes(&samples);
-
-        // First sample: 0x123456 -> [0x56, 0x34, 0x12]
-        assert_eq!(bytes[0], 0x56);
-        assert_eq!(bytes[1], 0x34);
-        assert_eq!(bytes[2], 0x12);
-
-        // Second sample: -1 -> [0xFF, 0xFF, 0xFF]
-        assert_eq!(bytes[3], 0xFF);
-        assert_eq!(bytes[4], 0xFF);
-        assert_eq!(bytes[5], 0xFF);
     }
 
     #[test]

@@ -39,8 +39,7 @@ Three layers, no codegen: `engine/src/api/` (pure Rust, returns `Result`) → `e
 each symbol. On the Dart side `AudioEngine` is composed from per-domain mixins
 (`_TransportMixin`, `_RecordingMixin`, `_TracksMixin`, `_SendsMixin`, `_PluginsMixin`) over
 `_AudioEngineBase`, and every engine method is declared on `AudioEngineInterface`.
-`audio_engine.dart` selects the implementation by conditional export: native (FFI) or stub.
-The same native/stub pattern is used for project management, drop targets and file dialogs.
+`audio_engine.dart` simply re-exports the native (FFI) implementation; there is no web build.
 
 FFI calls serialise on one global graph mutex, with two exceptions: plugin scanning (which
 loads third-party `.vst3` code in-process) and sample preview. The realtime audio callback is

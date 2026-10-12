@@ -28,13 +28,6 @@ pub fn preview_is_loaded() -> bool {
     guard.check_async_loaded()
 }
 
-/// Load an audio file for preview
-pub fn preview_load_audio(path: String) -> Result<(), String> {
-    let player = get_preview_player();
-    let mut guard = player.lock();
-    guard.load_file(&path)
-}
-
 /// Start preview playback
 pub fn preview_play() -> Result<(), String> {
     let player = get_preview_player();
@@ -86,20 +79,6 @@ pub fn preview_set_looping(should_loop: bool) -> Result<(), String> {
     let mut guard = player.lock();
     guard.set_looping(should_loop);
     Ok(())
-}
-
-/// Get looping mode
-pub fn preview_is_looping() -> bool {
-    let player = get_preview_player();
-    let guard = player.lock();
-    guard.is_looping()
-}
-
-/// Check if full clip is ready to hot-swap (after partial decode started playing)
-pub fn preview_check_full_clip() -> bool {
-    let player = get_preview_player();
-    let guard = player.lock();
-    !guard.is_async_loading()
 }
 
 /// Check whether the loaded preview clip has finished decoding.

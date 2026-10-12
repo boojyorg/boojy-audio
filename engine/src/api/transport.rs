@@ -3,7 +3,6 @@
 //! Functions for playback control: play, pause, stop, seek, and state queries.
 
 use super::helpers::{with_graph, with_graph_mut};
-use crate::audio_graph::TransportState;
 
 // ============================================================================
 // TRANSPORT CONTROL
@@ -53,44 +52,4 @@ pub fn transport_seek(position_seconds: f64) -> Result<String, String> {
 /// Get current playhead position in seconds
 pub fn get_playhead_position() -> Result<f64, String> {
     with_graph(|graph| Ok(graph.get_playhead_position()))
-}
-
-/// Get transport state (0=Stopped, 1=Playing, 2=Paused)
-pub fn get_transport_state() -> Result<i32, String> {
-    with_graph(|graph| {
-        let state = match graph.get_state() {
-            TransportState::Stopped => 0,
-            TransportState::Playing => 1,
-            TransportState::Paused => 2,
-        };
-        Ok(state)
-    })
-}
-
-/// Get position when Play was pressed (in seconds)
-pub fn get_play_start_position() -> Result<f64, String> {
-    with_graph(|graph| Ok(graph.get_play_start_position()))
-}
-
-/// Set position when Play was pressed (in seconds)
-pub fn set_play_start_position(position_seconds: f64) -> Result<String, String> {
-    with_graph(|graph| {
-        graph.set_play_start_position(position_seconds);
-        Ok(format!("Play start position set to {position_seconds:.2}s"))
-    })
-}
-
-/// Get position when recording started (after count-in, in seconds)
-pub fn get_record_start_position() -> Result<f64, String> {
-    with_graph(|graph| Ok(graph.get_record_start_position()))
-}
-
-/// Set position when recording started (after count-in, in seconds)
-pub fn set_record_start_position(position_seconds: f64) -> Result<String, String> {
-    with_graph(|graph| {
-        graph.set_record_start_position(position_seconds);
-        Ok(format!(
-            "Record start position set to {position_seconds:.2}s"
-        ))
-    })
 }

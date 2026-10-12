@@ -84,12 +84,6 @@ pub extern "C" fn set_count_in_bars_ffi(bars: u32) -> *mut c_char {
     })
 }
 
-/// Get count-in duration in bars
-#[no_mangle]
-pub extern "C" fn get_count_in_bars_ffi() -> u32 {
-    ffi_catch(2, || api::get_count_in_bars().unwrap_or(2))
-}
-
 /// Get current count-in beat number (1-indexed, 0 when not counting in)
 #[no_mangle]
 pub extern "C" fn get_count_in_beat_ffi() -> u32 {
@@ -100,65 +94,4 @@ pub extern "C" fn get_count_in_beat_ffi() -> u32 {
 #[no_mangle]
 pub extern "C" fn get_count_in_progress_ffi() -> f32 {
     ffi_catch(0.0, || api::get_count_in_progress().unwrap_or(0.0))
-}
-
-// -- Punch In/Out --
-
-#[no_mangle]
-pub extern "C" fn set_punch_in_enabled_ffi(enabled: i32) -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::set_punch_in_enabled(enabled != 0) {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn is_punch_in_enabled_ffi() -> i32 {
-    ffi_catch(-1, || {
-        i32::from(api::is_punch_in_enabled().unwrap_or(false))
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn set_punch_out_enabled_ffi(enabled: i32) -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::set_punch_out_enabled(enabled != 0) {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn is_punch_out_enabled_ffi() -> i32 {
-    ffi_catch(-1, || {
-        i32::from(api::is_punch_out_enabled().unwrap_or(false))
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn set_punch_region_ffi(in_seconds: f64, out_seconds: f64) -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::set_punch_region(in_seconds, out_seconds) {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn get_punch_in_seconds_ffi() -> f64 {
-    ffi_catch(0.0, || api::get_punch_in_seconds().unwrap_or(0.0))
-}
-
-#[no_mangle]
-pub extern "C" fn get_punch_out_seconds_ffi() -> f64 {
-    ffi_catch(0.0, || api::get_punch_out_seconds().unwrap_or(0.0))
-}
-
-#[no_mangle]
-pub extern "C" fn is_punch_complete_ffi() -> i32 {
-    ffi_catch(-1, || i32::from(api::is_punch_complete().unwrap_or(false)))
 }

@@ -247,17 +247,6 @@ pub fn start_midi_input() -> Result<String, String> {
     Ok("MIDI input started".to_string())
 }
 
-/// Stop capturing MIDI input
-pub fn stop_midi_input() -> Result<String, String> {
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-
-    let mut midi_manager = graph.midi_input_manager.lock();
-    midi_manager.stop_capture().map_err(|e| e.to_string())?;
-
-    Ok("MIDI input stopped".to_string())
-}
-
 // ============================================================================
 // MIDI RECORDING
 // ============================================================================
@@ -378,22 +367,6 @@ pub fn stop_midi_recording() -> Result<Option<u64>, String> {
     }
 }
 
-/// Get current MIDI recording state (0=Idle, 1=Recording)
-pub fn get_midi_recording_state() -> Result<i32, String> {
-    use crate::midi_recorder::MidiRecordingState;
-
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-
-    let midi_recorder = graph.midi_recorder.lock();
-    let state = match midi_recorder.get_state() {
-        MidiRecordingState::Idle => 0,
-        MidiRecordingState::Recording => 1,
-    };
-
-    Ok(state)
-}
-
 // ============================================================================
 // LIVE MIDI RECORDING EVENTS (for real-time UI preview)
 // ============================================================================
@@ -456,15 +429,3 @@ pub fn get_midi_recorder_live_events() -> Result<String, String> {
 // ============================================================================
 // LEGACY SYNTH API (deprecated)
 // ============================================================================
-
-/// Set synthesizer oscillator type (LEGACY - use `set_synth_parameter` instead)
-pub fn set_synth_oscillator_type(_osc_type: i32) -> Result<String, String> {
-    // Legacy API - no-op, use set_synth_parameter for per-track synths
-    Ok("Legacy API deprecated - use set_synth_parameter".to_string())
-}
-
-/// Set synthesizer master volume (LEGACY - use track volume instead)
-pub fn set_synth_volume(_volume: f32) -> Result<String, String> {
-    // Legacy API - no-op, use track volume for per-track synths
-    Ok("Legacy API deprecated - use track volume".to_string())
-}

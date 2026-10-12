@@ -563,28 +563,6 @@ impl TrackInstrument {
     pub fn is_drum_kit(&self) -> bool {
         matches!(self, TrackInstrument::DrumKit(_))
     }
-
-    pub fn as_synth(&self) -> Option<&Synth> {
-        match self {
-            TrackInstrument::Synth(s) => Some(s),
-            _ => None,
-        }
-    }
-
-    pub fn as_sampler(&self) -> Option<&Sampler> {
-        match self {
-            TrackInstrument::Sampler(s) => Some(s),
-            _ => None,
-        }
-    }
-
-    pub fn as_sampler_mut(&mut self) -> Option<&mut Sampler> {
-        match self {
-            TrackInstrument::Sampler(s) => Some(s),
-            _ => None,
-        }
-    }
-
     pub fn as_drum_kit(&self) -> Option<&DrumKit> {
         match self {
             TrackInstrument::DrumKit(k) => Some(k),
