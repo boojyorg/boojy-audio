@@ -5,7 +5,6 @@ import '../../../models/clip_data.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../services/audio_clip_engine_sync.dart';
 import '../../../services/commands/track_commands.dart';
-// ignore: unused_import
 import '../../../services/commands/clip_commands.dart';
 import '../../../utils/clip_overlap_handler.dart';
 import '../../../services/midi_file_service.dart';
@@ -528,7 +527,6 @@ mixin DAWLibraryMixin
   // privates — see the tombstone above.)
 
   /// Truncate a name to max length with ellipsis
-  // ignore: unused_element
   String truncateName(String name, int maxLength) {
     if (name.length <= maxLength) return name;
     return '${name.substring(0, maxLength - 3)}...';

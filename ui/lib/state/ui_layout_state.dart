@@ -307,15 +307,6 @@ class UILayoutState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Setters with clamping (method style - for explicit calls)
-  void setMixerPanelWidth(double width) {
-    mixerPanelWidth = width;
-  }
-
-  void setEditorPanelHeight(double height) {
-    editorPanelHeight = height;
-  }
-
   // Collapse methods (remember size, then collapse)
   void collapseLibrary() {
     if (!_isLibraryPanelCollapsed) {
@@ -404,21 +395,6 @@ class UILayoutState extends ChangeNotifier {
     _isVirtualPianoEnabled = enabled;
     _isVirtualPianoVisible = enabled;
     // Don't close the editor panel - just hide the virtual piano keyboard
-    notifyListeners();
-  }
-
-  void setEditorPanelVisible({required bool visible}) {
-    _isEditorPanelVisible = visible;
-    notifyListeners();
-  }
-
-  void setLibraryPanelCollapsed({required bool collapsed}) {
-    _isLibraryPanelCollapsed = collapsed;
-    notifyListeners();
-  }
-
-  void setMixerVisible({required bool visible}) {
-    _isMixerVisible = visible;
     notifyListeners();
   }
 

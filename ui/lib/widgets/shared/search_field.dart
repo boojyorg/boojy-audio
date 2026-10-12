@@ -195,35 +195,3 @@ class _SearchFieldState extends State<SearchField> {
     );
   }
 }
-
-/// A search field wrapped in a container with consistent panel styling.
-class SearchFieldPanel extends StatelessWidget {
-  final TextEditingController? controller;
-  final ValueChanged<String>? onChanged;
-  final String hintText;
-
-  const SearchFieldPanel({
-    super.key,
-    this.controller,
-    this.onChanged,
-    this.hintText = 'Search',
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: colors.standard,
-        border: Border(bottom: BorderSide(color: colors.elevated)),
-      ),
-      child: SearchField(
-        controller: controller,
-        onChanged: onChanged,
-        hintText: hintText,
-      ),
-    );
-  }
-}

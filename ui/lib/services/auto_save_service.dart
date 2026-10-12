@@ -227,12 +227,6 @@ class AutoSaveService extends ChangeNotifier {
     try {
       // Clear recovery marker
       await clearRecoveryMarker();
-
-      // Optionally delete all auto-save backups on clean exit
-      // Uncomment if you want to save disk space:
-      // if (await directoryExists(_backupDirectory!)) {
-      //   await deleteDirectory(_backupDirectory!);
-      // }
     } catch (e) {
       Log.e('AutoSaveService: Failed to cleanup backups: $e');
     }
@@ -240,36 +234,6 @@ class AutoSaveService extends ChangeNotifier {
 
   /// Get backup directory path
   String? get backupDirectory => _backupDirectory;
-
-  /// Get list of available backups
-  Future<List<BackupInfo>> getAvailableBackups() async {
-    await _initBackupDirectory();
-    if (_backupDirectory == null) return [];
-
-    try {
-      final entries = await listDirectory(_backupDirectory!);
-
-      final backups = <BackupInfo>[];
-      for (final entryPath in entries) {
-        if (entryPath.endsWith('.audio')) {
-          final modified = await getDirectoryModified(entryPath);
-          backups.add(
-            BackupInfo(
-              path: entryPath,
-              name: entryPath.split('/').last,
-              modified: modified,
-            ),
-          );
-        }
-      }
-
-      // Sort by date, newest first
-      backups.sort((a, b) => b.modified.compareTo(a.modified));
-      return backups;
-    } catch (e) {
-      return [];
-    }
-  }
 
   @override
   void dispose() {

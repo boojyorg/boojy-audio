@@ -92,48 +92,4 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
     });
     finishEdit(newValue ? 'Enable reverse' : 'Disable reverse');
   }
-
-  /// Set normalize target level (null to disable).
-  void setNormalize(double? targetDb) {
-    setState(() {
-      if (targetDb == null) {
-        editData = editData.copyWith(clearNormalize: true);
-      } else {
-        editData = editData.copyWith(
-          normalizeTargetDb: targetDb.clamp(-12.0, 0.0),
-        );
-      }
-    });
-    finishEdit(
-      targetDb != null
-          ? 'Normalize to ${targetDb.toStringAsFixed(0)} dB'
-          : 'Disable normalization',
-    );
-  }
-
-  // ============================================
-  // TEMPO OPERATIONS
-  // ============================================
-
-  /// Set BPM.
-  void setBpm(double bpm) {
-    setState(() {
-      editData = editData.copyWith(bpm: bpm.clamp(20.0, 999.0));
-    });
-    finishEdit('Set BPM to ${bpm.toStringAsFixed(1)}');
-  }
-
-  /// Toggle tempo sync.
-  void toggleSync() {
-    final newValue = !editData.syncEnabled;
-    setState(() {
-      editData = editData.withWarp(
-        on: newValue,
-        projectBpm: widget.projectTempo,
-      );
-      loopStartBeats = editData.loopStartBeats;
-      loopEndBeats = editData.loopEndBeats;
-    });
-    finishEdit(newValue ? 'Enable tempo sync' : 'Disable tempo sync');
-  }
 }

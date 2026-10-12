@@ -349,9 +349,6 @@ class TransportBar extends StatefulWidget {
   // "engine didn't start" cue.
   final bool engineFailed;
 
-  /// Active top-bar layout variant (dev "UI Labs" A/B). Drives the readout
-  /// layout, the bar height, and (for C) the two-row structure.
-
   const TransportBar({
     super.key,
     this.fileMenu = const FileMenuCallbacks(),

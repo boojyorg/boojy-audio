@@ -1,43 +1,19 @@
 name: boojy_audio
 description: "Boojy Audio — a cross-platform digital audio workstation."
-# The following line prevents the package from being accidentally published to
-# pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: 'none'
 
-# The following defines the version and build number for your application.
-# A version number is three numbers separated by dots, like 1.2.43
-# followed by an optional build number separated by a +.
-# Both the version and the builder number may be overridden in flutter
-# build by specifying --build-name and --build-number, respectively.
-# In Android, build-name is used as versionName while build-number used as versionCode.
-# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
-# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
-# Read more about iOS versioning at
-# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
-# In Windows, build-name is used as the major, minor, and patch parts
-# of the product and file versions while build-number is used as the build suffix.
 version: 0.6.0+10
 
 environment:
   sdk: ^3.9.2
 
-# Dependencies specify other packages that your package needs in order to work.
-# To automatically upgrade your package dependencies to the latest versions
-# consider running `flutter pub upgrade --major-versions`. Alternatively,
-# dependencies can be manually updated by changing the version numbers below to
-# the latest version available on pub.dev. To see which dependencies have newer
-# versions available, run `flutter pub outdated`.
 dependencies:
   flutter:
     sdk: flutter
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
-  
   # FFI for Rust integration
   ffi: ^2.1.0
-  
+
   # File handling
   desktop_drop: ^0.4.4
   cross_file: ^0.3.4+2
@@ -61,8 +37,6 @@ dependencies:
   # Window management for desktop
   window_manager: ^0.4.3
 
-  # Web APIs for IndexedDB storage (web platform only)
-
   # App version info
   package_info_plus: ^8.0.0
 
@@ -72,14 +46,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  integration_test:
-    sdk: flutter
 
-  # The "flutter_lints" package below contains a set of recommended lints to
-  # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
+  # Recommended lints; rules are configured in analysis_options.yaml.
   flutter_lints: ^5.0.0
 
   # Generates the macOS launcher appiconset from assets/images/app_icon_master.png.
@@ -100,15 +68,8 @@ flutter_launcher_icons:
     generate: true
     image_path: "assets/images/app_icon_master.png"
 
-# For information on the generic Dart part of this file, see the
-# following page: https://dart.dev/tools/pub/pubspec
-
-# The following section is specific to Flutter packages.
 flutter:
 
-  # The following line ensures that the Material Icons font is
-  # included with your application, so that you can use the icons in
-  # the material Icons class.
   uses-material-design: true
 
   # Assets for Boojy Audio
@@ -123,12 +84,6 @@ flutter:
     - assets/samples/drums/Claps/
     - assets/samples/drums/Toms/
     - assets/samples/drums/Cymbals/
-
-  # An image asset can refer to one or more resolution-specific "variants", see
-  # https://flutter.dev/to/resolution-aware-images
-
-  # For details regarding adding assets from package dependencies, see
-  # https://flutter.dev/to/asset-from-package
 
   # Bundled typefaces (SIL OFL — see assets/fonts/Inter-LICENSE.txt and
   # assets/fonts/JetBrainsMono-OFL.txt for attribution):
@@ -153,6 +108,3 @@ flutter:
           weight: 600
         - asset: assets/fonts/JetBrainsMono-Bold.ttf
           weight: 700
-  #
-  # For details regarding fonts from package dependencies,
-  # see https://flutter.dev/to/font-from-package

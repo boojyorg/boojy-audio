@@ -105,66 +105,6 @@ mixin TimelineContextMenusMixin
     });
   }
 
-  /// Show context menu for the time ruler
-  void showRulerContextMenu(Offset globalPosition, Offset localPosition) {
-    // listen:false — reading context.colors in a handler asserts in debug.
-    final colors = context.themeProvider.colors;
-
-    // Calculate beat position from click (ruler is outside scroll → add offset)
-    final scrollOffset = scrollController.hasClients
-        ? scrollController.offset
-        : 0.0;
-    final xInContent = localPosition.dx + scrollOffset;
-    final clickedBeat = xInContent / pixelsPerBeat;
-    // Snap to bar boundary up-front so we can capture it in the .then closure.
-    final snappedBeat = (clickedBeat / 4.0).floor() * 4.0;
-
-    showBoojyMenu<String>(
-      context: context,
-      anchor: Rect.fromLTWH(globalPosition.dx, globalPosition.dy, 0, 0),
-      items: [
-        BoojyMenuItem(
-          value: 'set_loop_start',
-          icon: BI.skipBack,
-          label: 'Set Loop Start Here',
-        ),
-        BoojyMenuItem(
-          value: 'set_loop_end',
-          icon: BI.skipForward,
-          label: 'Set Loop End Here',
-        ),
-        const BoojyMenuDivider<String>(),
-        BoojyMenuItem(
-          value: 'set_loop_1_bar',
-          icon: BI.selection,
-          label: 'Set 1 Bar Loop Here',
-        ),
-        BoojyMenuItem(
-          value: 'set_loop_4_bars',
-          icon: BI.gridOn,
-          label: 'Set 4 Bar Loop Here',
-        ),
-      ],
-      selectedValue: null,
-      colors: colors,
-    ).then((value) {
-      if (value == null) return;
-      switch (value) {
-        case 'set_loop_start':
-          widget.onLoopRegionChanged?.call(snappedBeat, widget.loopEndBeats);
-        case 'set_loop_end':
-          widget.onLoopRegionChanged?.call(
-            widget.loopStartBeats,
-            snappedBeat + 4.0,
-          );
-        case 'set_loop_1_bar':
-          widget.onLoopRegionChanged?.call(snappedBeat, snappedBeat + 4.0);
-        case 'set_loop_4_bars':
-          widget.onLoopRegionChanged?.call(snappedBeat, snappedBeat + 16.0);
-      }
-    });
-  }
-
   /// Show context menu for empty track area
   void showEmptyAreaContextMenu(
     Offset globalPosition,

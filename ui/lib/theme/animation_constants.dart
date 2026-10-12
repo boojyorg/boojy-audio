@@ -15,9 +15,6 @@ class AnimationConstants {
   /// Standard press transition duration (scale changes)
   static const Duration pressDuration = Duration(milliseconds: 150);
 
-  /// Fast transition for small, subtle changes
-  static const Duration fastDuration = Duration(milliseconds: 50);
-
   /// Slower transition for larger animations
   static const Duration slowDuration = Duration(milliseconds: 200);
 
@@ -50,25 +47,6 @@ class AnimationConstants {
   /// Standard curve for hover/press animations
   static const Curve standardCurve = Curves.easeOutCubic;
 
-  /// Curve for bounce-back effects
-  static const Curve bounceCurve = Curves.elasticOut;
-
-  // ============================================
-  // OPACITY VALUES
-  // ============================================
-
-  /// Background opacity for hovered state
-  static const double hoverBgOpacity = 0.3;
-
-  /// Background opacity for default state
-  static const double defaultBgOpacity = 0.2;
-
-  /// Divider line opacity
-  static const double dividerOpacity = 0.2;
-
-  /// Disabled element opacity
-  static const double disabledOpacity = 0.3;
-
   // ============================================
   // GLOW / SHADOW
   // ============================================
@@ -78,14 +56,4 @@ class AnimationConstants {
 
   /// Glow blur radius
   static const double glowBlurRadius = 8.0;
-
-  /// Glow spread radius
-  static const double glowSpreadRadius = 1.0;
-
-  // ============================================
-  // PRESS DEPTH
-  // ============================================
-
-  /// Press depth offset (subtle 1px downward shift on press)
-  static const double pressDepth = 1.0;
 }

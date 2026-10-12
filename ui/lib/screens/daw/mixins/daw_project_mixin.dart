@@ -12,7 +12,7 @@ import '../../../services/commands/project_commands.dart';
 import '../../../services/project_manager.dart';
 import '../../../services/project_persistence.dart';
 import '../../../services/window_title_service.dart';
-import '../../../widgets/settings_dialog.dart';
+import '../../../widgets/recovery_dialog.dart';
 import '../../../widgets/export_dialog.dart';
 import '../../daw_screen.dart';
 import 'daw_screen_state.dart';

@@ -128,16 +128,6 @@ class LibraryPreviewService extends ChangeNotifier {
     // This will be implemented when we integrate with the track system
     // For now, we'll use the track synth manager directly
 
-    // Future: Synth preset preview via hidden MIDI track (v0.5.0)
-    // _ensurePreviewTrack();
-    // _audioEngine.setTrackInstrument(_previewTrackId!, preset.instrumentId);
-    // _audioEngine.sendTrackMidiNoteOn(_previewTrackId!, 60, 100); // C4
-    //
-    // _noteOffTimer = Timer(const Duration(seconds: 2), () {
-    //   _audioEngine.sendTrackMidiNoteOff(_previewTrackId!, 60, 64);
-    //   notifyListeners();
-    // });
-
     notifyListeners();
   }
 

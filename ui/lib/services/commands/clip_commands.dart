@@ -402,64 +402,6 @@ class DeleteMidiNotesCommand extends Command {
       noteCount == 1 ? 'Delete Note' : 'Delete $noteCount Notes';
 }
 
-/// Command to move MIDI note(s)
-class MoveMidiNotesCommand extends Command {
-  final MidiClipData clipBefore;
-  final MidiClipData clipAfter;
-  final int noteCount;
-  final void Function(MidiClipData)? onApplyState;
-
-  MoveMidiNotesCommand({
-    required this.clipBefore,
-    required this.clipAfter,
-    required this.noteCount,
-    this.onApplyState,
-  });
-
-  @override
-  Future<void> execute(AudioEngineInterface engine) async {
-    onApplyState?.call(clipAfter);
-  }
-
-  @override
-  Future<void> undo(AudioEngineInterface engine) async {
-    onApplyState?.call(clipBefore);
-  }
-
-  @override
-  String get description =>
-      noteCount == 1 ? 'Move Note' : 'Move $noteCount Notes';
-}
-
-/// Command to resize MIDI note(s)
-class ResizeMidiNotesCommand extends Command {
-  final MidiClipData clipBefore;
-  final MidiClipData clipAfter;
-  final int noteCount;
-  final void Function(MidiClipData)? onApplyState;
-
-  ResizeMidiNotesCommand({
-    required this.clipBefore,
-    required this.clipAfter,
-    required this.noteCount,
-    this.onApplyState,
-  });
-
-  @override
-  Future<void> execute(AudioEngineInterface engine) async {
-    onApplyState?.call(clipAfter);
-  }
-
-  @override
-  Future<void> undo(AudioEngineInterface engine) async {
-    onApplyState?.call(clipBefore);
-  }
-
-  @override
-  String get description =>
-      noteCount == 1 ? 'Resize Note' : 'Resize $noteCount Notes';
-}
-
 /// Command to split a MIDI clip at the playhead position
 /// Creates two clips: one before the split point, one after
 /// Splits a MIDI clip into two halves at [splitPointBeats], undoably.
@@ -1094,36 +1036,6 @@ class EditAudioClipCommand extends Command {
 
   @override
   String get description => _description;
-}
-
-/// Command to rename a clip
-class RenameClipCommand extends Command {
-  final int clipId;
-  final String oldName;
-  final String newName;
-
-  /// Callback to update clip name in UI state
-  final void Function(int clipId, String name)? onClipRenamed;
-
-  RenameClipCommand({
-    required this.clipId,
-    required this.oldName,
-    required this.newName,
-    this.onClipRenamed,
-  });
-
-  @override
-  Future<void> execute(AudioEngineInterface engine) async {
-    onClipRenamed?.call(clipId, newName);
-  }
-
-  @override
-  Future<void> undo(AudioEngineInterface engine) async {
-    onClipRenamed?.call(clipId, oldName);
-  }
-
-  @override
-  String get description => 'Rename Clip: $oldName → $newName';
 }
 
 /// Command to duplicate a MIDI clip in the arrangement view.

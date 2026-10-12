@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/midi_note_data.dart';
 import 'commands/audio_engine_interface.dart';
@@ -297,20 +296,6 @@ class MidiPlaybackManager extends ChangeNotifier {
         rustClipId,
         clipStartTimeSeconds,
       );
-    }
-  }
-
-  /// Play MIDI clip immediately (for testing/preview)
-  void playClipImmediately(MidiClipData clip, double tempo) {
-    for (final note in clip.notes) {
-      // Trigger note on
-      _audioEngine.sendMidiNoteOn(note.note, note.velocity);
-
-      // Schedule note off after duration
-      final durationMs = (note.durationInSeconds(tempo) * 1000).toInt();
-      Future.delayed(Duration(milliseconds: durationMs), () {
-        _audioEngine.sendMidiNoteOff(note.note, 0);
-      });
     }
   }
 

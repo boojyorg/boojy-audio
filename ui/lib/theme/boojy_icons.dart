@@ -26,15 +26,12 @@ class BoojyIcons {
   static IconData get stop => Icons.stop;
   static IconData get record => Icons.circle;
   static IconData get loop => Icons.loop;
-  static IconData get skipBack => Icons.first_page;
-  static IconData get skipForward => Icons.last_page;
   static IconData get metronome => Icons.av_timer;
 
   // ============================================
   // MUSIC & AUDIO
   // ============================================
   static IconData get musicNote => Icons.music_note;
-  static IconData get musicNotes => Icons.queue_music;
   static IconData get piano => Icons.piano;
   static IconData get waveform => Icons.waves;
   static IconData get audioFile => Icons.audio_file;
@@ -49,12 +46,7 @@ class BoojyIcons {
   static IconData get radio => Icons.radio;
   static IconData get speaker => Icons.speaker;
   static IconData get libraryMusic => Icons.library_music;
-  static IconData get multitrackAudio => Icons.multitrack_audio;
-  static IconData get surroundSound => Icons.surround_sound;
   static IconData get waveSine => Icons.blur_on;
-  static IconData get waveSawtooth => Icons.blur_on;
-  static IconData get waveSquare => Icons.blur_on;
-  static IconData get waveTriangle => Icons.blur_on;
   static IconData get queue => Icons.queue_music;
 
   // ============================================
@@ -72,19 +64,15 @@ class BoojyIcons {
   static IconData get check => Icons.check;
   static IconData get checkCircle => Icons.check_circle;
   static IconData get refresh => Icons.refresh;
-  // ignore: non_constant_identifier_names
   static IconData get sync => Icons.sync;
-  static IconData get help => Icons.help_outline;
   static IconData get info => Icons.info_outline;
   static IconData get warning => Icons.warning_amber_rounded;
   static IconData get error => Icons.error_outline;
-  static IconData get hourglass => Icons.hourglass_empty;
 
   // ============================================
   // ARROWS & CARETS
   // ============================================
   static IconData get caretDown => Icons.arrow_drop_down;
-  static IconData get caretUp => Icons.keyboard_arrow_up;
   static IconData get caretLeft => Icons.chevron_left;
   static IconData get caretRight => Icons.chevron_right;
   static IconData get arrowUp => Icons.arrow_upward;
@@ -128,20 +116,14 @@ class BoojyIcons {
   // UI CONTROLS
   // ============================================
   static IconData get lock => Icons.lock;
-  static IconData get lockOpen => Icons.lock_open;
   static IconData get eye => Icons.visibility;
-  static IconData get eyeSlash => Icons.visibility_off;
   static IconData get star => Icons.star_border;
   static IconData get starFilled => Icons.star;
-  static IconData get bookmark => Icons.bookmark_add;
   static IconData get layers => Icons.layers;
   static IconData get sliders => Icons.tune;
   static IconData get circle => Icons.circle_outlined;
   static IconData get radioChecked => Icons.radio_button_checked;
   static IconData get radioUnchecked => Icons.radio_button_off;
-  static IconData get checkBox => Icons.check_box;
-  static IconData get checkBoxBlank => Icons.check_box_outline_blank;
-  static IconData get dotsThree => Icons.more_vert;
 
   // ============================================
   // PLUGIN & EFFECTS
@@ -149,7 +131,6 @@ class BoojyIcons {
   static IconData get plugin => Icons.extension;
   static IconData get pluginOff => Icons.extension_off;
   static IconData get chartLine => Icons.show_chart;
-  static IconData get cpu => Icons.memory;
   static IconData get monitor => Icons.computer;
   static IconData get lightning => Icons.bolt;
   static IconData get speed => Icons.speed;
@@ -158,11 +139,8 @@ class BoojyIcons {
   // MISC
   // ============================================
   static IconData get keyboard => Icons.keyboard;
-  static IconData get upload => Icons.cloud_upload;
-  // Count-in bar choices (1 / 2 / 4 bars) in the record controls.
+  // Count-in bar choice in the record controls.
   static IconData get countOne => Icons.looks_one;
-  static IconData get countTwo => Icons.looks_two;
-  static IconData get countFour => Icons.looks_4;
   static IconData get rename => Icons.drive_file_rename_outline;
   static IconData get compress => Icons.compress;
   static IconData get expand => Icons.expand;
@@ -170,7 +148,5 @@ class BoojyIcons {
   static IconData get gesture => Icons.gesture;
   static IconData get linearScale => Icons.linear_scale;
   static IconData get input => Icons.input;
-  // ignore: non_constant_identifier_names
   static IconData get list => Icons.photo_library_outlined;
-  // Capture MIDI — corner-bracket viewfinder glyph
 }

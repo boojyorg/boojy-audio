@@ -89,67 +89,6 @@ class Vst3PluginInstance {
   }) : parameters = parameters ?? {},
        parameterValues = parameterValues ?? {};
 
-  /// Get parameter info by index
-  Vst3ParameterInfo? getParameterInfo(int index) {
-    return parameters[index];
-  }
-
-  /// Get parameter value by index
-  double? getParameterValue(int index) {
-    return parameterValues[index];
-  }
-
-  /// Update parameter value cache
-  void setParameterValue(int index, double value) {
-    parameterValues[index] = value;
-  }
-
-  /// Group parameters by prefix (e.g., "Filter Cutoff" → "Filter" group)
-  Map<String, List<Vst3ParameterInfo>> groupParameters() {
-    final groups = <String, List<Vst3ParameterInfo>>{};
-
-    for (final param in parameters.values) {
-      String groupName = 'Parameters'; // Default group
-
-      // Try to extract group from parameter name
-      // Common patterns: "Filter Cutoff", "Amp Attack", "LFO Rate", etc.
-      final words = param.name.split(' ');
-      if (words.length > 1) {
-        // Check if first word could be a group name (all caps, or capitalized)
-        final firstWord = words[0];
-        if (firstWord.length > 2 &&
-            (firstWord.toUpperCase() == firstWord ||
-                RegExp(r'^[A-Z][a-z]+$').hasMatch(firstWord))) {
-          groupName = firstWord;
-        }
-      }
-
-      groups.putIfAbsent(groupName, () => []);
-      groups[groupName]!.add(param);
-    }
-
-    // Sort parameters within each group by index
-    for (final group in groups.values) {
-      group.sort((a, b) => a.index.compareTo(b.index));
-    }
-
-    return groups;
-  }
-
-  /// Filter parameters by search query
-  List<Vst3ParameterInfo> filterParameters(String query) {
-    if (query.isEmpty) {
-      return parameters.values.toList()
-        ..sort((a, b) => a.index.compareTo(b.index));
-    }
-
-    final lowercaseQuery = query.toLowerCase();
-    return parameters.values
-        .where((param) => param.name.toLowerCase().contains(lowercaseQuery))
-        .toList()
-      ..sort((a, b) => a.index.compareTo(b.index));
-  }
-
   @override
   String toString() {
     return 'Vst3PluginInstance(effectId: $effectId, name: $pluginName, parameters: ${parameters.length})';

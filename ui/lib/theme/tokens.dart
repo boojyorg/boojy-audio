@@ -91,9 +91,6 @@ class BoojyTokens {
   /// 0.65 — near-opaque border (active+hover border accent)
   static const double opacityBorder = 0.65;
 
-  /// 1.0 — fully opaque (explicit "no tint" endpoint of the scale)
-  static const double opacityFull = 1.0;
-
   // ============================================
   // FONT SIZES
   // ============================================
@@ -192,9 +189,6 @@ class BoojyTokens {
   // ICON SIZES
   // ============================================
 
-  /// 12px — compact/sidebar buttons
-  static const double iconSm = 12.0;
-
   /// 14px — standard buttons, toolbar
   static const double iconMd = 14.0;
 
@@ -204,33 +198,6 @@ class BoojyTokens {
   // ============================================
   // BUTTON SIZING (standard & compact)
   // ============================================
-
-  /// Standard button padding (transport bar, toolbars)
-  static const EdgeInsets buttonPadding = EdgeInsets.symmetric(
-    horizontal: sm,
-    vertical: 5.0,
-  );
-
-  /// Compact button padding (piano roll sidebar, small controls)
-  static const EdgeInsets buttonPaddingCompact = EdgeInsets.symmetric(
-    horizontal: 6.0,
-    vertical: 3.0,
-  );
-
-  /// Standard split button right-zone padding. Vertical kept a touch shorter
-  /// than the round transport buttons so play/stop/record read as the focus.
-  static const EdgeInsets splitRightPadding = EdgeInsets.symmetric(
-    horizontal: 7.0,
-    vertical: 4.0,
-  );
-
-  /// Split button left-zone padding — matches [splitRightPadding]'s shorter
-  /// height (vs the shared [buttonPadding]) so the transport tool buttons sit
-  /// a touch lower than the round play/stop/record buttons.
-  static const EdgeInsets splitLeftPadding = EdgeInsets.symmetric(
-    horizontal: sm,
-    vertical: 4.0,
-  );
 
   /// Shared height for the transport modifier split buttons (Loop · Snap ·
   /// Metronome). Pinned so they align regardless of per-zone content — Snap
@@ -243,12 +210,6 @@ class BoojyTokens {
   /// every compact control across the sidebars and transport lines up.
   static const double controlHeight = 24.0;
 
-  /// Compact split button right-zone padding
-  static const EdgeInsets splitRightPaddingCompact = EdgeInsets.symmetric(
-    horizontal: 5.0,
-    vertical: 3.0,
-  );
-
   // ============================================
   // ELEVATION (shadows for floating surfaces)
   // ============================================
@@ -257,10 +218,7 @@ class BoojyTokens {
   /// read as lifted off the indigo deep-space content, not tinted grey.
   static const Color shadowColor = Color(0x73060810);
 
-  /// Material elevation levels (for Material surfaces: menus, dialogs).
-  static const double elevationLow = 4.0;
   static const double elevationMedium = 12.0;
-  static const double elevationHigh = 24.0;
 
   /// BoxShadow presets for custom (non-Material) floating containers.
   /// Use as `BoxDecoration(boxShadow: BT.shadowMd)`.
@@ -269,8 +227,5 @@ class BoojyTokens {
   ];
   static const List<BoxShadow> shadowMd = [
     BoxShadow(color: Color(0x59060810), blurRadius: 18, offset: Offset(0, 6)),
-  ];
-  static const List<BoxShadow> shadowLg = [
-    BoxShadow(color: Color(0x730A0E18), blurRadius: 36, offset: Offset(0, 14)),
   ];
 }

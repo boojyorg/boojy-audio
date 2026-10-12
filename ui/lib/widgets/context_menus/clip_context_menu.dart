@@ -6,9 +6,6 @@ import '../shared/context_menu_item.dart';
 /// Clip type for context menu customization
 enum ClipType { audio, midi }
 
-/// Callback definitions for clip context menu actions
-typedef ClipContextMenuCallback = void Function(String action);
-
 /// Shows a context menu for audio or MIDI clips.
 ///
 /// Returns the selected action string, or null if dismissed.
