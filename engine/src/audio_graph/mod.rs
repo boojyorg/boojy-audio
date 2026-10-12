@@ -277,13 +277,13 @@ impl AudioGraph {
         // thread). Unit tests exercise graph logic, not live audio I/O.
         #[cfg(not(test))]
         {
-            eprintln!("🔊 [AudioGraph] Creating audio stream during initialization...");
+            dlog!("🔊 [AudioGraph] Creating audio stream during initialization...");
             let stream = graph.create_audio_stream()?;
             // Keep stream running even when stopped - needed for real-time MIDI preview
             // The callback checks transport state to decide whether to advance playhead
             stream.play()?;
             graph.stream = Some(stream);
-            eprintln!("✅ [AudioGraph] Audio stream created and running (for MIDI preview)");
+            dlog!("✅ [AudioGraph] Audio stream created and running (for MIDI preview)");
 
             // Query hardware latency from CoreAudio device
             if let Err(e) = graph.query_coreaudio_latency() {
@@ -550,7 +550,7 @@ impl AudioGraph {
         let current_pos = self.playhead_samples.load(Ordering::SeqCst);
         self.play_start_position_samples
             .store(current_pos, Ordering::SeqCst);
-        eprintln!(
+        dlog!(
             "▶️  [AudioGraph] play() - saving play_start_position: {} samples ({:.3}s)",
             current_pos,
             current_pos as f64 / f64::from(TARGET_SAMPLE_RATE)
@@ -567,7 +567,7 @@ impl AudioGraph {
 
     /// Pause playback (keeps position) - lock-free state change
     pub fn pause(&mut self) -> anyhow::Result<()> {
-        eprintln!("⏸️  [AudioGraph] pause() called");
+        dlog!("⏸️  [AudioGraph] pause() called");
         self.state
             .store(TransportState::Paused as u8, Ordering::SeqCst);
         // Stream keeps running for MIDI preview
@@ -576,7 +576,7 @@ impl AudioGraph {
         {
             let mut synth_manager = self.track_synth_manager.lock();
             synth_manager.all_notes_off_all_tracks();
-            eprintln!("   All synth notes silenced");
+            dlog!("   All synth notes silenced");
         }
 
         // Silence all VST3 instruments to prevent stuck notes/drone
@@ -604,7 +604,7 @@ impl AudioGraph {
                         }
                     }
                 }
-                eprintln!("   All VST3 notes silenced");
+                dlog!("   All VST3 notes silenced");
             }
         }
 
@@ -614,7 +614,7 @@ impl AudioGraph {
     /// Stop playback - lock-free state change
     /// Note: Playhead position is managed by `transportSeek()` from Dart layer
     pub fn stop(&mut self) -> anyhow::Result<()> {
-        eprintln!("⏹️  [AudioGraph] stop() called - silencing notes and stopping metronome");
+        dlog!("⏹️  [AudioGraph] stop() called - silencing notes and stopping metronome");
 
         self.state
             .store(TransportState::Stopped as u8, Ordering::SeqCst);
@@ -624,7 +624,7 @@ impl AudioGraph {
         {
             let mut synth_manager = self.track_synth_manager.lock();
             synth_manager.all_notes_off_all_tracks();
-            eprintln!("   All synth notes silenced");
+            dlog!("   All synth notes silenced");
         }
 
         // Silence all VST3 instruments to prevent stuck notes/drone
@@ -652,7 +652,7 @@ impl AudioGraph {
                         }
                     }
                 }
-                eprintln!("   All VST3 notes silenced");
+                dlog!("   All VST3 notes silenced");
             }
         }
 

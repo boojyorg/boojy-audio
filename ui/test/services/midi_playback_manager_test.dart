@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:boojy_audio/models/midi_note_data.dart';
 import 'package:boojy_audio/services/midi_playback_manager.dart';
+
 import '../mocks/mock_audio_engine.dart';
 
 /// Engine-resync behaviour of [MidiPlaybackManager.replaceClipsOnTrack] (#16):
@@ -167,6 +168,90 @@ void main() {
       expect(mockEngine.removedMidiClips.where((r) => r.trackId == 2), isEmpty);
       expect(manager.midiClips.where((c) => c.trackId == 2), isNotEmpty);
       expect(manager.dartToRustClipIds.containsKey(300), isTrue);
+    });
+  });
+
+  group('rescheduleAllClips (tempo change)', () {
+    test('a looped, offset, truncated clip is re-sent in seconds at the new '
+        'tempo, with its start time', () {
+      // 10 beats of arrangement over a 4-beat loop that starts at beat 1 of
+      // the content: 2.5 repeats. The 3.5-beat note is cut at the loop end
+      // and the last repeat is cut at the arrangement end.
+      final looped = MidiClipData(
+        clipId: 500,
+        trackId: trackId,
+        startTime: 4.0,
+        duration: 10.0,
+        loopLength: 4.0,
+        canRepeat: true,
+        contentStartOffset: 1.0,
+        name: 'Loop',
+        notes: [
+          MidiNoteData(note: 60, velocity: 100, startTime: 0.0, duration: 1.0),
+          MidiNoteData(note: 62, velocity: 90, startTime: 1.0, duration: 1.0),
+          MidiNoteData(note: 64, velocity: 80, startTime: 2.5, duration: 3.5),
+        ],
+      );
+      manager.addRecordedClip(looped);
+      manager.rescheduleClip(looped, tempo);
+      final rustId = manager.dartToRustClipIds[500]!;
+      mockEngine.calls.clear();
+      mockEngine.addedMidiNotes.clear();
+      mockEngine.clipStartTimeCalls.clear();
+      mockEngine.clearedMidiClipIds.clear();
+
+      const newTempo = 90.0; // 1.5 beats per second
+      manager.rescheduleAllClips(newTempo);
+
+      const bps = newTempo / 60.0;
+      // Content offset 1: the note at beat 0 is skipped; the others shift
+      // back by 1. Loop 0 starts at beat 0, loop 1 at 4, loop 2 at 8.
+      final expected = <(int, double, double)>[
+        // (note, start beats, length beats)
+        (62, 0.0, 1.0),
+        (64, 1.5, 2.5), // 3.5 long, cut at the loop end (4 - 1.5)
+        (62, 4.0, 1.0),
+        (64, 5.5, 2.5),
+        (62, 8.0, 1.0),
+        (64, 9.5, 0.5), // cut at the arrangement end (10 - 9.5)
+      ];
+      final sent =
+          mockEngine.addedMidiNotes.where((n) => n.clipId == rustId).toList()
+            ..sort((a, b) => a.start.compareTo(b.start));
+      expect(sent, hasLength(expected.length));
+      for (final (i, e) in expected.indexed) {
+        expect(sent[i].clipId, rustId);
+        expect(sent[i].note, e.$1);
+        expect(sent[i].start, closeTo(e.$2 / bps, 1e-9), reason: 'note $i');
+        expect(sent[i].length, closeTo(e.$3 / bps, 1e-9), reason: 'note $i');
+      }
+      expect(mockEngine.clearedMidiClipIds, contains(rustId));
+      final startCall = mockEngine.clipStartTimeCalls.singleWhere(
+        (c) => c.clipId == rustId,
+      );
+      expect(startCall.trackId, trackId);
+      expect(startCall.startTime, closeTo(4.0 / bps, 1e-9));
+      expect(mockEngine.calls, isNot(contains('createMidiClip')));
+    });
+
+    test('clips with no engine clip yet are skipped', () {
+      final unscheduled = MidiClipData(
+        clipId: 600,
+        trackId: trackId,
+        startTime: 0.0,
+        duration: 4.0,
+        name: 'Unscheduled',
+        notes: [
+          MidiNoteData(note: 60, velocity: 100, startTime: 0.0, duration: 1.0),
+        ],
+      );
+      manager.addRecordedClip(unscheduled);
+      mockEngine.calls.clear();
+
+      manager.rescheduleAllClips(100.0);
+
+      expect(manager.dartToRustClipIds.containsKey(600), isFalse);
+      expect(mockEngine.calls, isNot(contains('createMidiClip')));
     });
   });
 }
