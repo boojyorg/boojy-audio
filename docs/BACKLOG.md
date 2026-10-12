@@ -10,43 +10,45 @@ shipped is in [RELEASING.md](RELEASING.md). Nothing here is a release commitment
 Every area reaches a solid **8/10: good to great compared with other DAWs**. Tyr and Claude
 score together in half points, from using the app and test evidence, not from reading code.
 Sounds and effects are scored on the quality of what exists, not how many there are. First
-scores 2026-09-29, re-scored 2026-10-01 (after #151–#175) and 2026-10-04 (after #177–#185);
-re-score before each release and at each state-of-play review ([RELEASING.md](RELEASING.md#milestone-reviews)).
+scores 2026-09-29, re-scored 2026-10-01 (after #151–#175), 2026-10-04 (after #177–#185) and
+2026-10-12 (after #187–#197); re-score before each release and at each state-of-play review
+([RELEASING.md](RELEASING.md#milestone-reviews)).
 
 | # | Area | 8/10 means… | Score | Release |
 | --- | --- | --- | --- | --- |
-| 1 | Stability & performance | An hour of normal use with no crashes or crackles; CPU in line with other DAWs | 4.5 | v0.7 |
-| 2 | Recording | Audio and MIDI record first time, you hear yourself without noticeable delay, no take is lost | 5.5 | v0.7 |
-| 3 | Arranging & clip editing | Moving, trimming, splitting, duplicating and looping clips is quick; undo always works | 6.5 | v0.7 |
+| 1 | Stability & performance | An hour of normal use with no crashes or crackles; CPU in line with other DAWs | 5 | v0.7 |
+| 2 | Recording | Audio and MIDI record first time, you hear yourself without noticeable delay, no take is lost | 6.5 | v0.7 |
+| 3 | Arranging & clip editing | Moving, trimming, splitting, duplicating and looping clips is quick; undo always works | 7.5 | v0.7 |
 | 4 | Piano roll & MIDI | You can draw, edit and quantise notes without fighting the tools | 5 | v0.8 |
 | 5 | Instruments | The built-in synth, sampler and drums sound good straight away | 3.5 | Later |
 | 6 | Mixing & automation | Levels, pan, sends and automation are clear and dependable | 5.5 | v0.8 (UX) · Later |
 | 7 | Effects & plugins | Built-in effects work and sound good; VST3s load without taking the app down | 5 | v0.8 (UX) · Later |
 | 8 | Sound library | Browsing, previewing and dragging sounds in is quick (size not scored) | 3.5 | Later |
-| 9 | Projects & export | Save, reopen, auto-save, crash recovery and export never lose work | 6 | v0.7 |
+| 9 | Projects & export | Save, reopen, auto-save, crash recovery and export never lose work | 6.5 | v0.7 |
 | 10 | First run & learnability | A beginner makes a beat in 10 minutes without a tutorial, no dead buttons | 5 | v0.8 |
 | 11 | Look & feel | Consistent and calm, fits a laptop screen, feels finished | 6.5 | v0.8 |
 | 12 | Input & accessibility | Mouse only, trackpad only, keyboard and mouse, and touch all work; text is readable | 4 | v0.8 |
-| 13 | Platforms | macOS, Windows and Linux feel the same, install and update cleanly | 4 | Later |
-| 14 | Repo, tests & CI | Bugs are caught before Tyr sees them | 5.5 | v0.7 → v0.8 |
+| 13 | Platforms | macOS, Windows and Linux feel the same, install and update cleanly | 4.5 | Later |
+| 14 | Repo, tests & CI | Bugs are caught before Tyr sees them | 7 | v0.7 → v0.8 |
 | 15 | Public face | Site, README and release notes are honest and inviting | 4 | v0.8 release |
 
 - **v0.7.0: the core works every time.** Rows 1, 2, 3 and 9 reach 8 with no known blocker;
   row 14 gets the test net that proves it. Includes the editing model ([EDITING.md](EDITING.md))
   after a throwaway Mac + iPad prototype; if the prototype says no or the work balloons, it moves
   to v0.8.
-  **Order (2026-10-04):** the test net first, because Tyr still found three bugs by hand in
-  the last walkthrough (Test plan below): screen-and-engine check → CI builds the apps →
-  workflow tests through the DAW screen (spike first) → random stress tests. Then dropout
-  counter and log (row 1) → the loop in the engine, with loop-on recording decided → multi-track
-  takes → projects (Save As, unsaved dot, export error) → editing model prototype.
+  **Order (2026-10-12):** the test net (#187–#190), loop-on recording (ignore the loop),
+  multi-track takes and the export error are done. Row 1 is now the furthest behind and has
+  the least data, so: dropout counter and log (row 1) → the rest of Fix before release → the
+  loop in the engine → projects (Save As, unsaved dot) → editing model prototype. The new
+  test ideas (Test plan 9–13) slot in beside the work they cover.
 - **v0.8.0: the app feels right.** UI/UX and bugs, not new sounds: rows 4, 10, 11, 12, 14 and
   the UX half of 6 and 7. Starting list: the [2026-09-29 UI/UX review](reviews/2026_09_29_ui_ux_review.md).
   Public face (row 15) refreshed at release.
 - **After v0.8: sounds, then Linux.** Instruments, library, effect sound, automation depth
   ("First Sound", below), then Linux ([PLATFORMS.md](PLATFORMS.md)).
-- **Every device, later.** New UI follows the touch-ready rules in
-  [EDITING.md](EDITING.md#every-input-method) so an iPad or phone port isn't a rewrite.
+- **Every device, later.** Linux → iPad → web → Android tablet → phones (a cut-down
+  companion, not the full app); none before v1.0 ([PLATFORMS.md](PLATFORMS.md)). New UI follows
+  the touch-ready rules in [EDITING.md](EDITING.md#every-input-method) so a port isn't a rewrite.
 
 ## Known bugs
 
@@ -112,7 +114,7 @@ disagreeing, untested wiring in the DAW screen, and a test that pinned the wrong
 2. **Workflow tests** per core task through the real DAW screen, headless over the real engine
    (`ui/test/native/support/daw_harness.dart`; examples in `daw_workflow_test.dart`: tempo and
    warp, loop toggle, Duplicate Track, save and reopen). Describe outcomes, not clicks; check (1)
-   after every step. Recording workflows need a real input, so they aren't covered yet.
+   after every step. Recording workflows need a real input, so they aren't covered yet (11).
 3. **Random stress tests** (`ui/test/native/daw_stress_test.dart`): seeded runs of random edits,
    undos and redos, checked with (1) after each; then undo everything back to an empty project,
    redo it all, and save and reopen, each of which must match. CI runs seeds 1–5;
@@ -127,6 +129,20 @@ disagreeing, untested wiring in the DAW screen, and a test that pinned the wrong
    bug found only by reading code is a candidate.
 7. **Builds reach Tyr after the suites pass**, and new UI is rendered and checked first.
 8. **A local log and an audio-dropout counter**, so "it crackled" comes with data.
+
+Next additions (2026-10-12): the net catches screen-and-engine mismatches, but not sound,
+speed or recording.
+
+9. **Listen during stress runs**: render a second of audio between steps and run the click,
+   gap and level checks from (5), so "this edit makes a pop" fails a test.
+10. **More stress actions**: MIDI note edits, the Piano Roll loop, adding, removing and
+    reordering effects, mixer moves, tempo changes while playing.
+11. **A test input in the engine** that feeds a known signal where the microphone would be, so
+    workflow tests can record and check the exact take (row 2 has no automated tests).
+12. **A coarse speed budget**: render 16 tracks with effects offline and fail if it takes more
+    than ~25% of real time; catches a 10× slowdown, not 5%. Replaces the Criterion benches in
+    `engine/benches/`, which CI never runs.
+13. **More seeds nightly**: a scheduled CI run of stress seeds 1–200, so PR checks stay quick.
 
 Dogfood a release engine (`./build.sh release`); the debug engine glitches under load. The
 [2026-09-13 review](reviews/2026_09_13_product_review.md) reliability findings (C1–C17) are row

@@ -11,9 +11,14 @@ before.
 | v0.8 | macOS, Windows |
 | After v0.8 | Linux, once the engine and UX are at or near 8/10 |
 | Beta | macOS, Windows (Linux later) |
-| v1.0 candidates | web, iPad (phone after) |
+| v1.0 candidates | iPad, then web |
+| After v1.0 | Android tablet, then phones |
 
-**The goal is one app that looks and behaves the same on every device**, with every task
+Order agreed 2026-10-12: Linux → iPad → web → Android tablet → phones. Each new platform roughly
+doubles the testing for one developer, so a solid core on two beats an unfinished one on six.
+
+**The goal is one app that looks and behaves the same on every device** (phones excepted: a
+timeline doesn't fit a 6-inch screen, so a phone gets a cut-down companion), with every task
 reachable by mouse, trackpad, keyboard or touch. The touch-ready rules in
 [EDITING.md](EDITING.md#every-input-method) apply to UI work now. No test rigs or infrastructure
 are built before a platform is scheduled; each gets its release checklist in
@@ -65,3 +70,10 @@ Keep the FFI boundary a plain C ABI so the Tauri exit stays real.
 
   Chromium is fine for playback and MIDI, marginal for live monitoring; Safari lacks Web MIDI
   and is visibly worse. Roughly two to four months after step 1.
+- **Android tablet:** mostly free once the iPad touch pass is done. Live monitoring needs
+  Android's low-latency path (AAudio), which modern devices have and cheap ones lag on; MIDI
+  through a platform channel in place of `midir`; testing across many devices is the real cost.
+- **Phones (iOS, Android):** the same engine and code, but a different layout: a cut-down
+  companion for sketching ideas that opens in the full app. A design project, not a port.
+
+Every non-desktop target also needs MP3 export without the `ffmpeg` shell-out (BACKLOG Next).
