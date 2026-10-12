@@ -30,20 +30,29 @@ mixin NoteGestureHandlerMixin
     // one played slightly loose); the circle nearest in height wins there.
     const sameColumn = 4.0;
 
+    double stalkX(MidiNoteData note) => note.startTime * pixelsPerBeat;
+
+    // The stalk nearest the pointer, among notes within reach.
     final inReach = <MidiNoteData>[];
-    var nearestX = double.infinity;
+    var nearestDx = double.infinity;
+    var nearestStalkX = 0.0;
     for (final note in notes) {
-      final dx = position.dx - note.startTime * pixelsPerBeat;
+      final dx = position.dx - stalkX(note);
       // Asymmetric reach: less to the left of a circle than to its right.
       if (dx < 0 ? -dx <= leftThreshold : dx <= rightThreshold) {
         inReach.add(note);
-        if (dx.abs() < nearestX) nearestX = dx.abs();
+        if (dx.abs() < nearestDx) {
+          nearestDx = dx.abs();
+          nearestStalkX = stalkX(note);
+        }
       }
     }
 
+    // Its column: notes whose own stalk is within [sameColumn] of it. (Not
+    // "about as far from the pointer": midway between two stalks a beat
+    // apart, both are, and the far note could win on height.)
     bool inNearestColumn(MidiNoteData note) =>
-        (position.dx - note.startTime * pixelsPerBeat).abs() <=
-        nearestX + sameColumn;
+        (stalkX(note) - nearestStalkX).abs() <= sameColumn;
 
     if (velocityDragActive) {
       for (final note in inReach) {

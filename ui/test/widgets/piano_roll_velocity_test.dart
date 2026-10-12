@@ -213,6 +213,29 @@ void main() {
       expect(velocities(), {'soft': 60, 'loud': 110});
     });
 
+    testWidgets('notes a beat apart are not a chord, even between them', (
+      tester,
+    ) async {
+      // Stalks 80 px apart; the pointer is 38 px from the left one and 42 px
+      // from the right one, at the right note's height.
+      final roll = await pumpRoll(tester, [
+        note('a', 0, 100),
+        note('b', 1, 30),
+      ]);
+      await dragVelocity(tester, roll, 38 / 80, 30);
+      expect(velocities(), {
+        'a': 30,
+        'b': 30,
+      }, reason: 'the nearer stalk moves');
+
+      // 42 px from the left stalk is 38 px from the right one: that moves.
+      await dragVelocity(tester, roll, 42 / 80, 100);
+      expect(velocities(), {
+        'a': 30,
+        'b': 100,
+      }, reason: 'now the right is nearer');
+    });
+
     testWidgets('dragging one past the other keeps hold of the same note', (
       tester,
     ) async {
