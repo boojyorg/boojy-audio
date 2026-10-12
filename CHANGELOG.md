@@ -318,6 +318,10 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Three leftovers from the pruning pass removed.** The eraser's "delete several MIDI clips as one
+  undo step" now lives with the other clip actions instead of a private copy in the DAW screen;
+  the unused clean-exit timestamp (saved on quit, never read; crash recovery uses auto-save
+  backups) is gone; and an empty check in MIDI playback is dropped. Nothing you see changes.
 - **Unused UI code removed.** About 1,400 lines of widgets, commands, settings and icons that
   nothing used are gone, along with two unused packages; nothing you see changes.
 - **Unused engine code removed.** About 4,000 lines: engine functions nothing called, the dormant
