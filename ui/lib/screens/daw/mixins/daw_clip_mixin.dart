@@ -801,4 +801,49 @@ mixin DAWClipMixin
       refreshTrackWidgets();
     }
   }
+
+  /// Batch delete multiple MIDI clips (eraser tool - single undo action)
+  void deleteMidiClipsBatch(List<(int clipId, int trackId)> clipsToDelete) {
+    if (clipsToDelete.isEmpty) return;
+
+    // Build individual delete commands for each clip
+    final commands = <Command>[];
+    for (final (clipId, trackId) in clipsToDelete) {
+      final clip = midiPlaybackManager?.midiClips.firstWhere(
+        (c) => c.clipId == clipId,
+        orElse: () => MidiClipData(
+          clipId: clipId,
+          trackId: trackId,
+          startTime: 0,
+          duration: 4,
+          name: 'Deleted Clip',
+        ),
+      );
+
+      if (clip != null) {
+        commands.add(
+          DeleteMidiClipFromArrangementCommand(
+            clipData: clip,
+            onClipRemoved: (cId, tId) {
+              midiClipController.deleteClip(cId, tId);
+            },
+            onClipRestored: (restoredClip) {
+              midiPlaybackManager?.addRecordedClip(restoredClip);
+              midiClipController.updateClip(restoredClip, playheadPosition);
+            },
+          ),
+        );
+      }
+    }
+
+    if (commands.isEmpty) return;
+
+    // Wrap in CompositeCommand for single undo action
+    final compositeCommand = CompositeCommand(
+      commands,
+      'Delete ${clipsToDelete.length} MIDI clip${clipsToDelete.length > 1 ? 's' : ''}',
+    );
+    undoRedoManager.execute(compositeCommand);
+    if (mounted) setState(() {});
+  }
 }

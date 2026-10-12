@@ -70,7 +70,6 @@ class UserSettings extends ChangeNotifier {
 
   // Setting keys
   static const String _keyUndoLimit = 'undo_limit';
-  static const String _keyLastCleanExit = 'last_clean_exit';
   static const String _keyRecentProjects = 'recent_projects';
 
   // Export setting keys
@@ -133,7 +132,6 @@ class UserSettings extends ChangeNotifier {
 
   // Current values
   int _undoLimit = defaultUndoLimit;
-  DateTime? _lastCleanExit;
   List<RecentProject> _recentProjects = [];
 
   // Export settings
@@ -531,11 +529,6 @@ class UserSettings extends ChangeNotifier {
 
       _undoLimit = _prefs?.getInt(_keyUndoLimit) ?? defaultUndoLimit;
 
-      final exitTimestamp = _prefs?.getInt(_keyLastCleanExit);
-      if (exitTimestamp != null) {
-        _lastCleanExit = DateTime.fromMillisecondsSinceEpoch(exitTimestamp);
-      }
-
       // Load recent projects
       final recentJson = _prefs?.getString(_keyRecentProjects);
       if (recentJson != null) {
@@ -838,26 +831,5 @@ class UserSettings extends ChangeNotifier {
     _recentProjects.clear();
     await _saveRecentProjects();
     notifyListeners();
-  }
-
-  /// Record a clean exit (call on app shutdown)
-  Future<void> recordCleanExit() async {
-    if (_prefs == null) return;
-
-    try {
-      await _prefs!.setInt(
-        _keyLastCleanExit,
-        DateTime.now().millisecondsSinceEpoch,
-      );
-    } catch (e) {
-      Log.e('UserSettings: Failed to record clean exit: $e');
-    }
-  }
-
-  /// Check if the app crashed last time (no clean exit recorded)
-  bool get didCrashLastTime {
-    // If we have a clean exit marker, the app exited normally
-    // If no marker, the app likely crashed
-    return _lastCleanExit == null;
   }
 }

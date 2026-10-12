@@ -196,13 +196,11 @@ class MidiPlaybackManager extends ChangeNotifier {
     final clipStartTimeSeconds = clip.startTime / beatsPerSecond;
     if (isNewClip) {
       // New clip: adding to the track sets its start time
-      final result = _audioEngine.addMidiClipToTrack(
+      _audioEngine.addMidiClipToTrack(
         clip.trackId,
         rustClipId,
         clipStartTimeSeconds,
       );
-
-      if (result != 0) {}
     } else {
       // Existing clip: sync the engine's start time with the clip data.
       // Without this, moving a clip (or undoing a move) re-added the notes

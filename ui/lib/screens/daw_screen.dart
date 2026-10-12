@@ -30,7 +30,6 @@ import '../models/vst3_plugin_data.dart';
 import '../models/clip_data.dart';
 import '../models/library_item.dart';
 import '../models/track_data.dart';
-import '../services/commands/command.dart';
 import '../services/user_settings.dart';
 import '../services/commands/track_commands.dart';
 import '../services/commands/effect_commands.dart';
@@ -287,10 +286,9 @@ class _DAWScreenState extends State<DAWScreen>
     // Remove MIDI playback manager listener
     midiPlaybackManager?.removeListener(_onMidiPlaybackManagerChanged);
 
-    // Stop auto-save and record clean exit
+    // Stop auto-save
     autoSaveService.stop();
     autoSaveService.cleanupBackups();
-    userSettings.recordCleanExit();
 
     // Stop playback
     stopPlayback();
@@ -1076,51 +1074,6 @@ class _DAWScreenState extends State<DAWScreen>
     await File(path).writeAsBytes(bytes);
   }
 
-  /// Batch delete multiple MIDI clips (eraser tool - single undo action)
-  void _deleteMidiClipsBatch(List<(int clipId, int trackId)> clipsToDelete) {
-    if (clipsToDelete.isEmpty) return;
-
-    // Build individual delete commands for each clip
-    final commands = <Command>[];
-    for (final (clipId, trackId) in clipsToDelete) {
-      final clip = midiPlaybackManager?.midiClips.firstWhere(
-        (c) => c.clipId == clipId,
-        orElse: () => MidiClipData(
-          clipId: clipId,
-          trackId: trackId,
-          startTime: 0,
-          duration: 4,
-          name: 'Deleted Clip',
-        ),
-      );
-
-      if (clip != null) {
-        commands.add(
-          DeleteMidiClipFromArrangementCommand(
-            clipData: clip,
-            onClipRemoved: (cId, tId) {
-              midiClipController.deleteClip(cId, tId);
-            },
-            onClipRestored: (restoredClip) {
-              midiPlaybackManager?.addRecordedClip(restoredClip);
-              midiClipController.updateClip(restoredClip, playheadPosition);
-            },
-          ),
-        );
-      }
-    }
-
-    if (commands.isEmpty) return;
-
-    // Wrap in CompositeCommand for single undo action
-    final compositeCommand = CompositeCommand(
-      commands,
-      'Delete ${clipsToDelete.length} MIDI clip${clipsToDelete.length > 1 ? 's' : ''}',
-    );
-    undoRedoManager.execute(compositeCommand);
-    if (mounted) setState(() {});
-  }
-
   // ========================================================================
   // Undo/Redo methods
   // ========================================================================
@@ -1527,7 +1480,7 @@ class _DAWScreenState extends State<DAWScreen>
               onUpdated: _onMidiClipUpdated,
               onCopied: onMidiClipCopied,
               onDeleted: deleteMidiClip,
-              onBatchDeleted: _deleteMidiClipsBatch,
+              onBatchDeleted: deleteMidiClipsBatch,
               onExported: _exportMidiClip,
               onSplit: onMidiClipSplit,
               onJoinSelected: joinSelectedClips,
