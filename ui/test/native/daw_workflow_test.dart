@@ -15,6 +15,7 @@ import 'package:boojy_audio/widgets/export_dialog.dart';
 import 'package:boojy_audio/widgets/audio_editor/operations/parameter_operations.dart';
 import 'package:boojy_audio/widgets/shared/editors/unified_nav_bar.dart';
 import 'package:boojy_audio/widgets/timeline_view.dart';
+import 'package:boojy_audio/widgets/transport_bar/count_in_toggle_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -67,6 +68,32 @@ void main() {
   double engineStretch(DawHarness h, int clipId) => EngineSnapshot.read(
     h.engine,
   ).audioClips.firstWhere((c) => c.clipId == clipId).stretchFactor;
+
+  testWidgets('the Count-in button lights up and dims as it is clicked', (
+    tester,
+  ) async {
+    final h = await DawHarness.start(tester);
+    try {
+      bool shownOn() => tester
+          .widget<CountInToggleButton>(find.byType(CountInToggleButton))
+          .isActive;
+
+      expect(h.daw.userSettings.countInBars, 1);
+      expect(shownOn(), isTrue, reason: 'on by default');
+
+      await tester.tap(find.byType(CountInToggleButton));
+      await h.settle();
+      expect(h.daw.userSettings.countInBars, 0);
+      expect(shownOn(), isFalse, reason: 'first click turns it off');
+
+      await tester.tap(find.byType(CountInToggleButton));
+      await h.settle();
+      expect(h.daw.userSettings.countInBars, 1);
+      expect(shownOn(), isTrue, reason: 'second click turns it back on');
+    } finally {
+      await h.close();
+    }
+  });
 
   testWidgets('a warped clip follows tempo changes, dragged or typed', (
     tester,

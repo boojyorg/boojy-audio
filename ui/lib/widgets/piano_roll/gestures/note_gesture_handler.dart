@@ -16,39 +16,61 @@ mixin NoteGestureHandlerMixin
         NoteOperationsMixin,
         SelectionOperationsMixin,
         ClipboardOperationsMixin {
-  /// Find note nearest to velocity lane position (by start time).
-  /// Returns the note whose circle is closest to cursor X,
-  /// but only if within pixel threshold (FL Studio style).
+  /// Find the note whose velocity circle is nearest [position]: the nearest
+  /// stalk in X (within a pixel threshold), and among notes that share it (a
+  /// chord), the circle nearest in height. While a drag holds a note, that
+  /// note stays picked as long as the pointer is on its stalk.
   MidiNoteData? findNoteAtVelocityPosition(Offset position) {
     final notes = currentClip?.notes ?? <MidiNoteData>[];
     if (notes.isEmpty) return null;
 
     const leftThreshold = 45.0; // pixels to left of circle
     const rightThreshold = 55.0; // pixels to right of circle
+    // Notes whose stalks are this close count as one column (a chord, even
+    // one played slightly loose); the circle nearest in height wins there.
+    const sameColumn = 4.0;
+
+    double stalkX(MidiNoteData note) => note.startTime * pixelsPerBeat;
+
+    // The stalk nearest the pointer, among notes within reach.
+    final inReach = <MidiNoteData>[];
+    var nearestDx = double.infinity;
+    var nearestStalkX = 0.0;
+    for (final note in notes) {
+      final dx = position.dx - stalkX(note);
+      // Asymmetric reach: less to the left of a circle than to its right.
+      if (dx < 0 ? -dx <= leftThreshold : dx <= rightThreshold) {
+        inReach.add(note);
+        if (dx.abs() < nearestDx) {
+          nearestDx = dx.abs();
+          nearestStalkX = stalkX(note);
+        }
+      }
+    }
+
+    // Its column: notes whose own stalk is within [sameColumn] of it. (Not
+    // "about as far from the pointer": midway between two stalks a beat
+    // apart, both are, and the far note could win on height.)
+    bool inNearestColumn(MidiNoteData note) =>
+        (stalkX(note) - nearestStalkX).abs() <= sameColumn;
+
+    if (velocityDragActive) {
+      for (final note in inReach) {
+        if (note.id == velocityDraggedNoteId && inNearestColumn(note)) {
+          return note;
+        }
+      }
+    }
 
     MidiNoteData? nearest;
-    double minDistance = double.infinity;
-
-    for (final note in notes) {
-      final circleX = note.startTime * pixelsPerBeat;
-      final dx = position.dx - circleX;
-
-      // Check if within threshold (asymmetric: left vs right)
-      bool withinThreshold;
-      if (dx < 0) {
-        // Cursor is to the left of circle
-        withinThreshold = dx.abs() <= leftThreshold;
-      } else {
-        // Cursor is to the right of circle
-        withinThreshold = dx <= rightThreshold;
-      }
-
-      if (withinThreshold) {
-        final distance = dx.abs();
-        if (distance < minDistance) {
-          minDistance = distance;
-          nearest = note;
-        }
+    var nearestY = double.infinity;
+    for (final note in inReach) {
+      if (!inNearestColumn(note)) continue;
+      final circleY = (1 - note.velocity / 127) * velocityLaneHeight;
+      final dy = (position.dy - circleY).abs();
+      if (dy < nearestY) {
+        nearestY = dy;
+        nearest = note;
       }
     }
 

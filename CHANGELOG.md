@@ -88,6 +88,16 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **The Count-in button shows whether it's on.** Clicking it switched the count-in, but the
+  button kept its old look until something else redrew the toolbar.
+- **Clicking a chord's velocities picks the circle you clicked nearest.** Notes that start
+  together share one stalk in the velocity lane, and a click there always moved the same one
+  (whichever was drawn first). Now the circle nearest in height moves, and a drag keeps hold of
+  it even as it passes the other.
+- **Dragging a selected note's velocity moves every selected note.** All of them change by the
+  same amount, so accents keep their shape. Pushing on past the top or bottom gathers them at
+  127 or 1 (a quick way to make them equal); dragging back in the same drag brings the gaps
+  back. Dragging a note that isn't selected still changes just that note.
 - **Recording ignores the loop.** With loop on, a take now runs straight on from where you
   pressed Record until you press Stop, and the backing plays on with it. The loop used to jump
   the backing back while the take kept growing past it, so what you played landed where you

@@ -725,7 +725,9 @@ class _LibraryPanelState extends State<LibraryPanel> {
     if (item is AudioFileItem) {
       previewService.loadAndPreviewAudio(item.filePath, item.name);
     } else if (item is PresetItem) {
-      previewService.previewSynthPreset(item);
+      // Presets can't be auditioned yet (BACKLOG, "First Sound"); clicking
+      // one still stops a playing sample.
+      previewService.stop();
     }
   }
 
