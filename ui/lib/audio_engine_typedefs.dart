@@ -44,6 +44,8 @@ typedef _GetPlayheadPositionFfi = double Function();
 // Latency Control types
 typedef _SetBufferSizeFfiNative = ffi.Pointer<Utf8> Function(ffi.Int32);
 typedef _SetBufferSizeFfi = ffi.Pointer<Utf8> Function(int);
+typedef _GetAudioHealthFfiNative = ffi.Pointer<Utf8> Function();
+typedef _GetAudioHealthFfi = ffi.Pointer<Utf8> Function();
 
 typedef _GetClipDurationFfiNative = ffi.Double Function(ffi.Uint64);
 typedef _GetClipDurationFfi = double Function(int);

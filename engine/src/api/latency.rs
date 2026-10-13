@@ -2,8 +2,9 @@
 //!
 //! Functions for audio latency configuration and waveform visualization.
 
-use super::helpers::{get_audio_clips, with_graph_mut};
+use super::helpers::{get_audio_clips, with_graph, with_graph_mut};
 use crate::audio_graph::BufferSizePreset;
+use std::sync::atomic::Ordering;
 
 // ============================================================================
 // BUFFER SIZE CONTROL
@@ -33,6 +34,24 @@ pub fn set_buffer_size(preset: i32) -> Result<String, String> {
             buffer_preset.latency_ms()
         ))
     })
+}
+
+// ============================================================================
+// AUDIO HEALTH
+// ============================================================================
+
+/// Dropout and lock-wait counters for the UI's audio health log, as JSON
+/// (field names in `audio_health::AudioHealthSnapshot`). Reading resets the
+/// peak load.
+pub fn get_audio_health() -> Result<String, String> {
+    let (buffer_frames, sample_rate) = with_graph(|graph| {
+        Ok((
+            graph.get_actual_buffer_size(),
+            graph.stream_sample_rate.load(Ordering::Relaxed),
+        ))
+    })?;
+    let health = crate::audio_health::snapshot(buffer_frames, sample_rate);
+    serde_json::to_string(&health).map_err(|e| e.to_string())
 }
 
 // ============================================================================

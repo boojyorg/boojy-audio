@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../services/undo_redo_manager.dart';
+import '../../services/log_file.dart';
 import '../../services/updater_service.dart';
 import '../../state/ui_layout_state.dart';
 
@@ -304,6 +305,10 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
             onSelected: () => UpdaterService.checkForUpdates(),
           ),
         PlatformMenuItem(label: 'Take a Tour', onSelected: config.onStartTour),
+        const PlatformMenuItem(
+          label: 'Show Log File',
+          onSelected: LogFile.reveal,
+        ),
       ],
     ),
   ];

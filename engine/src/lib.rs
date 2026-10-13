@@ -67,6 +67,7 @@ mod track; // M4: Track system // Library audio preview
 // Native platform modules
 // ============================================
 mod api;
+mod audio_health; // Dropout and lock-wait counters
 mod audio_input;
 mod ffi;
 mod midi_input;

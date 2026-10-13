@@ -5,6 +5,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import '../audio_engine.dart';
 import '../models/audio_input_status.dart';
+import '../services/audio_health_monitor.dart';
+import '../services/log_file.dart';
 import '../services/updater_service.dart';
 import '../theme/animation_constants.dart';
 import '../services/user_settings.dart';
@@ -544,6 +546,9 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
 
         // Buffer Size dropdown
         _buildBufferSizeSelector(),
+        const SizedBox(height: 12),
+
+        _buildDropoutsRow(),
       ],
     );
   }
@@ -935,6 +940,30 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
             widget.audioEngine!.setBufferSize(preset);
           }
         },
+      ),
+    );
+  }
+
+  /// Dropouts Boojy noticed since launch, with a way to the log that has the
+  /// details (Windows has no Help menu to reach it from).
+  Widget _buildDropoutsRow() {
+    return _settingRow(
+      label: 'Dropouts this session',
+      subtitle:
+          'Crackles Boojy noticed. If this keeps going up, try a bigger buffer',
+      control: ValueListenableBuilder<int>(
+        valueListenable: AudioHealthMonitor.dropoutsThisSession,
+        builder: (context, count, _) => Text(
+          '$count',
+          style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
+        ),
+      ),
+      trailing: TextButton(
+        onPressed: LogFile.reveal,
+        child: Text(
+          'Show Log',
+          style: TextStyle(color: context.colors.accent, fontSize: 14),
+        ),
       ),
     );
   }

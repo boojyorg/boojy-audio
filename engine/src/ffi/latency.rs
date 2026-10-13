@@ -17,3 +17,12 @@ pub extern "C" fn set_buffer_size_ffi(preset: i32) -> *mut c_char {
         }
     })
 }
+
+/// Dropout and lock-wait counters as JSON (see `api::get_audio_health`).
+#[no_mangle]
+pub extern "C" fn get_audio_health_ffi() -> *mut c_char {
+    ffi_catch(std::ptr::null_mut(), || match api::get_audio_health() {
+        Ok(json) => safe_cstring(json).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+    })
+}

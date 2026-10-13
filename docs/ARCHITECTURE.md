@@ -16,7 +16,7 @@ engine/                       Rust → libengine.{dylib,dll}
   src/ffi/                    extern "C" shims over api/, one file per domain
   src/audio_graph/            realtime renderer, offline renderer, device management, project I/O
   src/export/                 WAV (pure Rust) and MP3 (ffmpeg shell-out), see .claude/rules/audio-export.md
-  src/{synth,sampler,drum_kit,effects,stretch,midi*,recorder}.rs
+  src/{synth,sampler,drum_kit,effects,stretch,midi*,recorder,audio_health}.rs
   vst3_host/                  C++ wrapper over the VST3 SDK (see its README); vst3sdk/ submodule
 ui/lib/
   audio_engine*.dart          the Dart side of the FFI boundary
@@ -43,8 +43,10 @@ each symbol. On the Dart side `AudioEngine` is composed from per-domain mixins
 
 FFI calls serialise on one global graph mutex, with two exceptions: plugin scanning (which
 loads third-party `.vst3` code in-process) and sample preview. The realtime audio callback is
-the other concurrent thread. Lock order, the non-reentrant track locks, and the beats-vs-seconds contract
-are in `.claude/rules/ffi.md`. Adding a function: the `add-ffi` skill.
+the other concurrent thread. It only bumps counters in `audio_health.rs` (late and skipped
+buffers, lock waits); the UI reads them once a second and writes dropouts to the local log
+(`services/log_file.dart`, which also takes every `Log.e`). Lock order, the non-reentrant track
+locks, and the beats-vs-seconds contract are in `.claude/rules/ffi.md`. Adding a function: the `add-ffi` skill.
 
 ## Audio graph and mixer routing
 

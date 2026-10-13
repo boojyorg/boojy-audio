@@ -43,6 +43,8 @@ import '../services/project_manager.dart';
 import '../services/midi_playback_manager.dart';
 import '../services/vst3_editor_service.dart';
 import '../services/input_health_watcher.dart';
+import '../services/audio_health_monitor.dart';
+import '../services/log_file.dart';
 import '../services/plugin_preferences_service.dart';
 import '../services/midi_file_service.dart';
 import '../widgets/start_screen/start_screen_modal.dart';
@@ -235,12 +237,42 @@ class _DAWScreenState extends State<DAWScreen>
   }
 
   InputHealthWatcher? _inputHealthWatcher;
+  AudioHealthMonitor? _audioHealthMonitor;
+
+  /// What was going on, for a dropout line in the log.
+  String _audioHealthContext() {
+    final seconds = playbackController.playheadPosition;
+    final at =
+        '${seconds ~/ 60}:${(seconds % 60).toStringAsFixed(1).padLeft(4, '0')}';
+    final String state;
+    if (recordingController.isRecording) {
+      state = 'recording at $at';
+    } else if (recordingController.isCountingIn) {
+      state = 'counting in';
+    } else if (playbackController.isPlaying) {
+      state = 'playing at $at';
+    } else {
+      state = 'stopped';
+    }
+    final tracks = (mixerKey.currentState?.tracks ?? [])
+        .where((t) => t.isAudio || t.isMidi)
+        .length;
+    final plugins = (vst3PluginManager?.getTrackPluginCounts().values ?? [])
+        .fold(0, (sum, n) => sum + n);
+    final lastAction = undoRedoManager.undoDescription;
+    return [
+      state,
+      '$tracks tracks, $plugins plugins',
+      if (lastAction != null) 'last action: $lastAction',
+    ].join(' · ');
+  }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     HardwareKeyboard.instance.removeHandler(_handleGlobalTransportKey);
     _inputHealthWatcher?.dispose();
+    _audioHealthMonitor?.dispose();
 
     // Remove undo/redo listener
     undoRedoManager.removeListener(_onUndoRedoChanged);
@@ -428,6 +460,16 @@ class _DAWScreenState extends State<DAWScreen>
         hasArmedAudioTrack: () =>
             recordingController.hasArmedAudioTracks?.call() ?? false,
         settingsAction: NoticeAction('Open Settings', appSettings),
+      )..start();
+
+      // Count audio dropouts and log what was going on (Settings shows the
+      // session count; Help → Show Log File opens the log).
+      LogFile.write(
+        'Audio output: ${userSettings.preferredOutputDevice ?? 'System Default'}',
+      );
+      _audioHealthMonitor = AudioHealthMonitor(
+        readHealth: audioEngine!.getAudioHealth,
+        describeContext: _audioHealthContext,
       )..start();
 
       // Initialize VST3 editor service (for platform channel communication)

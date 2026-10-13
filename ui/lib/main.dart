@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'screens/daw_screen.dart';
 import 'widgets/shared/boojy_notice.dart';
+import 'services/log_file.dart';
 import 'services/user_settings.dart';
 import 'services/vst3_editor_service.dart';
 import 'services/window_title_service.dart';
@@ -11,6 +15,15 @@ import 'theme/tokens.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // The local log (errors + audio dropouts), opened first so startup
+  // problems land in it too.
+  await LogFile.open();
+  final info = await PackageInfo.fromPlatform();
+  LogFile.write(
+    'Boojy ${info.version} started · ${Platform.operatingSystem} '
+    '${Platform.operatingSystemVersion}',
+  );
 
   // Load user settings first
   final settings = UserSettings();
@@ -22,18 +35,27 @@ Future<void> main() async {
   _runApp(settings);
 }
 
+/// The first few frames of [stack]: enough to find the spot, without one
+/// error filling the log.
+String _topOfStack(StackTrace? stack) =>
+    '$stack'.split('\n').take(8).join('\n');
+
 void _runApp(UserSettings settings) {
   // Catch Flutter framework errors (layout, rendering, etc.)
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
     debugPrint('💥 [Flutter] ${details.exceptionAsString()}');
     debugPrint('💥 [Flutter] ${details.stack}');
+    LogFile.write(
+      'Error: ${details.exceptionAsString()}\n${_topOfStack(details.stack)}',
+    );
   };
 
   // Catch uncaught async errors (Futures, isolate errors)
   PlatformDispatcher.instance.onError = (error, stack) {
     debugPrint('💥 [Async] $error');
     debugPrint('💥 [Async] $stack');
+    LogFile.write('Error: $error\n${_topOfStack(stack)}');
     return true; // Prevent app termination
   };
 
