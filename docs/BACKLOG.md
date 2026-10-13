@@ -11,7 +11,7 @@ Every area reaches a solid **8/10: good to great compared with other DAWs**. Tyr
 score together in half points, from using the app and test evidence, not from reading code.
 Sounds and effects are scored on the quality of what exists, not how many there are. First
 scores 2026-09-29, re-scored 2026-10-01 (after #151–#175), 2026-10-04 (after #177–#185) and
-2026-10-12 (after #187–#197); re-score before each release and at each state-of-play review
+2026-10-12 (after #187–#197) and 2026-10-13 (after #199–#207); re-score before each release and at each state-of-play review
 ([RELEASING.md](RELEASING.md#milestone-reviews)).
 
 | # | Area | 8/10 means… | Score | Release |
@@ -19,27 +19,29 @@ scores 2026-09-29, re-scored 2026-10-01 (after #151–#175), 2026-10-04 (after #
 | 1 | Stability & performance | An hour of normal use with no crashes or crackles; CPU in line with other DAWs | 5 | v0.7 |
 | 2 | Recording | Audio and MIDI record first time, you hear yourself without noticeable delay, no take is lost | 6.5 | v0.7 |
 | 3 | Arranging & clip editing | Moving, trimming, splitting, duplicating and looping clips is quick; undo always works | 7.5 | v0.7 |
-| 4 | Piano roll & MIDI | You can draw, edit and quantise notes without fighting the tools | 5 | v0.8 |
+| 4 | Piano roll & MIDI | You can draw, edit and quantise notes without fighting the tools | 5.5 | v0.8 |
 | 5 | Instruments | The built-in synth, sampler and drums sound good straight away | 3.5 | Later |
 | 6 | Mixing & automation | Levels, pan, sends and automation are clear and dependable | 5.5 | v0.8 (UX) · Later |
 | 7 | Effects & plugins | Built-in effects work and sound good; VST3s load without taking the app down | 5 | v0.8 (UX) · Later |
 | 8 | Sound library | Browsing, previewing and dragging sounds in is quick (size not scored) | 3.5 | Later |
-| 9 | Projects & export | Save, reopen, auto-save, crash recovery and export never lose work | 6.5 | v0.7 |
+| 9 | Projects & export | Save, reopen, auto-save, crash recovery and export never lose work | 7 | v0.7 |
 | 10 | First run & learnability | A beginner makes a beat in 10 minutes without a tutorial, no dead buttons | 5 | v0.8 |
 | 11 | Look & feel | Consistent and calm, fits a laptop screen, feels finished | 6.5 | v0.8 |
 | 12 | Input & accessibility | Mouse only, trackpad only, keyboard and mouse, and touch all work; text is readable | 4 | v0.8 |
 | 13 | Platforms | macOS, Windows and Linux feel the same, install and update cleanly | 4.5 | Later |
-| 14 | Repo, tests & CI | Bugs are caught before Tyr sees them | 7 | v0.7 → v0.8 |
+| 14 | Repo, tests & CI | Bugs are caught before Tyr sees them | 7.5 | v0.7 → v0.8 |
 | 15 | Public face | Site, README and release notes are honest and inviting | 4 | v0.8 release |
 
 - **v0.7.0: the core works every time.** Rows 1, 2, 3 and 9 reach 8 with no known blocker;
   row 14 gets the test net that proves it. Includes the editing model ([EDITING.md](EDITING.md))
   after a throwaway Mac + iPad prototype; if the prototype says no or the work balloons, it moves
   to v0.8.
-  **Order (2026-10-12):** the test net (#187–#190), loop-on recording (ignore the loop),
-  multi-track takes, the export error and the dropout counter and log are done. Row 1 is the
-  furthest behind; dogfood with the log on, then: the rest of Fix before release → the
-  loop in the engine → projects (Save As, unsaved dot) → editing model prototype. The new
+  **Order (2026-10-13):** the test net, loop-on recording (ignore the loop), multi-track takes,
+  the dropout counter and log, Piano Roll undo, export off the UI thread and built-in MP3 are
+  done. Row 1 is the furthest behind: Tyr makes a song with the log on and notes every issue,
+  then: the appcast fix → reproduce-or-drop the *If reproduced* items (U4 first), fixing the
+  real ones in small batches → the loop in the engine → the recording test input (Test plan
+  11) → editing model prototype. The new
   test ideas (Test plan 9–13) slot in beside the work they cover.
 - **v0.8.0: the app feels right.** UI/UX and bugs, not new sounds: rows 4, 10, 11, 12, 14 and
   the UX half of 6 and 7. Starting list: the [2026-09-29 UI/UX review](reviews/2026_09_29_ui_ux_review.md).
