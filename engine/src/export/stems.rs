@@ -107,6 +107,7 @@ pub fn generate_stem_path(
 /// * `samples` - Rendered audio for this track (stereo interleaved)
 /// * `output_path` - Path to output file
 /// * `options` - Export options
+/// * `on_block` - MP3 encoding progress (0–1); `false` stops it
 ///
 /// # Returns
 /// Export result
@@ -114,6 +115,7 @@ pub fn export_stem(
     samples: &[f32],
     output_path: &Path,
     options: &ExportOptions,
+    on_block: &mut dyn FnMut(f64) -> bool,
 ) -> Result<ExportResult, String> {
     eprintln!(
         "🎚️ [Stem Export] Exporting stem to {}",
@@ -122,7 +124,9 @@ pub fn export_stem(
 
     match &options.format {
         super::options::ExportFormat::Wav { .. } => export_wav(samples, output_path, options),
-        super::options::ExportFormat::Mp3 { .. } => export_mp3(samples, output_path, options),
+        super::options::ExportFormat::Mp3 { .. } => {
+            export_mp3(samples, output_path, options, on_block)
+        }
     }
 }
 
@@ -133,6 +137,9 @@ pub fn export_stem(
 /// * `output_dir` - Output directory path
 /// * `base_name` - Base filename
 /// * `options` - Export options
+/// * `files` - Where the stems are written until they're all done
+/// * `on_block` - Progress through all the stems (0–1); `false` stops the
+///   export with "Export cancelled"
 ///
 /// # Returns
 /// Stem export result with all exported files
@@ -142,6 +149,7 @@ pub fn export_stems(
     base_name: &str,
     options: &ExportOptions,
     files: &mut PartialFiles,
+    on_block: &mut dyn FnMut(f64) -> bool,
 ) -> Result<StemExportResult, String> {
     eprintln!(
         "🎚️ [Stem Export] Exporting {} tracks to {}",
@@ -154,17 +162,22 @@ pub fn export_stems(
         .map_err(|e| format!("Failed to create output directory: {e}"))?;
 
     let mut result = StemExportResult::new();
+    let selected = tracks.iter().filter(|(info, _)| info.selected).count();
 
-    for (track_info, samples) in tracks {
-        if !track_info.selected {
-            continue;
-        }
-
+    for (i, (track_info, samples)) in tracks.iter().filter(|(info, _)| info.selected).enumerate() {
         let output_path = generate_stem_path(output_dir, base_name, &track_info.name, options);
 
         // Written under a temporary name; the caller moves every stem into
         // place once all are done ([`PartialFiles::commit`]).
-        match export_stem(samples, &files.path_for(&output_path), options) {
+        // This stem's share of the progress.
+        let share = |done: f64| (i as f64 + done) / selected as f64;
+        let mut on_stem_block = |done| on_block(share(done));
+        match export_stem(
+            samples,
+            &files.path_for(&output_path),
+            options,
+            &mut on_stem_block,
+        ) {
             Ok(mut stem_result) => {
                 stem_result.path = output_path.to_string_lossy().to_string();
                 eprintln!(
@@ -173,7 +186,11 @@ pub fn export_stems(
                     stem_result.file_size as f64 / 1024.0 / 1024.0
                 );
                 result.add(stem_result);
+                if !on_block(share(1.0)) {
+                    return Err("Export cancelled".to_string());
+                }
             }
+            Err(e) if e == "Export cancelled" => return Err(e),
             Err(e) => {
                 eprintln!("   ❌ {} - {}", track_info.name, e);
                 return Err(format!(
@@ -196,6 +213,46 @@ pub fn export_stems(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mp3_stem_progress_only_moves_forward() {
+        // Review of #207: the last, shorter block of each stem counted as a
+        // whole one, so 3.2 s stems went 0 → 62% → 50% → …
+        let audio: Vec<f32> = (0..(3.2 * 48_000.0) as usize * 2)
+            .map(|i| 0.3 * ((i / 2) as f32 * 0.05).sin())
+            .collect();
+        let tracks: Vec<_> = (1..=2)
+            .map(|id| {
+                let info = StemTrackInfo {
+                    id,
+                    name: format!("Track {id}"),
+                    selected: true,
+                };
+                (info, audio.clone())
+            })
+            .collect();
+        let dir = std::env::temp_dir().join("stem_progress_forward");
+        let options =
+            ExportOptions::mp3(super::super::options::Mp3Bitrate::Kbps128).with_sample_rate(48_000);
+        let mut seen = Vec::new();
+
+        export_stems(
+            &tracks,
+            &dir,
+            "Song",
+            &options,
+            &mut PartialFiles::default(),
+            &mut |done| {
+                seen.push(done);
+                true
+            },
+        )
+        .unwrap();
+
+        assert!(seen.windows(2).all(|w| w[0] <= w[1]), "{seen:?}");
+        assert_eq!(seen.last(), Some(&1.0), "{seen:?}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn test_generate_stem_filename() {

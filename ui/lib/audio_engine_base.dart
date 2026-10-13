@@ -133,7 +133,6 @@ class _AudioEngineBase {
   late final _ExportToWavFfi _exportToWav;
 
   // M8 functions - Enhanced Export
-  late final _IsFfmpegAvailableFfi _isFfmpegAvailable;
   late final _WriteMp3MetadataFfi _writeMp3Metadata;
   late final _GetTracksForStemsFfi _getTracksForStems;
 
@@ -759,12 +758,6 @@ class _AudioEngineBase {
         .asFunction();
 
     // Bind M8 functions - Enhanced Export
-    _isFfmpegAvailable = _lib
-        .lookup<ffi.NativeFunction<_IsFfmpegAvailableFfiNative>>(
-          'is_ffmpeg_available_ffi',
-        )
-        .asFunction();
-
     _writeMp3Metadata = _lib
         .lookup<ffi.NativeFunction<_WriteMp3MetadataFfiNative>>(
           'write_mp3_metadata_ffi',

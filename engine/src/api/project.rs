@@ -296,11 +296,6 @@ pub fn export_to_wav(output_path_str: String, normalize: bool) -> Result<String,
 // ENHANCED EXPORT API (M8)
 // ============================================================================
 
-/// Check if ffmpeg is available for MP3 encoding
-pub fn is_ffmpeg_available() -> bool {
-    crate::export::is_ffmpeg_available()
-}
-
 /// Export project to WAV with configurable options
 ///
 /// # Arguments
@@ -506,7 +501,12 @@ pub fn export_mp3_with_options(
     // (checked through encoding) or a failure leaves no file, and keeps one
     // that was already there.
     let mut files = PartialFiles::default();
-    let mut result = match export_mp3(&samples, &files.path_for(output_path), &options) {
+    let mut result = match export_mp3(
+        &samples,
+        &files.path_for(output_path),
+        &options,
+        &mut progress.render_hook(60, 95),
+    ) {
         Ok(r) => r,
         Err(e) => {
             progress.fail(&e);
@@ -735,6 +735,7 @@ pub fn export_stems(
         &base_name,
         &options,
         &mut files,
+        &mut progress.render_hook(75, 95),
     ) {
         Ok(r) => r,
         Err(e) => {

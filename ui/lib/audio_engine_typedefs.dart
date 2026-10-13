@@ -340,9 +340,6 @@ typedef _ExportToWavFfi =
     ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Char>, bool);
 
 // M8 types - Enhanced Export
-typedef _IsFfmpegAvailableFfiNative = ffi.Int32 Function();
-typedef _IsFfmpegAvailableFfi = int Function();
-
 typedef _ExportWavWithOptionsFfiNative =
     ffi.Pointer<Utf8> Function(
       ffi.Pointer<ffi.Char>,

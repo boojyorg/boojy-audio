@@ -67,8 +67,6 @@ reproduces them.
 
 - **The appcast commit can't reach `master`** (branch protection). Details and options in
   [RELEASING.md](RELEASING.md#what-the-release-workflow-does).
-- **MP3 export may not find ffmpeg when Boojy is opened from Finder** (unverified): apps opened
-  there don't get `/opt/homebrew/bin` in their PATH (`Command::new("ffmpeg")` in `mp3.rs`).
 - *If reproduced:*
   - New Project keeps the previous tempo and time signature (U2).
   - The volume fader jumps when grabbed (U3).
@@ -88,7 +86,6 @@ reproduces them.
   - "No Output" in Settings may never be applied (U66; the input half was fixed in #153).
   - Playhead and selected strip vanish in the Light theme (U7).
   - No Tour on Windows (B6).
-  - MP3 export needs ffmpeg (B5): README caveat plus a Windows install line.
 
 **After release**
 
@@ -158,7 +155,6 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
   clip's arrangement length to the loop's (its repeats go), while dragging the loop's edge on the
   ruler keeps them. Pick one *(Tyr)*.
 - **Two `showMenu` calls remain** in `track_mixer_strip.dart`; migrate to `showBoojyMenu`.
-- **MP3 export shells out to `ffmpeg`.** Replace with the `mp3lame-encoder` crate.
 - **Zoom spec** *(Tyr)*: anchor, modifiers, pinch, ruler drag, zoom-to-fit, independent axes.
 - **Sampler workflow** *(Tyr)*: research what it should be before touching it again.
 - **Windows updater**: no native `boojy_audio/updater` channel; the Updates section is hidden on

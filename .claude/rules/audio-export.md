@@ -7,8 +7,10 @@ paths:
 
 - **WAV** (`wav.rs`): pure Rust via `hound`; 16/24-bit and 32-bit float, optional dither. The
   dependency-free path.
-- **MP3** (`mp3.rs`): pipes PCM to the `ffmpeg` CLI, an external runtime dependency. Missing
-  ffmpeg is an error, not a WAV fallback. Planned: replace with the `mp3lame-encoder` crate.
+- **MP3** (`mp3.rs`): LAME via `mp3lame-encoder`, compiled from source into the engine (nothing
+  to install). Constant bitrate, quality 2, about a second per block so progress moves and Cancel
+  stops it. Flush with `FlushGap` (the "no gap" flush drops the last ~35 ms) and fill in the LAME
+  header frame, or players add the encoder's start-up silence. Tests decode the file back.
 
 ## Processing order is load-bearing
 

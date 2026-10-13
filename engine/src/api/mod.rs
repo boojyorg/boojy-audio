@@ -63,7 +63,7 @@ pub use preview::{
 };
 pub use project::{
     export_mp3_with_options, export_stems, export_to_wav, export_wav_with_options,
-    get_tracks_for_stems, is_ffmpeg_available, load_project, save_project, write_mp3_metadata,
+    get_tracks_for_stems, load_project, save_project, write_mp3_metadata,
 };
 pub use recording::{
     get_audio_input_devices, get_audio_input_health, get_audio_input_status,

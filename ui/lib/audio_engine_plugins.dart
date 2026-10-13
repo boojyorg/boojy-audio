@@ -42,11 +42,6 @@ mixin _PluginsMixin on _AudioEngineBase {
   // M8 API - Enhanced Export
   // ========================================================================
 
-  /// Check if ffmpeg is available for MP3 encoding
-  bool isFfmpegAvailable() {
-    return _isFfmpegAvailable() == 1;
-  }
-
   /// Export WAV with configurable options
   /// bitDepth: 16, 24, or 32 (float)
   /// sampleRate: 44100 or 48000
