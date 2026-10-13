@@ -51,7 +51,10 @@ mixin _PluginsMixin on _AudioEngineBase {
   /// bitDepth: 16, 24, or 32 (float)
   /// sampleRate: 44100 or 48000
   /// Returns JSON string with ExportResult on success
-  String exportWavWithOptions({
+  ///
+  /// Runs on a background isolate, so the window keeps drawing (and polling
+  /// [getExportProgress]) while the engine renders.
+  Future<String> exportWavWithOptions({
     required String outputPath,
     int bitDepth = 16,
     int sampleRate = 44100,
@@ -59,54 +62,60 @@ mixin _PluginsMixin on _AudioEngineBase {
     bool dither = false,
     bool mono = false,
   }) {
-    final pathPtr = outputPath.toNativeUtf8();
-    final resultPtr = _exportWavWithOptions(
-      pathPtr.cast(),
-      bitDepth,
-      sampleRate,
-      normalize,
-      dither,
-      mono,
-    );
-    malloc.free(pathPtr);
-    final result = resultPtr.toDartString();
-    _freeRustString(resultPtr);
-
-    if (result.startsWith('Error:')) {
-      throw Exception(result);
-    }
-
-    return result;
+    final libPath = _libPath;
+    return Isolate.run(() {
+      final lib = _openEngine(libPath);
+      final export = lib
+          .lookupFunction<
+            _ExportWavWithOptionsFfiNative,
+            _ExportWavWithOptionsFfi
+          >('export_wav_with_options_ffi');
+      final pathPtr = outputPath.toNativeUtf8();
+      final resultPtr = export(
+        pathPtr.cast(),
+        bitDepth,
+        sampleRate,
+        normalize,
+        dither,
+        mono,
+      );
+      malloc.free(pathPtr);
+      return _takeEngineResult(lib, resultPtr);
+    });
   }
 
   /// Export MP3 with configurable options
   /// bitrate: 128, 192, or 320 kbps
   /// sampleRate: 44100 or 48000
   /// Returns JSON string with ExportResult on success
-  String exportMp3WithOptions({
+  ///
+  /// Runs on a background isolate, like [exportWavWithOptions].
+  Future<String> exportMp3WithOptions({
     required String outputPath,
     int bitrate = 320,
     int sampleRate = 44100,
     bool normalize = false,
     bool mono = false,
   }) {
-    final pathPtr = outputPath.toNativeUtf8();
-    final resultPtr = _exportMp3WithOptions(
-      pathPtr.cast(),
-      bitrate,
-      sampleRate,
-      normalize,
-      mono,
-    );
-    malloc.free(pathPtr);
-    final result = resultPtr.toDartString();
-    _freeRustString(resultPtr);
-
-    if (result.startsWith('Error:')) {
-      throw Exception(result);
-    }
-
-    return result;
+    final libPath = _libPath;
+    return Isolate.run(() {
+      final lib = _openEngine(libPath);
+      final export = lib
+          .lookupFunction<
+            _ExportMp3WithOptionsFfiNative,
+            _ExportMp3WithOptionsFfi
+          >('export_mp3_with_options_ffi');
+      final pathPtr = outputPath.toNativeUtf8();
+      final resultPtr = export(
+        pathPtr.cast(),
+        bitrate,
+        sampleRate,
+        normalize,
+        mono,
+      );
+      malloc.free(pathPtr);
+      return _takeEngineResult(lib, resultPtr);
+    });
   }
 
   /// Write ID3 metadata to an MP3 file
@@ -147,37 +156,36 @@ mixin _PluginsMixin on _AudioEngineBase {
   /// trackIdsJson: JSON array of track IDs to export, or empty string for all tracks
   /// optionsJson: JSON string of ExportOptions
   /// Returns JSON string with StemExportResult on success
-  String exportStems({
+  ///
+  /// Runs on a background isolate, like [exportWavWithOptions].
+  Future<String> exportStems({
     required String outputDir,
     required String baseName,
     String trackIdsJson = '',
     required String optionsJson,
   }) {
-    final dirPtr = outputDir.toNativeUtf8();
-    final namePtr = baseName.toNativeUtf8();
-    final trackIdsPtr = trackIdsJson.toNativeUtf8();
-    final optionsPtr = optionsJson.toNativeUtf8();
-
-    final resultPtr = _exportStems(
-      dirPtr.cast(),
-      namePtr.cast(),
-      trackIdsPtr.cast(),
-      optionsPtr.cast(),
-    );
-
-    malloc.free(dirPtr);
-    malloc.free(namePtr);
-    malloc.free(trackIdsPtr);
-    malloc.free(optionsPtr);
-
-    final result = resultPtr.toDartString();
-    _freeRustString(resultPtr);
-
-    if (result.startsWith('Error:')) {
-      throw Exception(result);
-    }
-
-    return result;
+    final libPath = _libPath;
+    return Isolate.run(() {
+      final lib = _openEngine(libPath);
+      final export = lib.lookupFunction<_ExportStemsFfiNative, _ExportStemsFfi>(
+        'export_stems_ffi',
+      );
+      final dirPtr = outputDir.toNativeUtf8();
+      final namePtr = baseName.toNativeUtf8();
+      final trackIdsPtr = trackIdsJson.toNativeUtf8();
+      final optionsPtr = optionsJson.toNativeUtf8();
+      final resultPtr = export(
+        dirPtr.cast(),
+        namePtr.cast(),
+        trackIdsPtr.cast(),
+        optionsPtr.cast(),
+      );
+      malloc.free(dirPtr);
+      malloc.free(namePtr);
+      malloc.free(trackIdsPtr);
+      malloc.free(optionsPtr);
+      return _takeEngineResult(lib, resultPtr);
+    });
   }
 
   // ========================================================================
@@ -992,4 +1000,21 @@ mixin _PluginsMixin on _AudioEngineBase {
       return List.filled(resolution, 0.0);
     }
   }
+}
+
+/// The engine library, opened from a background isolate. It's the same
+/// process, so this is the same engine the app is using.
+ffi.DynamicLibrary _openEngine(String? libPath) => libPath == null
+    ? ffi.DynamicLibrary.process()
+    : ffi.DynamicLibrary.open(libPath);
+
+/// Read and free an engine result string from a background isolate; an
+/// `Error:` result throws, as the app-side wrappers do.
+String _takeEngineResult(ffi.DynamicLibrary lib, ffi.Pointer<Utf8> resultPtr) {
+  final result = resultPtr.toDartString();
+  lib.lookupFunction<_FreeRustStringNative, _FreeRustString>(
+    'free_rust_string',
+  )(resultPtr);
+  if (result.startsWith('Error:')) throw Exception(result);
+  return result;
 }

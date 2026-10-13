@@ -41,6 +41,12 @@ class ExportProgressInfo {
 
 /// Progress dialog shown during export
 class ExportProgressDialog extends StatefulWidget {
+  /// True from the start of an export until the engine has really finished
+  /// (after Cancel, until the render stops). Play and Record wait meanwhile:
+  /// export and playback share the effects.
+  static bool get isExporting => _running > 0;
+  static int _running = 0;
+
   final AudioEngine audioEngine;
   final Future<void> Function() exportTask;
   final VoidCallback onCancel;
@@ -83,9 +89,11 @@ class _ExportProgressDialogState extends State<ExportProgressDialog> {
       _pollProgress();
     });
 
-    // Run the export task
+    // Run the export task (on the engine's side, off the UI thread).
+    ExportProgressDialog._running++;
     widget
         .exportTask()
+        .whenComplete(() => ExportProgressDialog._running--)
         .then((_) {
           if (mounted) {
             setState(() => _exportComplete = true);
@@ -347,22 +355,30 @@ class ExportDialog extends StatefulWidget {
   final AudioEngine audioEngine;
   final String defaultName;
 
+  /// Called as the export starts (after the options), to stop playback.
+  final VoidCallback? onExportStarting;
+
   const ExportDialog({
     super.key,
     required this.audioEngine,
     required this.defaultName,
+    this.onExportStarting,
   });
 
   static Future<void> show(
     BuildContext context, {
     required AudioEngine audioEngine,
     required String defaultName,
+    VoidCallback? onExportStarting,
   }) async {
     await showDialog(
       context: context,
       barrierColor: BT.dialogBarrierColor,
-      builder: (context) =>
-          ExportDialog(audioEngine: audioEngine, defaultName: defaultName),
+      builder: (context) => ExportDialog(
+        audioEngine: audioEngine,
+        defaultName: defaultName,
+        onExportStarting: onExportStarting,
+      ),
     );
   }
 
@@ -526,6 +542,7 @@ class _ExportDialogState extends State<ExportDialog> {
   }) async {
     final List<ExportResult> results = [];
     final completer = Completer<List<ExportResult>>();
+    widget.onExportStarting?.call();
 
     // Close the export options dialog first
     Navigator.of(context).pop();
@@ -564,7 +581,7 @@ class _ExportDialogState extends State<ExportDialog> {
                 'mono': false,
               });
 
-              final stemResultJson = widget.audioEngine.exportStems(
+              final stemResultJson = await widget.audioEngine.exportStems(
                 outputDir: folderPath,
                 baseName: baseName,
                 trackIdsJson: jsonEncode(selectedTrackIds),
@@ -593,12 +610,13 @@ class _ExportDialogState extends State<ExportDialog> {
                     ? filePath
                     : '${filePath.replaceAll(RegExp(r'\.[^.]+$'), '')}.mp3';
 
-                final resultJson = widget.audioEngine.exportMp3WithOptions(
-                  outputPath: mp3Path,
-                  bitrate: _options.mp3Bitrate,
-                  sampleRate: _options.sampleRate,
-                  normalize: _options.normalize,
-                );
+                final resultJson = await widget.audioEngine
+                    .exportMp3WithOptions(
+                      outputPath: mp3Path,
+                      bitrate: _options.mp3Bitrate,
+                      sampleRate: _options.sampleRate,
+                      normalize: _options.normalize,
+                    );
 
                 final parsed = jsonDecode(resultJson);
                 results.add(ExportResult.fromJson(parsed));
@@ -622,13 +640,14 @@ class _ExportDialogState extends State<ExportDialog> {
                     ? filePath
                     : '${filePath.replaceAll(RegExp(r'\.[^.]+$'), '')}.wav';
 
-                final resultJson = widget.audioEngine.exportWavWithOptions(
-                  outputPath: wavPath,
-                  bitDepth: _options.wavBitDepth,
-                  sampleRate: _options.sampleRate,
-                  normalize: _options.normalize,
-                  dither: _ditherOn,
-                );
+                final resultJson = await widget.audioEngine
+                    .exportWavWithOptions(
+                      outputPath: wavPath,
+                      bitDepth: _options.wavBitDepth,
+                      sampleRate: _options.sampleRate,
+                      normalize: _options.normalize,
+                      dither: _ditherOn,
+                    );
 
                 final parsed = jsonDecode(resultJson);
                 results.add(ExportResult.fromJson(parsed));

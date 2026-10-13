@@ -1662,3 +1662,88 @@ fn export_plays_a_repeating_clip_in_wav_and_mp3() {
         assert!(std::fs::metadata(&mp3).unwrap().len() > 10_000);
     }
 }
+
+/// A project about two minutes long: a 1 s sine looped for 120 s.
+fn long_project(dir: &Path) {
+    let wav = write_sine_wav(dir, "long.wav", 1.0, 0.5);
+    let track = create_track("Audio", "Long".to_string()).unwrap();
+    let clip = load_audio_file_to_track_api(path_str(&wav), track, 0.0).unwrap();
+    set_clip_duration(track, clip, 120.0).unwrap();
+}
+
+#[test]
+fn export_leaves_the_graph_free_while_it_renders() {
+    // The export used to hold the graph's lock for the whole render, so any
+    // UI engine call (meters, the playhead) froze the window until it ended.
+    let _guard = engine_lock();
+    let dir = temp_dir("export_graph_free");
+    long_project(&dir);
+    let out = dir.join("mix.wav");
+    let out_str = path_str(&out);
+
+    let progress = crate::export::export_progress();
+    progress.reset();
+    let export = std::thread::spawn(move || {
+        export_wav_with_options(out_str, 32, TARGET_SAMPLE_RATE, false, false, false)
+    });
+
+    let mut seen = std::collections::BTreeSet::new();
+    let mut locked_mid_render = false;
+    while !export.is_finished() {
+        let percent = progress.get_progress();
+        if percent > 20 && percent < 70 {
+            seen.insert(percent);
+            let graph = get_audio_graph().unwrap();
+            if graph
+                .try_lock_for(std::time::Duration::from_millis(50))
+                .is_some()
+            {
+                locked_mid_render = true;
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    export.join().unwrap().unwrap();
+
+    assert!(
+        locked_mid_render,
+        "the graph could be locked during the render"
+    );
+    assert!(
+        seen.len() >= 3,
+        "progress moves through the render, not 20 → 70 in one jump: {seen:?}"
+    );
+}
+
+#[test]
+fn cancel_stops_a_long_export_mid_render() {
+    let _guard = engine_lock();
+    let dir = temp_dir("export_cancel");
+    long_project(&dir);
+    let out = dir.join("mix.wav");
+    let out_str = path_str(&out);
+
+    let progress = crate::export::export_progress();
+    progress.reset();
+    let export = std::thread::spawn(move || {
+        export_wav_with_options(out_str, 32, TARGET_SAMPLE_RATE, false, false, false)
+    });
+    while progress.get_progress() <= 21 && !export.is_finished() {
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    assert!(
+        !export.is_finished(),
+        "still rendering when Cancel is pressed"
+    );
+    let pressed = std::time::Instant::now();
+    progress.cancel();
+    let result = export.join().unwrap();
+
+    assert_eq!(result, Err("Export cancelled".to_string()));
+    assert!(
+        pressed.elapsed() < std::time::Duration::from_millis(500),
+        "stopped within a few blocks, took {:?}",
+        pressed.elapsed()
+    );
+    assert!(!out.exists(), "no file is written");
+}

@@ -9,6 +9,7 @@ import '../../../services/input_health_watcher.dart';
 import '../../../services/live_recording_notifier.dart';
 import '../../../utils/clip_overlap_handler.dart';
 import '../../../utils/csv_field.dart';
+import '../../../widgets/export_dialog.dart';
 import '../../daw_screen.dart';
 import 'daw_screen_state.dart';
 import '../../../utils/logger.dart';
@@ -44,6 +45,8 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
   /// Start recording
   /// [isAlreadyPlaying]: If true, skips count-in and starts recording immediately
   void startRecording({bool isAlreadyPlaying = false}) {
+    // Not during an export: it shares the effects with playback.
+    if (ExportProgressDialog.isExporting) return;
     _lastRecordWasAlreadyPlaying = isAlreadyPlaying;
 
     // Beat-snap the record start so the count-in lands on the grid ("1,2,3,4")

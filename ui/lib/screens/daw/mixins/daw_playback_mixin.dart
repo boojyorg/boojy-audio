@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/export_dialog.dart';
 import '../../daw_screen.dart';
 import 'daw_screen_state.dart';
 
 /// Mixin containing playback-related methods for DAWScreen.
 /// Handles play, pause, stop, loop playback operations.
 mixin DAWPlaybackMixin on State<DAWScreen>, DAWScreenStateMixin {
-  /// Start playback
+  /// Start playback (not during an export: it shares the effects).
   void play() {
+    if (ExportProgressDialog.isExporting) return;
     // Clear automation preview values so display shows actual playback values
     if (automationPreviewNotifier.value.isNotEmpty) {
       automationPreviewNotifier.value = {};
@@ -65,6 +67,7 @@ mixin DAWPlaybackMixin on State<DAWScreen>, DAWScreenStateMixin {
 
   /// Play the loop region, cycling forever until stopped
   void playLoopRegion() {
+    if (ExportProgressDialog.isExporting) return;
     // Get loop bounds from UI layout state
     final loopStart = uiLayout.loopStartBeats;
     final loopEnd = uiLayout.loopEndBeats;

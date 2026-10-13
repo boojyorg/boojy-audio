@@ -55,6 +55,18 @@ impl ExportProgressState {
         }
     }
 
+    /// Per-block hook for an offline render: moves progress from `from`% to
+    /// `to`% as the render goes (status unchanged), and returns `false`
+    /// (stop) once the export is cancelled.
+    pub fn render_hook(&self, from: u32, to: u32) -> impl FnMut(f64) -> bool + '_ {
+        move |done| {
+            let span = f64::from(to.saturating_sub(from));
+            let percent = from + (done.clamp(0.0, 1.0) * span) as u32;
+            self.progress.store(percent.min(100), Ordering::SeqCst);
+            !self.is_cancelled()
+        }
+    }
+
     /// Mark export as complete
     pub fn complete(&self) {
         self.progress.store(100, Ordering::SeqCst);

@@ -225,11 +225,12 @@ pub fn export_to_wav(output_path_str: String, normalize: bool) -> Result<String,
     eprintln!("🎵 [API] Exporting to WAV: {}", output_path.display());
 
     // Get audio graph
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-
-    // Calculate project duration
-    let duration = graph.calculate_project_duration();
+    // Hold the graph only to read what the render needs; the render runs
+    // without it, so the UI's engine calls don't wait for the export.
+    let (sources, duration) = {
+        let graph = get_audio_graph()?.lock();
+        (graph.offline_sources(), graph.calculate_project_duration())
+    };
     if duration <= 1.0 {
         return Err("No audio content to export".to_string());
     }
@@ -237,7 +238,7 @@ pub fn export_to_wav(output_path_str: String, normalize: bool) -> Result<String,
     eprintln!("🎵 [API] Project duration: {duration:.2}s");
 
     // Render offline
-    let samples = graph.render_offline(duration);
+    let samples = sources.render_offline(duration, &mut |_| true);
 
     if samples.is_empty() {
         return Err("Render produced no audio".to_string());
@@ -357,11 +358,12 @@ pub fn export_wav_with_options(
     progress.update(10, "Accessing audio graph...");
 
     // Get audio graph
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-
-    // Calculate project duration
-    let duration = graph.calculate_project_duration();
+    // Hold the graph only to read what the render needs; the render runs
+    // without it, so the UI's engine calls don't wait for the export.
+    let (sources, duration) = {
+        let graph = get_audio_graph()?.lock();
+        (graph.offline_sources(), graph.calculate_project_duration())
+    };
     if duration <= 1.0 {
         progress.fail("No audio content");
         return Err("No audio content to export".to_string());
@@ -375,18 +377,17 @@ pub fn export_wav_with_options(
 
     progress.update(20, "Rendering audio...");
 
-    // Render offline
-    let samples = graph.render_offline(duration);
+    // Render offline; Cancel stops it within a block.
+    let samples = sources.render_offline(duration, &mut progress.render_hook(20, 70));
+
+    if progress.is_cancelled() {
+        progress.fail("Export cancelled");
+        return Err("Export cancelled".to_string());
+    }
 
     if samples.is_empty() {
         progress.fail("Render produced no audio");
         return Err("Render produced no audio".to_string());
-    }
-
-    // Check for cancellation
-    if progress.is_cancelled() {
-        progress.fail("Export cancelled");
-        return Err("Export cancelled".to_string());
     }
 
     progress.update(70, "Encoding WAV file...");
@@ -459,11 +460,12 @@ pub fn export_mp3_with_options(
     progress.update(10, "Accessing audio graph...");
 
     // Get audio graph
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-
-    // Calculate project duration
-    let duration = graph.calculate_project_duration();
+    // Hold the graph only to read what the render needs; the render runs
+    // without it, so the UI's engine calls don't wait for the export.
+    let (sources, duration) = {
+        let graph = get_audio_graph()?.lock();
+        (graph.offline_sources(), graph.calculate_project_duration())
+    };
     if duration <= 1.0 {
         progress.fail("No audio content");
         return Err("No audio content to export".to_string());
@@ -477,18 +479,17 @@ pub fn export_mp3_with_options(
 
     progress.update(20, "Rendering audio...");
 
-    // Render offline
-    let samples = graph.render_offline(duration);
+    // Render offline; Cancel stops it within a block.
+    let samples = sources.render_offline(duration, &mut progress.render_hook(20, 60));
+
+    if progress.is_cancelled() {
+        progress.fail("Export cancelled");
+        return Err("Export cancelled".to_string());
+    }
 
     if samples.is_empty() {
         progress.fail("Render produced no audio");
         return Err("Render produced no audio".to_string());
-    }
-
-    // Check for cancellation
-    if progress.is_cancelled() {
-        progress.fail("Export cancelled");
-        return Err("Export cancelled".to_string());
     }
 
     progress.update(60, "Encoding MP3 file...");
@@ -613,18 +614,20 @@ pub fn export_stems(
     progress.update(5, "Accessing audio graph...");
 
     // Get audio graph
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-
-    // Calculate project duration
-    let duration = graph.calculate_project_duration();
+    // Hold the graph only to read what the renders need; they run without
+    // it, so the UI's engine calls don't wait for the export.
+    let (sources, duration, all_tracks) = {
+        let graph = get_audio_graph()?.lock();
+        (
+            graph.offline_sources(),
+            graph.calculate_project_duration(),
+            graph.get_tracks_for_stem_export(),
+        )
+    };
     if duration <= 1.0 {
         progress.fail("No audio content");
         return Err("No audio content to export".to_string());
     }
-
-    // Get tracks for export
-    let all_tracks = graph.get_tracks_for_stem_export();
 
     // Filter to selected tracks
     let tracks_to_export: Vec<_> = all_tracks
@@ -651,8 +654,9 @@ pub fn export_stems(
             return Err("Export cancelled".to_string());
         }
 
-        // Progress: 10% to 70% is rendering tracks
+        // Progress: 10% to 70% is rendering tracks, each its share.
         let track_progress = 10 + (i as u32 * 60 / total_tracks as u32);
+        let track_progress_end = 10 + ((i as u32 + 1) * 60 / total_tracks as u32);
         progress.update(
             track_progress,
             &format!(
@@ -665,7 +669,15 @@ pub fn export_stems(
 
         eprintln!("🎚️ [API] Rendering track '{track_name}' (ID: {track_id})");
 
-        let samples = graph.render_track_offline(*track_id, duration);
+        let samples = sources.render_track_offline(
+            *track_id,
+            duration,
+            &mut progress.render_hook(track_progress, track_progress_end),
+        );
+        if progress.is_cancelled() {
+            progress.fail("Export cancelled");
+            return Err("Export cancelled".to_string());
+        }
 
         // Skip empty tracks
         if samples.iter().all(|&s| s.abs() < 0.0001) {
