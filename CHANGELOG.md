@@ -6,6 +6,13 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- **Boojy keeps a log, and counts crackles.** When the audio drops out (the engine misses a
+  buffer), Boojy writes a line to a local log saying what was going on: playing or stopped, where
+  the playhead was, how many tracks and plugins, the buffer size, how busy the engine was and the
+  last thing you did. Errors go there too, in every build. Settings → Audio shows "Dropouts this
+  session" with a *Show Log* button, and Help → Show Log File opens it. Nothing pops up while you
+  work. The log stays under 1 MB (the previous one is kept as `boojy.old.log`).
+
 - **You see your audio while you record it.** Each armed audio track shows a clip that grows
   from the record point with its waveform drawing in as you play, under the same red recording
   header as MIDI takes. Each track shows its own input ("In 1" / "In 2"), and the clips it

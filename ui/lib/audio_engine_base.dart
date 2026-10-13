@@ -21,6 +21,7 @@ class _AudioEngineBase {
 
   // Latency Control functions
   late final _SetBufferSizeFfi _setBufferSize;
+  late final _GetAudioHealthFfi _getAudioHealth;
   late final _SetClipStartTimeFfi _setClipStartTime;
   late final _SetClipOffsetFfi _setClipOffset;
   late final _SetClipDurationFfi _setClipDuration;
@@ -342,6 +343,12 @@ class _AudioEngineBase {
     _setBufferSize = _lib
         .lookup<ffi.NativeFunction<_SetBufferSizeFfiNative>>(
           'set_buffer_size_ffi',
+        )
+        .asFunction();
+
+    _getAudioHealth = _lib
+        .lookup<ffi.NativeFunction<_GetAudioHealthFfiNative>>(
+          'get_audio_health_ffi',
         )
         .asFunction();
 

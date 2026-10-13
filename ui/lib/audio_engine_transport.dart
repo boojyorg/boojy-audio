@@ -97,6 +97,22 @@ mixin _TransportMixin on _AudioEngineBase {
     }
   }
 
+  /// Dropout and lock-wait counters for the audio health log: totals since
+  /// launch, plus the busiest buffer since the last call (`peakLoadPercent`)
+  /// and the current `bufferFrames` / `sampleRate`. Null if the engine can't
+  /// answer.
+  Map<String, Object?>? getAudioHealth() {
+    try {
+      final resultPtr = _getAudioHealth();
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      if (result.startsWith('Error:')) return null;
+      return jsonDecode(result) as Map<String, Object?>;
+    } catch (e) {
+      return null;
+    }
+  }
+
   /// Get clip duration in seconds
   double getClipDuration(int clipId) {
     try {

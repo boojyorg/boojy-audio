@@ -37,8 +37,8 @@ scores 2026-09-29, re-scored 2026-10-01 (after #151–#175), 2026-10-04 (after #
   after a throwaway Mac + iPad prototype; if the prototype says no or the work balloons, it moves
   to v0.8.
   **Order (2026-10-12):** the test net (#187–#190), loop-on recording (ignore the loop),
-  multi-track takes and the export error are done. Row 1 is now the furthest behind and has
-  the least data, so: dropout counter and log (row 1) → the rest of Fix before release → the
+  multi-track takes, the export error and the dropout counter and log are done. Row 1 is the
+  furthest behind; dogfood with the log on, then: the rest of Fix before release → the
   loop in the engine → projects (Save As, unsaved dot) → editing model prototype. The new
   test ideas (Test plan 9–13) slot in beside the work they cover.
 - **v0.8.0: the app feels right.** UI/UX and bugs, not new sounds: rows 4, 10, 11, 12, 14 and
@@ -128,7 +128,9 @@ disagreeing, untested wiring in the DAW screen, and a test that pinned the wrong
 6. **A failing test before every fix**, named for what Tyr expects, not what the code does. A
    bug found only by reading code is a candidate.
 7. **Builds reach Tyr after the suites pass**, and new UI is rendered and checked first.
-8. **A local log and an audio-dropout counter**, so "it crackled" comes with data.
+8. **A local log and an audio-dropout counter**, so "it crackled" comes with data. Done
+   (2026-10-13): late and skipped buffers plus lock waits, logged with what was going on;
+   Settings → Audio shows the session count.
 
 Next additions (2026-10-12): the net catches screen-and-engine mismatches, but not sound,
 speed or recording.

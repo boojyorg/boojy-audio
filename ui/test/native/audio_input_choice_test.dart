@@ -7,7 +7,10 @@ import 'support/native_engine_harness.dart';
 void main() {
   // Covers the parts of the input choice that need no microphone: CI runners
   // have no input devices, so device lookup itself is tested in Rust
-  // (`audio_input::tests`) and by hand.
+  // (`audio_input::tests`) and by hand. The audio health counters live here
+  // too: each native test file is its own process with its own audio stream,
+  // and one more stream loads the machine enough to upset the recording
+  // timing tests.
   if (!isNativeEngineAvailable) {
     const reason = 'native engine library not found — run ./build.sh first';
     if (isNativeEngineRequired) {
@@ -61,6 +64,42 @@ void main() {
         lessThan(0),
         reason: 'no input was open, so no audio clip',
       );
+    });
+  });
+
+  group('Audio health (native engine)', () {
+    late AudioEngine engine;
+
+    setUp(() async {
+      engine = await createInitializedEngine();
+    });
+
+    test('the engine reports every counter the log reads', () {
+      final health = engine.getAudioHealth();
+      expect(health, isNotNull);
+      for (final key in [
+        'lateBuffers',
+        'missedBuffers',
+        'peakLoadPercent',
+        'synthLockWaits',
+        'effectLockWaits',
+        'trackLockWaits',
+        'recorderLockWaits',
+        'bufferFrames',
+        'sampleRate',
+      ]) {
+        expect(health![key], isA<int>(), reason: key);
+        expect(health[key]! as int, greaterThanOrEqualTo(0), reason: key);
+      }
+      expect(health!['sampleRate'], greaterThan(0));
+    });
+
+    test('dropout counts never go down', () {
+      final before = engine.getAudioHealth()!;
+      final after = engine.getAudioHealth()!;
+      for (final key in ['lateBuffers', 'missedBuffers', 'trackLockWaits']) {
+        expect(after[key]! as int, greaterThanOrEqualTo(before[key]! as int));
+      }
     });
   });
 }

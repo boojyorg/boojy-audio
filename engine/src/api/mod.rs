@@ -45,7 +45,7 @@ pub use effects::{
 };
 pub use helpers::{get_audio_clips, get_audio_graph, AUDIO_CLIPS, AUDIO_GRAPH};
 pub use init::{init_audio_engine, init_audio_graph};
-pub use latency::{get_clip_duration, get_waveform_peaks, set_buffer_size};
+pub use latency::{get_audio_health, get_clip_duration, get_waveform_peaks, set_buffer_size};
 pub use midi_clips::{
     add_midi_clip_to_track_api, add_midi_clip_to_track_api as add_midi_clip_to_track,
     add_midi_note_to_clip, clear_midi_clip, create_midi_clip, get_all_midi_clips_info,

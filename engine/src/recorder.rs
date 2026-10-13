@@ -1,17 +1,10 @@
 /// Recording engine with metronome and count-in support
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
+use crate::audio_health::{lock_or_count, RECORDER_LOCK_WAITS};
 use parking_lot::Mutex;
 use std::f32::consts::PI;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
-
-/// Realtime lock-contention counter for the recorder's per-sample reads on the
-/// audio thread (`process_frame`). Incremented with `Relaxed` ordering when a
-/// `try_lock` fails and we fall back to a blocking lock — the same pattern the
-/// renderer uses (`SYNTH_LOCK_CONTENTION`/`EFFECT_LOCK_CONTENTION`). This, plus
-/// removing the audio-thread `eprintln!`s, keeps the recording/count-in path
-/// off the non-realtime patterns the renderer was already hardened against.
-static RECORDER_LOCK_CONTENTION: AtomicU64 = AtomicU64::new(0);
 
 /// Frames per live waveform peak: 10 ms at 48 kHz.
 pub const LIVE_PEAK_FRAMES: u32 = 480;
@@ -443,12 +436,7 @@ impl RecorderCallbackRefs {
         // Read state once and drop lock immediately. try_lock first so a UI
         // thread mid-write can't stall the audio thread per sample (C2); only
         // count + fall back to a blocking lock on the rare contended frame.
-        let current_state = if let Some(state) = self.state.try_lock() {
-            *state
-        } else {
-            RECORDER_LOCK_CONTENTION.fetch_add(1, Ordering::Relaxed);
-            *self.state.lock()
-        };
+        let current_state = *lock_or_count(&self.state, &RECORDER_LOCK_WAITS);
 
         // Only increment counter when playing or recording
         // This ensures metronome resets properly when stopped
@@ -462,19 +450,9 @@ impl RecorderCallbackRefs {
 
         // Same try_lock-or-count treatment for the two per-sample reads below —
         // both are written only when the user drags the tempo / time-sig
-        // control, so contention is rare but must never block the audio thread.
-        let tempo = if let Some(tempo) = self.tempo.try_lock() {
-            *tempo
-        } else {
-            RECORDER_LOCK_CONTENTION.fetch_add(1, Ordering::Relaxed);
-            *self.tempo.lock()
-        };
-        let time_sig = if let Some(time_sig) = self.time_signature.try_lock() {
-            *time_sig
-        } else {
-            RECORDER_LOCK_CONTENTION.fetch_add(1, Ordering::Relaxed);
-            *self.time_signature.lock()
-        };
+        // control, so contention is rare; any wait shows up in the audio health log.
+        let tempo = *lock_or_count(&self.tempo, &RECORDER_LOCK_WAITS);
+        let time_sig = *lock_or_count(&self.time_signature, &RECORDER_LOCK_WAITS);
         let metronome_enabled = self.metronome_enabled.load(Ordering::SeqCst);
 
         // Calculate beat information

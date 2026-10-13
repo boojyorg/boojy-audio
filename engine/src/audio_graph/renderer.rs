@@ -1,20 +1,16 @@
 /// Real-time audio render callback — runs on the audio thread
 use super::{interpolate_automation_gain, AudioGraph, TransportState};
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
+use crate::audio_health::{
+    lock_or_count, BufferTimer, GapDetector, EFFECT_LOCK_WAITS, RECORDER_LOCK_WAITS,
+    SYNTH_LOCK_WAITS, TRACK_LOCK_WAITS,
+};
 use crate::effects::{Effect, EffectManager};
 use crate::track::{AutomationPoint, TimelineClip, TimelineMidiClip, TrackId, TrackType};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::Ordering;
 
 use cpal::traits::DeviceTrait;
-
-/// Realtime lock-contention counters. Incremented from the audio thread with
-/// `Relaxed` ordering when a per-buffer `try_lock` fails and we fall back to a
-/// blocking lock. These replace the `eprintln!`s that previously did blocking
-/// stderr I/O on the realtime thread — the exact window when an underrun is
-/// most likely.
-static SYNTH_LOCK_CONTENTION: AtomicU64 = AtomicU64::new(0);
-static EFFECT_LOCK_CONTENTION: AtomicU64 = AtomicU64::new(0);
 
 /// Maximum frames handed to a VST3 plugin per `process()` call. A plugin is
 /// initialised with `maxSamplesPerBlock = 512` (`engine/src/api/vst3.rs`) and
@@ -295,7 +291,7 @@ fn process_effect_chain(
             continue;
         }
         if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-            let mut effect = effect_arc.lock();
+            let mut effect = lock_or_count(&effect_arc, &EFFECT_LOCK_WAITS);
             let (fx_l, fx_r) = effect.process_frame(out_l, out_r);
             out_l = fx_l;
             out_r = fx_r;
@@ -352,7 +348,7 @@ fn process_effect_chain_block(
         }
         if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
             {
-                let mut effect = effect_arc.lock();
+                let mut effect = lock_or_count(&effect_arc, &EFFECT_LOCK_WAITS);
                 effect.process_block(left, right);
             }
             // Capture output peak after this effect, scaled to post-fader level.
@@ -551,6 +547,10 @@ impl AudioGraph {
             .store(config.sample_rate.0, Ordering::Relaxed);
         // Captured by the callback for the monitoring fade ramp (C4).
         let monitoring_ramp_rate = f64::from(config.sample_rate.0);
+        // Audio health (dropout counters): the buffer budget and gap check
+        // need the stream's real rate.
+        let stream_rate = config.sample_rate.0;
+        let mut gap_detector = GapDetector::new(stream_rate);
 
         // M6: Clone track synth manager
         let track_synth_manager = self.track_synth_manager.clone();
@@ -582,7 +582,7 @@ impl AudioGraph {
 
         let stream = device.build_output_stream(
             &config,
-            move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+            move |data: &mut [f32], info: &cpal::OutputCallbackInfo| {
                 // Flush denormals to zero for the duration of this callback. Denormalised
                 // floats in the reverb/delay feedback paths are 10–100× slower to process on
                 // x86, spiking CPU on quiet tails. Apple Silicon flushes by default; this is
@@ -600,6 +600,11 @@ impl AudioGraph {
                 let frames = data.len() / channels;
                 actual_buffer_size.store(frames as u32, Ordering::Relaxed);
 
+                // Audio health: time this buffer (recorded when the timer drops at the
+                // end of the callback) and check the device didn't skip one.
+                let _buffer_timer = BufferTimer::start(frames, stream_rate);
+                gap_detector.on_callback(info.timestamp().playback, frames);
+
                 // Check if we should be playing (lock-free atomic read)
                 let is_playing = state.load(Ordering::SeqCst) == TransportState::Playing as u8;
 
@@ -609,8 +614,8 @@ impl AudioGraph {
                     // but DON'T advance playhead or trigger MIDI clips from timeline
 
                     // Lock the synth, effect, and track managers ONCE for the
-                    // whole buffer, using the same try_lock-or-count-contention
-                    // pattern as the playing path. The stopped path used to
+                    // whole buffer, counting any wait (`lock_or_count`), like
+                    // the playing path. The stopped path used to
                     // re-acquire effect_manager and track_manager *per sample*
                     // with blocking locks (C1) — the exact realtime stall the
                     // playing path was deliberately hardened against.
@@ -621,12 +626,7 @@ impl AudioGraph {
                     // deadlock that silently froze the UI on add/remove-effect
                     // while stopped (C32).
                     let mut synth_guard =
-                        Some(if let Some(guard) = track_synth_manager.try_lock() {
-                            guard
-                        } else {
-                            SYNTH_LOCK_CONTENTION.fetch_add(1, Ordering::Relaxed);
-                            track_synth_manager.lock()
-                        });
+                        Some(lock_or_count(&track_synth_manager, &SYNTH_LOCK_WAITS));
                     // Snapshot per-track state under a SHORT track_manager
                     // lock instead of holding it across the whole buffer. The
                     // stopped path used to keep track_manager locked for every
@@ -639,9 +639,9 @@ impl AudioGraph {
                     // the buffer, mirroring the playing path.
                     stopped_snapshot_buf.clear();
                     let has_solo = {
-                        let tm = track_manager.lock();
+                        let tm = lock_or_count(&track_manager, &TRACK_LOCK_WAITS);
                         for track_arc in tm.get_all_tracks() {
-                            let track = track_arc.lock();
+                            let track = lock_or_count(&track_arc, &TRACK_LOCK_WAITS);
                             // Skip master track in per-track processing
                             if track.track_type == TrackType::Master {
                                 continue;
@@ -666,12 +666,7 @@ impl AudioGraph {
                         tm.has_solo()
                     }; // track_manager released — UI calls proceed while we render
 
-                    let mut effect_guard = if let Some(guard) = effect_manager.try_lock() {
-                        guard
-                    } else {
-                        EFFECT_LOCK_CONTENTION.fetch_add(1, Ordering::Relaxed);
-                        effect_manager.lock()
-                    };
+                    let mut effect_guard = lock_or_count(&effect_manager, &EFFECT_LOCK_WAITS);
 
                     let mut master_peak_left = 0.0f32;
                     let mut master_peak_right = 0.0f32;
@@ -791,17 +786,16 @@ impl AudioGraph {
                     // tracks' 0.0 entries leave their meters untouched —
                     // matching the old per-frame behaviour).
                     {
-                        let tm = track_manager.lock();
+                        let tm = lock_or_count(&track_manager, &TRACK_LOCK_WAITS);
                         for snap in &stopped_snapshot_buf {
                             if let Some(track_arc) = tm.get_track(snap.id) {
-                                let mut track = track_arc.lock();
+                                let mut track = lock_or_count(&track_arc, &TRACK_LOCK_WAITS);
                                 track.monitoring_fade_gain = snap.monitoring_fade_gain;
                                 track.update_peaks(snap.peak_left, snap.peak_right);
                             }
                         }
                         let master_arc = tm.get_master_track();
-                        master_arc
-                            .lock()
+                        lock_or_count(&master_arc, &TRACK_LOCK_WAITS)
                             .update_peaks(master_peak_left, master_peak_right);
                     }
                     return;
@@ -828,14 +822,14 @@ impl AudioGraph {
                 peak_buf.clear();
 
                 let (has_solo, master_snapshot, return_index) = {
-                    let tm = track_manager.lock();
+                    let tm = lock_or_count(&track_manager, &TRACK_LOCK_WAITS);
                     let has_solo_flag = tm.has_solo();
                     let all_tracks = tm.get_all_tracks();
                     let mut master_snap = None;
 
                     for track_arc in all_tracks {
                         {
-                            let track = track_arc.lock();
+                            let track = lock_or_count(&track_arc, &TRACK_LOCK_WAITS);
                             let snap = TrackSnapshot {
                                 id: track.id,
                                 audio_clips: track.audio_clips.clone(),
@@ -879,27 +873,14 @@ impl AudioGraph {
                 let mut master_peak_right = 0.0f32;
 
                 // OPTIMIZATION: Lock synth manager ONCE before the frame loop
-                // Use try_lock first to detect contention, fall back to blocking lock
-                let mut synth_guard = Some(if let Some(guard) = track_synth_manager.try_lock() {
-                    guard
-                } else {
-                    // Realtime path: count contention, never do I/O here.
-                    SYNTH_LOCK_CONTENTION.fetch_add(1, Ordering::Relaxed);
-                    track_synth_manager.lock()
-                });
+                let mut synth_guard = Some(lock_or_count(&track_synth_manager, &SYNTH_LOCK_WAITS));
 
                 // OPTIMIZATION: Lock effect manager ONCE before the frame loop
-                let mut effect_guard = if let Some(guard) = effect_manager.try_lock() {
-                    guard
-                } else {
-                    // Realtime path: count contention, never do I/O here.
-                    EFFECT_LOCK_CONTENTION.fetch_add(1, Ordering::Relaxed);
-                    effect_manager.lock()
-                };
+                let mut effect_guard = lock_or_count(&effect_manager, &EFFECT_LOCK_WAITS);
 
                 // Check if recording is active (skip clip playback on armed tracks)
-                let is_recording =
-                    *recorder_refs.state.lock() == crate::recorder::RecordingState::Recording;
+                let is_recording = *lock_or_count(&recorder_refs.state, &RECORDER_LOCK_WAITS)
+                    == crate::recorder::RecordingState::Recording;
 
                 // Process the callback in sub-blocks of at most MAX_VST3_BLOCK frames
                 // (see the const's doc comment for why). Within each sub-block the FX chain
@@ -963,7 +944,7 @@ impl AudioGraph {
                         #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                         let has_vst3_instrument = track_snap.fx_chain.iter().any(|effect_id| {
                             if let Some(effect_arc) = effect_guard.get_effect(*effect_id) {
-                                let effect = effect_arc.lock();
+                                let effect = lock_or_count(&effect_arc, &EFFECT_LOCK_WAITS);
                                 matches!(*effect, crate::effects::EffectType::VST3(_))
                             } else {
                                 false
@@ -1119,7 +1100,7 @@ impl AudioGraph {
                         if has_vst3_instrument && !vst3_events.is_empty() {
                             for effect_id in &track_snap.fx_chain {
                                 if let Some(effect_arc) = effect_guard.get_effect(*effect_id) {
-                                    let mut effect = effect_arc.lock();
+                                    let mut effect = lock_or_count(&effect_arc, &EFFECT_LOCK_WAITS);
                                     if let crate::effects::EffectType::VST3(ref mut vst3) = *effect
                                     {
                                         for &(et, ch, d1, d2, off) in &vst3_events {
@@ -1251,7 +1232,7 @@ impl AudioGraph {
                     // isn't accompanied by the very bars being recorded over.
                     // The metronome is mixed in after the limiter, so it stays.
                     if recorder_refs.count_in_in_place.load(Ordering::Relaxed)
-                        && *recorder_refs.state.lock()
+                        && *lock_or_count(&recorder_refs.state, &RECORDER_LOCK_WAITS)
                             == crate::recorder::RecordingState::CountingIn
                     {
                         master_l[..sb_len].fill(0.0);
@@ -1262,7 +1243,7 @@ impl AudioGraph {
                     // preview, output write. These stay strictly per-frame
                     // and in order (recorder + preview advance per sample). ---
                     {
-                        let mut limiter = master_limiter.lock();
+                        let mut limiter = lock_or_count(&master_limiter, &EFFECT_LOCK_WAITS);
                         for i in 0..sb_len {
                             let frame_idx = sb_start + i;
 
@@ -1301,11 +1282,11 @@ impl AudioGraph {
 
                 // Update track peak levels and monitoring fade gains (brief lock after buffer processing)
                 {
-                    let tm = track_manager.lock();
+                    let tm = lock_or_count(&track_manager, &TRACK_LOCK_WAITS);
                     for track_snap in &snapshot_buf {
                         if let Some(track_arc) = tm.get_track(track_snap.id) {
                             {
-                                let mut track = track_arc.lock();
+                                let mut track = lock_or_count(&track_arc, &TRACK_LOCK_WAITS);
                                 track.monitoring_fade_gain = track_snap.monitoring_fade_gain;
                             }
                         }
@@ -1313,7 +1294,7 @@ impl AudioGraph {
                     for (track_id, (peak_l, peak_r)) in &peak_buf {
                         if let Some(track_arc) = tm.get_track(*track_id) {
                             {
-                                let mut track = track_arc.lock();
+                                let mut track = lock_or_count(&track_arc, &TRACK_LOCK_WAITS);
                                 track.update_peaks(*peak_l, *peak_r);
                             }
                         }
@@ -1322,7 +1303,7 @@ impl AudioGraph {
                     {
                         let master_arc = tm.get_master_track();
                         {
-                            let mut master = master_arc.lock();
+                            let mut master = lock_or_count(&master_arc, &TRACK_LOCK_WAITS);
                             master.update_peaks(master_peak_left, master_peak_right);
                         };
                     }
