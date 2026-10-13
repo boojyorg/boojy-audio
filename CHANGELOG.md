@@ -95,6 +95,14 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Every Piano Roll change can be undone.** Loop on/off, Start, Length and dragging the loop on
+  the Piano Roll's ruler added no undo step, so ⌘Z undid the edit before them. Each is now one
+  undo step, and a drag is one step. Undoing a note edit after closing the editor panel used up
+  the step and changed nothing; it now puts the notes back. Undoing an edit on another clip no
+  longer switches the Piano Roll to that clip.
+- **The Piano Roll's Start keeps the loop's end.** Changing Start moves where the loop begins and
+  Length shrinks or grows to match, like dragging the loop's left edge and like the Audio Editor.
+
 - **The Count-in button shows whether it's on.** Clicking it switched the count-in, but the
   button kept its old look until something else redrew the toolbar.
 - **Clicking a chord's velocities picks the circle you clicked nearest.** Notes that start

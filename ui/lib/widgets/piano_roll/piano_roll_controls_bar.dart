@@ -28,6 +28,12 @@ class PianoRollControlsBar extends StatefulWidget {
   final Function(double)? onLoopStartChanged;
   final Function(double)? onLoopLengthChanged;
 
+  /// A drag on the Start or Length box begins / ends (one undo step per drag).
+  final VoidCallback? onLoopStartDragStart;
+  final VoidCallback? onLoopStartDragEnd;
+  final VoidCallback? onLoopLengthDragStart;
+  final VoidCallback? onLoopLengthDragEnd;
+
   // Grid section
   final bool snapEnabled;
   final double gridDivision;
@@ -70,6 +76,10 @@ class PianoRollControlsBar extends StatefulWidget {
     this.onLoopToggle,
     this.onLoopStartChanged,
     this.onLoopLengthChanged,
+    this.onLoopStartDragStart,
+    this.onLoopStartDragEnd,
+    this.onLoopLengthDragStart,
+    this.onLoopLengthDragEnd,
     // Grid section
     this.snapEnabled = true,
     this.gridDivision = 0.25,
@@ -270,6 +280,8 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
             beats: widget.loopStartBeats,
             label: '',
             onChanged: widget.onLoopStartChanged,
+            onDragStart: widget.onLoopStartDragStart,
+            onDragEnd: widget.onLoopStartDragEnd,
             beatsPerBar: widget.beatsPerBar,
             isPosition: true, // 1-indexed position (1.1.1 = start)
           ),
@@ -292,6 +304,8 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
             beats: widget.loopLengthBeats,
             label: '',
             onChanged: widget.onLoopLengthChanged,
+            onDragStart: widget.onLoopLengthDragStart,
+            onDragEnd: widget.onLoopLengthDragEnd,
             beatsPerBar: widget.beatsPerBar,
             isPosition: false, // 0-indexed length (1.0.0 = 1 bar)
           ),

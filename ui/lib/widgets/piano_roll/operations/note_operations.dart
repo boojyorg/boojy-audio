@@ -24,6 +24,10 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
 
   /// Commit the change to global undo history with a description.
   /// Call this AFTER modifying currentClip.
+  ///
+  /// Undo and redo update the clip through the DAW ([PianoRoll.onClipUpdated],
+  /// by clip ID), not through this editor: it may be closed by then, or on
+  /// another clip. The editor follows its clip in `didUpdateWidget`.
   void commitToHistory(String actionDescription) {
     if (snapshotBeforeAction == null || currentClip == null) return;
 
@@ -31,14 +35,14 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
       beforeState: snapshotBeforeAction!,
       afterState: currentClip!.copyWith(notes: List.from(currentClip!.notes)),
       actionDescription: actionDescription,
-      onApplyState: applyClipState,
+      onApplyState: widget.onClipUpdated ?? applyClipState,
     );
 
     undoRedoManager.execute(command);
     snapshotBeforeAction = null;
   }
 
-  /// Callback for undo/redo to apply clip state.
+  /// Undo/redo for a Piano Roll with no DAW to apply through (tests).
   void applyClipState(MidiClipData clipData) {
     if (!mounted) return;
     setState(() {
