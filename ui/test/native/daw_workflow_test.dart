@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -189,7 +190,7 @@ void main() {
       final out = '${Directory.systemTemp.createTempSync('export').path}/a.wav';
       var json = '';
       await h.realTime(() async {
-        json = h.engine.exportWavWithOptions(outputPath: out);
+        json = await h.engine.exportWavWithOptions(outputPath: out);
       });
       final result = ExportResult.fromJson(
         jsonDecode(json) as Map<String, dynamic>,
@@ -198,6 +199,89 @@ void main() {
       expect(File(out).existsSync(), isTrue);
       // Two passes of the loop plus the one-second tail.
       expect(result.duration, closeTo(clip.duration * 2 + 1, 0.01));
+    } finally {
+      await h.close();
+    }
+  });
+
+  testWidgets('the app keeps running and talking to the engine during export', (
+    tester,
+  ) async {
+    // Found by Tyr: export froze the window and its progress bar never
+    // moved, because the export ran on the UI thread and held the engine.
+    final h = await DawHarness.start(tester);
+    try {
+      final clip = await dropClip(h, 'loop.wav');
+      h.engine.setClipDuration(clip.trackId, clip.clipId, 120); // 2 minutes
+      final out = '${Directory.systemTemp.createTempSync('export').path}/a.wav';
+      final progress = <int>{};
+      var ticks = 0;
+      var slowestCall = Duration.zero;
+      await h.realTime(() async {
+        h.engine.resetExportProgress();
+        final export = h.engine.exportWavWithOptions(outputPath: out);
+        final timer = Timer.periodic(const Duration(milliseconds: 2), (_) {
+          ticks++;
+          final watch = Stopwatch()..start();
+          h.engine.getPlayheadPosition(); // any engine call, like a meter
+          final info = ExportProgressInfo.fromJson(
+            jsonDecode(h.engine.getExportProgress()) as Map<String, dynamic>,
+          );
+          if (watch.elapsed > slowestCall) slowestCall = watch.elapsed;
+          progress.add(info.progress.round());
+        });
+        await export;
+        timer.cancel();
+      });
+      expect(File(out).existsSync(), isTrue);
+      expect(ticks, greaterThan(5), reason: 'the UI thread ran meanwhile');
+      // Generous for slow CI machines: the old freeze held each call for
+      // the whole render (and the ticks above caught it at 1).
+      expect(
+        slowestCall,
+        lessThan(const Duration(milliseconds: 250)),
+        reason: 'engine calls did not wait for the render',
+      );
+      expect(
+        progress.where((p) => p > 20 && p < 70),
+        hasLength(greaterThanOrEqualTo(3)),
+        reason: 'the bar moves through the render: $progress',
+      );
+    } finally {
+      await h.close();
+    }
+  });
+
+  testWidgets('Play and Record wait while an export runs', (tester) async {
+    final h = await DawHarness.start(tester);
+    try {
+      await dropClip(h, 'loop.wav');
+      final exportDone = Completer<void>();
+      showDialog<void>(
+        context: h.daw.context,
+        builder: (_) => ExportProgressDialog(
+          audioEngine: h.engine,
+          exportTask: () => exportDone.future,
+          onCancel: () {},
+        ),
+      );
+      await h.settle();
+      expect(ExportProgressDialog.isExporting, isTrue);
+
+      h.daw.togglePlayPause();
+      h.daw.startRecording();
+      await h.settle();
+      expect(h.daw.isPlaying, isFalse, reason: 'Play waits for the export');
+      expect(h.daw.isRecording || h.daw.isCountingIn, isFalse);
+
+      exportDone.complete();
+      await h.settle();
+      expect(ExportProgressDialog.isExporting, isFalse);
+      h.daw.togglePlayPause();
+      await h.settle();
+      expect(h.daw.isPlaying, isTrue, reason: 'Play works again after');
+      h.daw.stopPlayback();
+      await h.settle();
     } finally {
       await h.close();
     }

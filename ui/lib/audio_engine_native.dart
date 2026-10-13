@@ -4,6 +4,7 @@
 import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:io';
+import 'dart:isolate';
 import 'package:ffi/ffi.dart';
 
 import 'models/audio_input_status.dart';

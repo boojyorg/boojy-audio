@@ -547,6 +547,9 @@ mixin DAWProjectMixin
       context,
       audioEngine: audioEngine!,
       defaultName: projectManager?.currentName ?? 'Untitled',
+      // Export and playback share the effects: stop first (Play and Record
+      // then wait for the export, see ExportProgressDialog.isExporting).
+      onExportStarting: stopPlayback,
     );
   }
 

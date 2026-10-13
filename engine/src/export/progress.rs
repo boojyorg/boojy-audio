@@ -24,7 +24,7 @@ pub struct ExportProgressState {
 }
 
 impl ExportProgressState {
-    const fn new() -> Self {
+    pub(crate) const fn new() -> Self {
         Self {
             progress: AtomicU32::new(0),
             is_running: AtomicBool::new(false),
@@ -34,11 +34,12 @@ impl ExportProgressState {
         }
     }
 
-    /// Start a new export operation
+    /// Start a new export operation. Keeps a Cancel pressed since the last
+    /// [`Self::reset`]: the app resets before handing the export to a
+    /// background isolate, and Cancel can come before the export starts.
     pub fn start(&self, status: &str) {
         self.progress.store(0, Ordering::SeqCst);
         self.is_running.store(true, Ordering::SeqCst);
-        self.is_cancelled.store(false, Ordering::SeqCst);
         if let Ok(mut s) = self.status.write() {
             *s = status.to_string();
         }
@@ -52,6 +53,18 @@ impl ExportProgressState {
         self.progress.store(progress.min(100), Ordering::SeqCst);
         if let Ok(mut s) = self.status.write() {
             *s = status.to_string();
+        }
+    }
+
+    /// Per-block hook for an offline render: moves progress from `from`% to
+    /// `to`% as the render goes (status unchanged), and returns `false`
+    /// (stop) once the export is cancelled.
+    pub fn render_hook(&self, from: u32, to: u32) -> impl FnMut(f64) -> bool + '_ {
+        move |done| {
+            let span = f64::from(to.saturating_sub(from));
+            let percent = from + (done.clamp(0.0, 1.0) * span) as u32;
+            self.progress.store(percent.min(100), Ordering::SeqCst);
+            !self.is_cancelled()
         }
     }
 

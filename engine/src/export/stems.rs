@@ -4,6 +4,7 @@
 
 use super::mp3::export_mp3;
 use super::options::{ExportOptions, ExportResult};
+use super::partial::PartialFiles;
 use super::wav::export_wav;
 use std::path::{Path, PathBuf};
 
@@ -140,6 +141,7 @@ pub fn export_stems(
     output_dir: &Path,
     base_name: &str,
     options: &ExportOptions,
+    files: &mut PartialFiles,
 ) -> Result<StemExportResult, String> {
     eprintln!(
         "🎚️ [Stem Export] Exporting {} tracks to {}",
@@ -160,8 +162,11 @@ pub fn export_stems(
 
         let output_path = generate_stem_path(output_dir, base_name, &track_info.name, options);
 
-        match export_stem(samples, &output_path, options) {
-            Ok(stem_result) => {
+        // Written under a temporary name; the caller moves every stem into
+        // place once all are done ([`PartialFiles::commit`]).
+        match export_stem(samples, &files.path_for(&output_path), options) {
+            Ok(mut stem_result) => {
+                stem_result.path = output_path.to_string_lossy().to_string();
                 eprintln!(
                     "   ✅ {} - {:.2} MB",
                     track_info.name,

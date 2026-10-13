@@ -8,6 +8,7 @@ import 'daw_screen_io.dart';
 import '../audio_engine.dart';
 import '../theme/animation_constants.dart';
 import '../theme/theme_extension.dart';
+import '../widgets/export_dialog.dart';
 import '../widgets/shared/boojy_notice.dart';
 import '../widgets/shared/stable_menu_bar.dart';
 import '../widgets/transport_bar.dart';
@@ -1396,6 +1397,7 @@ class _DAWScreenState extends State<DAWScreen>
   /// Record pressed with nothing armed: create a new track of [trackType], arm
   /// it, and roll (count-in honoured). Lets the record button always be live.
   Future<void> _recordIntoNewTrack(String trackType) async {
+    if (ExportProgressDialog.isExporting) return; // see startRecording
     if (audioEngine == null) return;
     final command = CreateTrackCommand(
       trackType: trackType,

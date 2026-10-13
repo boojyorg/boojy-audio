@@ -1,9 +1,12 @@
 /// Offline rendering for export and bounce
 use super::renderer::{frame_at, render_audio_clip_sample};
-use super::{interpolate_automation_gain, AudioGraph};
+use super::{interpolate_automation_gain, silence_instruments, AudioGraph};
 use crate::audio_file::TARGET_SAMPLE_RATE;
-use crate::effects::{Effect, EffectManager};
-use crate::track::{AutomationPoint, TimelineClip, TimelineMidiClip, TrackType};
+use crate::effects::{Effect, EffectManager, Limiter};
+use crate::synth::TrackSynthManager;
+use crate::track::{AutomationPoint, TimelineClip, TimelineMidiClip, TrackManager, TrackType};
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 /// Offline render block size, in frames.
 ///
@@ -92,6 +95,212 @@ impl AudioGraph {
     /// Render the entire project offline to a buffer of stereo f32 samples
     /// Returns interleaved stereo audio (L, R, L, R, ...)
     pub fn render_offline(&self, duration_seconds: f64) -> Vec<f32> {
+        self.offline_sources()
+            .render_offline(duration_seconds, &mut |_| true)
+    }
+
+    /// The parts of the graph an offline render reads (see [`OfflineSources`]).
+    pub(crate) fn offline_sources(&self) -> OfflineSources {
+        OfflineSources {
+            track_manager: self.track_manager.clone(),
+            effect_manager: self.effect_manager.clone(),
+            track_synth_manager: self.track_synth_manager.clone(),
+            master_limiter: self.master_limiter.clone(),
+        }
+    }
+
+    /// Render a single track offline to a buffer of stereo f32 samples
+    /// Returns interleaved stereo audio (L, R, L, R, ...)
+    /// This renders the track in isolation without master bus processing
+    /// Render a subset of a track's audio clips to a stereo 48 kHz WAV file,
+    /// baking each clip's gain / pitch / warp / reverse exactly as playback does
+    /// (it reuses the same per-sample math, [`render_audio_clip_sample`]).
+    ///
+    /// RENDER-ONLY: it never mutates the track or its clips, and applies no track
+    /// fader / pan / FX — the join feature prints clip edits, not the channel
+    /// strip. The output begins at the earliest selected clip's start, so the
+    /// caller places the joined clip at that same start time. Gaps between the
+    /// selected clips render as silence.
+    ///
+    /// Returns the joined clip's `(start_time, duration)` in seconds.
+    pub fn render_audio_clips_to_wav(
+        &self,
+        track_id: u64,
+        clip_ids: &[u64],
+        output_path: &std::path::Path,
+    ) -> Result<(f64, f64), String> {
+        // Snapshot the selected clips under the track lock, then drop the guard
+        // before doing any heavy work (lock-safety: see sends.rs pattern).
+        let clips: Vec<TimelineClip> = {
+            let tm = self.track_manager.lock();
+            let mut found = Vec::new();
+            for track_arc in tm.get_all_tracks() {
+                let track = track_arc.lock();
+                if track.id == track_id {
+                    for tc in &track.audio_clips {
+                        if clip_ids.contains(&tc.id) {
+                            found.push(tc.clone());
+                        }
+                    }
+                    break;
+                }
+            }
+            found
+        };
+
+        if clips.is_empty() {
+            return Err(format!(
+                "no matching audio clips on track {track_id} to join"
+            ));
+        }
+
+        // Audio clip start_time/duration are in real seconds — the same
+        // domain playback renders in (renderer.rs).
+        let sr = TARGET_SAMPLE_RATE;
+
+        let clip_end = |c: &TimelineClip| -> f64 {
+            let dur = c.duration.unwrap_or(c.clip.duration_seconds);
+            let eff = if c.warp_enabled {
+                dur / f64::from(c.stretch_factor)
+            } else {
+                dur
+            };
+            c.start_time + eff
+        };
+
+        let start = clips
+            .iter()
+            .map(|c| c.start_time)
+            .fold(f64::INFINITY, f64::min);
+        let end = clips.iter().map(clip_end).fold(f64::NEG_INFINITY, f64::max);
+        let duration_real = (end - start).max(0.0);
+        let total_frames = (duration_real * f64::from(sr)).ceil() as usize;
+
+        let mut samples = Vec::with_capacity(total_frames * 2);
+        for i in 0..total_frames {
+            let playhead = start + i as f64 / f64::from(sr);
+            let mut left = 0.0f32;
+            let mut right = 0.0f32;
+            for clip in &clips {
+                let (l, r) = render_audio_clip_sample(clip, playhead);
+                left += l;
+                right += r;
+            }
+            samples.push(left);
+            samples.push(right);
+        }
+
+        let spec = hound::WavSpec {
+            channels: 2,
+            sample_rate: sr,
+            bits_per_sample: 32,
+            sample_format: hound::SampleFormat::Float,
+        };
+        let mut writer = hound::WavWriter::create(output_path, spec)
+            .map_err(|e| format!("Failed to create joined WAV: {e}"))?;
+        for s in &samples {
+            writer
+                .write_sample(*s)
+                .map_err(|e| format!("Failed to write joined sample: {e}"))?;
+        }
+        writer
+            .finalize()
+            .map_err(|e| format!("Failed to finalize joined WAV: {e}"))?;
+
+        Ok((start, duration_real))
+    }
+
+    pub fn render_track_offline(&self, track_id: u64, duration_seconds: f64) -> Vec<f32> {
+        self.offline_sources()
+            .render_track_offline(track_id, duration_seconds, &mut |_| true)
+    }
+
+    /// Get track info for stem export (id, name, type)
+    pub fn get_tracks_for_stem_export(&self) -> Vec<(u64, String, String)> {
+        let mut tracks = Vec::new();
+
+        {
+            let tm = self.track_manager.lock();
+            for track_arc in tm.get_all_tracks() {
+                {
+                    let track = track_arc.lock();
+                    // Skip master track
+                    if track.track_type == TrackType::Master {
+                        continue;
+                    }
+
+                    let type_str = match track.track_type {
+                        TrackType::Audio => "audio",
+                        TrackType::Midi | TrackType::Sampler => "midi",
+                        TrackType::Return => "return",
+                        TrackType::Group => "group",
+                        TrackType::Master => "master",
+                    };
+
+                    tracks.push((track.id, track.name.clone(), type_str.to_string()));
+                }
+            }
+        }
+
+        tracks
+    }
+
+    /// Calculate the total duration of the project based on clips
+    pub fn calculate_project_duration(&self) -> f64 {
+        let mut max_end_time = 0.0f64;
+
+        // Check all tracks for clips
+        {
+            let tm = self.track_manager.lock();
+            for track_arc in tm.get_all_tracks() {
+                {
+                    let track = track_arc.lock();
+                    // Audio clips
+                    for clip in &track.audio_clips {
+                        let clip_end =
+                            clip.start_time + clip.duration.unwrap_or(clip.clip.duration_seconds);
+                        if clip_end > max_end_time {
+                            max_end_time = clip_end;
+                        }
+                    }
+                    // MIDI clips
+                    for clip in &track.midi_clips {
+                        let clip_end = clip.start_time + clip.clip.duration_seconds();
+                        if clip_end > max_end_time {
+                            max_end_time = clip_end;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Add a small tail for reverb/delay to decay (1 second)
+        max_end_time + 1.0
+    }
+}
+
+/// The parts of the graph an offline render reads, cloned out of the graph
+/// under a brief lock. An export renders from these without holding the
+/// graph's lock, so the UI's engine calls (meters, the playhead) don't wait
+/// for the whole render; these locks are taken a block at a time.
+pub(crate) struct OfflineSources {
+    track_manager: Arc<Mutex<TrackManager>>,
+    effect_manager: Arc<Mutex<EffectManager>>,
+    track_synth_manager: Arc<Mutex<TrackSynthManager>>,
+    master_limiter: Arc<Mutex<Limiter>>,
+}
+
+impl OfflineSources {
+    /// Render the entire project offline to a buffer of stereo f32 samples
+    /// Returns interleaved stereo audio (L, R, L, R, ...)
+    ///
+    /// [`on_block`] gets the share rendered so far (0–1) after each block;
+    /// returning `false` stops the render early (export Cancel).
+    pub(crate) fn render_offline(
+        &self,
+        duration_seconds: f64,
+        on_block: &mut dyn FnMut(f64) -> bool,
+    ) -> Vec<f32> {
         // Create track snapshots (same as real-time rendering)
         struct TrackSnapshot {
             id: u64,
@@ -237,6 +446,7 @@ impl AudioGraph {
         let mut master_r = vec![0.0f32; OFFLINE_BLOCK];
         let mut vst3_events: Vec<QueuedVst3Event> = Vec::with_capacity(128);
 
+        let mut cancelled = false;
         let mut block_start = 0usize;
         while block_start < total_frames {
             let block_len = OFFLINE_BLOCK.min(total_frames - block_start);
@@ -507,11 +717,11 @@ impl AudioGraph {
                 }
             }
 
-            // Progress logging (~once per block)
-            let progress = (block_start as f64 / total_frames as f64 * 100.0) as i32;
-            dlog!("   {progress}% complete...");
-
             block_start += block_len;
+            if !on_block(block_start as f64 / total_frames as f64) {
+                cancelled = true;
+                break;
+            }
         }
 
         // Restore the live stream rate on the built-in FX (no-op when the
@@ -525,6 +735,16 @@ impl AudioGraph {
                 .set_sample_rate(live_fx_sample_rate);
         }
 
+        // Stopped early: the notes it started on the live instruments never
+        // got their note-offs, so they would keep sounding.
+        if cancelled {
+            silence_instruments(
+                &self.track_manager,
+                &self.effect_manager,
+                &self.track_synth_manager,
+            );
+        }
+
         dlog!(
             "✅ [AudioGraph] Offline render complete: {} samples",
             output.len()
@@ -532,108 +752,13 @@ impl AudioGraph {
         output
     }
 
-    /// Render a single track offline to a buffer of stereo f32 samples
-    /// Returns interleaved stereo audio (L, R, L, R, ...)
-    /// This renders the track in isolation without master bus processing
-    /// Render a subset of a track's audio clips to a stereo 48 kHz WAV file,
-    /// baking each clip's gain / pitch / warp / reverse exactly as playback does
-    /// (it reuses the same per-sample math, [`render_audio_clip_sample`]).
-    ///
-    /// RENDER-ONLY: it never mutates the track or its clips, and applies no track
-    /// fader / pan / FX — the join feature prints clip edits, not the channel
-    /// strip. The output begins at the earliest selected clip's start, so the
-    /// caller places the joined clip at that same start time. Gaps between the
-    /// selected clips render as silence.
-    ///
-    /// Returns the joined clip's `(start_time, duration)` in seconds.
-    pub fn render_audio_clips_to_wav(
+    /// One track's stem; [`on_block`] as for [`Self::render_offline`].
+    pub(crate) fn render_track_offline(
         &self,
         track_id: u64,
-        clip_ids: &[u64],
-        output_path: &std::path::Path,
-    ) -> Result<(f64, f64), String> {
-        // Snapshot the selected clips under the track lock, then drop the guard
-        // before doing any heavy work (lock-safety: see sends.rs pattern).
-        let clips: Vec<TimelineClip> = {
-            let tm = self.track_manager.lock();
-            let mut found = Vec::new();
-            for track_arc in tm.get_all_tracks() {
-                let track = track_arc.lock();
-                if track.id == track_id {
-                    for tc in &track.audio_clips {
-                        if clip_ids.contains(&tc.id) {
-                            found.push(tc.clone());
-                        }
-                    }
-                    break;
-                }
-            }
-            found
-        };
-
-        if clips.is_empty() {
-            return Err(format!(
-                "no matching audio clips on track {track_id} to join"
-            ));
-        }
-
-        // Audio clip start_time/duration are in real seconds — the same
-        // domain playback renders in (renderer.rs).
-        let sr = TARGET_SAMPLE_RATE;
-
-        let clip_end = |c: &TimelineClip| -> f64 {
-            let dur = c.duration.unwrap_or(c.clip.duration_seconds);
-            let eff = if c.warp_enabled {
-                dur / f64::from(c.stretch_factor)
-            } else {
-                dur
-            };
-            c.start_time + eff
-        };
-
-        let start = clips
-            .iter()
-            .map(|c| c.start_time)
-            .fold(f64::INFINITY, f64::min);
-        let end = clips.iter().map(clip_end).fold(f64::NEG_INFINITY, f64::max);
-        let duration_real = (end - start).max(0.0);
-        let total_frames = (duration_real * f64::from(sr)).ceil() as usize;
-
-        let mut samples = Vec::with_capacity(total_frames * 2);
-        for i in 0..total_frames {
-            let playhead = start + i as f64 / f64::from(sr);
-            let mut left = 0.0f32;
-            let mut right = 0.0f32;
-            for clip in &clips {
-                let (l, r) = render_audio_clip_sample(clip, playhead);
-                left += l;
-                right += r;
-            }
-            samples.push(left);
-            samples.push(right);
-        }
-
-        let spec = hound::WavSpec {
-            channels: 2,
-            sample_rate: sr,
-            bits_per_sample: 32,
-            sample_format: hound::SampleFormat::Float,
-        };
-        let mut writer = hound::WavWriter::create(output_path, spec)
-            .map_err(|e| format!("Failed to create joined WAV: {e}"))?;
-        for s in &samples {
-            writer
-                .write_sample(*s)
-                .map_err(|e| format!("Failed to write joined sample: {e}"))?;
-        }
-        writer
-            .finalize()
-            .map_err(|e| format!("Failed to finalize joined WAV: {e}"))?;
-
-        Ok((start, duration_real))
-    }
-
-    pub fn render_track_offline(&self, track_id: u64, duration_seconds: f64) -> Vec<f32> {
+        duration_seconds: f64,
+        on_block: &mut dyn FnMut(f64) -> bool,
+    ) -> Vec<f32> {
         // Get track snapshot
         struct TrackSnapshot {
             audio_clips: Vec<TimelineClip>,
@@ -712,6 +837,7 @@ impl AudioGraph {
             )
         };
 
+        let mut cancelled = false;
         let mut block_start = 0usize;
         while block_start < total_frames {
             let block_len = OFFLINE_BLOCK.min(total_frames - block_start);
@@ -851,11 +977,11 @@ impl AudioGraph {
                 output.push(scratch_r[i] * frame_volume_gain * track_snap.pan_right);
             }
 
-            // Progress logging (~once per block)
-            let progress = (block_start as f64 / total_frames as f64 * 100.0) as i32;
-            dlog!("   Track {track_id} - {progress}% complete...");
-
             block_start += block_len;
+            if !on_block(block_start as f64 / total_frames as f64) {
+                cancelled = true;
+                break;
+            }
         }
 
         // Restore the live stream rate on the built-in FX (no-op when the
@@ -866,74 +992,21 @@ impl AudioGraph {
                 .set_builtin_sample_rate(live_fx_sample_rate);
         }
 
+        // Stopped early: the notes it started on the live instruments never
+        // got their note-offs, so they would keep sounding.
+        if cancelled {
+            silence_instruments(
+                &self.track_manager,
+                &self.effect_manager,
+                &self.track_synth_manager,
+            );
+        }
+
         dlog!(
             "✅ [AudioGraph] Track {} offline render complete: {} samples",
             track_id,
             output.len()
         );
         output
-    }
-
-    /// Get track info for stem export (id, name, type)
-    pub fn get_tracks_for_stem_export(&self) -> Vec<(u64, String, String)> {
-        let mut tracks = Vec::new();
-
-        {
-            let tm = self.track_manager.lock();
-            for track_arc in tm.get_all_tracks() {
-                {
-                    let track = track_arc.lock();
-                    // Skip master track
-                    if track.track_type == TrackType::Master {
-                        continue;
-                    }
-
-                    let type_str = match track.track_type {
-                        TrackType::Audio => "audio",
-                        TrackType::Midi | TrackType::Sampler => "midi",
-                        TrackType::Return => "return",
-                        TrackType::Group => "group",
-                        TrackType::Master => "master",
-                    };
-
-                    tracks.push((track.id, track.name.clone(), type_str.to_string()));
-                }
-            }
-        }
-
-        tracks
-    }
-
-    /// Calculate the total duration of the project based on clips
-    pub fn calculate_project_duration(&self) -> f64 {
-        let mut max_end_time = 0.0f64;
-
-        // Check all tracks for clips
-        {
-            let tm = self.track_manager.lock();
-            for track_arc in tm.get_all_tracks() {
-                {
-                    let track = track_arc.lock();
-                    // Audio clips
-                    for clip in &track.audio_clips {
-                        let clip_end =
-                            clip.start_time + clip.duration.unwrap_or(clip.clip.duration_seconds);
-                        if clip_end > max_end_time {
-                            max_end_time = clip_end;
-                        }
-                    }
-                    // MIDI clips
-                    for clip in &track.midi_clips {
-                        let clip_end = clip.start_time + clip.clip.duration_seconds();
-                        if clip_end > max_end_time {
-                            max_end_time = clip_end;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Add a small tail for reverb/delay to decay (1 second)
-        max_end_time + 1.0
     }
 }

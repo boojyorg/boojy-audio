@@ -28,6 +28,10 @@ it was dropped on purpose.
   `get_master_track` and `remove_track` lock every track, so calling them while holding a `Track`
   lock freezes the API thread silently. Snapshot into locals and drop the guard first (see
   `find_return_by_effect_type` / `get_track_sends` in `engine/src/api/sends.rs`).
+- **Long engine work never holds the graph lock.** Every UI engine call (meters, the playhead)
+  takes it, so holding it froze the window for the whole export. Clone what the work needs under
+  a brief lock and release it (`OfflineSources` in `audio_graph/offline.rs`), and call it from a
+  background isolate (`Isolate.run` + `_openEngine`, see `exportWavWithOptions`).
 - **The engine is real seconds everywhere; only the UI thinks in beats.** MIDI clips/notes are
   beats in the UI, audio clips seconds; everything crossing the FFI is seconds at the current
   tempo (`beats × 60 / tempo`). So **every tempo write goes through `_onTempoChanged`**

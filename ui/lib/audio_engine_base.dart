@@ -3,6 +3,10 @@ part of 'audio_engine_native.dart';
 class _AudioEngineBase {
   late final ffi.DynamicLibrary _lib;
 
+  /// Where [_lib] was opened from (null: symbols are in the app itself), so
+  /// a background isolate can open the same engine ([_openEngine]).
+  String? _libPath;
+
   // M0 functions
   late final _InitAudioEngineFfi _initAudioEngine;
   late final _FreeRustString _freeRustString;
@@ -130,11 +134,8 @@ class _AudioEngineBase {
 
   // M8 functions - Enhanced Export
   late final _IsFfmpegAvailableFfi _isFfmpegAvailable;
-  late final _ExportWavWithOptionsFfi _exportWavWithOptions;
-  late final _ExportMp3WithOptionsFfi _exportMp3WithOptions;
   late final _WriteMp3MetadataFfi _writeMp3Metadata;
   late final _GetTracksForStemsFfi _getTracksForStems;
-  late final _ExportStemsFfi _exportStems;
 
   // M8 Export Progress functions
   late final _GetExportProgressFfi _getExportProgress;
@@ -256,10 +257,13 @@ class _AudioEngineBase {
         );
       }
 
+      _libPath = libPath;
       _lib = ffi.DynamicLibrary.open(libPath);
     } else if (Platform.isWindows) {
+      _libPath = 'engine.dll';
       _lib = ffi.DynamicLibrary.open('engine.dll');
     } else if (Platform.isLinux) {
+      _libPath = 'libengine.so';
       _lib = ffi.DynamicLibrary.open('libengine.so');
     } else if (Platform.isIOS) {
       // On iOS, the static library is linked into the app at build time
@@ -269,6 +273,7 @@ class _AudioEngineBase {
       // Try loading the debug dylib first (for debug builds)
       try {
         _lib = ffi.DynamicLibrary.open('Runner.debug.dylib');
+        _libPath = 'Runner.debug.dylib';
       } catch (e) {
         // Fall back to process() for release builds
         _lib = ffi.DynamicLibrary.process();
@@ -760,18 +765,6 @@ class _AudioEngineBase {
         )
         .asFunction();
 
-    _exportWavWithOptions = _lib
-        .lookup<ffi.NativeFunction<_ExportWavWithOptionsFfiNative>>(
-          'export_wav_with_options_ffi',
-        )
-        .asFunction();
-
-    _exportMp3WithOptions = _lib
-        .lookup<ffi.NativeFunction<_ExportMp3WithOptionsFfiNative>>(
-          'export_mp3_with_options_ffi',
-        )
-        .asFunction();
-
     _writeMp3Metadata = _lib
         .lookup<ffi.NativeFunction<_WriteMp3MetadataFfiNative>>(
           'write_mp3_metadata_ffi',
@@ -782,10 +775,6 @@ class _AudioEngineBase {
         .lookup<ffi.NativeFunction<_GetTracksForStemsFfiNative>>(
           'get_tracks_for_stems_ffi',
         )
-        .asFunction();
-
-    _exportStems = _lib
-        .lookup<ffi.NativeFunction<_ExportStemsFfiNative>>('export_stems_ffi')
         .asFunction();
 
     // Bind M8 Export Progress functions

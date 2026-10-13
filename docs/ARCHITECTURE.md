@@ -53,7 +53,10 @@ locks, and the beats-vs-seconds contract are in `.claude/rules/ffi.md`. Adding a
 The realtime callback (`audio_graph/renderer.rs`) and offline export (`audio_graph/offline.rs`)
 are built on the same signal chain, so a bounced file should match what you hear. Two known
 gaps (review of 2026-09-13, C1 and C7): the stopped-transport path processes VST3s differently,
-and an export started during playback shares the live effect instances with the callback.
+and export shares the live effect instances with the callback, so starting an export stops
+playback and Play and Record wait until it ends. Export renders on a background isolate from
+`OfflineSources` (the graph's track, effect and synth managers and limiter, cloned under a brief
+graph lock), so the UI's engine calls never wait for a render.
 
 ```
 per track:  clips → instrument/synth → track FX chain → fader (volume/pan)

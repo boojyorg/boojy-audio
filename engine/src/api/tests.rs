@@ -52,6 +52,7 @@ fn reset_engine() {
     }
     set_tempo(120.0).expect("set_tempo");
     set_time_signature(4).expect("set_time_signature");
+    crate::export::export_progress().reset();
 }
 
 /// Fresh temp directory for a test, cleaned of any previous run's leftovers.
@@ -1661,4 +1662,179 @@ fn export_plays_a_repeating_clip_in_wav_and_mp3() {
         export_mp3_with_options(path_str(&mp3), 192, TARGET_SAMPLE_RATE, false, false).unwrap();
         assert!(std::fs::metadata(&mp3).unwrap().len() > 10_000);
     }
+}
+
+/// A project about two minutes long: a 1 s sine looped for 120 s.
+fn long_project(dir: &Path) {
+    let wav = write_sine_wav(dir, "long.wav", 1.0, 0.5);
+    let track = create_track("Audio", "Long".to_string()).unwrap();
+    let clip = load_audio_file_to_track_api(path_str(&wav), track, 0.0).unwrap();
+    set_clip_duration(track, clip, 120.0).unwrap();
+}
+
+#[test]
+fn export_leaves_the_graph_free_while_it_renders() {
+    // The export used to hold the graph's lock for the whole render, so any
+    // UI engine call (meters, the playhead) froze the window until it ended.
+    let _guard = engine_lock();
+    let dir = temp_dir("export_graph_free");
+    long_project(&dir);
+    let out = dir.join("mix.wav");
+    let out_str = path_str(&out);
+
+    let progress = crate::export::export_progress();
+    progress.reset();
+    let export = std::thread::spawn(move || {
+        export_wav_with_options(out_str, 32, TARGET_SAMPLE_RATE, false, false, false)
+    });
+
+    let mut seen = std::collections::BTreeSet::new();
+    let mut locked_mid_render = false;
+    while !export.is_finished() {
+        let percent = progress.get_progress();
+        if percent > 20 && percent < 70 {
+            seen.insert(percent);
+            let graph = get_audio_graph().unwrap();
+            if graph
+                .try_lock_for(std::time::Duration::from_millis(50))
+                .is_some()
+            {
+                locked_mid_render = true;
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    export.join().unwrap().unwrap();
+
+    assert!(
+        locked_mid_render,
+        "the graph could be locked during the render"
+    );
+    assert!(
+        seen.len() >= 3,
+        "progress moves through the render, not 20 → 70 in one jump: {seen:?}"
+    );
+}
+
+#[test]
+fn cancel_stops_a_long_export_mid_render() {
+    let _guard = engine_lock();
+    let dir = temp_dir("export_cancel");
+    long_project(&dir);
+    let out = dir.join("mix.wav");
+    let out_str = path_str(&out);
+
+    let progress = crate::export::export_progress();
+    progress.reset();
+    let export = std::thread::spawn(move || {
+        export_wav_with_options(out_str, 32, TARGET_SAMPLE_RATE, false, false, false)
+    });
+    while progress.get_progress() <= 21 && !export.is_finished() {
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    assert!(
+        !export.is_finished(),
+        "still rendering when Cancel is pressed"
+    );
+    let pressed = std::time::Instant::now();
+    progress.cancel();
+    let result = export.join().unwrap();
+
+    assert_eq!(result, Err("Export cancelled".to_string()));
+    assert!(
+        pressed.elapsed() < std::time::Duration::from_millis(500),
+        "stopped within a few blocks, took {:?}",
+        pressed.elapsed()
+    );
+    assert!(!out.exists(), "no file is written");
+}
+
+#[test]
+fn a_cancelled_render_leaves_no_note_sounding() {
+    // Review of #206: stopping the render early skipped the note-offs still
+    // to come, and export plays the live instruments, so notes kept droning.
+    let _guard = engine_lock();
+    let track_id = create_track("Midi", "Pad".to_string()).unwrap();
+    set_track_instrument(track_id, "synth".to_string()).unwrap();
+    let clip_id = create_midi_clip().unwrap();
+    add_midi_note_to_clip(clip_id, 60, 100, 0.0, 8.0).unwrap();
+    add_midi_clip_to_track_api(track_id, clip_id, 0.0).unwrap();
+
+    let graph = get_audio_graph().unwrap().lock();
+    let mut blocks = 0;
+    let rendered = graph.offline_sources().render_offline(10.0, &mut |_| {
+        blocks += 1;
+        blocks < 20 // cancel a fifth of a second in, mid-note
+    });
+    let sounding = rendered.iter().fold(0.0f32, |m, s| m.max(s.abs()));
+    assert!(sounding > 0.01, "the note sounded before Cancel");
+
+    // A second of the live synth afterwards: silent by its end.
+    let mut synths = graph.track_synth_manager.lock();
+    let sr = TARGET_SAMPLE_RATE as usize;
+    let tail: Vec<f32> = (0..sr)
+        .map(|_| synths.process_sample_stereo(track_id).0)
+        .collect();
+    let peak = tail[sr - sr / 10..]
+        .iter()
+        .fold(0.0f32, |m, s| m.max(s.abs()));
+    assert!(peak < 1e-4, "the note was released, peak {peak}");
+}
+
+#[test]
+fn cancel_pressed_before_the_export_starts_still_cancels_it() {
+    // Review of #206: the app resets progress, then hands the export to a
+    // background isolate; a Cancel in between was cleared when it started.
+    let _guard = engine_lock();
+    let dir = temp_dir("export_early_cancel");
+    long_project(&dir);
+    let out = dir.join("mix.wav");
+
+    let progress = crate::export::export_progress();
+    progress.reset(); // the app, before dispatch
+    progress.cancel(); // Cancel, before the isolate calls in
+    let result =
+        export_wav_with_options(path_str(&out), 32, TARGET_SAMPLE_RATE, false, false, false);
+
+    assert_eq!(result, Err("Export cancelled".to_string()));
+    assert!(!out.exists(), "no file is written");
+}
+
+#[test]
+fn cancel_while_encoding_writes_nothing_and_keeps_the_old_file() {
+    // Review of #206: Cancel wasn't checked once encoding began, so the file
+    // was written anyway.
+    let _guard = engine_lock();
+    let dir = temp_dir("export_cancel_encoding");
+    long_project(&dir);
+    let out = dir.join("mix.wav");
+    std::fs::write(&out, b"the export from yesterday").unwrap();
+    let out_str = path_str(&out);
+
+    let progress = crate::export::export_progress();
+    // 44.1 kHz 16-bit with dither and normalising: a long encode stage.
+    let export =
+        std::thread::spawn(move || export_wav_with_options(out_str, 16, 44_100, true, true, false));
+    while !progress.get_status().starts_with("Encoding") && !export.is_finished() {
+        std::hint::spin_loop();
+    }
+    assert!(
+        !export.is_finished(),
+        "still encoding when Cancel is pressed"
+    );
+    progress.cancel();
+    let result = export.join().unwrap();
+
+    assert_eq!(result, Err("Export cancelled".to_string()));
+    assert_eq!(
+        std::fs::read(&out).unwrap(),
+        b"the export from yesterday",
+        "the old file is kept"
+    );
+    let leftovers: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter(|e| e.file_name().to_string_lossy().contains(".partial."))
+        .collect();
+    assert!(leftovers.is_empty(), "no temporary file is left");
 }
