@@ -399,28 +399,6 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
     autoExtendLoopIfNeeded(furthest);
   }
 
-  /// Update the loop length in the current clip.
-  /// Only syncs duration if clip is not looped (arrangement length == loop length).
-  void updateLoopLength(double newLength) {
-    if (currentClip == null) return;
-    // Minimum is 1/16th note (0.25 beats), maximum is 256 beats (64 bars)
-    const minLength = 0.25;
-    final clampedLength = newLength.clamp(minLength, 256.0);
-
-    // Only sync duration if clip is NOT looped (duration == loopLength)
-    // If looped, keep the arrangement duration unchanged
-    final wasLooped = currentClip!.duration > currentClip!.loopLength;
-    final newDuration = wasLooped
-        ? currentClip!
-              .duration // Keep arrangement length
-        : clampedLength; // Sync to new loop length
-
-    currentClip = currentClip!.copyWith(
-      loopLength: clampedLength,
-      duration: newDuration,
-    );
-  }
-
   /// Auto-extend the canvas/clip if loop end exceeds current bounds.
   void autoExtendCanvasIfNeeded(double loopEndBeats) {
     if (currentClip == null) return;

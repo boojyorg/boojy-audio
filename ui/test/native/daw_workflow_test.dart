@@ -1160,15 +1160,19 @@ void main() {
     /// it in the Piano Roll.
     Future<MidiClipData> openPianoRoll(
       WidgetTester tester,
-      DawHarness h,
-    ) async {
+      DawHarness h, {
+      double loopStart = 0,
+      double loopLength = 16,
+      double duration = 16,
+    }) async {
       await tester.tap(find.text('MIDI').first);
       await h.settle();
       final manager = h.daw.midiPlaybackManager!;
       h.daw.midiClipController.updateClip(
         manager.midiClips.single.copyWith(
-          loopLength: 16,
-          duration: 16,
+          contentStartOffset: loopStart,
+          loopLength: loopLength,
+          duration: duration,
           notes: [
             MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 1),
           ],
@@ -1248,6 +1252,62 @@ void main() {
         expect(moved.loopLength, 12, reason: 'the end stays at beat 16');
         expect(bar(tester).loopLengthBeats, 12);
         h.expectScreenMatchesEngine(after: 'moving the loop start');
+      } finally {
+        await h.close();
+      }
+    });
+
+    testWidgets('dragging Start out and back keeps the clip repeating', (
+      tester,
+    ) async {
+      // Review of #205: once the loop covered the whole clip mid-drag, the
+      // clip counted as not repeating and its arrangement length followed
+      // the loop back down, losing the repeats.
+      final h = await DawHarness.start(tester);
+      try {
+        final clip = await openPianoRoll(
+          tester,
+          h,
+          loopStart: 8,
+          loopLength: 8,
+          duration: 16,
+        );
+        final steps = h.daw.undoRedoManager.undoHistory.length;
+        bar(tester).onLoopStartDragStart!();
+        for (final beats in [4.0, 0.0, 4.0, 8.0]) {
+          bar(tester).onLoopStartChanged!(beats);
+          await h.settle();
+        }
+        bar(tester).onLoopStartDragEnd!();
+        await h.settle();
+        expect(shape(clipNow(h, clip.clipId)), shape(clip));
+        expect(
+          h.daw.undoRedoManager.undoHistory,
+          hasLength(steps),
+          reason: 'a drag that ends where it began is no undo step',
+        );
+        h.expectScreenMatchesEngine(after: 'dragging Start out and back');
+      } finally {
+        await h.close();
+      }
+    });
+
+    testWidgets('a typed Start is not moved by a coarse grid', (tester) async {
+      // Review of #205: the grid size was used as the shortest loop, so on
+      // a 1-bar grid Start = 0.25 on a 1-beat loop became 0 and the loop
+      // grew to 4 beats, moving the end Start promises to keep.
+      final h = await DawHarness.start(tester);
+      try {
+        final clip = await openPianoRoll(tester, h, loopLength: 1, duration: 1);
+        bar(tester).onGridDivisionChanged!(4.0);
+        if (bar(tester).snapEnabled) bar(tester).onSnapToggle!();
+        await h.settle();
+        bar(tester).onLoopStartChanged!(0.25);
+        await h.settle();
+        final now = clipNow(h, clip.clipId);
+        expect(now.contentStartOffset, 0.25);
+        expect(now.loopLength, 0.75, reason: 'the end stays at beat 1');
+        h.expectScreenMatchesEngine(after: 'typing Start on a coarse grid');
       } finally {
         await h.close();
       }

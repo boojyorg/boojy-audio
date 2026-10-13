@@ -102,6 +102,8 @@ All notable changes to Boojy Audio will be documented in this file.
   longer switches the Piano Roll to that clip.
 - **The Piano Roll's Start keeps the loop's end.** Changing Start moves where the loop begins and
   Length shrinks or grows to match, like dragging the loop's left edge and like the Audio Editor.
+  A typed Start is no longer moved by a coarse note grid, and dragging Start or the loop's edge
+  over the whole clip and back no longer drops the clip's repeats in the arrangement.
 
 - **The Count-in button shows whether it's on.** Clicking it switched the count-in, but the
   button kept its old look until something else redrew the toolbar.

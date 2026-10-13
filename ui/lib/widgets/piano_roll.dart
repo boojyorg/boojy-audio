@@ -1142,15 +1142,27 @@ class _PianoRollState extends State<PianoRoll>
     if (!_loopDragging) commitToHistory(what);
   }
 
-  /// Loop region [start]–[end] in clip beats. A repeating clip keeps its
-  /// arrangement length; otherwise it follows the loop (see
-  /// [updateLoopLength]).
+  /// Shortest loop, as the Length box allows. The note grid doesn't limit
+  /// typed values, and the ruler limits its own drags.
+  static const _minLoopBeats = 0.25;
+
+  /// Loop region [start]–[end] in clip beats; [end] stays put. Whether the
+  /// clip repeats is judged from the clip before this edit or drag
+  /// ([snapshotBeforeAction]): a repeating clip keeps its arrangement length,
+  /// otherwise that follows the loop. Judged mid-drag, a loop stretched over
+  /// the whole clip and back lost the clip's repeats.
   void _setLoopRegion(double start, double end) {
+    final before = snapshotBeforeAction ?? currentClip!;
     final newStart = start
-        .clamp(0.0, math.max(0.0, end - gridDivision))
+        .clamp(0.0, math.max(0.0, end - _minLoopBeats))
         .toDouble();
-    updateLoopLength((end - newStart).clamp(gridDivision, double.infinity));
-    currentClip = currentClip!.copyWith(contentStartOffset: newStart);
+    final newLength = (end - newStart).clamp(_minLoopBeats, 256.0).toDouble();
+    final repeating = before.duration > before.loopLength;
+    currentClip = currentClip!.copyWith(
+      contentStartOffset: newStart,
+      loopLength: newLength,
+      duration: repeating ? before.duration : newLength,
+    );
   }
 
   void _beginLoopDrag() {
