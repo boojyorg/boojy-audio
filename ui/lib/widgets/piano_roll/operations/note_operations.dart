@@ -24,6 +24,10 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
 
   /// Commit the change to global undo history with a description.
   /// Call this AFTER modifying currentClip.
+  ///
+  /// Undo and redo update the clip through the DAW ([PianoRoll.onClipUpdated],
+  /// by clip ID), not through this editor: it may be closed by then, or on
+  /// another clip. The editor follows its clip in `didUpdateWidget`.
   void commitToHistory(String actionDescription) {
     if (snapshotBeforeAction == null || currentClip == null) return;
 
@@ -31,14 +35,14 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
       beforeState: snapshotBeforeAction!,
       afterState: currentClip!.copyWith(notes: List.from(currentClip!.notes)),
       actionDescription: actionDescription,
-      onApplyState: applyClipState,
+      onApplyState: widget.onClipUpdated ?? applyClipState,
     );
 
     undoRedoManager.execute(command);
     snapshotBeforeAction = null;
   }
 
-  /// Callback for undo/redo to apply clip state.
+  /// Undo/redo for a Piano Roll with no DAW to apply through (tests).
   void applyClipState(MidiClipData clipData) {
     if (!mounted) return;
     setState(() {
@@ -393,28 +397,6 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
           (a.startTime + a.duration) >= (b.startTime + b.duration) ? a : b,
     );
     autoExtendLoopIfNeeded(furthest);
-  }
-
-  /// Update the loop length in the current clip.
-  /// Only syncs duration if clip is not looped (arrangement length == loop length).
-  void updateLoopLength(double newLength) {
-    if (currentClip == null) return;
-    // Minimum is 1/16th note (0.25 beats), maximum is 256 beats (64 bars)
-    const minLength = 0.25;
-    final clampedLength = newLength.clamp(minLength, 256.0);
-
-    // Only sync duration if clip is NOT looped (duration == loopLength)
-    // If looped, keep the arrangement duration unchanged
-    final wasLooped = currentClip!.duration > currentClip!.loopLength;
-    final newDuration = wasLooped
-        ? currentClip!
-              .duration // Keep arrangement length
-        : clampedLength; // Sync to new loop length
-
-    currentClip = currentClip!.copyWith(
-      loopLength: clampedLength,
-      duration: newDuration,
-    );
   }
 
   /// Auto-extend the canvas/clip if loop end exceeds current bounds.

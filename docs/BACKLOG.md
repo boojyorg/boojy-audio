@@ -65,9 +65,6 @@ reproduces them.
 
 **Fix before release**
 
-- **Piano Roll loop changes aren't undoable.** Its loop Start, Length and loop-ruler drags change
-  the clip but add no undo step, so ⌘Z undoes the edit before them instead (the Audio Editor's
-  were fixed by making each edit an `EditAudioClipCommand`).
 - **The appcast commit can't reach `master`** (branch protection). Details and options in
   [RELEASING.md](RELEASING.md#what-the-release-workflow-does).
 - **Export freezes the window, and its progress bar never moves.** The export runs on the UI
@@ -158,8 +155,11 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
   track-header Mute/Solo have none.
 - **Move the Audio Editor's loop region in one go:** grab its middle on the ruler and drag
   (`LoopMarkerDrag.middle` exists, unwired). Start now keeps the region's end (2026-10-10), so
-  moving a 1-bar loop to bar 3 takes Start then Length. The Piano Roll's Start box still slides
-  its region with Length kept; settle one rule when its loop undo is fixed.
+  moving a 1-bar loop to bar 3 takes Start then Length. The Piano Roll's Start does the same
+  (2026-10-13).
+- **Piano Roll Length and the ruler disagree on a repeating clip:** the Length box sets the
+  clip's arrangement length to the loop's (its repeats go), while dragging the loop's edge on the
+  ruler keeps them. Pick one *(Tyr)*.
 - **Two `showMenu` calls remain** in `track_mixer_strip.dart`; migrate to `showBoojyMenu`.
 - **MP3 export shells out to `ffmpeg`.** Replace with the `mp3lame-encoder` crate.
 - **Zoom spec** *(Tyr)*: anchor, modifiers, pinch, ruler drag, zoom-to-fit, independent axes.

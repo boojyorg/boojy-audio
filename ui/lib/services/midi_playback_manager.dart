@@ -125,16 +125,24 @@ class MidiPlaybackManager extends ChangeNotifier {
         _currentEditingClip = updatedClip;
       }
     } else {
-      // Clip ID provided - preserve the clip's duration and loopLength
-      _currentEditingClip = updatedClip;
+      // Clip ID provided - preserve the clip's duration and loopLength. It
+      // becomes the editing clip only if it already is (or none is): undoing
+      // an edit on another clip mustn't switch the editor to that clip.
+      if (_currentEditingClip == null ||
+          _currentEditingClip!.clipId == updatedClip.clipId) {
+        _currentEditingClip = updatedClip;
+      }
 
       // Update in clips list
       final index = _midiClips.indexWhere(
         (c) => c.clipId == updatedClip.clipId,
       );
       if (index != -1) {
-        _midiClips[index] = _currentEditingClip!;
+        _midiClips[index] = updatedClip;
       }
+      notifyListeners();
+      _scheduleMidiClipPlayback(updatedClip, tempo);
+      return;
     }
 
     notifyListeners();

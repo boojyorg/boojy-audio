@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -26,7 +28,6 @@ import 'shared/editors/unified_nav_bar.dart';
 import 'shared/editors/interactive_gutter.dart';
 import 'shared/editors/scrollable_nav_bar.dart';
 import 'context_menus/note_context_menu.dart';
-import '../utils/logger.dart';
 
 /// Interaction modes for piano roll (internal tracking during gestures)
 enum InteractionMode { draw, select, move, resize }
@@ -414,47 +415,31 @@ class _PianoRollState extends State<PianoRoll>
       loopLengthBeats: getLoopLength(),
       beatsPerBar: beatsPerBar,
       onLoopToggle: () {
-        if (currentClip == null) return;
-        setState(() {
-          currentClip = currentClip!.copyWith(
-            canRepeat: !currentClip!.canRepeat,
-          );
-        });
-        notifyClipUpdated();
-      },
-      onLoopStartChanged: (beats) {
-        // When typing Start value: Keep LENGTH fixed, only change contentStartOffset
-        // (Length is controlled separately by the Length field)
-        final newStart = beats.clamp(0.0, double.infinity);
-        Log.d(
-          '[onLoopStartChanged] newStart=$newStart, before: duration=${currentClip?.duration}, loopLength=${currentClip?.loopLength}',
+        final repeat = !(currentClip?.canRepeat ?? true);
+        _editLoop(
+          repeat ? 'Turn loop on' : 'Turn loop off',
+          () => currentClip = currentClip!.copyWith(canRepeat: repeat),
         );
-        setState(() {
-          loopStartBeats = newStart;
-          // Only update contentStartOffset - loopLength and duration stay the same
-          if (currentClip != null) {
-            currentClip = currentClip!.copyWith(contentStartOffset: newStart);
-          }
-        });
-        Log.d(
-          '[onLoopStartChanged] after: duration=${currentClip?.duration}, loopLength=${currentClip?.loopLength}',
-        );
-        notifyClipUpdated();
       },
-      onLoopLengthChanged: (beats) {
-        if (currentClip == null) return;
-        // Allow very small loops (1/16th note = 0.25 beats)
+      // Start moves the loop's beginning and keeps its end, like dragging
+      // the region's left edge on the ruler (and like the Audio Editor).
+      onLoopStartChanged: (beats) => _editLoop(
+        'Move loop start',
+        () => _setLoopRegion(beats, loopStartBeats + getLoopLength()),
+      ),
+      onLoopStartDragStart: _beginLoopDrag,
+      onLoopStartDragEnd: () => _endLoopDrag('Move loop start'),
+      onLoopLengthChanged: (beats) => _editLoop('Change loop length', () {
+        // Allow very small loops (1/16th note = 0.25 beats). Length also
+        // sets the clip's arrangement length.
         final newLength = beats.clamp(0.25, 256.0);
-        setState(() {
-          // Update both loopLength AND duration for one-way sync
-          // Piano Roll loop length changes sync to Arrangement clip duration
-          currentClip = currentClip!.copyWith(
-            loopLength: newLength,
-            duration: newLength,
-          );
-        });
-        notifyClipUpdated();
-      },
+        currentClip = currentClip!.copyWith(
+          loopLength: newLength,
+          duration: newLength,
+        );
+      }),
+      onLoopLengthDragStart: _beginLoopDrag,
+      onLoopLengthDragEnd: () => _endLoopDrag('Change loop length'),
       // Grid section
       snapEnabled: snapEnabled,
       gridDivision: gridDivision,
@@ -549,6 +534,7 @@ class _PianoRollState extends State<PianoRoll>
         onPlayheadSet: _handleNavBarPlayheadSet,
         onPlayheadDrag: _handleNavBarPlayheadSet, // Same as click
         onLoopRegionChanged: _handleNavBarLoopRegionChanged,
+        onLoopRegionDragEnd: () => _endLoopDrag('Change loop region'),
       ),
       scrollController: navBarScroll,
       height: UIConstants.navBarHeight,
@@ -1130,21 +1116,76 @@ class _PianoRollState extends State<PianoRoll>
     onSeek(globalBeats / widget.tempo * 60.0);
   }
 
-  /// Handle loop region change from UnifiedNavBar edge drag.
+  /// Handle loop region change from UnifiedNavBar edge drag. These only
+  /// come during a drag, which ends with [_endLoopDrag] (one undo step).
   void _handleNavBarLoopRegionChanged(double start, double end) {
-    final newStart = start.clamp(0.0, double.infinity);
-    final newLength = (end - start).clamp(gridDivision, double.infinity);
+    if (!_loopDragging) _beginLoopDrag();
+    _editLoop('Change loop region', () => _setLoopRegion(start, end));
+  }
 
+  // ============================================
+  // LOOP EDITS (one undo step per change, or per drag)
+  // ============================================
+
+  bool _loopDragging = false;
+
+  /// Apply [change] to the loop, then record it as one undo step [what],
+  /// unless a drag is under way ([_endLoopDrag] records that).
+  void _editLoop(String what, VoidCallback change) {
+    if (currentClip == null) return;
+    if (!_loopDragging) saveToHistory();
     setState(() {
-      loopStartBeats = newStart;
-      updateLoopLength(newLength);
-      // Sync to clip's contentStartOffset
-      if (currentClip != null) {
-        currentClip = currentClip!.copyWith(contentStartOffset: newStart);
-      }
+      change();
+      loopStartBeats = currentClip!.contentStartOffset;
     });
-
     notifyClipUpdated();
+    if (!_loopDragging) commitToHistory(what);
+  }
+
+  /// Shortest loop, as the Length box allows. The note grid doesn't limit
+  /// typed values, and the ruler limits its own drags.
+  static const _minLoopBeats = 0.25;
+
+  /// Loop region [start]–[end] in clip beats; [end] stays put. Whether the
+  /// clip repeats is judged from the clip before this edit or drag
+  /// ([snapshotBeforeAction]): a repeating clip keeps its arrangement length,
+  /// otherwise that follows the loop. Judged mid-drag, a loop stretched over
+  /// the whole clip and back lost the clip's repeats.
+  void _setLoopRegion(double start, double end) {
+    final before = snapshotBeforeAction ?? currentClip!;
+    final newStart = start
+        .clamp(0.0, math.max(0.0, end - _minLoopBeats))
+        .toDouble();
+    final newLength = (end - newStart).clamp(_minLoopBeats, 256.0).toDouble();
+    final repeating = before.duration > before.loopLength;
+    currentClip = currentClip!.copyWith(
+      contentStartOffset: newStart,
+      loopLength: newLength,
+      duration: repeating ? before.duration : newLength,
+    );
+  }
+
+  void _beginLoopDrag() {
+    saveToHistory();
+    _loopDragging = true;
+  }
+
+  void _endLoopDrag(String what) {
+    if (!_loopDragging) return;
+    _loopDragging = false;
+    final before = snapshotBeforeAction;
+    final after = currentClip;
+    final moved =
+        before != null &&
+        after != null &&
+        (before.contentStartOffset != after.contentStartOffset ||
+            before.loopLength != after.loopLength ||
+            before.duration != after.duration);
+    if (moved) {
+      commitToHistory(what);
+    } else {
+      snapshotBeforeAction = null;
+    }
   }
 
   // ============================================
