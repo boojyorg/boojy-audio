@@ -6,6 +6,12 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- **MP3 export works with nothing to install.** Boojy now makes MP3s itself, so the MP3 option
+  is always there, on every Mac and Windows PC. It used to need ffmpeg installed separately, and
+  even then the app opened from Finder couldn't find it. The progress bar keeps moving while the
+  MP3 is encoded, and Cancel stops it straight away. The files sound the same (the same LAME
+  encoder, at the bitrate you pick) and are exactly as long as the song.
+
 - **Boojy keeps a log, and counts crackles.** When the audio drops out (the engine misses a
   buffer), Boojy writes a line to a local log saying what was going on: playing or stopped, where
   the playhead was, how many tracks and plugins, the buffer size, how busy the engine was and the

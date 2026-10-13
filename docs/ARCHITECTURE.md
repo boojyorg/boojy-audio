@@ -15,7 +15,7 @@ engine/                       Rust → libengine.{dylib,dll}
   src/api/                    business logic, one module per domain, no raw pointers (one commented exception in vst3.rs)
   src/ffi/                    extern "C" shims over api/, one file per domain
   src/audio_graph/            realtime renderer, offline renderer, device management, project I/O
-  src/export/                 WAV (pure Rust) and MP3 (ffmpeg shell-out), see .claude/rules/audio-export.md
+  src/export/                 WAV (hound) and MP3 (LAME, built in), see .claude/rules/audio-export.md
   src/{synth,sampler,drum_kit,effects,stretch,midi*,recorder,audio_health}.rs
   vst3_host/                  C++ wrapper over the VST3 SDK (see its README); vst3sdk/ submodule
 ui/lib/

@@ -1657,11 +1657,16 @@ fn export_plays_a_repeating_clip_in_wav_and_mp3() {
     assert!(peak(1.2, 1.8) > 0.1, "second pass is audible");
     assert!(peak(2.2, 2.8) > 0.1, "third pass is audible");
 
-    if crate::export::is_ffmpeg_available() {
-        let mp3 = dir.join("mix.mp3");
-        export_mp3_with_options(path_str(&mp3), 192, TARGET_SAMPLE_RATE, false, false).unwrap();
-        assert!(std::fs::metadata(&mp3).unwrap().len() > 10_000);
-    }
+    let mp3 = dir.join("mix.mp3");
+    export_mp3_with_options(path_str(&mp3), 192, TARGET_SAMPLE_RATE, false, false).unwrap();
+    let decoded = load_audio_file(&mp3).unwrap();
+    let mp3_peak = |from: f64, to: f64| {
+        let frame = |s: f64| (s * f64::from(TARGET_SAMPLE_RATE)) as usize * 2;
+        decoded.samples[frame(from)..frame(to)]
+            .iter()
+            .fold(0.0f32, |m, s| m.max(s.abs()))
+    };
+    assert!(mp3_peak(2.2, 2.8) > 0.1, "the MP3's third pass is audible");
 }
 
 /// A project about two minutes long: a 1 s sine looped for 120 s.
@@ -1798,6 +1803,76 @@ fn cancel_pressed_before_the_export_starts_still_cancels_it() {
 
     assert_eq!(result, Err("Export cancelled".to_string()));
     assert!(!out.exists(), "no file is written");
+}
+
+#[test]
+fn mp3_stems_hold_one_track_each() {
+    let _guard = engine_lock();
+    let dir = temp_dir("export_mp3_stems");
+    let loud = write_sine_wav(&dir, "loud.wav", 2.0, 0.5);
+    let quiet = write_sine_wav(&dir, "quiet.wav", 2.0, 0.1);
+    for (name, wav) in [("Loud", &loud), ("Quiet", &quiet)] {
+        let track = create_track("Audio", name.to_string()).unwrap();
+        load_audio_file_to_track_api(path_str(wav), track, 0.0).unwrap();
+    }
+
+    let options = crate::export::ExportOptions::mp3(crate::export::Mp3Bitrate::Kbps192)
+        .with_sample_rate(TARGET_SAMPLE_RATE);
+    let out = dir.join("stems");
+    export_stems(
+        path_str(&out),
+        "Song".to_string(),
+        "null".to_string(),
+        serde_json::to_string(&options).unwrap(),
+    )
+    .unwrap();
+
+    let peak_of = |name: &str| {
+        let decoded = load_audio_file(out.join(name)).unwrap();
+        decoded.samples.iter().fold(0.0f32, |m, s| m.max(s.abs()))
+    };
+    let (loud_peak, quiet_peak) = (peak_of("Song - Loud.mp3"), peak_of("Song - Quiet.mp3"));
+    assert!(loud_peak > 3.0 * quiet_peak, "{loud_peak} vs {quiet_peak}");
+    assert!(quiet_peak > 0.01, "the quiet stem isn't silent");
+}
+
+#[test]
+fn cancel_while_encoding_an_mp3_stops_it_and_writes_nothing() {
+    // MP3s used to be encoded by ffmpeg in one go, so Cancel only took
+    // effect once the whole file was done.
+    let _guard = engine_lock();
+    let dir = temp_dir("export_cancel_mp3");
+    long_project(&dir);
+    let out = dir.join("mix.mp3");
+    let out_str = path_str(&out);
+
+    let progress = crate::export::export_progress();
+    let export = std::thread::spawn(move || {
+        export_mp3_with_options(out_str, 320, TARGET_SAMPLE_RATE, false, false)
+    });
+    while progress.get_progress() <= 61 && !export.is_finished() {
+        std::hint::spin_loop();
+    }
+    assert!(
+        !export.is_finished(),
+        "still encoding when Cancel is pressed"
+    );
+    assert!(progress.get_status().starts_with("Encoding"));
+    progress.cancel();
+    let cancelled_at = progress.get_progress();
+    let result = export.join().unwrap();
+
+    assert_eq!(result, Err("Export cancelled".to_string()));
+    assert!(
+        cancelled_at < 90,
+        "the bar moved through encoding, then stopped"
+    );
+    let left: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter(|e| e.file_name().to_string_lossy().ends_with(".mp3"))
+        .collect();
+    assert!(left.is_empty(), "no MP3 or temporary file is left");
 }
 
 #[test]

@@ -392,7 +392,6 @@ class _ExportDialogState extends State<ExportDialog> {
   bool _showAdvanced = false;
   bool _showStems = false;
   bool _isExporting = false;
-  bool _ffmpegAvailable = false;
   bool _loadingTracks = false;
 
   // Text controllers for metadata
@@ -405,7 +404,6 @@ class _ExportDialogState extends State<ExportDialog> {
     _titleController.text = widget.defaultName;
     _options.title = widget.defaultName;
     _loadSettingsFromUserSettings();
-    _checkFfmpeg();
   }
 
   void _loadSettingsFromUserSettings() {
@@ -462,17 +460,6 @@ class _ExportDialogState extends State<ExportDialog> {
     final artist = _options.artist;
     if (artist != null && artist.isNotEmpty) {
       settings.exportArtist = artist;
-    }
-  }
-
-  void _checkFfmpeg() {
-    _ffmpegAvailable = widget.audioEngine.isFfmpegAvailable();
-    if (!_ffmpegAvailable && _options.exportMp3) {
-      // Fall back to WAV if ffmpeg not available
-      setState(() {
-        _options.exportMp3 = false;
-        _options.exportWav = true;
-      });
     }
   }
 
@@ -923,18 +910,14 @@ class _ExportDialogState extends State<ExportDialog> {
         // MP3 checkbox
         _buildCheckboxTile(
           value: _options.exportMp3,
-          enabled: _ffmpegAvailable,
           onChanged: (v) => setState(() => _options.exportMp3 = v ?? false),
           title: 'MP3',
-          subtitle: _ffmpegAvailable
-              ? 'Compressed, smaller file size'
-              : 'ffmpeg required (install via: brew install ffmpeg)',
+          subtitle: 'Compressed, smaller file size',
         ),
         const SizedBox(height: 8),
         // WAV checkbox
         _buildCheckboxTile(
           value: _options.exportWav,
-          enabled: true,
           onChanged: (v) => setState(() => _options.exportWav = v ?? false),
           title: 'WAV',
           subtitle: 'Lossless, higher quality',
@@ -1288,7 +1271,6 @@ class _ExportDialogState extends State<ExportDialog> {
 
   Widget _buildCheckboxTile({
     required bool value,
-    required bool enabled,
     required ValueChanged<bool?> onChanged,
     required String title,
     required String subtitle,
@@ -1306,7 +1288,7 @@ class _ExportDialogState extends State<ExportDialog> {
         children: [
           Checkbox(
             value: value,
-            onChanged: enabled ? onChanged : null,
+            onChanged: onChanged,
             activeColor: context.colors.accent,
           ),
           const SizedBox(width: 8),
@@ -1317,9 +1299,7 @@ class _ExportDialogState extends State<ExportDialog> {
                 Text(
                   title,
                   style: TextStyle(
-                    color: enabled
-                        ? context.colors.textPrimary
-                        : context.colors.textMuted,
+                    color: context.colors.textPrimary,
                     fontSize: 14,
                     fontWeight: BT.weightMedium,
                   ),
@@ -1327,9 +1307,7 @@ class _ExportDialogState extends State<ExportDialog> {
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: enabled
-                        ? context.colors.textMuted
-                        : context.colors.textMuted.withValues(alpha: 0.5),
+                    color: context.colors.textMuted,
                     fontSize: 12,
                   ),
                 ),

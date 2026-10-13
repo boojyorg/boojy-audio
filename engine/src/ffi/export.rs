@@ -25,13 +25,6 @@ pub extern "C" fn export_to_wav_ffi(output_path: *const c_char, normalize: bool)
     )
 }
 
-/// Check if ffmpeg is available for MP3 encoding
-/// Returns 1 if available, 0 if not
-#[no_mangle]
-pub extern "C" fn is_ffmpeg_available_ffi() -> i32 {
-    ffi_catch(-1, || i32::from(api::is_ffmpeg_available()))
-}
-
 /// Export WAV with configurable options
 /// `bit_depth`: 16, 24, or 32
 /// `sample_rate`: 44100 or 48000

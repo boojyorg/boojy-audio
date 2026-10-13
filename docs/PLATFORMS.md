@@ -75,5 +75,3 @@ Keep the FFI boundary a plain C ABI so the Tauri exit stays real.
   through a platform channel in place of `midir`; testing across many devices is the real cost.
 - **Phones (iOS, Android):** the same engine and code, but a different layout: a cut-down
   companion for sketching ideas that opens in the full app. A design project, not a port.
-
-Every non-desktop target also needs MP3 export without the `ffmpeg` shell-out (BACKLOG Next).

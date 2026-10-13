@@ -16,8 +16,8 @@ pub struct PartialFiles {
 
 impl PartialFiles {
     /// Where to write the file that will end up at `path`:
-    /// `.<name>.partial.<ext>` in the same folder (hidden, and the extension
-    /// kept, which ffmpeg reads the format from).
+    /// `.<name>.partial.<ext>` in the same folder (hidden, with the extension
+    /// kept).
     pub fn path_for(&mut self, path: &Path) -> PathBuf {
         let name = path
             .file_stem()
