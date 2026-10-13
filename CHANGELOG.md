@@ -98,7 +98,8 @@ All notable changes to Boojy Audio will be documented in this file.
 - **Exporting no longer freezes Boojy.** The window kept still for as long as the export took,
   its progress bar never moved and Cancel couldn't be pressed. The export now runs in the
   background: the bar fills as the song renders (track by track for stems), the app keeps
-  responding, and Cancel stops it straight away without writing a file. Starting an export
+  responding, and Cancel stops it straight away without writing a file (a file already there with
+  that name is kept). Starting an export
   stops playback, and Play and Record wait until it finishes, since both use the same effects.
 
 - **Every Piano Roll change can be undone.** Loop on/off, Start, Length and dragging the loop on

@@ -52,6 +52,7 @@ fn reset_engine() {
     }
     set_tempo(120.0).expect("set_tempo");
     set_time_signature(4).expect("set_time_signature");
+    crate::export::export_progress().reset();
 }
 
 /// Fresh temp directory for a test, cleaned of any previous run's leftovers.
@@ -1746,4 +1747,94 @@ fn cancel_stops_a_long_export_mid_render() {
         pressed.elapsed()
     );
     assert!(!out.exists(), "no file is written");
+}
+
+#[test]
+fn a_cancelled_render_leaves_no_note_sounding() {
+    // Review of #206: stopping the render early skipped the note-offs still
+    // to come, and export plays the live instruments, so notes kept droning.
+    let _guard = engine_lock();
+    let track_id = create_track("Midi", "Pad".to_string()).unwrap();
+    set_track_instrument(track_id, "synth".to_string()).unwrap();
+    let clip_id = create_midi_clip().unwrap();
+    add_midi_note_to_clip(clip_id, 60, 100, 0.0, 8.0).unwrap();
+    add_midi_clip_to_track_api(track_id, clip_id, 0.0).unwrap();
+
+    let graph = get_audio_graph().unwrap().lock();
+    let mut blocks = 0;
+    let rendered = graph.offline_sources().render_offline(10.0, &mut |_| {
+        blocks += 1;
+        blocks < 20 // cancel a fifth of a second in, mid-note
+    });
+    let sounding = rendered.iter().fold(0.0f32, |m, s| m.max(s.abs()));
+    assert!(sounding > 0.01, "the note sounded before Cancel");
+
+    // A second of the live synth afterwards: silent by its end.
+    let mut synths = graph.track_synth_manager.lock();
+    let sr = TARGET_SAMPLE_RATE as usize;
+    let tail: Vec<f32> = (0..sr)
+        .map(|_| synths.process_sample_stereo(track_id).0)
+        .collect();
+    let peak = tail[sr - sr / 10..]
+        .iter()
+        .fold(0.0f32, |m, s| m.max(s.abs()));
+    assert!(peak < 1e-4, "the note was released, peak {peak}");
+}
+
+#[test]
+fn cancel_pressed_before_the_export_starts_still_cancels_it() {
+    // Review of #206: the app resets progress, then hands the export to a
+    // background isolate; a Cancel in between was cleared when it started.
+    let _guard = engine_lock();
+    let dir = temp_dir("export_early_cancel");
+    long_project(&dir);
+    let out = dir.join("mix.wav");
+
+    let progress = crate::export::export_progress();
+    progress.reset(); // the app, before dispatch
+    progress.cancel(); // Cancel, before the isolate calls in
+    let result =
+        export_wav_with_options(path_str(&out), 32, TARGET_SAMPLE_RATE, false, false, false);
+
+    assert_eq!(result, Err("Export cancelled".to_string()));
+    assert!(!out.exists(), "no file is written");
+}
+
+#[test]
+fn cancel_while_encoding_writes_nothing_and_keeps_the_old_file() {
+    // Review of #206: Cancel wasn't checked once encoding began, so the file
+    // was written anyway.
+    let _guard = engine_lock();
+    let dir = temp_dir("export_cancel_encoding");
+    long_project(&dir);
+    let out = dir.join("mix.wav");
+    std::fs::write(&out, b"the export from yesterday").unwrap();
+    let out_str = path_str(&out);
+
+    let progress = crate::export::export_progress();
+    // 44.1 kHz 16-bit with dither and normalising: a long encode stage.
+    let export =
+        std::thread::spawn(move || export_wav_with_options(out_str, 16, 44_100, true, true, false));
+    while !progress.get_status().starts_with("Encoding") && !export.is_finished() {
+        std::hint::spin_loop();
+    }
+    assert!(
+        !export.is_finished(),
+        "still encoding when Cancel is pressed"
+    );
+    progress.cancel();
+    let result = export.join().unwrap();
+
+    assert_eq!(result, Err("Export cancelled".to_string()));
+    assert_eq!(
+        std::fs::read(&out).unwrap(),
+        b"the export from yesterday",
+        "the old file is kept"
+    );
+    let leftovers: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter(|e| e.file_name().to_string_lossy().contains(".partial."))
+        .collect();
+    assert!(leftovers.is_empty(), "no temporary file is left");
 }

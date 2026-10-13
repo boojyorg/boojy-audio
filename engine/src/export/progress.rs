@@ -24,7 +24,7 @@ pub struct ExportProgressState {
 }
 
 impl ExportProgressState {
-    const fn new() -> Self {
+    pub(crate) const fn new() -> Self {
         Self {
             progress: AtomicU32::new(0),
             is_running: AtomicBool::new(false),
@@ -34,11 +34,12 @@ impl ExportProgressState {
         }
     }
 
-    /// Start a new export operation
+    /// Start a new export operation. Keeps a Cancel pressed since the last
+    /// [`Self::reset`]: the app resets before handing the export to a
+    /// background isolate, and Cancel can come before the export starts.
     pub fn start(&self, status: &str) {
         self.progress.store(0, Ordering::SeqCst);
         self.is_running.store(true, Ordering::SeqCst);
-        self.is_cancelled.store(false, Ordering::SeqCst);
         if let Ok(mut s) = self.status.write() {
             *s = status.to_string();
         }

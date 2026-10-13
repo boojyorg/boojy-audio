@@ -21,6 +21,13 @@ paths:
 3. Mono mixdown → resample.
 4. **Peak normalise last** (resampling shifts peaks).
 
+## Files appear only when the export finishes
+
+Write through `PartialFiles` (`export/partial.rs`): a hidden `.<name>.partial.<ext>` beside the
+final file, moved into place by `commit`, which refuses once Cancel was pressed. Stems commit
+together. A cancelled render silences the live instruments (`silence_instruments`): export plays
+them, and its note-offs never came.
+
 ## Offline-render invariants (tests in `engine/src/api/tests.rs`)
 
 - **Built-in FX are pinned to `TARGET_SAMPLE_RATE`** during `render_offline` and

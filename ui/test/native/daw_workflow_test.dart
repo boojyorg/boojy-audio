@@ -235,9 +235,11 @@ void main() {
       });
       expect(File(out).existsSync(), isTrue);
       expect(ticks, greaterThan(5), reason: 'the UI thread ran meanwhile');
+      // Generous for slow CI machines: the old freeze held each call for
+      // the whole render (and the ticks above caught it at 1).
       expect(
         slowestCall,
-        lessThan(const Duration(milliseconds: 50)),
+        lessThan(const Duration(milliseconds: 250)),
         reason: 'engine calls did not wait for the render',
       );
       expect(

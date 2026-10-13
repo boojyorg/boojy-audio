@@ -217,6 +217,38 @@ pub struct AudioGraph {
 // The Stream itself is never moved between threads after construction.
 unsafe impl Send for AudioGraph {}
 
+/// Note-off for every note on every instrument: the built-in synths and
+/// any VST3 instrument in a track's chain. Pause, Stop and a cancelled
+/// export render use it so no note is left droning.
+pub(crate) fn silence_instruments(
+    track_manager: &Mutex<TrackManager>,
+    effect_manager: &Mutex<EffectManager>,
+    synth_manager: &Mutex<TrackSynthManager>,
+) {
+    synth_manager.lock().all_notes_off_all_tracks();
+
+    #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+    {
+        let track_mgr = track_manager.lock();
+        let effect_mgr = effect_manager.lock();
+        for track_arc in track_mgr.get_all_tracks() {
+            let track = track_arc.lock();
+            for effect_id in &track.fx_chain {
+                if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
+                    let mut effect = effect_arc.lock();
+                    if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
+                        for note in 0..128i32 {
+                            let _ = vst3.process_midi_event(1, 0, note, 0, 0);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    #[cfg(not(all(feature = "vst3", not(target_os = "ios"))))]
+    let _ = (track_manager, effect_manager);
+}
+
 impl AudioGraph {
     /// Create a new audio graph (native platforms)
     pub fn new() -> anyhow::Result<Self> {
@@ -572,41 +604,12 @@ impl AudioGraph {
             .store(TransportState::Paused as u8, Ordering::SeqCst);
         // Stream keeps running for MIDI preview
 
-        // Silence all synthesizers to prevent stuck notes/drone
-        {
-            let mut synth_manager = self.track_synth_manager.lock();
-            synth_manager.all_notes_off_all_tracks();
-            dlog!("   All synth notes silenced");
-        }
-
-        // Silence all VST3 instruments to prevent stuck notes/drone
-        {
-            let track_mgr = self.track_manager.lock();
-            {
-                let effect_mgr = self.effect_manager.lock();
-                for track_arc in track_mgr.get_all_tracks() {
-                    {
-                        let track = track_arc.lock();
-                        for effect_id in &track.fx_chain {
-                            if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                {
-                                    let mut effect = effect_arc.lock();
-                                    #[cfg(all(feature = "vst3", not(target_os = "ios")))]
-                                    if let crate::effects::EffectType::VST3(ref mut vst3) = *effect
-                                    {
-                                        // Send note-off for all 128 MIDI notes
-                                        for note in 0..128i32 {
-                                            let _ = vst3.process_midi_event(1, 0, note, 0, 0);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                dlog!("   All VST3 notes silenced");
-            }
-        }
+        // Silence every instrument so no note is left droning.
+        silence_instruments(
+            &self.track_manager,
+            &self.effect_manager,
+            &self.track_synth_manager,
+        );
 
         Ok(())
     }
@@ -620,41 +623,12 @@ impl AudioGraph {
             .store(TransportState::Stopped as u8, Ordering::SeqCst);
         // Stream keeps running for MIDI preview
 
-        // Silence all synthesizers to prevent stuck notes/drone
-        {
-            let mut synth_manager = self.track_synth_manager.lock();
-            synth_manager.all_notes_off_all_tracks();
-            dlog!("   All synth notes silenced");
-        }
-
-        // Silence all VST3 instruments to prevent stuck notes/drone
-        {
-            let track_mgr = self.track_manager.lock();
-            {
-                let effect_mgr = self.effect_manager.lock();
-                for track_arc in track_mgr.get_all_tracks() {
-                    {
-                        let track = track_arc.lock();
-                        for effect_id in &track.fx_chain {
-                            if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                {
-                                    let mut effect = effect_arc.lock();
-                                    #[cfg(all(feature = "vst3", not(target_os = "ios")))]
-                                    if let crate::effects::EffectType::VST3(ref mut vst3) = *effect
-                                    {
-                                        // Send note-off for all 128 MIDI notes
-                                        for note in 0..128i32 {
-                                            let _ = vst3.process_midi_event(1, 0, note, 0, 0);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                dlog!("   All VST3 notes silenced");
-            }
-        }
+        // Silence every instrument so no note is left droning.
+        silence_instruments(
+            &self.track_manager,
+            &self.effect_manager,
+            &self.track_synth_manager,
+        );
 
         // Note: Playhead position is NOT reset here - it's managed by transportSeek()
         // from the Dart layer, which allows flexible stop behavior (return to bar 1,

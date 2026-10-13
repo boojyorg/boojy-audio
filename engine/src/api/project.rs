@@ -321,7 +321,7 @@ pub fn export_wav_with_options(
     dither: bool,
     mono: bool,
 ) -> Result<String, String> {
-    use crate::export::{export_progress, export_wav, ExportOptions, WavBitDepth};
+    use crate::export::{export_progress, export_wav, ExportOptions, PartialFiles, WavBitDepth};
 
     let progress = export_progress();
     progress.start("Preparing WAV export...");
@@ -392,14 +392,22 @@ pub fn export_wav_with_options(
 
     progress.update(70, "Encoding WAV file...");
 
-    // Export
-    let result = match export_wav(&samples, output_path, &options) {
+    // Export under a temporary name, moved into place at the end: Cancel
+    // (checked through encoding) or a failure leaves no file, and keeps one
+    // that was already there.
+    let mut files = PartialFiles::default();
+    let mut result = match export_wav(&samples, &files.path_for(output_path), &options) {
         Ok(r) => r,
         Err(e) => {
             progress.fail(&e);
             return Err(e);
         }
     };
+    if let Err(e) = files.commit(progress) {
+        progress.fail(&e);
+        return Err(e);
+    }
+    result.path = output_path.to_string_lossy().to_string();
 
     progress.complete();
 
@@ -424,7 +432,7 @@ pub fn export_mp3_with_options(
     normalize: bool,
     mono: bool,
 ) -> Result<String, String> {
-    use crate::export::{export_mp3, export_progress, ExportOptions, Mp3Bitrate};
+    use crate::export::{export_mp3, export_progress, ExportOptions, Mp3Bitrate, PartialFiles};
 
     let progress = export_progress();
     progress.start("Preparing MP3 export...");
@@ -494,14 +502,22 @@ pub fn export_mp3_with_options(
 
     progress.update(60, "Encoding MP3 file...");
 
-    // Export
-    let result = match export_mp3(&samples, output_path, &options) {
+    // Export under a temporary name, moved into place at the end: Cancel
+    // (checked through encoding) or a failure leaves no file, and keeps one
+    // that was already there.
+    let mut files = PartialFiles::default();
+    let mut result = match export_mp3(&samples, &files.path_for(output_path), &options) {
         Ok(r) => r,
         Err(e) => {
             progress.fail(&e);
             return Err(e);
         }
     };
+    if let Err(e) = files.commit(progress) {
+        progress.fail(&e);
+        return Err(e);
+    }
+    result.path = output_path.to_string_lossy().to_string();
 
     progress.complete();
 
@@ -572,7 +588,8 @@ pub fn export_stems(
     options_json: String,
 ) -> Result<String, String> {
     use crate::export::{
-        export_progress, export_stems as do_export_stems, ExportOptions, StemTrackInfo,
+        export_progress, export_stems as do_export_stems, ExportOptions, PartialFiles,
+        StemTrackInfo,
     };
 
     let progress = export_progress();
@@ -709,13 +726,26 @@ pub fn export_stems(
     progress.update(75, "Encoding stem files...");
 
     // Export stems
-    let result = match do_export_stems(&tracks_with_samples, output_path, &base_name, &options) {
+    // Every stem goes under a temporary name and moves into place only when
+    // all are done: Cancel or a failure leaves no stems, and keeps old ones.
+    let mut files = PartialFiles::default();
+    let result = match do_export_stems(
+        &tracks_with_samples,
+        output_path,
+        &base_name,
+        &options,
+        &mut files,
+    ) {
         Ok(r) => r,
         Err(e) => {
             progress.fail(&e);
             return Err(e);
         }
     };
+    if let Err(e) = files.commit(progress) {
+        progress.fail(&e);
+        return Err(e);
+    }
 
     progress.complete();
 

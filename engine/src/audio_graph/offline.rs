@@ -1,6 +1,6 @@
 /// Offline rendering for export and bounce
 use super::renderer::{frame_at, render_audio_clip_sample};
-use super::{interpolate_automation_gain, AudioGraph};
+use super::{interpolate_automation_gain, silence_instruments, AudioGraph};
 use crate::audio_file::TARGET_SAMPLE_RATE;
 use crate::effects::{Effect, EffectManager, Limiter};
 use crate::synth::TrackSynthManager;
@@ -446,6 +446,7 @@ impl OfflineSources {
         let mut master_r = vec![0.0f32; OFFLINE_BLOCK];
         let mut vst3_events: Vec<QueuedVst3Event> = Vec::with_capacity(128);
 
+        let mut cancelled = false;
         let mut block_start = 0usize;
         while block_start < total_frames {
             let block_len = OFFLINE_BLOCK.min(total_frames - block_start);
@@ -718,6 +719,7 @@ impl OfflineSources {
 
             block_start += block_len;
             if !on_block(block_start as f64 / total_frames as f64) {
+                cancelled = true;
                 break;
             }
         }
@@ -731,6 +733,16 @@ impl OfflineSources {
             self.master_limiter
                 .lock()
                 .set_sample_rate(live_fx_sample_rate);
+        }
+
+        // Stopped early: the notes it started on the live instruments never
+        // got their note-offs, so they would keep sounding.
+        if cancelled {
+            silence_instruments(
+                &self.track_manager,
+                &self.effect_manager,
+                &self.track_synth_manager,
+            );
         }
 
         dlog!(
@@ -825,6 +837,7 @@ impl OfflineSources {
             )
         };
 
+        let mut cancelled = false;
         let mut block_start = 0usize;
         while block_start < total_frames {
             let block_len = OFFLINE_BLOCK.min(total_frames - block_start);
@@ -966,6 +979,7 @@ impl OfflineSources {
 
             block_start += block_len;
             if !on_block(block_start as f64 / total_frames as f64) {
+                cancelled = true;
                 break;
             }
         }
@@ -976,6 +990,16 @@ impl OfflineSources {
             self.effect_manager
                 .lock()
                 .set_builtin_sample_rate(live_fx_sample_rate);
+        }
+
+        // Stopped early: the notes it started on the live instruments never
+        // got their note-offs, so they would keep sounding.
+        if cancelled {
+            silence_instruments(
+                &self.track_manager,
+                &self.effect_manager,
+                &self.track_synth_manager,
+            );
         }
 
         dlog!(
