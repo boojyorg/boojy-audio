@@ -50,4 +50,25 @@ void main() {
     expect(log().lengthSync(), lessThan(LogFile.maxBytes));
     expect(log().readAsLinesSync(), isNotEmpty);
   });
+
+  test('the cap counts bytes in the file, not characters', () async {
+    await LogFile.open(directory: dir);
+    // 3 bytes per character in the file.
+    final line = '音' * 999;
+    for (var i = 0; i < LogFile.maxBytes ~/ 1000 + 5; i++) {
+      LogFile.write(line);
+    }
+
+    expect(log().lengthSync(), lessThanOrEqualTo(LogFile.maxBytes));
+    expect(oldLog().lengthSync(), lessThanOrEqualTo(LogFile.maxBytes));
+  });
+
+  test('one huge message is cut short, not let past the cap', () async {
+    await LogFile.open(directory: dir);
+    LogFile.write('é' * (LogFile.maxBytes + 10));
+
+    final size = log().lengthSync();
+    expect(size, lessThanOrEqualTo(LogFile.maxLineBytes + 100));
+    expect(log().readAsStringSync(), contains('é…'));
+  });
 }

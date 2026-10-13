@@ -603,7 +603,7 @@ impl AudioGraph {
                 // Audio health: time this buffer (recorded when the timer drops at the
                 // end of the callback) and check the device didn't skip one.
                 let _buffer_timer = BufferTimer::start(frames, stream_rate);
-                gap_detector.on_callback(info.timestamp().playback, frames);
+                gap_detector.on_callback(info.timestamp().callback, frames);
 
                 // Check if we should be playing (lock-free atomic read)
                 let is_playing = state.load(Ordering::SeqCst) == TransportState::Playing as u8;

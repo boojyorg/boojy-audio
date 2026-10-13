@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
@@ -6,7 +7,8 @@ import '../utils/native_dialogs.dart';
 
 /// The local log: `boojy.log` in Boojy's app-support folder. Holds errors and
 /// audio dropouts in every build, so "it crackled" or "it broke" comes with
-/// data. At [maxBytes] it becomes `boojy.old.log` and a new file starts.
+/// data. At [maxBytes] it becomes `boojy.old.log` and a new file starts; a
+/// message over [maxLineBytes] is cut short.
 ///
 /// Writes are small synchronous appends (a line now and then), never from
 /// the audio thread. Until [open] runs, lines are dropped.
@@ -14,6 +16,7 @@ class LogFile {
   LogFile._();
 
   static const maxBytes = 1024 * 1024;
+  static const maxLineBytes = 8 * 1024;
 
   static File? _file;
   static int _bytes = 0;
@@ -39,11 +42,13 @@ class LogFile {
   static void write(String message) {
     final file = _file;
     if (file == null) return;
-    final line = '${_timestamp(DateTime.now())}  $message\n';
+    final bytes = utf8.encode(
+      '${_timestamp(DateTime.now())}  ${_shorten(message)}\n',
+    );
     try {
-      if (_bytes + line.length > maxBytes) _rotate(file);
-      file.writeAsStringSync(line, mode: FileMode.append);
-      _bytes += line.length;
+      if (_bytes + bytes.length > maxBytes) _rotate(file);
+      file.writeAsBytesSync(bytes, mode: FileMode.append);
+      _bytes += bytes.length;
     } catch (_) {
       // A log that can't be written mustn't take anything else down.
     }
@@ -55,6 +60,18 @@ class LogFile {
     if (file == null) return;
     if (!file.existsSync()) file.createSync(recursive: true);
     await revealInFinder(file.path);
+  }
+
+  /// [message] cut to [maxLineBytes] of UTF-8, ending in `…` when cut.
+  static String _shorten(String message) {
+    final bytes = utf8.encode(message);
+    if (bytes.length <= maxLineBytes) return message;
+    final cut = utf8.decode(
+      bytes.sublist(0, maxLineBytes),
+      allowMalformed: true,
+    );
+    // Drop a character split by the cut.
+    return '${cut.replaceAll(RegExp('\uFFFD\$'), '')}…';
   }
 
   static void _rotate(File file) {

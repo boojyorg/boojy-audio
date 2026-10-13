@@ -45,9 +45,9 @@ fn load_permille(elapsed: Duration, budget: Duration) -> u32 {
     u32::try_from(permille).unwrap_or(u32::MAX)
 }
 
-/// Buffers skipped between two callbacks whose playback times are `gap`
-/// apart, when each buffer should last `expected`. Jitter under half a
-/// buffer is normal; gaps over [`MAX_COUNTED_GAP`] are ignored.
+/// Buffers skipped when two callbacks are `gap` apart and the longer of their
+/// two buffers lasts `expected`. Jitter under half a buffer is normal; gaps
+/// over [`MAX_COUNTED_GAP`] are ignored.
 fn missed_buffers(gap: Duration, expected: Duration) -> u64 {
     if expected.is_zero() || gap > MAX_COUNTED_GAP {
         return 0;
@@ -92,32 +92,49 @@ impl Drop for BufferTimer {
     }
 }
 
-/// Watches the device's playback timestamps for skipped buffers. One per
-/// stream, owned by its callback.
+/// Watches the time between callbacks for skipped buffers. One per stream,
+/// owned by its callback.
+///
+/// Uses cpal's *callback* time, not its *playback* time: on both macOS and
+/// Windows cpal sets playback = callback + this buffer's length, so playback
+/// gaps jump whenever the buffer size changes (Windows varies it). Callbacks
+/// are expected the longer of the two buffers apart: macOS paces them by the
+/// previous buffer, while Windows tops its buffer up each time, so the gap
+/// matches what was played since, the current buffer. A short Windows
+/// underrun can slip under that; a stall can't.
 pub(crate) struct GapDetector {
     sample_rate: u32,
-    last: Option<(cpal::StreamInstant, usize)>,
+    last_callback: Option<cpal::StreamInstant>,
+    last_frames: usize,
 }
 
 impl GapDetector {
     pub(crate) fn new(sample_rate: u32) -> Self {
         Self {
             sample_rate,
-            last: None,
+            last_callback: None,
+            last_frames: 0,
         }
     }
 
-    pub(crate) fn on_callback(&mut self, playback: cpal::StreamInstant, frames: usize) {
-        if let Some((last_playback, last_frames)) = self.last {
-            if let Some(gap) = playback.duration_since(&last_playback) {
-                let expected = buffer_duration(last_frames, self.sample_rate);
-                let missed = missed_buffers(gap, expected);
-                if missed > 0 {
-                    MISSED_BUFFERS.fetch_add(missed, Ordering::Relaxed);
-                }
-            }
+    pub(crate) fn on_callback(&mut self, callback: cpal::StreamInstant, frames: usize) {
+        let gap = self
+            .last_callback
+            .and_then(|last| callback.duration_since(&last));
+        self.last_callback = Some(callback);
+        let missed = self.missed_since_last(gap, frames);
+        if missed > 0 {
+            MISSED_BUFFERS.fetch_add(missed, Ordering::Relaxed);
         }
-        self.last = Some((playback, frames));
+    }
+
+    /// Buffers skipped before this callback, `gap` after the last one (none
+    /// for the first callback).
+    fn missed_since_last(&mut self, gap: Option<Duration>, frames: usize) -> u64 {
+        let last = buffer_duration(self.last_frames, self.sample_rate);
+        self.last_frames = frames;
+        let Some(gap) = gap else { return 0 };
+        missed_buffers(gap, last.max(buffer_duration(frames, self.sample_rate)))
     }
 }
 
@@ -155,7 +172,7 @@ pub(crate) fn snapshot(buffer_frames: u32, sample_rate: u32) -> AudioHealthSnaps
 
 #[cfg(test)]
 mod tests {
-    use super::{load_permille, lock_or_count, missed_buffers};
+    use super::{load_permille, lock_or_count, missed_buffers, GapDetector};
     use parking_lot::Mutex;
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::Duration;
@@ -183,6 +200,26 @@ mod tests {
     fn a_skipped_buffer_is_counted() {
         assert_eq!(missed_buffers(ms(10.67), ms(5.33)), 1);
         assert_eq!(missed_buffers(ms(21.3), ms(5.33)), 3);
+    }
+
+    #[test]
+    fn a_skipped_device_cycle_is_counted_at_a_steady_buffer_size() {
+        // macOS: callbacks one 256-frame buffer apart, then one cycle lost.
+        let mut detector = GapDetector::new(48_000);
+        assert_eq!(detector.missed_since_last(None, 256), 0);
+        assert_eq!(detector.missed_since_last(Some(ms(5.33)), 256), 0);
+        assert_eq!(detector.missed_since_last(Some(ms(10.67)), 256), 1);
+    }
+
+    #[test]
+    fn changing_buffer_sizes_are_not_dropouts() {
+        // Windows hands out variable sizes: 96 frames, then 192 frames 4 ms
+        // later, is a healthy stream (review of #204).
+        let mut detector = GapDetector::new(48_000);
+        assert_eq!(detector.missed_since_last(None, 96), 0);
+        assert_eq!(detector.missed_since_last(Some(ms(4.0)), 192), 0);
+        // macOS-style pacing by the previous buffer when the size drops.
+        assert_eq!(detector.missed_since_last(Some(ms(4.0)), 96), 0);
     }
 
     #[test]
