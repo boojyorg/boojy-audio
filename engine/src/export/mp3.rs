@@ -132,14 +132,16 @@ fn encode_mp3(
     let block = sample_rate as usize * 2;
     let mut mp3 = Vec::with_capacity(mp3lame_encoder::max_required_buffer_size(samples.len() / 2));
     let mut clipped = Vec::with_capacity(block);
-    for (i, chunk) in samples.chunks(block).enumerate() {
+    let mut encoded = 0;
+    for chunk in samples.chunks(block) {
         clipped.clear();
         clipped.extend(chunk.iter().map(|s| s.clamp(-1.0, 1.0)));
         mp3.reserve(mp3lame_encoder::max_required_buffer_size(chunk.len() / 2));
         encoder
             .encode_to_vec(InterleavedPcm(clipped.as_slice()), &mut mp3)
             .map_err(lame_error)?;
-        if !on_block(((i + 1) * block) as f64 / samples.len() as f64) {
+        encoded += chunk.len();
+        if !on_block(encoded as f64 / samples.len() as f64) {
             return Err("Export cancelled".to_string());
         }
     }

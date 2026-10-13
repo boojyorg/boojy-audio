@@ -215,6 +215,46 @@ mod tests {
     use super::*;
 
     #[test]
+    fn mp3_stem_progress_only_moves_forward() {
+        // Review of #207: the last, shorter block of each stem counted as a
+        // whole one, so 3.2 s stems went 0 → 62% → 50% → …
+        let audio: Vec<f32> = (0..(3.2 * 48_000.0) as usize * 2)
+            .map(|i| 0.3 * ((i / 2) as f32 * 0.05).sin())
+            .collect();
+        let tracks: Vec<_> = (1..=2)
+            .map(|id| {
+                let info = StemTrackInfo {
+                    id,
+                    name: format!("Track {id}"),
+                    selected: true,
+                };
+                (info, audio.clone())
+            })
+            .collect();
+        let dir = std::env::temp_dir().join("stem_progress_forward");
+        let options =
+            ExportOptions::mp3(super::super::options::Mp3Bitrate::Kbps128).with_sample_rate(48_000);
+        let mut seen = Vec::new();
+
+        export_stems(
+            &tracks,
+            &dir,
+            "Song",
+            &options,
+            &mut PartialFiles::default(),
+            &mut |done| {
+                seen.push(done);
+                true
+            },
+        )
+        .unwrap();
+
+        assert!(seen.windows(2).all(|w| w[0] <= w[1]), "{seen:?}");
+        assert_eq!(seen.last(), Some(&1.0), "{seen:?}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn test_generate_stem_filename() {
         assert_eq!(
             generate_stem_filename("Song", "Drums", "wav"),
