@@ -82,7 +82,8 @@ items below with throwaway tests (each fix brings its own) and ran into the 48 k
 - **Devices that can't run at 48 kHz play at the wrong speed and pitch.** The engine asks for
   48 kHz stereo and falls back to the device's rate while its maths stays at 48 kHz. Bluetooth
   headphones drop to 16 kHz "headset mode" when their mic is in use, and beginners record with
-  AirPods. Needs sample-rate conversion on the output and the input (the input opens at 48 kHz,
+  AirPods. Tyr's Arctis Nova 7 offers only 16 and 44.1 kHz, so it plays everything about
+  9% slow and 1.5 semitones flat. Needs sample-rate conversion on the output and the input (the input opens at 48 kHz,
   which most devices offer; one that can't would crackle). A bigger job than the bugs above.
 - New Project keeps the previous tempo and time signature (U2).
 - **A plugin file with more than one plugin always loads the first.** Serum 2's file holds the
@@ -90,7 +91,16 @@ items below with throwaway tests (each fix brings its own) and ran into the 48 k
   class). Load the class that was picked. Needs the C++ library rebuilt.
 - "Mute Clip" on a MIDI clip doesn't silence it: the scheduler ignores the flag. The consistency
   checker compares note counts, not the notes or mute, so it missed this; make it compare both.
+- **Adding a VST3 while playing crackles.** Loading the plugin holds the track lock, so the
+  audio thread waits (log 2026-10-14: one buffer at 123%, "waited on: tracks"). Load it first,
+  then take the lock only to insert it.
+- **Installed plugins never show up** after the first scan: the list is kept for good and there
+  is no rescan. Fix built (rescan when a VST3 folder changed), awaiting walkthrough.
 - *If reproduced:*
+  - "Audio clip 0 plays on track 1 but is not on the screen": the dev check fired twice in Tyr's
+    session (2026-10-14), action unknown.
+  - Something in the window is 4 px too wide (repeated "RenderFlex overflowed by 4.0 pixels on
+    the right"; the log doesn't name the widget).
   - The volume fader jumps when grabbed (U3).
   - The loop's jump back is timed by the UI's 60 fps timer, not the engine, so it can land a
     frame or more late (a stutter at the loop point). The engine should own the loop.
