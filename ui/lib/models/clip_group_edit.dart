@@ -155,7 +155,8 @@ class ClipGroup {
   final double? lowAudibleGainDb;
   final double? highAudibleGainDb;
 
-  final bool allReversed;
+  /// How many of the clips are reversed.
+  final int reversedCount;
 
   const ClipGroup._({
     required this.count,
@@ -169,7 +170,7 @@ class ClipGroup {
     required this.highGainDb,
     required this.lowAudibleGainDb,
     required this.highAudibleGainDb,
-    required this.allReversed,
+    required this.reversedCount,
   });
 
   /// The group of [edits], or null for fewer than two (one clip edits alone).
@@ -194,9 +195,13 @@ class ClipGroup {
       highGainDb: high(gains),
       lowAudibleGainDb: audible.isEmpty ? null : low(audible),
       highAudibleGainDb: audible.isEmpty ? null : high(audible),
-      allReversed: edits.every((e) => e.reversed),
+      reversedCount: edits.where((e) => e.reversed).length,
     );
   }
+
+  bool get pitchDiffers => lowPitch != highPitch;
+  bool get gainDiffers => lowGainDb != highGainDb;
+  bool get reverseDiffers => reversedCount != 0 && reversedCount != count;
 
   /// [cents] cut down so no clip goes past the pitch limits: the whole group
   /// stops together and keeps its spacing. With [wholeSemitones] (a

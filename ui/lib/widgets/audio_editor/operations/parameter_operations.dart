@@ -85,12 +85,12 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
   // PROCESSING OPERATIONS
   // ============================================
 
-  /// Toggle reverse playback. With several clips selected: reverse them all,
-  /// or, when they all are already, none.
+  /// Toggle reverse playback. With several clips selected, every clip goes
+  /// the way the open clip goes (the button shows the open clip).
   void toggleReverse() {
     final group = widget.group;
     if (group != null) {
-      final reversed = !group.allReversed;
+      final reversed = !editData.reversed;
       editGroup(
         SetReversed(reversed: reversed),
         '${reversed ? 'Reverse' : 'Un-reverse'} ${group.count} clips',

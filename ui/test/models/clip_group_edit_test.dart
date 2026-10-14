@@ -95,13 +95,14 @@ void main() {
   });
 
   group('reverse', () {
-    test('all reversed only when every clip is', () {
+    test('differs only when some clips are reversed and some not', () {
       const reversed = AudioClipEditData(reversed: true);
-      expect(ClipGroup.of([reversed, reversed])!.allReversed, isTrue);
-      expect(
-        ClipGroup.of([reversed, const AudioClipEditData()])!.allReversed,
-        isFalse,
-      );
+      const plain = AudioClipEditData();
+      expect(ClipGroup.of([reversed, reversed])!.reverseDiffers, isFalse);
+      expect(ClipGroup.of([plain, plain])!.reverseDiffers, isFalse);
+      final mixed = ClipGroup.of([reversed, plain, plain])!;
+      expect(mixed.reverseDiffers, isTrue);
+      expect(mixed.reversedCount, 1);
     });
 
     test('sets every clip', () {

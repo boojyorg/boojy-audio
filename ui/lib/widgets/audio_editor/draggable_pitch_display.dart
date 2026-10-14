@@ -39,10 +39,6 @@ class DraggablePitchDisplay extends StatefulWidget {
   final Function(int)? onSemitonesTyped;
   final Function(int)? onCentsTyped;
 
-  /// Shown instead of [semitones] / [cents] (several clips: their range).
-  final String? semitonesText;
-  final String? centsText;
-
   const DraggablePitchDisplay({
     super.key,
     required this.semitones,
@@ -54,8 +50,6 @@ class DraggablePitchDisplay extends StatefulWidget {
     this.onShift,
     this.onSemitonesTyped,
     this.onCentsTyped,
-    this.semitonesText,
-    this.centsText,
   });
 
   @override
@@ -283,12 +277,7 @@ class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildSegment(
-          0,
-          widget.semitonesText ?? _formatSemitones(widget.semitones),
-          'st',
-          colors,
-        ),
+        _buildSegment(0, _formatSemitones(widget.semitones), 'st', colors),
         Text(
           '. ',
           style: TextStyle(
@@ -298,12 +287,7 @@ class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
-        _buildSegment(
-          1,
-          widget.centsText ?? _formatCents(widget.cents),
-          'ct',
-          colors,
-        ),
+        _buildSegment(1, _formatCents(widget.cents), 'ct', colors),
       ],
     );
   }

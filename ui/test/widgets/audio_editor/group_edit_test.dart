@@ -3,6 +3,7 @@ import 'package:boojy_audio/models/clip_data.dart';
 import 'package:boojy_audio/models/clip_group_edit.dart';
 import 'package:boojy_audio/theme/theme_provider.dart';
 import 'package:boojy_audio/widgets/audio_editor/audio_editor.dart';
+import 'package:boojy_audio/widgets/shared/boojy_tooltip.dart';
 import 'package:boojy_audio/widgets/shared/editors/capsule_slider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +24,7 @@ void main() {
   Future<(List<ClipGroupEdit>, List<String>, List<AudioClipEditData>)>
   pumpEditor(
     WidgetTester tester, {
+    AudioClipEditData openEdit = open,
     List<AudioClipEditData> others = const [
       AudioClipEditData(transposeSemitones: -2),
       AudioClipEditData(),
@@ -39,12 +41,12 @@ void main() {
       filePath: '/loops/vocal.wav',
       startTime: 0,
       duration: 8,
-      editData: open,
+      editData: openEdit,
     );
     final engine = MockAudioEngine()..tempo = 120;
     final edits = <ClipGroupEdit>[];
     final finished = <String>[];
-    final clips = [open, ...others];
+    final clips = [openEdit, ...others];
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -86,12 +88,23 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('shows how many clips and the spread of their pitch', (
+  testWidgets('shows the open clip, how many clips, and that they differ', (
     tester,
   ) async {
     await pumpEditor(tester);
-    expect(find.text('3 clips'), findsOneWidget);
-    expect(find.text('-2…0'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget, reason: 'the clip count tag');
+    expect(find.text('-1'), findsOneWidget, reason: "the open clip's pitch");
+    // Pitch differs (a dot and a hover card); volume and reverse don't.
+    final cards = tester.widgetList<BoojyTooltip>(find.byType(BoojyTooltip));
+    expect(cards.map((c) => c.title), [
+      '3 clips selected',
+      '3 clips: -2 to 0 st',
+    ]);
+  });
+
+  testWidgets('one clip: no tag, no hover cards', (tester) async {
+    await pumpEditor(tester, others: const []);
+    expect(find.byType(BoojyTooltip), findsNothing);
   });
 
   testWidgets('a pitch drag shifts every clip, one edit on release', (
@@ -165,5 +178,20 @@ void main() {
     expect(edits.single, isA<SetReversed>());
     expect((edits.single as SetReversed).reversed, isTrue);
     expect(finished, ['Reverse 3 clips']);
+  });
+
+  testWidgets('Reverse on a reversed clip un-reverses every clip', (
+    tester,
+  ) async {
+    final (edits, _, clips) = await pumpEditor(
+      tester,
+      openEdit: const AudioClipEditData(reversed: true),
+      others: const [AudioClipEditData(), AudioClipEditData(reversed: true)],
+    );
+    await tester.tap(find.text('Reverse'));
+    await tester.pump(kDoubleTapTimeout);
+
+    expect((edits.single as SetReversed).reversed, isFalse);
+    expect(clips.map((e) => e.reversed), [false, false, false]);
   });
 }
