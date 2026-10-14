@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../utils/logger.dart';
 import '../../../models/clip_data.dart';
+import '../../../models/clip_group_edit.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../models/midi_event.dart';
 import '../../../services/audio_clip_engine_sync.dart';
@@ -317,21 +318,72 @@ mixin DAWClipMixin
     timelineKey.currentState?.updateClip(clip);
   }
 
+  /// The other selected audio clips as they were before the group edit in
+  /// progress (see [onAudioClipGroupEdit]), by clip ID.
+  final Map<int, ClipData> _groupEditBefore = {};
+
+  /// The other selected audio clips the Audio Editor's Pitch, Volume and
+  /// Reverse also act on: only while the clip it has open is selected too.
+  List<ClipData> _audioGroupOthers() {
+    final timeline = timelineKey.currentState;
+    final open = selectedAudioClip;
+    if (timeline == null || open == null) return const [];
+    final ids = timeline.selectedAudioClipIds;
+    if (ids.length < 2 || !ids.contains(open.clipId)) return const [];
+    return timeline.selectedAudioClips
+        .where((c) => c.clipId != open.clipId)
+        .toList();
+  }
+
+  /// The selected audio clips summed up for the Audio Editor's controls, or
+  /// null when it edits its open clip alone.
+  ClipGroup? get audioClipGroup {
+    final others = _audioGroupOthers();
+    final open = selectedAudioClip;
+    if (others.isEmpty || open == null) return null;
+    final current = _timelineAudioClip(open.clipId) ?? open;
+    return ClipGroup.of([current, ...others].map(editDataOf).toList());
+  }
+
+  /// The Audio Editor changed Pitch, Volume or Reverse with several clips
+  /// selected (it changes its open clip itself): make the same change on
+  /// the others. Like the open clip's, it's on screen at once and goes to
+  /// the engine, as one undo step, at [onAudioClipEditFinished].
+  void onAudioClipGroupEdit(ClipGroupEdit edit) {
+    final timeline = timelineKey.currentState;
+    if (timeline == null) return;
+    for (final clip in _audioGroupOthers()) {
+      _groupEditBefore.putIfAbsent(clip.clipId, () => clip);
+      timeline.updateClip(
+        clip.copyWith(editData: edit.applyTo(editDataOf(clip))),
+      );
+    }
+  }
+
   /// The Audio Editor finished an edit (a click, a typed value, the end of a
-  /// drag): record the clip before and after it as one undo step.
+  /// drag): record the clips before and after it as one undo step.
   Future<void> onAudioClipEditFinished(String description) async {
-    final before = _audioEditBefore;
+    final befores = [?_audioEditBefore, ..._groupEditBefore.values];
     _audioEditBefore = null;
-    if (before == null) return;
-    final after = _timelineAudioClip(before.clipId);
-    if (after == null || _sameAudioClipEdit(before, after)) return;
+    _groupEditBefore.clear();
+    final commands = <Command>[];
+    for (final before in befores) {
+      final after = _timelineAudioClip(before.clipId);
+      if (after == null || _sameAudioClipEdit(before, after)) continue;
+      commands.add(
+        EditAudioClipCommand(
+          before: before,
+          after: after,
+          description: description,
+          onClipEdited: _showEditedAudioClip,
+        ),
+      );
+    }
+    if (commands.isEmpty) return;
     await undoRedoManager.execute(
-      EditAudioClipCommand(
-        before: before,
-        after: after,
-        description: description,
-        onClipEdited: _showEditedAudioClip,
-      ),
+      commands.length == 1
+          ? commands.single
+          : CompositeCommand(commands, description),
     );
   }
 

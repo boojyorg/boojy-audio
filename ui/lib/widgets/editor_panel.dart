@@ -15,6 +15,7 @@ import '../services/undo_redo_manager.dart';
 import 'drum_kit_editor/drum_kit_editor.dart';
 import 'piano_roll.dart';
 import 'audio_editor/audio_editor.dart';
+import '../models/clip_group_edit.dart';
 import 'device_chain/device_chain_view.dart';
 import 'sampler_editor/sampler_editor.dart';
 import 'preset_nav.dart';
@@ -50,6 +51,10 @@ class EditorPanel extends StatefulWidget {
 
   /// The Audio Editor finished an edit (one undo step), described as given.
   final void Function(String description)? onAudioClipEditFinished;
+
+  /// Several audio clips selected: Pitch, Volume and Reverse act on them all.
+  final ClipGroup? audioClipGroup;
+  final void Function(ClipGroupEdit edit)? onAudioClipGroupEdit;
 
   // M10: VST3 Plugin support
   final List<Vst3PluginInstance>? currentTrackPlugins;
@@ -117,6 +122,8 @@ class EditorPanel extends StatefulWidget {
     this.currentEditingAudioClip,
     this.onAudioClipUpdated,
     this.onAudioClipEditFinished,
+    this.audioClipGroup,
+    this.onAudioClipGroupEdit,
     this.currentTrackPlugins,
     this.availableVst3Plugins = const [],
     this.isCollapsed = false,
@@ -1330,6 +1337,8 @@ class _EditorPanelState extends State<EditorPanel>
       clipData: clipData,
       onClipUpdated: widget.onAudioClipUpdated,
       onEditFinished: widget.onAudioClipEditFinished,
+      group: widget.audioClipGroup,
+      onGroupEdit: widget.onAudioClipGroupEdit,
       toolMode: widget.toolMode,
       onToolModeChanged: widget.callbacks.onToolModeChanged,
       projectTempo: widget.projectTempo,

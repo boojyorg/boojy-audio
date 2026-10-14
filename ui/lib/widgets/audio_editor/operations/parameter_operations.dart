@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../models/clip_group_edit.dart';
 import '../audio_editor.dart';
 import '../audio_editor_state.dart';
 
@@ -84,12 +85,118 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
   // PROCESSING OPERATIONS
   // ============================================
 
-  /// Toggle reverse playback.
+  /// Toggle reverse playback. With several clips selected, every clip goes
+  /// the way the open clip goes (the button shows the open clip).
   void toggleReverse() {
+    final group = widget.group;
+    if (group != null) {
+      final reversed = !editData.reversed;
+      editGroup(
+        SetReversed(reversed: reversed),
+        '${reversed ? 'Reverse' : 'Un-reverse'} ${group.count} clips',
+      );
+      return;
+    }
     final newValue = !editData.reversed;
     setState(() {
       editData = editData.copyWith(reversed: newValue);
     });
     finishEdit(newValue ? 'Enable reverse' : 'Disable reverse');
+  }
+
+  // ============================================
+  // SEVERAL CLIPS (widget.group)
+  // ============================================
+
+  /// Make [edit] on the open clip and the other selected clips, as one undo
+  /// step (one per drag).
+  void editGroup(ClipGroupEdit edit, String actionDescription) {
+    setState(() => editData = edit.applyTo(editData));
+    widget.onGroupEdit?.call(edit);
+    finishEdit(actionDescription);
+  }
+
+  /// How far the clips' pitch and volume have moved since [AudioEditor.group]
+  /// was taken: input events can come faster than the DAW rebuilds the
+  /// editor with a fresh one, and the limits must count them all.
+  int _pitchShifted = 0;
+  double _gainShifted = 0;
+
+  /// [AudioEditor.group] is fresh (the DAW rebuilt it from the clips).
+  void groupRefreshed() {
+    _pitchShifted = 0;
+    _gainShifted = 0;
+  }
+
+  /// A pitch drag or scroll: every clip moves by [cents], the group stopping
+  /// together at the limits.
+  void shiftGroupPitch(int cents, {required bool wholeSemitones}) {
+    final group = widget.group;
+    if (group == null) return;
+    final shift = group.clampPitchShift(
+      cents,
+      wholeSemitones: wholeSemitones,
+      alreadyShifted: _pitchShifted,
+    );
+    if (shift == 0) return;
+    _pitchShifted += shift;
+    editGroup(ShiftPitch(shift), 'Change pitch of ${group.count} clips');
+  }
+
+  /// Typed semitones: every clip gets them.
+  void setGroupSemitones(int semitones) {
+    final count = widget.group?.count ?? 1;
+    editGroup(
+      SetSemitones(semitones),
+      'Set pitch of $count clips to $semitones semitones',
+    );
+  }
+
+  /// Typed cents: every clip gets them.
+  void setGroupCents(int cents) {
+    final count = widget.group?.count ?? 1;
+    editGroup(SetCents(cents), 'Set fine tune of $count clips to $cents cents');
+  }
+
+  /// The volume drag started on a silent clip: it moves alone, as there's no
+  /// sensible amount to move the others by.
+  bool _gainDragFromSilence = false;
+
+  void beginGainDrag() {
+    _gainDragFromSilence = editData.gainDb <= minGainDb;
+    beginLiveDrag();
+  }
+
+  /// The volume slider moved the open clip to [db]: the others move by as
+  /// much, the group stopping together at the limits.
+  void setGroupGain(double db) {
+    final group = widget.group;
+    if (group == null || _gainDragFromSilence) {
+      setGain(db);
+      return;
+    }
+    final shift = group.clampGainShift(
+      db - editData.gainDb,
+      alreadyShifted: _gainShifted,
+    );
+    if (shift == 0) return;
+    _gainShifted += shift;
+    setState(() {
+      editData = editData.copyWith(
+        gainDb: (editData.gainDb + shift).clamp(minGainDb, maxGainDb),
+      );
+    });
+    widget.onGroupEdit?.call(ShiftGain(shift));
+    finishEdit('Change volume of ${group.count} clips');
+  }
+
+  /// Double-click on the volume slider: back to 0 dB, every selected clip.
+  void resetGain() {
+    final group = widget.group;
+    if (group == null) {
+      setGain(0.0);
+      return;
+    }
+    editGroup(const SetGain(0.0), 'Reset volume of ${group.count} clips');
   }
 }

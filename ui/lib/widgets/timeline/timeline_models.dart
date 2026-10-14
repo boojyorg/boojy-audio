@@ -69,12 +69,17 @@ class AudioClipCallbacks {
   /// argument is needed.
   final VoidCallback? onJoinSelected;
 
+  /// Which audio clips are selected changed without [onSelected] (a box
+  /// select, Select All, clearing the selection).
+  final VoidCallback? onSelectionChanged;
+
   const AudioClipCallbacks({
     this.onSelected,
     this.onOpenEditor,
     this.onCopied,
     this.onBatchDeleted,
     this.onJoinSelected,
+    this.onSelectionChanged,
   });
 }
 

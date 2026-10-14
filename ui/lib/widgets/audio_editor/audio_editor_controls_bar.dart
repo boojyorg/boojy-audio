@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../models/clip_group_edit.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 import '../piano_roll/loop_time_display.dart';
 import '../shared/editors/bpm_display.dart';
+import '../shared/boojy_tooltip.dart';
 import '../shared/editors/capsule_slider.dart';
 import 'draggable_pitch_display.dart';
 
@@ -60,6 +62,20 @@ class AudioEditorControlsBar extends StatefulWidget {
   final VoidCallback? onGainDragStart;
   final VoidCallback? onGainDragEnd;
 
+  /// Double-click on the volume slider: back to 0 dB.
+  final VoidCallback? onGainReset;
+
+  // === Several clips selected ===
+  /// The selected clips Pitch, Volume and Reverse act on; null for one clip.
+  final ClipGroup? group;
+
+  /// A pitch drag or scroll moved by [cents] (in group mode).
+  final void Function(int cents, {required bool wholeSemitones})? onPitchShift;
+
+  /// A typed pitch (in group mode).
+  final Function(int)? onSemitonesTyped;
+  final Function(int)? onCentsTyped;
+
   // === Create Sampler ===
   final VoidCallback? onCreateSamplerFromClip;
 
@@ -96,6 +112,11 @@ class AudioEditorControlsBar extends StatefulWidget {
     this.onGainChanged,
     this.onGainDragStart,
     this.onGainDragEnd,
+    this.onGainReset,
+    this.group,
+    this.onPitchShift,
+    this.onSemitonesTyped,
+    this.onCentsTyped,
     this.onCreateSamplerFromClip,
   });
 
@@ -262,9 +283,45 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
     );
   }
 
+  // ============ SEVERAL CLIPS ============
+
+  /// [control] with, when several clips are selected, a hover card saying
+  /// where they stand ([title], [description]). Nothing on screen changes:
+  /// the clips moving on the timeline show the edit reaches them all.
+  Widget _groupCard({
+    required String title,
+    required String description,
+    required Widget control,
+  }) {
+    if (widget.group == null) return control;
+    return BoojyTooltip(title: title, description: description, child: control);
+  }
+
+  static String _signed(int v) => v > 0 ? '+$v' : '$v';
+
+  static String _db(double db) {
+    if (db <= -70) return '-∞';
+    final text = db.toStringAsFixed(1);
+    return db > 0 ? '+$text' : text;
+  }
+
+  /// "3 clips: -4 to 0 st" (and the cents when they differ).
+  static String _pitchSpread(ClipGroup g) {
+    final parts = <String>[
+      if (g.lowSemitones != g.highSemitones)
+        '${_signed(g.lowSemitones)} to ${_signed(g.highSemitones)} st'
+      else
+        '${_signed(g.lowSemitones)} st',
+      if (g.lowCents != g.highCents)
+        '${_signed(g.lowCents)} to ${_signed(g.highCents)} ct',
+    ];
+    return '${g.count} clips: ${parts.join(', ')}';
+  }
+
   // ============ PITCH CONTROL ============
   Widget _buildPitchControl(BuildContext context) {
     final colors = context.colors;
+    final group = widget.group;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -274,20 +331,27 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
           style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
         ),
         const SizedBox(width: 4),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-          decoration: BoxDecoration(
-            color: colors.dark,
-            borderRadius: BorderRadius.circular(2),
-            border: Border.all(color: colors.surface, width: 1),
-          ),
-          child: DraggablePitchDisplay(
-            semitones: widget.transposeSemitones,
-            cents: widget.fineCents,
-            onSemitonesChanged: widget.onTransposeChanged,
-            onCentsChanged: widget.onFineCentsChanged,
-            onDragStart: widget.onPitchDragStart,
-            onDragEnd: widget.onPitchDragEnd,
+        _groupCard(
+          title: group == null ? '' : _pitchSpread(group),
+          description: 'Dragging moves them together; typing sets them all',
+          control: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+            decoration: BoxDecoration(
+              color: colors.dark,
+              borderRadius: BorderRadius.circular(2),
+              border: Border.all(color: colors.surface, width: 1),
+            ),
+            child: DraggablePitchDisplay(
+              semitones: widget.transposeSemitones,
+              cents: widget.fineCents,
+              onShift: widget.onPitchShift,
+              onSemitonesTyped: widget.onSemitonesTyped,
+              onCentsTyped: widget.onCentsTyped,
+              onSemitonesChanged: widget.onTransposeChanged,
+              onCentsChanged: widget.onFineCentsChanged,
+              onDragStart: widget.onPitchDragStart,
+              onDragEnd: widget.onPitchDragEnd,
+            ),
           ),
         ),
       ],
@@ -331,6 +395,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
     }
 
     final sliderValue = dbToSlider(widget.gainDb);
+    final group = widget.group;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -342,24 +407,35 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
         ),
         const SizedBox(width: 4),
         // dB display box (matches track mixer style)
-        Container(
-          width: 52,
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-          decoration: BoxDecoration(
-            color: colors.dark,
-            borderRadius: BorderRadius.circular(2),
-            border: Border.all(color: colors.surface, width: 1),
-          ),
-          child: Text(
-            widget.gainDb <= -70
-                ? '-∞ dB'
-                : '${widget.gainDb.toStringAsFixed(1)} dB',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: BT.fontCaption,
-              color: colors.textPrimary,
-              fontFamily: BT.fontFamilyMono,
-              fontFeatures: const [FontFeature.tabularFigures()],
+        _groupCard(
+          title: group == null
+              ? ''
+              : group.gainDiffers
+              ? '${group.count} clips: ${_db(group.lowGainDb)} to '
+                    '${_db(group.highGainDb)} dB'
+              : '${group.count} clips: ${_db(group.lowGainDb)} dB',
+          description:
+              'Dragging moves them together; double-click sets '
+              'them all to 0 dB',
+          control: Container(
+            width: 60, // fits "-20.4 dB" on one line
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+            decoration: BoxDecoration(
+              color: colors.dark,
+              borderRadius: BorderRadius.circular(2),
+              border: Border.all(color: colors.surface, width: 1),
+            ),
+            child: Text(
+              widget.gainDb <= -70
+                  ? '-∞ dB'
+                  : '${widget.gainDb.toStringAsFixed(1)} dB',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: BT.fontCaption,
+                color: colors.textPrimary,
+                fontFamily: BT.fontFamilyMono,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           ),
         ),
@@ -377,7 +453,11 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
             onChangeStart: widget.onGainDragStart,
             onChangeEnd: widget.onGainDragEnd,
             onDoubleTap: () {
-              widget.onGainChanged?.call(0.0); // Reset to 0 dB
+              if (widget.onGainReset != null) {
+                widget.onGainReset!();
+              } else {
+                widget.onGainChanged?.call(0.0); // Reset to 0 dB
+              }
               widget.onGainDragEnd?.call(); // a double-click has no tap-up
             },
           ),
@@ -494,13 +574,23 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
           );
         }),
         const SizedBox(width: 4),
-        // Reverse toggle
-        _buildActionButton(
-          context,
-          'Reverse',
-          widget.reversed,
-          true,
-          widget.onReverseToggle,
+        // Reverse toggle (several clips: shows the open clip; a click sets
+        // them all the other way)
+        _groupCard(
+          title: widget.group == null
+              ? ''
+              : '${widget.group!.reversedCount} of ${widget.group!.count} '
+                    'clips reversed',
+          description: widget.reversed
+              ? 'Click to un-reverse them all'
+              : 'Click to reverse them all',
+          control: _buildActionButton(
+            context,
+            'Reverse',
+            widget.reversed,
+            true,
+            widget.onReverseToggle,
+          ),
         ),
       ],
     );

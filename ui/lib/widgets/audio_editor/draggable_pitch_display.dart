@@ -31,6 +31,14 @@ class DraggablePitchDisplay extends StatefulWidget {
   final VoidCallback? onDragStart;
   final VoidCallback? onDragEnd;
 
+  /// Several clips: drags and scrolls report how far they moved, in cents
+  /// (whole semitones on the semitones segment), and typed values go to
+  /// [onSemitonesTyped] / [onCentsTyped], so the clips can be moved together
+  /// or all set to one value.
+  final void Function(int cents, {required bool wholeSemitones})? onShift;
+  final Function(int)? onSemitonesTyped;
+  final Function(int)? onCentsTyped;
+
   const DraggablePitchDisplay({
     super.key,
     required this.semitones,
@@ -39,6 +47,9 @@ class DraggablePitchDisplay extends StatefulWidget {
     this.onCentsChanged,
     this.onDragStart,
     this.onDragEnd,
+    this.onShift,
+    this.onSemitonesTyped,
+    this.onCentsTyped,
   });
 
   @override
@@ -133,6 +144,16 @@ class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
   }
 
   void _applyValue(int newValue) {
+    final semitonesTyped = widget.onSemitonesTyped;
+    final centsTyped = widget.onCentsTyped;
+    if (_editingSegment == 0 && semitonesTyped != null) {
+      semitonesTyped(newValue.clamp(minSemitones, maxSemitones));
+      return;
+    }
+    if (_editingSegment == 1 && centsTyped != null) {
+      centsTyped(newValue);
+      return;
+    }
     switch (_editingSegment) {
       case 0: // Semitones
         final clamped = newValue.clamp(minSemitones, maxSemitones);
@@ -181,6 +202,7 @@ class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
 
   void _handleScroll(int segment, double delta) {
     final direction = delta > 0 ? -1 : 1; // Scroll up = increase
+    if (_shift(segment, direction)) return;
 
     switch (segment) {
       case 0: // Semitones
@@ -211,6 +233,7 @@ class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
             .truncate();
         _semitonesDragAccumulator -= increments * pixelsPerIncrement;
         final direction = -increments; // Drag up = increase
+        if (_shift(segment, direction)) return;
         final newValue = (widget.semitones + direction).clamp(
           minSemitones,
           maxSemitones,
@@ -224,9 +247,19 @@ class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
             .truncate();
         _centsDragAccumulator -= increments * pixelsPerIncrement;
         final direction = -increments; // Drag up = increase
+        if (_shift(segment, direction)) return;
         _applyPitchWithOverflow(widget.semitones, widget.cents + direction);
       }
     }
+  }
+
+  /// Report a move of [steps] on [segment] to [DraggablePitchDisplay.onShift];
+  /// false when there's no such callback (one clip).
+  bool _shift(int segment, int steps) {
+    final onShift = widget.onShift;
+    if (onShift == null) return false;
+    onShift(segment == 0 ? steps * 100 : steps, wholeSemitones: segment == 0);
+    return true;
   }
 
   String _formatSemitones(int value) {
