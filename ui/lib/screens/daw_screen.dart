@@ -2037,6 +2037,17 @@ class _DAWScreenState extends State<DAWScreen>
                                 onVst3PluginRemoved: removeVst3Plugin, // M10
                                 onFloatPlugin: onFloatPlugin,
                                 onEmbedPlugin: onEmbedPlugin,
+                                onVst3EffectRemoved:
+                                    vst3PluginManager?.forgetPlugin,
+                                onVst3EffectRestored:
+                                    (trackId, effectId, path, name) =>
+                                        vst3PluginManager
+                                            ?.registerRestoredPlugin(
+                                              trackId,
+                                              effectId,
+                                              path: path,
+                                              name: name,
+                                            ),
                                 onVst3InstrumentDropped: (plugin) {
                                   if (selectedTrackId != null) {
                                     _onVst3InstrumentDropped(

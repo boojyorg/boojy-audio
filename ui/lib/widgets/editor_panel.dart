@@ -1100,6 +1100,8 @@ class _EditorPanelState extends State<EditorPanel>
       trackName: widget.trackContext.selectedTrackName,
       onFloatPlugin: widget.vst3Callbacks.onFloatPlugin,
       onEmbedPlugin: widget.vst3Callbacks.onEmbedPlugin,
+      onVst3EffectRemoved: widget.vst3Callbacks.onVst3EffectRemoved,
+      onVst3EffectRestored: widget.vst3Callbacks.onVst3EffectRestored,
       onResetRegistered: (resetFn) => _resetPluginToDefault = resetFn,
       onInstrumentParameterChanged: widget.onInstrumentParameterChanged,
       onTrackVolumeChanged: widget.callbacks.onTrackVolumeChanged,

@@ -9,9 +9,12 @@ import 'package:boojy_audio/models/clip_data.dart';
 import 'package:boojy_audio/models/midi_note_data.dart';
 import 'package:boojy_audio/models/track_data.dart';
 import 'package:boojy_audio/services/audio_clip_engine_sync.dart';
+import 'package:boojy_audio/services/commands/effect_commands.dart';
 import 'package:boojy_audio/services/state_consistency.dart';
+import 'package:boojy_audio/services/undo_redo_manager.dart';
 import 'package:boojy_audio/widgets/audio_editor/audio_editor.dart';
 import 'package:boojy_audio/widgets/audio_editor/audio_editor_controls_bar.dart';
+import 'package:boojy_audio/widgets/device_chain/effect_data.dart';
 import 'package:boojy_audio/widgets/editor_panel.dart';
 import 'package:boojy_audio/widgets/export_dialog.dart';
 import 'package:boojy_audio/widgets/audio_editor/operations/parameter_operations.dart';
@@ -1493,5 +1496,54 @@ void main() {
         await h.close();
       }
     });
+  });
+
+  testWidgets('a deleted EQ comes back with its bands and settings on undo', (
+    tester,
+  ) async {
+    final h = await DawHarness.start(tester);
+    try {
+      final engine = h.engine;
+      final trackId = engine.createTrack('audio', 'FX');
+      Map<String, double> settings(int effectId) => EffectData.fromInfo(
+        effectId,
+        engine.getEffectInfo(effectId),
+      )!.parameters;
+      int bands(int effectId) => settings(effectId)['band_count']!.round();
+
+      // A new EQ has three bands: check one with more and one with fewer.
+      for (final wanted in [4, 2]) {
+        final eq = engine.addEffectToTrack(trackId, 'eq');
+        while (bands(eq) < wanted) {
+          engine.addEqBand(eq);
+        }
+        while (bands(eq) > wanted) {
+          engine.removeEqBand(eq, bands(eq) - 1);
+        }
+        engine.setEffectParameter(eq, 'band_1_freq', 1234);
+        engine.setEffectParameter(eq, 'band_1_gain', -6);
+        final before = settings(eq);
+
+        await UndoRedoManager().execute(
+          RemoveEffectCommand(
+            trackId: trackId,
+            trackName: 'FX',
+            effectId: eq,
+            effectName: 'EQ',
+            effectType: 'eq',
+            isVst3: false,
+            effectIndex: 0,
+          ),
+        );
+        await h.daw.performUndo();
+        await h.settle();
+
+        final restored = int.parse(engine.getTrackEffects(trackId));
+        expect(settings(restored), before, reason: '$wanted bands');
+        engine.removeEffectFromTrack(trackId, restored);
+      }
+    } finally {
+      await h.close();
+    }
   });
 }

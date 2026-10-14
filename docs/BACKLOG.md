@@ -38,12 +38,13 @@ each state-of-play review ([RELEASING.md](RELEASING.md#milestone-reviews)).
   after a throwaway Mac + iPad prototype; if the prototype says no or the work balloons, it moves
   to v0.8.
   **Order (2026-10-14):** the test net, loop-on recording (ignore the loop), multi-track takes,
-  the dropout counter and log, Piano Roll undo, export off the UI thread, built-in MP3 and the
-  appcast fix are done. Row 1 is the furthest behind: Tyr makes a song with the log on and
-  notes every issue. Alongside: U4 → the other reproduced bugs (backup, samples, stems, mute,
-  New Project) in small PRs → sample-rate conversion → reproduce-or-drop the rest → the loop
-  in the engine → the recording test input (Test plan 11) → editing model prototype. The new
-  test ideas (Test plan 9–13) slot in beside the work they cover.
+  the dropout counter and log, Piano Roll undo, export off the UI thread, built-in MP3, the
+  appcast fix and U4 (VST3 effects in the device chain) are done. Row 1 is the furthest
+  behind: Tyr makes a song with the log on and notes every issue. Alongside: the plugin rescan
+  → the other reproduced bugs (backup, samples, stems, mute, New Project) in small PRs →
+  sample-rate conversion → reproduce-or-drop the rest → the loop in the engine → the
+  recording test input (Test plan 11) → editing model prototype. The new test ideas (Test
+  plan 9–13) slot in beside the work they cover.
 - **v0.8.0: the app feels right.** UI/UX and bugs, not new sounds: rows 4, 10, 11, 12, 14 and
   the UX half of 6 and 7. Starting list: the [2026-09-29 UI/UX review](reviews/2026_09_29_ui_ux_review.md).
   Public face (row 15) refreshed at release.
@@ -63,9 +64,7 @@ items below with throwaway tests (each fix brings its own) and ran into the 48 k
 
 **Blocks release**
 
-- **VST3 effects drop out of the device chain** (U4). The engine reports `name:` and `path:` as
-  text; the Dart parser (`EffectData.fromInfo`) reads every value as a number, fails and drops
-  the effect. Windows `C:` paths break the split too.
+- Nothing known (U4, VST3 effects missing from the device chain, fixed 2026-10-14).
 
 **Fix before release**
 

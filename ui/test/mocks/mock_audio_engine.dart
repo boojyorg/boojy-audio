@@ -77,6 +77,9 @@ class MockAudioEngine implements AudioEngineInterface {
   /// Index returned by [addEqBand].
   int eqBandIndex = 0;
 
+  /// (effectId, bypassed) passed to [setEffectBypass], in call order.
+  final List<({int effectId, bool bypassed})> bypassCalls = [];
+
   /// (effectId, paramName, value) passed to [setEffectParameter], in call order.
   final List<({int effectId, String paramName, double value})> setParamCalls =
       [];
@@ -96,6 +99,7 @@ class MockAudioEngine implements AudioEngineInterface {
     effectInfoResponses.clear();
     vst3StateResponses.clear();
     setVst3StateCalls.clear();
+    bypassCalls.clear();
     addedVst3Plugins.clear();
     removedEffectIds.clear();
     removedReturnIds.clear();
@@ -383,8 +387,10 @@ class MockAudioEngine implements AudioEngineInterface {
   }
 
   @override
-  void setEffectBypass(int effectId, {required bool bypassed}) =>
-      _record('setEffectBypass');
+  void setEffectBypass(int effectId, {required bool bypassed}) {
+    _record('setEffectBypass');
+    bypassCalls.add((effectId: effectId, bypassed: bypassed));
+  }
 
   @override
   void setEffectParameter(int effectId, String paramName, double value) {

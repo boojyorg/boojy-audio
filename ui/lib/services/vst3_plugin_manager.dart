@@ -5,6 +5,7 @@ import '../audio_engine.dart';
 import '../utils/logger.dart';
 import '../models/vst3_plugin_data.dart';
 import '../widgets/shared/boojy_notice.dart';
+import 'commands/effect_commands.dart';
 
 /// Manages VST3 plugin scanning, caching, and track effects.
 ///
@@ -281,12 +282,30 @@ class Vst3PluginManager extends ChangeNotifier {
     }
   }
 
-  /// Re-register a VST3 plugin that was reloaded into the engine outside the
-  /// normal [addToTrack] path — specifically by [DeleteTrackCommand]'s undo,
-  /// which recreates the engine effect (with a fresh effect id) and restores its
-  /// state itself. This only syncs the manager's own maps (so the editor and the
-  /// track's plugin-count chip reappear); it must NOT call the engine again, or
-  /// the plugin would be double-added.
+  /// Adding [plugin] to a track as one undo step. The command loads it into
+  /// the engine; the manager's own list follows on add, undo and redo.
+  AddEffectCommand addPluginCommand(int trackId, Vst3Plugin plugin) =>
+      AddEffectCommand(
+        trackId: trackId,
+        trackName: '',
+        effectType: plugin.path,
+        effectName: plugin.name,
+        isVst3: true,
+        onEffectAdded: (effectId) => registerRestoredPlugin(
+          trackId,
+          effectId,
+          path: plugin.path,
+          name: plugin.name,
+          vendor: plugin.vendor ?? '',
+        ),
+        onEffectRemoved: forgetPlugin,
+      );
+
+  /// Register a VST3 plugin that a command loaded into the engine (an undoable
+  /// add, or the undo of a track or effect delete, which brings it back under
+  /// a fresh effect id). This only syncs the manager's own maps (so the editor
+  /// and the track's plugin-count chip reappear); it must NOT call the engine
+  /// again, or the plugin would be double-added.
   void registerRestoredPlugin(
     int trackId,
     int effectId, {
@@ -297,6 +316,17 @@ class Vst3PluginManager extends ChangeNotifier {
     _trackEffects[trackId] ??= [];
     _trackEffects[trackId]!.add(effectId);
     _pluginCache[effectId] = {'name': name, 'path': path, 'vendor': vendor};
+    notifyListeners();
+  }
+
+  /// Drop a plugin a command already removed from the engine (undoing its add,
+  /// or deleting it from the device chain). Maps only, like
+  /// [registerRestoredPlugin].
+  void forgetPlugin(int effectId) {
+    for (final ids in _trackEffects.values) {
+      ids.remove(effectId);
+    }
+    _pluginCache.remove(effectId);
     notifyListeners();
   }
 
