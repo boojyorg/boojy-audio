@@ -8,11 +8,11 @@ All notable changes to Boojy Audio will be documented in this file.
 
 - **Change pitch, volume and reverse on several clips at once.** Select a few audio clips (on one
   track or several) and the Audio Editor's Pitch, Volume and Reverse change all of them, as one
-  undo step. A small tag before Pitch shows how many clips; the boxes show the clip you clicked.
-  Dragging moves every clip by the same amount, so clips at -1, -2 and 0 st dragged down 2
-  become -3, -4 and -2; the group stops together when one clip reaches a limit. Typing a pitch,
-  double-clicking Volume (0 dB) and Reverse set them all the same. A dot after a box means the
-  clips differ there; hover it to see how. Silent clips stay silent when you drag the volume.
+  undo step. The boxes show the clip you clicked. Dragging moves every clip by the same amount,
+  so clips at -1, -2 and 0 st dragged down 2 become -3, -4 and -2; the group stops together
+  when one clip reaches a limit. Typing a pitch, double-clicking Volume (0 dB) and Reverse set
+  them all the same. Hover Pitch, Volume or Reverse to see where the selected clips stand.
+  Silent clips stay silent when you drag the volume.
   The Volume box no longer wraps "-20.4 dB" onto two lines.
 
 - **MP3 export works with nothing to install.** Boojy now makes MP3s itself, so the MP3 option

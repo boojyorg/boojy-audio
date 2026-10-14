@@ -88,21 +88,21 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('shows the open clip, how many clips, and that they differ', (
+  testWidgets("shows the open clip's values; the spread on hover only", (
     tester,
   ) async {
     await pumpEditor(tester);
-    expect(find.text('3'), findsOneWidget, reason: 'the clip count tag');
     expect(find.text('-1'), findsOneWidget, reason: "the open clip's pitch");
-    // Pitch differs (a dot and a hover card); volume and reverse don't.
+    expect(find.text('3'), findsNothing, reason: 'no count tag');
     final cards = tester.widgetList<BoojyTooltip>(find.byType(BoojyTooltip));
     expect(cards.map((c) => c.title), [
-      '3 clips selected',
+      '0 of 3 clips reversed',
       '3 clips: -2 to 0 st',
+      '3 clips: 0.0 dB',
     ]);
   });
 
-  testWidgets('one clip: no tag, no hover cards', (tester) async {
+  testWidgets('one clip: no hover cards', (tester) async {
     await pumpEditor(tester, others: const []);
     expect(find.byType(BoojyTooltip), findsNothing);
   });

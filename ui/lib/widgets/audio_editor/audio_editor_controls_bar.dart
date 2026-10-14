@@ -152,12 +152,6 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
           _buildWarpGroup(context),
           _buildSeparator(context),
 
-          // === SEVERAL CLIPS: what Pitch, Volume and Reverse act on ===
-          if (widget.group != null) ...[
-            _buildGroupTag(context, widget.group!),
-            const SizedBox(width: 8),
-          ],
-
           // === PITCH ===
           _buildPitchControl(context),
           _buildSeparator(context),
@@ -291,67 +285,16 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
 
   // ============ SEVERAL CLIPS ============
 
-  /// "⧉ 3" before Pitch: Pitch, Volume and Reverse act on this many clips.
-  Widget _buildGroupTag(BuildContext context, ClipGroup group) {
-    final colors = context.colors;
-    return BoojyTooltip(
-      title: '${group.count} clips selected',
-      description: 'Pitch, Volume and Reverse change all of them',
-      child: DecoratedBox(
-        position: DecorationPosition.foreground,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(2),
-          border: Border.all(color: colors.accent, width: 1),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(BI.layers, size: 11, color: colors.accent),
-              const SizedBox(width: 3),
-              Text(
-                '${group.count}',
-                style: TextStyle(
-                  color: colors.accent,
-                  fontSize: BT.fontCaption,
-                  fontFamily: BT.fontFamilyMono,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// [control] with, when the selected clips differ on it, a dot after it
-  /// and a hover card spelling out how ([title], [description]).
-  Widget _differs(
-    BuildContext context, {
-    required bool differs,
+  /// [control] with, when several clips are selected, a hover card saying
+  /// where they stand ([title], [description]). Nothing on screen changes:
+  /// the clips moving on the timeline show the edit reaches them all.
+  Widget _groupCard({
     required String title,
     required String description,
     required Widget control,
   }) {
-    if (!differs) return control;
-    final colors = context.colors;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        BoojyTooltip(title: title, description: description, child: control),
-        const SizedBox(width: 3),
-        Container(
-          width: 5,
-          height: 5,
-          decoration: BoxDecoration(
-            color: colors.accent,
-            shape: BoxShape.circle,
-          ),
-        ),
-      ],
-    );
+    if (widget.group == null) return control;
+    return BoojyTooltip(title: title, description: description, child: control);
   }
 
   static String _signed(int v) => v > 0 ? '+$v' : '$v';
@@ -388,9 +331,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
           style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
         ),
         const SizedBox(width: 4),
-        _differs(
-          context,
-          differs: group?.pitchDiffers ?? false,
+        _groupCard(
           title: group == null ? '' : _pitchSpread(group),
           description: 'Dragging moves them together; typing sets them all',
           control: Container(
@@ -466,13 +407,13 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
         ),
         const SizedBox(width: 4),
         // dB display box (matches track mixer style)
-        _differs(
-          context,
-          differs: group?.gainDiffers ?? false,
+        _groupCard(
           title: group == null
               ? ''
-              : '${group.count} clips: ${_db(group.lowGainDb)} to '
-                    '${_db(group.highGainDb)} dB',
+              : group.gainDiffers
+              ? '${group.count} clips: ${_db(group.lowGainDb)} to '
+                    '${_db(group.highGainDb)} dB'
+              : '${group.count} clips: ${_db(group.lowGainDb)} dB',
           description:
               'Dragging moves them together; double-click sets '
               'them all to 0 dB',
@@ -635,9 +576,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
         const SizedBox(width: 4),
         // Reverse toggle (several clips: shows the open clip; a click sets
         // them all the other way)
-        _differs(
-          context,
-          differs: widget.group?.reverseDiffers ?? false,
+        _groupCard(
           title: widget.group == null
               ? ''
               : '${widget.group!.reversedCount} of ${widget.group!.count} '

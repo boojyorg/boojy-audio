@@ -199,9 +199,7 @@ class ClipGroup {
     );
   }
 
-  bool get pitchDiffers => lowPitch != highPitch;
   bool get gainDiffers => lowGainDb != highGainDb;
-  bool get reverseDiffers => reversedCount != 0 && reversedCount != count;
 
   /// [cents] cut down so no clip goes past the pitch limits: the whole group
   /// stops together and keeps its spacing. With [wholeSemitones] (a
