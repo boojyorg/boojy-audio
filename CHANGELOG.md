@@ -120,6 +120,10 @@ All notable changes to Boojy Audio will be documented in this file.
   settings: a tuned reverb returned untuned, a switched-off effect came back on, a VST3 lost its
   sound and an EQ always came back with three bands. Now its settings, its bands, its on/off
   state and a VST3's own state all return, after deleting the effect or its whole track.
+- **Newly installed plugins show up.** Boojy scanned your VST3 folder once, on first launch, and
+  kept that list for good: a plugin installed later never appeared, and there was no way to scan
+  again. Now, when a plugin has been installed or removed since the last scan, the next launch
+  scans again by itself (the first launch after an install takes a few seconds longer).
 - **Mac updates are offered again after a release.** The release job saved the update feed
   straight to `master`, which is now protected, so the push would fail and installed apps would
   never hear about the new version. It now opens a PR with the feed, merged once the release is

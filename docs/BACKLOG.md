@@ -93,8 +93,6 @@ items below with throwaway tests (each fix brings its own) and ran into the 48 k
 - **Adding a VST3 while playing crackles.** Loading the plugin holds the track lock, so the
   audio thread waits (log 2026-10-14: one buffer at 123%, "waited on: tracks"). Load it first,
   then take the lock only to insert it.
-- **Installed plugins never show up** after the first scan: the list is kept for good and there
-  is no rescan. Fix built (rescan when a VST3 folder changed), awaiting walkthrough.
 - *If reproduced:*
   - "Audio clip 0 plays on track 1 but is not on the screen": the dev check fired twice in Tyr's
     session (2026-10-14), action unknown.
