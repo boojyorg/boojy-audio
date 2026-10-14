@@ -10,9 +10,10 @@ shipped is in [RELEASING.md](RELEASING.md). Nothing here is a release commitment
 Every area reaches a solid **8/10: good to great compared with other DAWs**. Tyr and Claude
 score together in half points, from using the app and test evidence, not from reading code.
 Sounds and effects are scored on the quality of what exists, not how many there are. First
-scores 2026-09-29, re-scored 2026-10-01 (after #151–#175), 2026-10-04 (after #177–#185) and
-2026-10-12 (after #187–#197) and 2026-10-13 (after #199–#207); re-score before each release and at each state-of-play review
-([RELEASING.md](RELEASING.md#milestone-reviews)).
+scores 2026-09-29, re-scored 2026-10-01 (after #151–#175), 2026-10-04 (after #177–#185),
+2026-10-12 (after #187–#197) and 2026-10-13 (after #199–#207; row 9 back to 6.5 on 2026-10-14
+after a code review reproduced three save and export bugs); re-score before each release and at
+each state-of-play review ([RELEASING.md](RELEASING.md#milestone-reviews)).
 
 | # | Area | 8/10 means… | Score | Release |
 | --- | --- | --- | --- | --- |
@@ -24,7 +25,7 @@ scores 2026-09-29, re-scored 2026-10-01 (after #151–#175), 2026-10-04 (after #
 | 6 | Mixing & automation | Levels, pan, sends and automation are clear and dependable | 5.5 | v0.8 (UX) · Later |
 | 7 | Effects & plugins | Built-in effects work and sound good; VST3s load without taking the app down | 5 | v0.8 (UX) · Later |
 | 8 | Sound library | Browsing, previewing and dragging sounds in is quick (size not scored) | 3.5 | Later |
-| 9 | Projects & export | Save, reopen, auto-save, crash recovery and export never lose work | 7 | v0.7 |
+| 9 | Projects & export | Save, reopen, auto-save, crash recovery and export never lose work | 6.5 | v0.7 |
 | 10 | First run & learnability | A beginner makes a beat in 10 minutes without a tutorial, no dead buttons | 5 | v0.8 |
 | 11 | Look & feel | Consistent and calm, fits a laptop screen, feels finished | 6.5 | v0.8 |
 | 12 | Input & accessibility | Mouse only, trackpad only, keyboard and mouse, and touch all work; text is readable | 4 | v0.8 |
@@ -36,12 +37,12 @@ scores 2026-09-29, re-scored 2026-10-01 (after #151–#175), 2026-10-04 (after #
   row 14 gets the test net that proves it. Includes the editing model ([EDITING.md](EDITING.md))
   after a throwaway Mac + iPad prototype; if the prototype says no or the work balloons, it moves
   to v0.8.
-  **Order (2026-10-13):** the test net, loop-on recording (ignore the loop), multi-track takes,
-  the dropout counter and log, Piano Roll undo, export off the UI thread and built-in MP3 are
-  done. Row 1 is the furthest behind: Tyr makes a song with the log on and notes every issue,
-  then: the appcast fix → reproduce-or-drop the *If reproduced* items (U4 first), fixing the
-  real ones in small batches → the loop in the engine → the recording test input (Test plan
-  11) → editing model prototype. The new
+  **Order (2026-10-14):** the test net, loop-on recording (ignore the loop), multi-track takes,
+  the dropout counter and log, Piano Roll undo, export off the UI thread, built-in MP3 and the
+  appcast fix are done. Row 1 is the furthest behind: Tyr makes a song with the log on and
+  notes every issue. Alongside: U4 → the other reproduced bugs (backup, samples, stems, mute,
+  New Project) in small PRs → sample-rate conversion → reproduce-or-drop the rest → the loop
+  in the engine → the recording test input (Test plan 11) → editing model prototype. The new
   test ideas (Test plan 9–13) slot in beside the work they cover.
 - **v0.8.0: the app feels right.** UI/UX and bugs, not new sounds: rows 4, 10, 11, 12, 14 and
   the UX half of 6 and 7. Starting list: the [2026-09-29 UI/UX review](reviews/2026_09_29_ui_ux_review.md).
@@ -57,18 +58,49 @@ scores 2026-09-29, re-scored 2026-10-01 (after #151–#175), 2026-10-04 (after #
 Classified by the severity rule in [RELEASING.md](RELEASING.md#severity-rule). Review findings
 (IDs U*, B* point into the [UI/UX](reviews/2026_09_29_ui_ux_review.md) and
 [feature-gap](reviews/2026_09_29_feature_gap_review.md) reports) count once a failing test
-reproduces them.
+reproduces them. A 2026-10-14 code review reproduced U4, U2, Mute Clip and the first three
+items below with throwaway tests (each fix brings its own) and ran into the 48 kHz fallback.
 
 **Blocks release**
 
-- *If reproduced:* **VST3 effects may drop out of the device chain** (U4). The engine reports
-  `name:` and `path:` as text; the Dart parser reads every value as a number. Windows `C:` paths
-  break the split too.
+- **VST3 effects drop out of the device chain** (U4). The engine reports `name:` and `path:` as
+  text; the Dart parser (`EffectData.fromInfo`) reads every value as a number, fails and drops
+  the effect. Windows `C:` paths break the split too.
 
 **Fix before release**
 
+- **A failed backup hides the last good one.** Auto-save ignores whether the backup save worked:
+  it points the crash-recovery marker at the missing folder anyway, so recovery stops offering
+  the previous backup. Only move the marker after a backup that worked.
+- **Sampler and drum-pad samples aren't copied into the project.** Timeline audio is; these are
+  saved as their original location and a missing file loads as silence with no error. Moving
+  the project or tidying the sample folder silently loses sounds. Copy them in like clips, and
+  say when one is missing.
+- **Two tracks with the same name break stem export.** Both stems get the same file name, the
+  second commit fails and one stem is left. Make each stem's name unique (names that only differ
+  in characters the filename drops, or in case, too).
+- **Devices that can't run at 48 kHz play at the wrong speed and pitch.** The engine asks for
+  48 kHz stereo and falls back to the device's rate while its maths stays at 48 kHz. Bluetooth
+  headphones drop to 16 kHz "headset mode" when their mic is in use, and beginners record with
+  AirPods. Tyr's Arctis Nova 7 offers only 16 and 44.1 kHz, so it plays everything about
+  9% slow and 1.5 semitones flat. Needs sample-rate conversion on the output and the input (the input opens at 48 kHz,
+  which most devices offer; one that can't would crackle). A bigger job than the bugs above.
+- New Project keeps the previous tempo and time signature (U2).
+- **A plugin file with more than one plugin always loads the first.** Serum 2's file holds the
+  synth and "Serum 2 FX"; picking the FX loads the synth (`vst3_host.cpp` takes the first audio
+  class). Load the class that was picked. Needs the C++ library rebuilt.
+- "Mute Clip" on a MIDI clip doesn't silence it: the scheduler ignores the flag. The consistency
+  checker compares note counts, not the notes or mute, so it missed this; make it compare both.
+- **Adding a VST3 while playing crackles.** Loading the plugin holds the track lock, so the
+  audio thread waits (log 2026-10-14: one buffer at 123%, "waited on: tracks"). Load it first,
+  then take the lock only to insert it.
+- **Installed plugins never show up** after the first scan: the list is kept for good and there
+  is no rescan. Fix built (rescan when a VST3 folder changed), awaiting walkthrough.
 - *If reproduced:*
-  - New Project keeps the previous tempo and time signature (U2).
+  - "Audio clip 0 plays on track 1 but is not on the screen": the dev check fired twice in Tyr's
+    session (2026-10-14), action unknown.
+  - Something in the window is 4 px too wide (repeated "RenderFlex overflowed by 4.0 pixels on
+    the right"; the log doesn't name the widget).
   - The volume fader jumps when grabbed (U3).
   - The loop's jump back is timed by the UI's 60 fps timer, not the engine, so it can land a
     frame or more late (a stutter at the loop point). The engine should own the loop.
@@ -77,8 +109,6 @@ reproduces them.
     notice would also let `test/native` run on Windows CI, whose machines have no sound card.
   - Trimming a MIDI clip's left edge drops the notes before it (`adjustNotesForTrim`), so
     dragging the edge back out shows an empty start; audio clips now keep theirs.
-  - "Mute Clip" on a MIDI clip may not silence it: the menu sets a flag that nothing in the
-    engine reads.
   - Save As renames before the folder is picked; cancel leaves it renamed (U5).
   - No unsaved-changes signal (U6): a quiet dot beside the name; close warns only when dirty.
   - The drag-to-create preview drifts when scrolled (U10).
@@ -173,9 +203,8 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
 - **v1.0, unscheduled:** clip normalize; pan automation end to end; swing; LUFS platform targets
   in the export dialog (the engine supports them); localisation; loop recording and take
   comping. Platform prep for web, iPad and Linux is in [PLATFORMS.md](PLATFORMS.md).
-- **Input sample-rate conversion.** The input now opens at the engine's rate (48 kHz), which
-  most devices offer; one that can't would still crackle. The first open may switch the device's
-  rate (a Scarlett left at 44.1 kHz), a short hiccup once.
+- **The first input open may switch the device's rate** (a Scarlett left at 44.1 kHz): a short
+  hiccup once.
 - **Takes grow a list on the audio thread** (recorder pushes into a `Vec` under a lock). Measured
   on macOS: worst buffer 0.23 ms of 10.7 ms even on a 5-minute take, so not a crackle cause
   today. Revisit with a writer thread if Windows or long takes show otherwise.
