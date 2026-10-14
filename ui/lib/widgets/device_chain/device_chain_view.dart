@@ -352,8 +352,9 @@ class _DeviceChainViewState extends State<DeviceChainView>
       trackName: widget.trackName ?? 'Track',
       effectId: effectId,
       effectName: _getEffectDisplayName(effect.type),
-      effectType: effect.type,
-      isVst3: effect.type.startsWith('vst3:'),
+      // Undo re-adds a VST3 from its plugin path.
+      effectType: effect.pluginPath ?? effect.type,
+      isVst3: effect.isVst3,
       effectIndex: effectIndex,
       siblingEffectIds: _effects
           .where((e) => e.id != effectId)
@@ -709,7 +710,15 @@ class _DeviceChainViewState extends State<DeviceChainView>
     );
     if (effect.id != _selectedDeviceId) return;
 
-    // Add same type of effect
+    // Add same type of effect. A VST3 goes through the screen's plugin path,
+    // which also registers it with the plugin manager.
+    if (effect.isVst3) {
+      final plugin = _vst3Plugins
+          .where((p) => p.path == effect.pluginPath)
+          .firstOrNull;
+      if (plugin != null) widget.onVst3EffectDropped?.call(plugin);
+      return;
+    }
     await _addEffect(effect.type);
   }
 
@@ -1335,19 +1344,22 @@ class _DeviceChainViewState extends State<DeviceChainView>
           _showEffectContextMenu(details.globalPosition, effect),
       child: DeviceBox(
         deviceType: DeviceType.effect,
-        deviceKind: effect.type.startsWith('vst3:')
-            ? DeviceKind.vst3Plugin
-            : DeviceKind.builtIn,
+        deviceKind: effect.isVst3 ? DeviceKind.vst3Plugin : DeviceKind.builtIn,
         headerMode: HeaderMode.full24,
         name: _getEffectDisplayName(effect.type),
         icon: _getEffectIcon(effect.type),
         isEnabled: !effect.bypassed,
         isSelected: isSelected,
         width: _getEffectWidth(effect.type),
-        expandContent: !effect.type.startsWith('vst3:'),
         leftLevel: levels.$1,
         rightLevel: levels.$2,
         onToggleEnabled: () => _toggleBypass(effect.id),
+        onFloat: effect.isVst3 && widget.onFloatPlugin != null
+            ? () => widget.onFloatPlugin!(
+                effect.id,
+                _getEffectDisplayName(effect.type),
+              )
+            : null,
         onNameTap: () => setState(() => _selectedDeviceId = effect.id),
         child: effect.type == 'eq'
             ? EqDeviceBody(
@@ -1604,7 +1616,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
         color: context.colors.standard,
         alignment: Alignment.center,
         child: Text(
-          effect.type,
+          _getEffectDisplayName(effect.type),
           style: TextStyle(
             color: context.colors.textMuted,
             fontSize: BT.fontLabel,

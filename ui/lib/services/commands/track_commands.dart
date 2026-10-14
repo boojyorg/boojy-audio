@@ -1,6 +1,7 @@
 import '../../models/clip_data.dart';
 import '../../models/midi_note_data.dart';
 import '../../utils/logger.dart';
+import '../../widgets/device_chain/effect_data.dart';
 import 'audio_engine_interface.dart';
 import 'clip_commands.dart';
 import 'command.dart';
@@ -312,71 +313,28 @@ class DeleteTrackCommand extends Command {
     for (final idStr in idsCsv.split(',')) {
       final effectId = int.tryParse(idStr.trim());
       if (effectId == null) continue;
-      final info = engine.getEffectInfo(effectId);
-
-      // VST3 is formatted "type:vst3,bypassed:X,name:NAME,path:PATH" with path
-      // last (it may contain commas). Pull path/name off by marker, not split.
-      if (info.startsWith('type:vst3')) {
-        final vst3 = _parseVst3Info(engine, effectId, info);
-        if (vst3 != null) snapshots.add(vst3);
-        continue;
-      }
-
-      // Built-in: "type:eq,bypassed:0,low_freq:..,low_gain:..,.."
-      final fields = <String, String>{};
-      for (final pair in info.split(',')) {
-        final kv = pair.split(':');
-        if (kv.length == 2) fields[kv[0].trim()] = kv[1].trim();
-      }
-      final type = fields['type'];
-      if (type == null) continue;
-      final bypassed = fields['bypassed'] == '1';
-      final params = <String, double>{};
-      fields.forEach((key, value) {
-        if (key == 'type' || key == 'bypassed') return;
-        final v = double.tryParse(value);
-        if (v != null) params[key] = v;
-      });
+      final effect = EffectData.fromInfo(
+        effectId,
+        engine.getEffectInfo(effectId),
+      );
+      if (effect == null) continue;
+      final path = effect.pluginPath;
       snapshots.add(
-        _BuiltinEffectSnapshot(type: type, bypassed: bypassed, params: params),
+        path != null
+            ? _Vst3EffectSnapshot(
+                path: path,
+                name: effect.type.substring('vst3:'.length),
+                stateBase64: engine.getVst3State(effectId),
+                bypassed: effect.bypassed,
+              )
+            : _BuiltinEffectSnapshot(
+                type: effect.type,
+                bypassed: effect.bypassed,
+                params: effect.parameters,
+              ),
       );
     }
     return snapshots;
-  }
-
-  /// Parse a VST3 getEffectInfo string + read its state blob. Returns null if no
-  /// usable plugin path is present.
-  _Vst3EffectSnapshot? _parseVst3Info(
-    AudioEngineInterface engine,
-    int effectId,
-    String info,
-  ) {
-    // path: is last, so everything after the marker is the path (may contain ',').
-    const pathMarker = ',path:';
-    final pathIdx = info.indexOf(pathMarker);
-    if (pathIdx < 0) return null;
-    final path = info.substring(pathIdx + pathMarker.length);
-    if (path.isEmpty) return null;
-
-    // name: is the field just before path:, so it runs to the path marker.
-    final head = info.substring(0, pathIdx); // "type:vst3,bypassed:X,name:NAME"
-    var name = '';
-    var beforeName = head;
-    const nameMarker = ',name:';
-    final nameIdx = head.indexOf(nameMarker);
-    if (nameIdx >= 0) {
-      name = head.substring(nameIdx + nameMarker.length);
-      beforeName = head.substring(0, nameIdx); // "type:vst3,bypassed:X"
-    }
-    final bypassed = beforeName.contains('bypassed:1');
-
-    final state = engine.getVst3State(effectId);
-    return _Vst3EffectSnapshot(
-      path: path,
-      name: name,
-      stateBase64: state,
-      bypassed: bypassed,
-    );
   }
 
   @override

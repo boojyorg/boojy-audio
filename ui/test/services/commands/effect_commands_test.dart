@@ -493,4 +493,59 @@ void main() {
       },
     );
   });
+
+  group('RemoveEffectCommand undo puts the effect back as it was', () {
+    test('a VST3 comes back with its settings', () async {
+      mockEngine.effectInfoResponses[10] =
+          'type:vst3,bypassed:0,name:Supermassive,path:/p/Supermassive.vst3';
+      mockEngine.vst3StateResponses[10] = 'TUNED==';
+      mockEngine.nextEffectId = 50;
+      final command = RemoveEffectCommand(
+        trackId: 1,
+        trackName: 'Track 1',
+        effectId: 10,
+        effectName: 'Supermassive',
+        effectType: '/p/Supermassive.vst3',
+        isVst3: true,
+        effectIndex: 0,
+      );
+
+      await command.execute(mockEngine);
+      await command.undo(mockEngine);
+
+      expect(mockEngine.addedVst3Plugins.single.path, '/p/Supermassive.vst3');
+      expect(mockEngine.setVst3StateCalls.single, (
+        effectId: 50,
+        stateBase64: 'TUNED==',
+      ));
+    });
+
+    test(
+      'a built-in effect comes back with its settings and switched off',
+      () async {
+        mockEngine.effectInfoResponses[10] =
+            'type:reverb,bypassed:1,room_size:0.9,damping:0.1,wet_dry:0.6';
+        mockEngine.nextEffectId = 50;
+        final command = RemoveEffectCommand(
+          trackId: 1,
+          trackName: 'Track 1',
+          effectId: 10,
+          effectName: 'Reverb',
+          effectType: 'reverb',
+          isVst3: false,
+          effectIndex: 0,
+        );
+
+        await command.execute(mockEngine);
+        await command.undo(mockEngine);
+
+        expect(mockEngine.setParamCalls, [
+          (effectId: 50, paramName: 'room_size', value: 0.9),
+          (effectId: 50, paramName: 'damping', value: 0.1),
+          (effectId: 50, paramName: 'wet_dry', value: 0.6),
+        ]);
+        expect(mockEngine.bypassCalls, [(effectId: 50, bypassed: true)]);
+      },
+    );
+  });
 }
