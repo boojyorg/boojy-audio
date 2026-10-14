@@ -101,6 +101,10 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Mac updates are offered again after a release.** The release job saved the update feed
+  straight to `master`, which is now protected, so the push would fail and installed apps would
+  never hear about the new version. It now opens a PR with the feed, merged once the release is
+  published, so the offer never points at a download that isn't public yet.
 - **Exporting no longer freezes Boojy.** The window kept still for as long as the export took,
   its progress bar never moved and Cancel couldn't be pressed. The export now runs in the
   background: the bar fills as the song renders (track by track for stems), the app keeps

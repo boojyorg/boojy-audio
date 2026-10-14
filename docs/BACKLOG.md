@@ -67,8 +67,6 @@ reproduces them.
 
 **Fix before release**
 
-- **The appcast commit can't reach `master`** (branch protection). Details and options in
-  [RELEASING.md](RELEASING.md#what-the-release-workflow-does).
 - *If reproduced:*
   - New Project keeps the previous tempo and time signature (U2).
   - The volume fader jumps when grabbed (U3).

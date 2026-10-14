@@ -16,6 +16,8 @@ the easiest step to forget. On every release:
 5. Suite root `README.md`: update the Audio row. Check the suite `VISION.md` for stale
    version references. (Both live outside this repository.)
 6. Tag `vX.Y.Z` and push. GitHub Actions builds the draft release (DMG + EXE); edit and publish it.
+7. Merge the **Update appcast for vX.Y.Z** PR the release job opened. Only after publishing:
+   Macs are offered the update the moment it lands.
 
 Documentation cleanup never implies a release or a version bump.
 
@@ -61,11 +63,14 @@ Pushing a `v*` tag runs `.github/workflows/release.yml`:
   "skipped" before publishing. The per-file signing loop ends in `|| true`: a file that fails to
   sign doesn't fail the job, so `codesign --verify` on the app is the real check.
 - **Auto-update (macOS only):** the DMG gets a Sparkle EdDSA signature (`SPARKLE_PRIVATE_KEY`),
-  and the job writes `appcast.xml` and commits it to `master`. Installed apps read the feed from
+  and the job writes `appcast.xml` and opens a PR with it (branch `appcast/vX.Y.Z`), because
+  `master` is protected. Installed apps read the feed from
   `raw.githubusercontent.com/boojyorg/boojy-audio/master/appcast.xml` (`SUFeedURL` in
-  `ui/macos/Runner/Info.plist`), so **an update is only offered once that commit lands**.
-  ⚠️ `master` has been protected since 2026-09-13, and the workflow's direct `git push` to it will
-  be rejected: fix this before tagging v0.7.0 (see `docs/BACKLOG.md`).
+  `ui/macos/Runner/Info.plist`), so **an update is only offered once that PR is merged**. CI
+  doesn't run on PRs opened by a workflow's token, so its required checks never report: merge
+  with the bypass box (admins aren't bound by the protection) or close and reopen it to run CI.
+  The repo setting *Actions → General → Allow GitHub Actions to create and approve pull
+  requests* must stay on, or the step fails.
 - **Windows:** builds the app, bundles the MSVC runtime DLLs and packs an Inno Setup installer.
   The installer is **not code-signed**, so Windows SmartScreen warns on first run. There is no
   Windows auto-updater.
