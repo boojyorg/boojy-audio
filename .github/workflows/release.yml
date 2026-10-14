@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 env:
   # Keep in sync with ui/.fvmrc (the local FVM pin).
@@ -411,13 +412,37 @@ jobs:
           draft: true
           generate_release_notes: true
 
-      - name: Commit appcast.xml
+      # master is protected, so the feed update goes through a PR that Tyr merges
+      # after publishing the draft: installed apps are offered the update as soon as
+      # appcast.xml lands on master, and a draft's DMG can't be downloaded yet.
+      # Failures must stay loud: no PR means no auto-update (EH-2a).
+      - name: Open appcast PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
         run: |
+          BRANCH="appcast/$TAG"
+          cp appcast.xml "$RUNNER_TEMP/appcast.xml"
+          git fetch --depth=1 origin master
+          git checkout -f -B "$BRANCH" FETCH_HEAD
+          cp "$RUNNER_TEMP/appcast.xml" appcast.xml
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add appcast.xml
-          # The commit guard is legitimate (no-op when appcast didn't change),
-          # but the push must not be silenced — a failed push means auto-update
-          # is broken and the release job should fail loudly (EH-2a).
-          git diff --cached --quiet || git commit -m "Update appcast for ${{ github.ref_name }}"
-          git push origin HEAD:master
+          if git diff --cached --quiet; then
+            echo "appcast.xml on master already matches $TAG; no PR needed."
+            exit 0
+          fi
+          git commit -m "Update appcast for $TAG"
+          git push --force origin "$BRANCH"
+          if gh pr view "$BRANCH" --json state --jq .state 2>/dev/null | grep -q OPEN; then
+            echo "Appcast PR for $TAG already open; branch updated."
+            exit 0
+          fi
+          gh pr create --base master --head "$BRANCH" \
+            --title "Update appcast for $TAG" \
+            --body "Offers $TAG to installed Macs.
+
+          1. Publish the draft release first (until then its DMG link doesn't download).
+          2. Merge this PR. CI doesn't run on PRs the release job opens, so either tick the
+             bypass box when merging (only appcast.xml changes) or close and reopen this PR to run it."
