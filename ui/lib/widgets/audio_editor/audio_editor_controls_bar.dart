@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../models/clip_group_edit.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
@@ -60,6 +61,20 @@ class AudioEditorControlsBar extends StatefulWidget {
   final VoidCallback? onGainDragStart;
   final VoidCallback? onGainDragEnd;
 
+  /// Double-click on the volume slider: back to 0 dB.
+  final VoidCallback? onGainReset;
+
+  // === Several clips selected ===
+  /// The selected clips Pitch, Volume and Reverse act on; null for one clip.
+  final ClipGroup? group;
+
+  /// A pitch drag or scroll moved by [cents] (in group mode).
+  final void Function(int cents, {required bool wholeSemitones})? onPitchShift;
+
+  /// A typed pitch (in group mode).
+  final Function(int)? onSemitonesTyped;
+  final Function(int)? onCentsTyped;
+
   // === Create Sampler ===
   final VoidCallback? onCreateSamplerFromClip;
 
@@ -96,6 +111,11 @@ class AudioEditorControlsBar extends StatefulWidget {
     this.onGainChanged,
     this.onGainDragStart,
     this.onGainDragEnd,
+    this.onGainReset,
+    this.group,
+    this.onPitchShift,
+    this.onSemitonesTyped,
+    this.onCentsTyped,
     this.onCreateSamplerFromClip,
   });
 
@@ -130,6 +150,18 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
           // === WARP GROUP (Warp toggle + Original BPM) ===
           _buildWarpGroup(context),
           _buildSeparator(context),
+
+          // === SEVERAL CLIPS: what Pitch, Volume and Reverse act on ===
+          if (widget.group != null) ...[
+            Text(
+              '${widget.group!.count} clips',
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: BT.fontCaption,
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
 
           // === PITCH ===
           _buildPitchControl(context),
@@ -262,9 +294,14 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
     );
   }
 
+  /// One value, or the lowest to the highest when the clips differ.
+  static String _range(int low, int high) =>
+      low == high ? '$low' : '$low…$high';
+
   // ============ PITCH CONTROL ============
   Widget _buildPitchControl(BuildContext context) {
     final colors = context.colors;
+    final group = widget.group;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -284,6 +321,15 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
           child: DraggablePitchDisplay(
             semitones: widget.transposeSemitones,
             cents: widget.fineCents,
+            semitonesText: group == null
+                ? null
+                : _range(group.lowSemitones, group.highSemitones),
+            centsText: group == null
+                ? null
+                : _range(group.lowCents, group.highCents),
+            onShift: widget.onPitchShift,
+            onSemitonesTyped: widget.onSemitonesTyped,
+            onCentsTyped: widget.onCentsTyped,
             onSemitonesChanged: widget.onTransposeChanged,
             onCentsChanged: widget.onFineCentsChanged,
             onDragStart: widget.onPitchDragStart,
@@ -331,6 +377,11 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
     }
 
     final sliderValue = dbToSlider(widget.gainDb);
+    String dbText(double db) => db <= -70 ? '-∞' : db.toStringAsFixed(1);
+    final group = widget.group;
+    final gainText = group == null || group.lowGainDb == group.highGainDb
+        ? '${dbText(widget.gainDb)} dB'
+        : '${dbText(group.lowGainDb)}…${dbText(group.highGainDb)} dB';
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -343,7 +394,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
         const SizedBox(width: 4),
         // dB display box (matches track mixer style)
         Container(
-          width: 52,
+          constraints: const BoxConstraints(minWidth: 52),
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
           decoration: BoxDecoration(
             color: colors.dark,
@@ -351,9 +402,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
             border: Border.all(color: colors.surface, width: 1),
           ),
           child: Text(
-            widget.gainDb <= -70
-                ? '-∞ dB'
-                : '${widget.gainDb.toStringAsFixed(1)} dB',
+            gainText,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: BT.fontCaption,
@@ -377,7 +426,11 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
             onChangeStart: widget.onGainDragStart,
             onChangeEnd: widget.onGainDragEnd,
             onDoubleTap: () {
-              widget.onGainChanged?.call(0.0); // Reset to 0 dB
+              if (widget.onGainReset != null) {
+                widget.onGainReset!();
+              } else {
+                widget.onGainChanged?.call(0.0); // Reset to 0 dB
+              }
               widget.onGainDragEnd?.call(); // a double-click has no tap-up
             },
           ),
@@ -498,7 +551,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
         _buildActionButton(
           context,
           'Reverse',
-          widget.reversed,
+          widget.group?.allReversed ?? widget.reversed,
           true,
           widget.onReverseToggle,
         ),

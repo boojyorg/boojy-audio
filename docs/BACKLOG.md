@@ -183,6 +183,9 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
 - **Piano Roll Length and the ruler disagree on a repeating clip:** the Length box sets the
   clip's arrangement length to the loop's (its repeats go), while dragging the loop's edge on the
   ruler keeps them. Pick one *(Tyr)*.
+- **Move several track faders at once:** select tracks, drag one fader, all move by the same dB
+  (as several selected clips' Volume does in the Audio Editor since 2026-10-14). Typing a clip
+  volume, and Loop/Warp/BPM on several clips, are also not done.
 - **Two `showMenu` calls remain** in `track_mixer_strip.dart`; migrate to `showBoojyMenu`.
 - **Zoom spec** *(Tyr)*: anchor, modifiers, pinch, ruler drag, zoom-to-fit, independent axes.
 - **Sampler workflow** *(Tyr)*: research what it should be before touching it again.

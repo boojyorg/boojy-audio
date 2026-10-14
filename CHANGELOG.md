@@ -6,6 +6,14 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- **Change pitch, volume and reverse on several clips at once.** Select a few audio clips (on one
+  track or several) and the Audio Editor's Pitch, Volume and Reverse change all of them, as one
+  undo step; it says "3 clips" so you know. Dragging moves every clip by the same amount, so
+  clips at -1, -2 and 0 st dragged down 2 become -3, -4 and -2; the group stops together when
+  one clip reaches a limit. Typing a pitch, or double-clicking Volume to reset it, sets them all
+  to the same value. When the clips differ, the box shows the range (`-2…0 st`). Silent clips
+  stay silent when you drag the volume.
+
 - **MP3 export works with nothing to install.** Boojy now makes MP3s itself, so the MP3 option
   is always there, on every Mac and Windows PC. It used to need ffmpeg installed separately, and
   even then the app opened from Finder couldn't find it. The progress bar keeps moving while the

@@ -1542,6 +1542,8 @@ class _DAWScreenState extends State<DAWScreen>
             ),
             audioClipCallbacks: AudioClipCallbacks(
               onSelected: _onAudioClipSelected,
+              // Box select and Select All: the Audio Editor's "N clips".
+              onSelectionChanged: () => setState(() {}),
               onOpenEditor: _openEditorPanel,
               onCopied: onAudioClipCopied,
               onBatchDeleted: deleteAudioClipsBatch,
@@ -2070,6 +2072,8 @@ class _DAWScreenState extends State<DAWScreen>
                               currentEditingAudioClip: selectedAudioClip,
                               onAudioClipUpdated: onAudioClipEdited,
                               onAudioClipEditFinished: onAudioClipEditFinished,
+                              audioClipGroup: audioClipGroup,
+                              onAudioClipGroupEdit: onAudioClipGroupEdit,
                               currentTrackPlugins:
                                   selectedTrackId !=
                                       null // M10

@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import '../../constants/ui_constants.dart';
 import '../../models/clip_data.dart';
@@ -145,6 +146,7 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
       selectedAudioClipIds.clear();
       selectedAudioClipId = null;
     });
+    widget.audioClipCallbacks.onSelectionChanged?.call();
   }
 
   /// Select all clips (both MIDI and audio)
@@ -162,6 +164,7 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
         selectedAudioClipIds.add(clip.clipId);
       }
     });
+    widget.audioClipCallbacks.onSelectionChanged?.call();
   }
 
   /// Get all selected MIDI clips data
@@ -186,6 +189,7 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
 
     // Notify parent to clear MIDI clip selection (for piano roll)
     widget.midiClipCallbacks.onSelected?.call(null, null);
+    widget.audioClipCallbacks.onSelectionChanged?.call();
   }
 
   /// Update selection based on box selection rectangle.
@@ -281,6 +285,8 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
       }
     }
 
+    final audioBefore = Set<int>.of(selectedAudioClipIds);
+
     // Update selection state
     setState(() {
       // If shift was held at START, merge initial selection with current box intersection
@@ -305,5 +311,8 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
           ..addAll(newAudioSelection);
       }
     });
+    if (!setEquals(audioBefore, selectedAudioClipIds)) {
+      widget.audioClipCallbacks.onSelectionChanged?.call();
+    }
   }
 }

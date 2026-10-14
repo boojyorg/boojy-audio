@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/boojy_icons.dart';
 import '../../models/clip_data.dart';
+import '../../models/clip_group_edit.dart';
 import '../../models/tool_mode.dart';
 import '../../services/commands/audio_engine_interface.dart';
 import '../../theme/theme_extension.dart';
@@ -31,6 +32,14 @@ class AudioEditor extends StatefulWidget {
   /// DAW sends it to the engine and makes it one undo step, described as
   /// given.
   final void Function(String description)? onEditFinished;
+
+  /// The selected audio clips, when there are several and the open clip is
+  /// one of them: Pitch, Volume and Reverse then act on them all.
+  final ClipGroup? group;
+
+  /// A Pitch, Volume or Reverse change for the other clips in [group] (the
+  /// editor makes it on the open clip itself).
+  final void Function(ClipGroupEdit edit)? onGroupEdit;
 
   /// Current tool mode (managed by parent EditorPanel)
   /// Note: Tools are greyed out in v1 but we keep the prop for consistency
@@ -59,6 +68,8 @@ class AudioEditor extends StatefulWidget {
     this.onClose,
     this.onClipUpdated,
     this.onEditFinished,
+    this.group,
+    this.onGroupEdit,
     this.toolMode = ToolMode.draw,
     this.onToolModeChanged,
     this.projectTempo = 120.0,
@@ -120,6 +131,7 @@ class _AudioEditorState extends State<AudioEditor>
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final group = widget.group;
 
     if (currentClip == null) {
       return _buildEmptyState(colors);
@@ -170,7 +182,11 @@ class _AudioEditorState extends State<AudioEditor>
                     'Set original BPM to ${editData.bpm.toStringAsFixed(1)}',
                   ),
                   onPitchDragStart: beginLiveDrag,
-                  onPitchDragEnd: () => endLiveDrag('Set pitch'),
+                  onPitchDragEnd: () => endLiveDrag(
+                    group == null
+                        ? 'Set pitch'
+                        : 'Change pitch of ${group.count} clips',
+                  ),
                   projectBpm: widget.projectTempo,
                   onProjectBpmChanged: widget.onProjectTempoChanged,
                   // Reverse
@@ -182,11 +198,19 @@ class _AudioEditorState extends State<AudioEditor>
                   fineCents: editData.fineCents,
                   onFineCentsChanged: setFineCents,
                   gainDb: editData.gainDb,
-                  onGainChanged: setGain,
-                  onGainDragStart: beginLiveDrag,
+                  onGainChanged: group == null ? setGain : setGroupGain,
+                  onGainReset: resetGain,
+                  onGainDragStart: beginGainDrag,
                   onGainDragEnd: () => endLiveDrag(
-                    'Set gain to ${editData.gainDb.toStringAsFixed(1)} dB',
+                    group == null
+                        ? 'Set gain to ${editData.gainDb.toStringAsFixed(1)} dB'
+                        : 'Change volume of ${group.count} clips',
                   ),
+                  // Several clips selected
+                  group: group,
+                  onPitchShift: group == null ? null : shiftGroupPitch,
+                  onSemitonesTyped: group == null ? null : setGroupSemitones,
+                  onCentsTyped: group == null ? null : setGroupCents,
                   onCreateSamplerFromClip: widget.onCreateSamplerFromClip,
                 ),
 
