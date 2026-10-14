@@ -203,11 +203,17 @@ class ClipGroup {
 
   /// [cents] cut down so no clip goes past the pitch limits: the whole group
   /// stops together and keeps its spacing. With [wholeSemitones] (a
-  /// semitone drag) the cut is to whole semitones.
-  int clampPitchShift(int cents, {bool wholeSemitones = false}) {
+  /// semitone drag) the cut is to whole semitones. [alreadyShifted]: how far
+  /// the clips have moved since this summary was taken (several input
+  /// events can arrive before the next one).
+  int clampPitchShift(
+    int cents, {
+    bool wholeSemitones = false,
+    int alreadyShifted = 0,
+  }) {
     final clamped = cents.clamp(
-      minPitchCents - lowPitch,
-      maxPitchCents - highPitch,
+      minPitchCents - (lowPitch + alreadyShifted),
+      maxPitchCents - (highPitch + alreadyShifted),
     );
     return wholeSemitones ? (clamped ~/ 100) * 100 : clamped;
   }
@@ -215,10 +221,12 @@ class ClipGroup {
   /// [db] cut down so no clip that isn't silent goes past the volume limits.
   /// Going down, the group stops just above silent: a clip that went silent
   /// would stay put after (see [ShiftGain]), and the spacing would be lost.
-  double clampGainShift(double db) {
-    final low = lowAudibleGainDb;
-    final high = highAudibleGainDb;
-    if (low == null || high == null) return db;
+  double clampGainShift(double db, {double alreadyShifted = 0}) {
+    final lowNow = lowAudibleGainDb;
+    final highNow = highAudibleGainDb;
+    if (lowNow == null || highNow == null) return db;
+    final low = lowNow + alreadyShifted;
+    final high = highNow + alreadyShifted;
     final floor = math.min(0.0, lowestAudibleGainDb - low);
     return db.clamp(floor, math.max(0.0, maxGainDb - high));
   }

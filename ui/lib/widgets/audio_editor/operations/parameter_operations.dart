@@ -116,13 +116,30 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
     finishEdit(actionDescription);
   }
 
+  /// How far the clips' pitch and volume have moved since [AudioEditor.group]
+  /// was taken: input events can come faster than the DAW rebuilds the
+  /// editor with a fresh one, and the limits must count them all.
+  int _pitchShifted = 0;
+  double _gainShifted = 0;
+
+  /// [AudioEditor.group] is fresh (the DAW rebuilt it from the clips).
+  void groupRefreshed() {
+    _pitchShifted = 0;
+    _gainShifted = 0;
+  }
+
   /// A pitch drag or scroll: every clip moves by [cents], the group stopping
   /// together at the limits.
   void shiftGroupPitch(int cents, {required bool wholeSemitones}) {
     final group = widget.group;
     if (group == null) return;
-    final shift = group.clampPitchShift(cents, wholeSemitones: wholeSemitones);
+    final shift = group.clampPitchShift(
+      cents,
+      wholeSemitones: wholeSemitones,
+      alreadyShifted: _pitchShifted,
+    );
     if (shift == 0) return;
+    _pitchShifted += shift;
     editGroup(ShiftPitch(shift), 'Change pitch of ${group.count} clips');
   }
 
@@ -158,8 +175,12 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
       setGain(db);
       return;
     }
-    final shift = group.clampGainShift(db - editData.gainDb);
+    final shift = group.clampGainShift(
+      db - editData.gainDb,
+      alreadyShifted: _gainShifted,
+    );
     if (shift == 0) return;
+    _gainShifted += shift;
     setState(() {
       editData = editData.copyWith(
         gainDb: (editData.gainDb + shift).clamp(minGainDb, maxGainDb),

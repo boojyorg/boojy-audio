@@ -109,6 +109,7 @@ class _AudioEditorState extends State<AudioEditor>
   @override
   void didUpdateWidget(AudioEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(widget.group, oldWidget.group)) groupRefreshed();
     if (widget.clipData != oldWidget.clipData) {
       setState(() {
         updateFromClip(widget.clipData, projectTempo: widget.projectTempo);

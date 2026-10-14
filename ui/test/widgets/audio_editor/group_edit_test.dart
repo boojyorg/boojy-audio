@@ -3,6 +3,7 @@ import 'package:boojy_audio/models/clip_data.dart';
 import 'package:boojy_audio/models/clip_group_edit.dart';
 import 'package:boojy_audio/theme/theme_provider.dart';
 import 'package:boojy_audio/widgets/audio_editor/audio_editor.dart';
+import 'package:boojy_audio/widgets/audio_editor/audio_editor_controls_bar.dart';
 import 'package:boojy_audio/widgets/shared/boojy_tooltip.dart';
 import 'package:boojy_audio/widgets/shared/editors/capsule_slider.dart';
 import 'package:flutter/gestures.dart';
@@ -135,6 +136,72 @@ void main() {
     // 47 can go up one semitone; the open clip stops with it.
     expect(clips.map((e) => e.transposeSemitones), [0, 48]);
     await tester.pump(kDoubleTapTimeout);
+  });
+
+  // Input can come faster than frames: the group stop must count every
+  // step since the editor last got a fresh group, not just the last one.
+  group('several steps before a redraw', () {
+    testWidgets('a fast mouse drag keeps the pitch spacing', (tester) async {
+      final (_, _, clips) = await pumpEditor(
+        tester,
+        openEdit: const AudioClipEditData(),
+        others: const [AudioClipEditData(transposeSemitones: 47)],
+      );
+      final drag = await tester.startGesture(
+        tester.getCenter(find.text(' st')),
+        kind: PointerDeviceKind.mouse,
+      );
+      await drag.moveBy(const Offset(0, -20));
+      for (var i = 0; i < 3; i++) {
+        await drag.moveBy(const Offset(0, -6)); // no pump in between
+      }
+      await drag.up();
+      await tester.pump();
+      expect(clips.map((e) => (e.transposeSemitones, e.fineCents)), [
+        (1, 0),
+        (48, 0),
+      ]);
+      await tester.pump(kDoubleTapTimeout);
+    });
+
+    testWidgets('pitch', (tester) async {
+      final (_, _, clips) = await pumpEditor(
+        tester,
+        openEdit: const AudioClipEditData(),
+        others: const [AudioClipEditData(transposeSemitones: 47)],
+      );
+      final bar = tester.widget<AudioEditorControlsBar>(
+        find.byType(AudioEditorControlsBar),
+      );
+      bar.onPitchDragStart!();
+      for (var i = 0; i < 3; i++) {
+        bar.onPitchShift!(100, wholeSemitones: true);
+      }
+      bar.onPitchDragEnd!();
+      await tester.pump();
+      expect(clips.map((e) => (e.transposeSemitones, e.fineCents)), [
+        (1, 0),
+        (48, 0),
+      ]);
+    });
+
+    testWidgets('volume', (tester) async {
+      final (_, _, clips) = await pumpEditor(
+        tester,
+        openEdit: const AudioClipEditData(),
+        others: const [AudioClipEditData(gainDb: 23)],
+      );
+      final bar = tester.widget<AudioEditorControlsBar>(
+        find.byType(AudioEditorControlsBar),
+      );
+      bar.onGainDragStart!();
+      for (final gain in [1.0, 2.0, 3.0]) {
+        bar.onGainChanged!(gain);
+      }
+      bar.onGainDragEnd!();
+      await tester.pump();
+      expect(clips.map((e) => e.gainDb), [1, 24]);
+    });
   });
 
   testWidgets('typed semitones set every clip', (tester) async {
