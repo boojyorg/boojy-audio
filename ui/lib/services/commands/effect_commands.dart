@@ -2,6 +2,41 @@ import '../../widgets/device_chain/effect_data.dart';
 import 'audio_engine_interface.dart';
 import 'command.dart';
 
+/// Put a re-created built-in effect back as it was: an EQ's band count first
+/// (a new EQ has three bands and the engine won't take `band_count` as a
+/// parameter), then every parameter, then on/off.
+void restoreEffectSettings(
+  AudioEngineInterface engine,
+  int effectId, {
+  required String type,
+  required Map<String, double> params,
+  required bool bypassed,
+}) {
+  final wanted = params['band_count']?.round();
+  if (type == 'eq' && wanted != null) {
+    int? bands() => EffectData.fromInfo(
+      effectId,
+      engine.getEffectInfo(effectId),
+    )?.parameters['band_count']?.round();
+    // Step a band at a time, and stop if the engine refuses one.
+    var now = bands();
+    while (now != null && now != wanted) {
+      if (now < wanted) {
+        if (engine.addEqBand(effectId) < 0) break;
+      } else {
+        engine.removeEqBand(effectId, now - 1);
+      }
+      final after = bands();
+      if (after == now) break;
+      now = after;
+    }
+  }
+  params.forEach((name, value) {
+    if (name != 'band_count') engine.setEffectParameter(effectId, name, value);
+  });
+  if (bypassed) engine.setEffectBypass(effectId, bypassed: true);
+}
+
 /// Command to add an effect to a track
 class AddEffectCommand extends Command {
   final int trackId;
@@ -123,10 +158,13 @@ class RemoveEffectCommand extends Command {
 
     final removed = _removed;
     if (removed != null) {
-      removed.parameters.forEach((name, value) {
-        engine.setEffectParameter(restored, name, value);
-      });
-      if (removed.bypassed) engine.setEffectBypass(restored, bypassed: true);
+      restoreEffectSettings(
+        engine,
+        restored,
+        type: removed.type,
+        params: removed.parameters,
+        bypassed: removed.bypassed,
+      );
     }
     if (_vst3State.isNotEmpty) engine.setVst3State(restored, _vst3State);
 

@@ -38,6 +38,11 @@ class DeviceChainView extends StatefulWidget {
   final String? trackName;
   final Future<bool?> Function(int effectId, String pluginName)? onFloatPlugin;
   final Future<bool?> Function(int effectId)? onEmbedPlugin;
+
+  /// A VST3 effect was deleted from the chain, or its delete was undone.
+  final void Function(int effectId)? onVst3EffectRemoved;
+  final void Function(int trackId, int effectId, String path, String name)?
+  onVst3EffectRestored;
   final void Function(VoidCallback resetFn)? onResetRegistered;
   final Function(InstrumentData)? onInstrumentParameterChanged;
   final Function(double volumeDb)? onTrackVolumeChanged;
@@ -70,6 +75,8 @@ class DeviceChainView extends StatefulWidget {
     this.trackName,
     this.onFloatPlugin,
     this.onEmbedPlugin,
+    this.onVst3EffectRemoved,
+    this.onVst3EffectRestored,
     this.onResetRegistered,
     this.onInstrumentParameterChanged,
     this.onTrackVolumeChanged,
@@ -347,8 +354,13 @@ class _DeviceChainViewState extends State<DeviceChainView>
 
     final effect = _effects.firstWhere((e) => e.id == effectId);
     final effectIndex = _effects.indexOf(effect);
+    final trackId = widget.selectedTrackId!;
+    // Captured now: undo can run after this chain shows another track.
+    final pluginPath = effect.pluginPath;
+    final onVst3Removed = widget.onVst3EffectRemoved;
+    final onVst3Restored = widget.onVst3EffectRestored;
     final command = RemoveEffectCommand(
-      trackId: widget.selectedTrackId!,
+      trackId: trackId,
       trackName: widget.trackName ?? 'Track',
       effectId: effectId,
       effectName: _getEffectDisplayName(effect.type),
@@ -360,10 +372,19 @@ class _DeviceChainViewState extends State<DeviceChainView>
           .where((e) => e.id != effectId)
           .map((e) => e.id)
           .toList(),
-      onEffectRemoved: (_) {
+      onEffectRemoved: (id) {
+        if (pluginPath != null) onVst3Removed?.call(id);
         if (mounted) _loadEffects();
       },
-      onEffectAdded: (_) {
+      onEffectAdded: (id) {
+        if (pluginPath != null) {
+          onVst3Restored?.call(
+            trackId,
+            id,
+            pluginPath,
+            _getEffectDisplayName(effect.type),
+          );
+        }
         if (mounted) _loadEffects();
       },
     );

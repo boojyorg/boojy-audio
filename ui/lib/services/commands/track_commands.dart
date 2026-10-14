@@ -5,6 +5,7 @@ import '../../widgets/device_chain/effect_data.dart';
 import 'audio_engine_interface.dart';
 import 'clip_commands.dart';
 import 'command.dart';
+import 'effect_commands.dart';
 
 /// Command to create a new track
 class CreateTrackCommand extends Command {
@@ -244,10 +245,13 @@ class DeleteTrackCommand extends Command {
         case final _BuiltinEffectSnapshot b:
           final effectId = engine.addEffectToTrack(newTrackId, b.type);
           if (effectId < 0) continue;
-          b.params.forEach((name, value) {
-            engine.setEffectParameter(effectId, name, value);
-          });
-          if (b.bypassed) engine.setEffectBypass(effectId, bypassed: true);
+          restoreEffectSettings(
+            engine,
+            effectId,
+            type: b.type,
+            params: b.params,
+            bypassed: b.bypassed,
+          );
         case final _Vst3EffectSnapshot v:
           final effectId = engine.addVst3EffectToTrack(newTrackId, v.path);
           if (effectId < 0) {

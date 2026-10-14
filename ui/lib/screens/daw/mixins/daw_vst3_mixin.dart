@@ -64,9 +64,16 @@ mixin DAWVst3Mixin
   }
 
   /// Handle VST3 plugin dropped on track
-  void onVst3PluginDropped(int trackId, Vst3Plugin plugin) {
-    if (vst3PluginManager == null) return;
-    vst3PluginManager!.addPluginToTrack(trackId, plugin);
+  /// Add a VST3 plugin to a track (dropped, picked from a menu or duplicated)
+  /// as one undo step.
+  Future<void> onVst3PluginDropped(int trackId, Vst3Plugin plugin) async {
+    final manager = vst3PluginManager;
+    if (manager == null) return;
+    final command = manager.addPluginCommand(trackId, plugin);
+    await undoRedoManager.execute(command);
+    if ((command.createdEffectId ?? -1) < 0) {
+      Notices.problem("Couldn't load ${plugin.name}");
+    }
   }
 
   /// Get VST3 plugin counts per track

@@ -52,11 +52,19 @@ class Vst3EditorCallbacks {
   final Future<bool> Function(int effectId, String pluginName)? onFloatPlugin;
   final Future<bool> Function(int effectId)? onEmbedPlugin;
 
+  /// A VST3 effect left the device chain (deleted) or came back (undo), so
+  /// the screen's plugin list can follow.
+  final void Function(int effectId)? onVst3EffectRemoved;
+  final void Function(int trackId, int effectId, String path, String name)?
+  onVst3EffectRestored;
+
   const Vst3EditorCallbacks({
     this.onVst3ParameterChanged,
     this.onVst3PluginRemoved,
     this.onVst3InstrumentDropped,
     this.onFloatPlugin,
     this.onEmbedPlugin,
+    this.onVst3EffectRemoved,
+    this.onVst3EffectRestored,
   });
 }

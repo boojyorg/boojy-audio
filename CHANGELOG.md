@@ -105,9 +105,12 @@ All notable changes to Boojy Audio will be documented in this file.
   built-in effects: the panel read the plugin's name and location as numbers, gave up and left
   the card out (Windows paths, with their `C:`, too). The card now shows with the plugin's name,
   its on/off switch and a button that opens the plugin's window, and ⌘D duplicates it.
+  Adding a VST3 (dropped, picked from a menu or duplicated) is now one undo step; it used to
+  have none, so ⌘Z skipped it.
 - **Undoing an effect's delete brings it back as it was.** It used to come back at its default
-  settings: a tuned reverb returned untuned, a switched-off EQ came back on, a VST3 lost its
-  sound. Now its settings, its on/off state and a VST3's own state all return.
+  settings: a tuned reverb returned untuned, a switched-off effect came back on, a VST3 lost its
+  sound and an EQ always came back with three bands. Now its settings, its bands, its on/off
+  state and a VST3's own state all return, after deleting the effect or its whole track.
 - **Mac updates are offered again after a release.** The release job saved the update feed
   straight to `master`, which is now protected, so the push would fail and installed apps would
   never hear about the new version. It now opens a PR with the feed, merged once the release is
