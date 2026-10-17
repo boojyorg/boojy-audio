@@ -425,7 +425,7 @@ class UserSettings extends ChangeNotifier {
   /// Library right column width (contents column in two-column layout)
   double get libraryRightColumnWidth => _libraryRightColumnWidth;
   set libraryRightColumnWidth(double value) {
-    final clamped = value.clamp(92.0, 400.0);
+    final clamped = value.clamp(132.0, 412.0); // UILayoutState right column
     if (_libraryRightColumnWidth != clamped) {
       _libraryRightColumnWidth = clamped;
       _savePanelSettings();

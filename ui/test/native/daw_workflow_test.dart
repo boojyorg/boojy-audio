@@ -17,6 +17,7 @@ import 'package:boojy_audio/widgets/audio_editor/audio_editor_controls_bar.dart'
 import 'package:boojy_audio/widgets/device_chain/effect_data.dart';
 import 'package:boojy_audio/widgets/editor_panel.dart';
 import 'package:boojy_audio/widgets/export_dialog.dart';
+import 'package:boojy_audio/widgets/library_panel.dart';
 import 'package:boojy_audio/widgets/audio_editor/operations/parameter_operations.dart';
 import 'package:boojy_audio/widgets/piano_roll.dart';
 import 'package:boojy_audio/widgets/piano_roll/operations/note_operations.dart';
@@ -24,6 +25,7 @@ import 'package:boojy_audio/widgets/piano_roll/piano_roll_controls_bar.dart';
 import 'package:boojy_audio/widgets/shared/editors/unified_nav_bar.dart';
 import 'package:boojy_audio/widgets/timeline/timeline_models.dart';
 import 'package:boojy_audio/widgets/timeline_view.dart';
+import 'package:boojy_audio/widgets/track_mixer_panel.dart';
 import 'package:boojy_audio/widgets/transport_bar/count_in_toggle_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -99,6 +101,35 @@ void main() {
       await h.settle();
       expect(h.daw.userSettings.countInBars, 1);
       expect(shownOn(), isTrue, reason: 'second click turns it back on');
+    } finally {
+      await h.close();
+    }
+  });
+
+  testWidgets('a narrow window narrows both side panels and closes neither', (
+    tester,
+  ) async {
+    final h = await DawHarness.start(tester);
+    try {
+      double drawn(Type panel) => tester.getSize(find.byType(panel)).width;
+      h.daw.uiLayout.restoreLibraryWidths(60, 412); // 480
+      h.daw.uiLayout.mixerPanelWidth = 480;
+      await h.settle();
+      expect(drawn(LibraryPanel), 480);
+      expect(drawn(TrackMixerPanel), 480);
+
+      // The smallest window: 960 - 340 timeline - 2 x 4 dividers = 306 each
+      tester.view.physicalSize = const Size(960, 600);
+      await h.settle();
+      expect(h.daw.uiLayout.isLibraryPanelCollapsed, isFalse);
+      expect(h.daw.uiLayout.isMixerVisible, isTrue);
+      expect(drawn(LibraryPanel), 306);
+      expect(drawn(TrackMixerPanel), 306);
+
+      tester.view.physicalSize = const Size(1440, 900);
+      await h.settle();
+      expect(drawn(LibraryPanel), 480, reason: 'chosen width comes back');
+      expect(drawn(TrackMixerPanel), 480);
     } finally {
       await h.close();
     }

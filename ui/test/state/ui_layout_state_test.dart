@@ -43,10 +43,9 @@ void main() {
 
     group('initial state', () {
       test('has correct default panel sizes', () {
-        expect(layout.mixerPanelWidth, 380.0);
+        expect(layout.mixerPanelWidth, 280.0);
         expect(layout.editorPanelHeight, 250.0);
-        expect(layout.libraryLeftColumnWidth, 60.0);
-        expect(layout.libraryRightColumnWidth, 172.0);
+        expect(layout.libraryPanelWidth, 280.0);
       });
 
       test('library is open by default', () {
@@ -78,14 +77,14 @@ void main() {
 
     group('library panel', () {
       test('libraryPanelWidth is left + divider + right', () {
-        // 60 + 8 + 172 = 240
+        // 60 + 8 + 212 = 280
         expect(
           layout.libraryPanelWidth,
           layout.libraryLeftColumnWidth +
               UILayoutState.libraryDividerWidth +
               layout.libraryRightColumnWidth,
         );
-        expect(layout.libraryPanelWidth, 240.0);
+        expect(layout.libraryPanelWidth, 280.0);
       });
 
       test('libraryLeftColumnWidth clamps to min', () {
@@ -223,9 +222,9 @@ void main() {
         expect(layout.mixerPanelWidth, UILayoutState.mixerMinWidth);
       });
 
-      test('mixerPanelWidth setter clamps to hard max', () {
+      test('mixerPanelWidth setter clamps to max', () {
         layout.mixerPanelWidth = 9999.0;
-        expect(layout.mixerPanelWidth, UILayoutState.mixerHardMax);
+        expect(layout.mixerPanelWidth, UILayoutState.mixerMaxWidth);
       });
 
       test('toggleMixer hides when visible', () {
@@ -304,31 +303,19 @@ void main() {
     // ── Static helpers ─────────────────────────
 
     group('static helpers', () {
-      test('getLibraryMaxWidth respects percentage cap', () {
-        // Small window: percentage is limiting factor
-        // 800 * 0.30 = 240, which is < libraryHardMax (600)
-        expect(UILayoutState.getLibraryMaxWidth(800), 240.0);
-      });
-
-      test('getLibraryMaxWidth respects hard max', () {
-        // Large window: hardMax limits
-        // 3000 * 0.30 = 900, which is > libraryHardMax (600)
+      test('Library and Mixer share one size range', () {
+        expect(UILayoutState.libraryMinWidth, UILayoutState.mixerMinWidth);
+        // Library = left column + divider + right column
+        const libraryChrome =
+            UILayoutState.libraryLeftColumnDefault +
+            UILayoutState.libraryDividerWidth;
         expect(
-          UILayoutState.getLibraryMaxWidth(3000),
-          UILayoutState.libraryHardMax,
+          libraryChrome + UILayoutState.libraryRightColumnMin,
+          UILayoutState.sidePanelMinWidth,
         );
-      });
-
-      test('getMixerMaxWidth respects percentage cap', () {
-        // 800 * 0.35 = 280, which is < mixerHardMax (500)
-        expect(UILayoutState.getMixerMaxWidth(800), 280.0);
-      });
-
-      test('getMixerMaxWidth respects hard max', () {
-        // 2000 * 0.35 = 700, > mixerHardMax (500)
         expect(
-          UILayoutState.getMixerMaxWidth(2000),
-          UILayoutState.mixerHardMax,
+          libraryChrome + UILayoutState.libraryRightColumnMax,
+          UILayoutState.mixerMaxWidth,
         );
       });
 
@@ -344,32 +331,17 @@ void main() {
           UILayoutState.editorHardMax,
         );
       });
-
-      test('getLibraryDefaultWidth respects min on small windows', () {
-        // Very small window: 100 * 0.15 = 15, below min 160
-        expect(
-          UILayoutState.getLibraryDefaultWidth(100),
-          UILayoutState.libraryMinWidth,
-        );
-      });
-
-      test('getLibraryDefaultWidth uses percentage on normal windows', () {
-        // 1600 * 0.15 = 240, above min, below hardMax
-        expect(UILayoutState.getLibraryDefaultWidth(1600), 240.0);
-      });
     });
 
     group('resetSizesToDefaults', () {
-      test('sets all panels proportional to the window', () {
+      test('Library and Mixer open at the same width; editor by window', () {
         final state = UILayoutState();
         state.resetSizesToDefaults(1600, 1000);
 
-        // mixer: 1600 * 0.28 = 448 (below hardMax 500)
-        expect(state.mixerPanelWidth, closeTo(448.0, 0.01));
+        expect(state.mixerPanelWidth, UILayoutState.sidePanelDefaultWidth);
+        expect(state.libraryPanelWidth, UILayoutState.sidePanelDefaultWidth);
         // editor: 1000 * 0.32 = 320 (above min, below hardMax)
         expect(state.editorPanelHeight, closeTo(320.0, 0.01));
-        // library total: 1600 * 0.15 = 240 → left 60 + divider 8 + right 172
-        expect(state.libraryPanelWidth, closeTo(240.0, 0.01));
       });
 
       test(
@@ -385,7 +357,7 @@ void main() {
 
           // A new project no longer inherits the stray drag.
           expect(state.editorPanelHeight, closeTo(320.0, 0.01));
-          expect(state.mixerPanelWidth, closeTo(448.0, 0.01));
+          expect(state.mixerPanelWidth, UILayoutState.sidePanelDefaultWidth);
         },
       );
 
@@ -416,46 +388,78 @@ void main() {
       });
     });
 
-    // ── Arrangement width helpers ──────────────
+    // ── Fitting the side panels into the window ──
 
-    group('arrangement width', () {
-      test('getArrangementWidth subtracts visible panels', () {
-        const windowWidth = 1600.0;
-        final expected =
-            windowWidth - layout.libraryPanelWidth - layout.mixerPanelWidth;
-        expect(layout.getArrangementWidth(windowWidth), expected);
+    group('displayed panel widths', () {
+      // Timeline keeps 340 and each divider 4: 1108 leaves 760 for the panels
+      const window = 1108.0;
+
+      setUp(() {
+        layout.restoreLibraryWidths(60.0, 412.0); // 480
+        layout.mixerPanelWidth = 380.0;
       });
 
-      test('getArrangementWidth uses zero for collapsed library', () {
-        layout.collapseLibrary();
-        const windowWidth = 1600.0;
-        final expected = windowWidth - 0.0 - layout.mixerPanelWidth;
-        expect(layout.getArrangementWidth(windowWidth), expected);
+      test('chosen widths are drawn when they fit', () {
+        final shown = layout.displayedPanelWidths(1920.0);
+        expect(shown.library, 480.0);
+        expect(shown.mixer, 380.0);
       });
 
-      test('getArrangementWidth uses zero for hidden mixer', () {
+      test('the wider panel gives way first, then both together', () {
+        // 480 + 380 = 860, 100 too wide: the Library alone narrows
+        var shown = layout.displayedPanelWidths(window);
+        expect(shown.library, 380.0);
+        expect(shown.mixer, 380.0);
+        // 860 in 660: Library down to 380, then 80 more split evenly
+        shown = layout.displayedPanelWidths(1008.0);
+        expect(shown.library, 330.0);
+        expect(shown.mixer, 330.0);
+      });
+
+      test('never narrower than the minimum, never hidden', () {
+        final shown = layout.displayedPanelWidths(400.0);
+        expect(shown.library, UILayoutState.sidePanelMinWidth);
+        expect(shown.mixer, UILayoutState.sidePanelMinWidth);
+        expect(layout.isLibraryPanelCollapsed, isFalse);
+        expect(layout.isMixerVisible, isTrue);
+      });
+
+      test('the chosen widths come back when the window grows', () {
+        layout.displayedPanelWidths(window);
+        final shown = layout.displayedPanelWidths(1920.0);
+        expect(shown.library, 480.0);
+        expect(shown.mixer, 380.0);
+      });
+
+      test('a hidden panel takes no room', () {
         layout.collapseMixer();
-        const windowWidth = 1600.0;
-        final expected = windowWidth - layout.libraryPanelWidth - 0.0;
-        expect(layout.getArrangementWidth(windowWidth), expected);
+        final shown = layout.displayedPanelWidths(704.0);
+        expect(shown.mixer, 0.0);
+        expect(shown.library, 360.0); // 704 - 340 timeline - 4 divider
       });
 
-      test('canShowLibrary returns true when enough room', () {
-        expect(layout.canShowLibrary(2000.0), isTrue);
+      test('a drag starts from the drawn widths', () {
+        layout.keepDisplayedWidths(window);
+        expect(layout.libraryPanelWidth, 380.0);
+        expect(layout.mixerPanelWidth, 380.0);
       });
 
-      test('canShowLibrary returns false when too narrow', () {
-        // With mixer visible at 380, library at 240, need arrangement >= 200
-        // So window must be >= 820. Use something smaller.
-        expect(layout.canShowLibrary(400.0), isFalse);
+      test('a drag stops before squeezing the other panel', () {
+        layout.keepDisplayedWidths(window);
+        // 760 for the panels - 380 Mixer
+        expect(layout.libraryDragMax(window), 380.0);
+        layout.resizeRightColumn(
+          9999.0,
+          maxWidth: layout.libraryDragMax(window),
+        );
+        expect(layout.libraryPanelWidth, 380.0);
+        expect(layout.displayedPanelWidths(window).mixer, 380.0);
+        expect(layout.mixerDragMax(window), 380.0);
       });
 
-      test('canShowMixer returns true when enough room', () {
-        expect(layout.canShowMixer(2000.0), isTrue);
-      });
-
-      test('canShowMixer returns false when too narrow', () {
-        expect(layout.canShowMixer(400.0), isFalse);
+      test('drag limits stay within the shared range', () {
+        expect(layout.libraryDragMax(3000.0), UILayoutState.sidePanelMaxWidth);
+        expect(layout.mixerDragMax(400.0), UILayoutState.sidePanelMinWidth);
       });
     });
 
@@ -600,9 +604,11 @@ void main() {
         );
         expect(
           layout.libraryRightColumnWidth,
-          UILayoutState.libraryRightColumnMin,
+          UILayoutState.sidePanelDefaultWidth -
+              UILayoutState.libraryLeftColumnDefault -
+              UILayoutState.libraryDividerWidth,
         );
-        expect(layout.mixerPanelWidth, 380.0);
+        expect(layout.mixerPanelWidth, UILayoutState.sidePanelDefaultWidth);
         expect(layout.editorPanelHeight, 250.0);
         expect(layout.isLibraryPanelCollapsed, isFalse);
         expect(layout.isMixerVisible, isTrue);
@@ -673,7 +679,7 @@ void main() {
         );
         layout.applyLayout(data);
 
-        expect(layout.mixerPanelWidth, UILayoutState.mixerHardMax);
+        expect(layout.mixerPanelWidth, UILayoutState.mixerMaxWidth);
         expect(layout.editorPanelHeight, UILayoutState.editorHardMax);
       });
     });

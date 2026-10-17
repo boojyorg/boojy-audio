@@ -371,6 +371,13 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **The Library and Mixer are the same size, and one never closes the other.** Both open at 280 px
+  in a new project and drag between 200 and 480 px; the Mixer used to open nearly twice as wide.
+  Making one wider used to close the Mixer once the timeline got narrow, and Show Library or Show
+  Mixer could do nothing at all. Now a drag stops while the timeline still has room, and the other
+  panel stays put. A smaller window narrows both panels (the wider one first) instead of closing
+  one, and they go back to your sizes when it grows again. Windows now has the same smallest
+  window size as the Mac, so both panels always fit.
 - **Panels don't vanish while you resize them.** Dragging the Library, Mixer or editor panel
   narrower used to hide it once you went a little past its smallest size, so it could disappear
   mid-drag. Now it stops at its smallest size; the Library and Mixer buttons, View > Editor

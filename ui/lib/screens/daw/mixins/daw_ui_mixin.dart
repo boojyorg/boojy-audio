@@ -20,15 +20,7 @@ mixin DAWUIMixin
 
   /// Toggle library panel visibility
   void toggleLibraryPanel() {
-    final windowWidth = MediaQuery.of(context).size.width;
-
-    // If trying to expand library, check if there's room
-    if (uiLayout.isLibraryPanelCollapsed) {
-      if (!uiLayout.canShowLibrary(windowWidth)) {
-        return; // Not enough room - do nothing
-      }
-    }
-
+    // Always room: panels narrow to fit (UILayoutState.displayedPanelWidths)
     setState(() {
       uiLayout.isLibraryPanelCollapsed = !uiLayout.isLibraryPanelCollapsed;
       userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
@@ -37,15 +29,7 @@ mixin DAWUIMixin
 
   /// Toggle mixer panel visibility
   void toggleMixer() {
-    final windowWidth = MediaQuery.of(context).size.width;
-
-    // If trying to show mixer, check if there's room
-    if (!uiLayout.isMixerVisible) {
-      if (!uiLayout.canShowMixer(windowWidth)) {
-        return; // Not enough room - do nothing
-      }
-    }
-
+    // Always room: panels narrow to fit (UILayoutState.displayedPanelWidths)
     setState(() {
       uiLayout.isMixerVisible = !uiLayout.isMixerVisible;
       userSettings.mixerVisible = uiLayout.isMixerVisible;
