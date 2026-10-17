@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
+
 import 'dart:async';
+
 // Conditional import for platform-specific code
 import 'daw_screen_io.dart';
 import '../audio_engine.dart';
@@ -138,9 +140,14 @@ class _DAWScreenState extends State<DAWScreen>
           uiLayout.isMixerVisible = userSettings.mixerVisible;
           uiLayout.isEditorPanelVisible = userSettings.editorVisible;
           // Load panel sizes (library uses left/right columns, total is computed)
-          uiLayout.libraryLeftColumnWidth = userSettings.libraryLeftColumnWidth;
-          uiLayout.libraryRightColumnWidth =
-              userSettings.libraryRightColumnWidth;
+          uiLayout.restoreLibraryWidths(
+            userSettings.libraryLeftColumnWidth,
+            userSettings.libraryRightColumnWidth,
+          );
+          // Save the moved width, or the next launch would move it again
+          userSettings.libraryLeftColumnWidth = uiLayout.libraryLeftColumnWidth;
+          userSettings.libraryRightColumnWidth =
+              uiLayout.libraryRightColumnWidth;
           uiLayout.mixerPanelWidth = userSettings.mixerWidth;
           uiLayout.editorPanelHeight = userSettings.editorHeight;
         });
@@ -1648,18 +1655,10 @@ class _DAWScreenState extends State<DAWScreen>
                 final windowWidth = MediaQuery.of(context).size.width;
                 final maxWidth = UILayoutState.getMixerMaxWidth(windowWidth);
                 setState(() {
-                  final newWidth = uiLayout.mixerPanelWidth - delta;
-                  // Snap collapse if dragged below threshold
-                  if (newWidth < UILayoutState.mixerCollapseThreshold) {
-                    uiLayout.collapseMixer();
-                    userSettings.mixerVisible = false;
-                  } else {
-                    uiLayout.mixerPanelWidth = newWidth.clamp(
-                      UILayoutState.mixerMinWidth,
-                      maxWidth,
-                    );
-                    userSettings.mixerWidth = uiLayout.mixerPanelWidth;
-                  }
+                  // Stops at the minimum; only the Mixer button hides it
+                  uiLayout.mixerPanelWidth = (uiLayout.mixerPanelWidth - delta)
+                      .clamp(UILayoutState.mixerMinWidth, maxWidth);
+                  userSettings.mixerWidth = uiLayout.mixerPanelWidth;
                 });
               },
               onDoubleClick: () {
@@ -1951,22 +1950,16 @@ class _DAWScreenState extends State<DAWScreen>
                                       windowHeight,
                                     );
                                 setState(() {
-                                  final newHeight =
-                                      uiLayout.editorPanelHeight - delta;
-                                  // Snap collapse if dragged below threshold
-                                  if (newHeight <
-                                      UILayoutState.editorCollapseThreshold) {
-                                    uiLayout.collapseEditor();
-                                    userSettings.editorVisible = false;
-                                  } else {
-                                    uiLayout.editorPanelHeight = newHeight
-                                        .clamp(
-                                          UILayoutState.editorMinHeight,
-                                          maxHeight,
-                                        );
-                                    userSettings.editorHeight =
-                                        uiLayout.editorPanelHeight;
-                                  }
+                                  // Stops at the minimum; only View > Editor
+                                  // (⇧⌘E) or a double-click hides it
+                                  uiLayout.editorPanelHeight =
+                                      (uiLayout.editorPanelHeight - delta)
+                                          .clamp(
+                                            UILayoutState.editorMinHeight,
+                                            maxHeight,
+                                          );
+                                  userSettings.editorHeight =
+                                      uiLayout.editorPanelHeight;
                                 });
                               },
                               onDoubleClick: () {

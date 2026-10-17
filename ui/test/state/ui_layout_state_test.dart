@@ -189,10 +189,29 @@ void main() {
         );
       });
 
-      test('resizeRightColumn collapses when dragged below threshold', () {
-        // Drag well below right min - 50
+      test('a widened old left column moves into the right column', () {
+        // Saved by the two-column Library: left at its 250 max
+        layout.restoreLibraryWidths(250.0, 92.0);
+        expect(layout.libraryPanelWidth, 350.0); // same size as before
         layout.resizeRightColumn(-9999.0);
-        expect(layout.isLibraryPanelCollapsed, isTrue);
+        expect(layout.libraryPanelWidth, UILayoutState.libraryMinWidth);
+      });
+
+      test('restored widths stay within the right column max', () {
+        layout.restoreLibraryWidths(250.0, 400.0);
+        expect(
+          layout.libraryRightColumnWidth,
+          UILayoutState.libraryRightColumnMax,
+        );
+      });
+
+      test('resizeRightColumn stops at min and keeps the panel open', () {
+        layout.resizeRightColumn(-9999.0);
+        expect(layout.isLibraryPanelCollapsed, isFalse);
+        expect(
+          layout.libraryRightColumnWidth,
+          UILayoutState.libraryRightColumnMin,
+        );
       });
     });
 
@@ -337,21 +356,6 @@ void main() {
       test('getLibraryDefaultWidth uses percentage on normal windows', () {
         // 1600 * 0.15 = 240, above min, below hardMax
         expect(UILayoutState.getLibraryDefaultWidth(1600), 240.0);
-      });
-
-      test('collapse thresholds are less than min widths', () {
-        expect(
-          UILayoutState.libraryCollapseThreshold,
-          lessThan(UILayoutState.libraryMinWidth),
-        );
-        expect(
-          UILayoutState.mixerCollapseThreshold,
-          lessThan(UILayoutState.mixerMinWidth),
-        );
-        expect(
-          UILayoutState.editorCollapseThreshold,
-          lessThan(UILayoutState.editorMinHeight),
-        );
       });
     });
 
@@ -642,6 +646,21 @@ void main() {
         expect(layout.editorPanelHeight, 280.0);
         expect(layout.isLibraryPanelCollapsed, isFalse);
         expect(layout.isMixerVisible, isFalse); // mixerCollapsed = true
+      });
+
+      test('a project saved with a widened old left column can shrink', () {
+        const data = UILayoutData(
+          libraryWidth: 350.0,
+          libraryLeftWidth: 250.0,
+          mixerWidth: 420.0,
+          bottomHeight: 280.0,
+          libraryCollapsed: false,
+          mixerCollapsed: false,
+        );
+        layout.applyLayout(data);
+        expect(layout.libraryPanelWidth, 350.0); // same size as saved
+        layout.resizeRightColumn(-9999.0);
+        expect(layout.libraryPanelWidth, UILayoutState.libraryMinWidth);
       });
 
       test('applyLayout clamps extreme values', () {

@@ -371,6 +371,13 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Panels don't vanish while you resize them.** Dragging the Library, Mixer or editor panel
+  narrower used to hide it once you went a little past its smallest size, so it could disappear
+  mid-drag. Now it stops at its smallest size; the Library and Mixer buttons, View > Editor
+  (⇧⌘E) or a double-click on the edge hide it. The Library and Mixer buttons also show a blue
+  icon while their panel is open, like the metronome's, instead of a brighter grey. And if you had
+  widened the old category column, the Library couldn't go narrower than about 350 px; it can now
+  go down to 160 px like everyone else's, keeping its current width until you drag it.
 - **Three leftovers from the pruning pass removed.** The eraser's "delete several MIDI clips as one
   undo step" now lives with the other clip actions instead of a private copy in the DAW screen;
   the unused clean-exit timestamp (saved on quit, never read; crash recovery uses auto-save

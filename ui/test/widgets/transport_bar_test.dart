@@ -1,12 +1,14 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:boojy_audio/widgets/transport_bar.dart';
 import 'package:boojy_audio/widgets/transport_bar/position_display.dart';
 import 'package:boojy_audio/widgets/transport_bar/record_controls.dart';
 import 'package:boojy_audio/widgets/transport_bar/tempo_controls.dart';
+import 'package:boojy_audio/theme/theme_extension.dart';
 import 'package:boojy_audio/theme/theme_provider.dart';
 
 void main() {
@@ -381,6 +383,48 @@ void main() {
       await tester.pump();
       expect(nativeCalls, isEmpty);
     });
+  });
+
+  testWidgets('panel buttons: blue glyph while open, grey while closed', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      buildTestWidget(
+        child: const TransportBar(
+          playheadPosition: 0.0,
+          libraryVisible: true,
+          mixerVisible: false,
+        ),
+      ),
+    );
+    final colors = tester
+        .element(find.byType(TransportBar))
+        .themeProvider
+        .colors;
+
+    ColorFilter? glyphFilter(String asset) => tester
+        .widget<SvgPicture>(
+          find.byWidgetPredicate(
+            (w) =>
+                w is SvgPicture &&
+                w.bytesLoader is SvgAssetLoader &&
+                (w.bytesLoader as SvgAssetLoader).assetName == asset,
+          ),
+        )
+        .colorFilter;
+
+    expect(
+      glyphFilter('assets/icons/library.svg'),
+      ColorFilter.mode(colors.accent, BlendMode.srcIn),
+    );
+    expect(
+      glyphFilter('assets/icons/mixer.svg'),
+      ColorFilter.mode(colors.textSecondary, BlendMode.srcIn),
+    );
   });
 }
 
