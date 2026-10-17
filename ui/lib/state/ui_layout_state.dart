@@ -1,5 +1,7 @@
 import 'dart:math';
+
 import 'package:flutter/foundation.dart';
+
 import '../services/project_persistence.dart';
 
 export '../services/project_persistence.dart' show UILayoutData;
@@ -129,11 +131,6 @@ class UILayoutState extends ChangeNotifier {
   // Collapsed library width (fully hidden)
   static const double libraryCollapsedWidth = 0.0;
 
-  // Collapse threshold = separate from min (requires dragging further to collapse)
-  static double get libraryCollapseThreshold => libraryMinWidth - 50.0;
-  static double get mixerCollapseThreshold => mixerMinWidth - 50.0;
-  static double get editorCollapseThreshold => editorMinHeight - 50.0;
-
   // Calculate actual max based on window size (percentage OR hard max, whichever is smaller)
   static double getLibraryMaxWidth(double windowWidth) {
     return min(windowWidth * libraryMaxPct, libraryHardMax);
@@ -241,6 +238,20 @@ class UILayoutState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Restores saved widths. The Library is one tree now, so the left column
+  /// has no divider of its own: anything over its default moves to the right
+  /// column, which the outer divider can shrink. A left column widened in the
+  /// old two-column layout would otherwise keep the panel from going narrower.
+  void restoreLibraryWidths(double left, double right) {
+    final extra = max(0.0, left - libraryLeftColumnDefault);
+    _libraryLeftColumnWidth = libraryLeftColumnDefault;
+    _libraryRightColumnWidth = (right + extra).clamp(
+      libraryRightColumnMin,
+      libraryRightColumnMax,
+    );
+    notifyListeners();
+  }
+
   /// Resize left column (middle divider) - right column absorbs difference
   void resizeLeftColumn(double delta) {
     _libraryLeftColumnWidth = (_libraryLeftColumnWidth + delta).clamp(
@@ -250,15 +261,11 @@ class UILayoutState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Resize right column (outer divider) - left column stays fixed
+  /// Resize right column (outer divider) - left column stays fixed. Stops at
+  /// the minimum: only the Library button hides the panel, so it never
+  /// vanishes mid-drag.
   void resizeRightColumn(double delta) {
-    final newRight = _libraryRightColumnWidth + delta;
-    if (newRight < libraryRightColumnMin - 50) {
-      // Below collapse threshold, collapse the panel
-      collapseLibrary();
-      return;
-    }
-    _libraryRightColumnWidth = newRight.clamp(
+    _libraryRightColumnWidth = (_libraryRightColumnWidth + delta).clamp(
       libraryRightColumnMin,
       libraryRightColumnMax,
     );
@@ -470,18 +477,13 @@ class UILayoutState extends ChangeNotifier {
       libraryMinWidth,
       libraryHardMax,
     );
-    // Restore the saved left-column split; layouts saved before the field
-    // existed fall back to the default (it used to reset on every open).
-    _libraryLeftColumnWidth =
-        (layout.libraryLeftWidth ?? libraryLeftColumnDefault).clamp(
-          libraryLeftColumnMin,
-          libraryLeftColumnMax,
-        );
-    _libraryRightColumnWidth =
-        (totalWidth - _libraryLeftColumnWidth - libraryDividerWidth).clamp(
-          libraryRightColumnMin,
-          libraryRightColumnMax,
-        );
+    // The saved left-column split is ignored: the one-tree Library keeps the
+    // left column at its default so the outer divider can shrink the whole
+    // panel (see [restoreLibraryWidths]). The total width is kept.
+    restoreLibraryWidths(
+      libraryLeftColumnDefault,
+      totalWidth - libraryLeftColumnDefault - libraryDividerWidth,
+    );
     _mixerPanelWidth = layout.mixerWidth.clamp(mixerMinWidth, mixerHardMax);
     _editorPanelHeight = layout.bottomHeight.clamp(
       editorMinHeight,

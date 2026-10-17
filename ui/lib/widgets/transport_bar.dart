@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:window_manager/window_manager.dart';
+
 import '../theme/animation_constants.dart';
 import '../theme/app_colors.dart';
 import '../theme/boojy_icons.dart';
@@ -978,10 +979,10 @@ class _SvgIconButtonState extends State<_SvgIconButton> with ButtonHoverMixin {
 }
 
 /// Panel toggle (Library / Mixer): a semantic glyph for the panel, no box.
-/// State is carried by brightness alone — a slightly brighter neutral grey
-/// while the panel is open, the standard chrome grey while it is closed (still
-/// readable, never "disabled"). Hover is distinct from both: white glyph on a
-/// soft surface pill, plus the usual press scale (Tyr, 2026-09-13).
+/// State is carried by the glyph colour alone — accent while the panel is
+/// open, the standard chrome grey while it is closed (Tyr, 2026-10-17; an
+/// accent outline/tint was rejected 2026-09-13). Hover adds a soft surface
+/// pill and the usual press scale without changing the glyph colour.
 class _PanelToggleButton extends StatefulWidget {
   final String assetPath;
   final bool isActive;
@@ -1007,12 +1008,9 @@ class _PanelToggleButtonState extends State<_PanelToggleButton>
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final openGrey =
-        Color.lerp(colors.textSecondary, colors.textPrimary, 0.6) ??
-        colors.textPrimary;
-    final glyphColor = isHovered
-        ? colors.textPrimary
-        : (widget.isActive ? openGrey : colors.textSecondary);
+    // Accent glyph while the panel is open, like the other toggles' icons but
+    // with no outline or fill. Hover only lifts the background.
+    final glyphColor = widget.isActive ? colors.accent : colors.textSecondary;
 
     return Tooltip(
       message: widget.tooltip,
