@@ -12,7 +12,13 @@ use crate::track::TrackId;
 
 #[cfg(not(target_os = "ios"))]
 /// Load a VST3 plugin and add it to a track's FX chain
-pub fn add_vst3_effect_to_track(track_id: TrackId, plugin_path: &str) -> Result<u64, String> {
+/// Add the plugin named `plugin_name` from the file at `plugin_path` to a
+/// track's chain (a file can hold several plugins; empty loads the first).
+pub fn add_vst3_effect_to_track(
+    track_id: TrackId,
+    plugin_path: &str,
+    plugin_name: &str,
+) -> Result<u64, String> {
     use crate::effects::EffectType;
     use crate::vst3_host::VST3Effect;
 
@@ -31,7 +37,7 @@ pub fn add_vst3_effect_to_track(track_id: TrackId, plugin_path: &str) -> Result<
     let block_size = graph.preferred_buffer_size.lock().samples().max(512) as i32;
 
     // Load VST3 plugin
-    let mut vst3_effect = VST3Effect::new(plugin_path, sample_rate, block_size)
+    let mut vst3_effect = VST3Effect::new(plugin_path, plugin_name, sample_rate, block_size)
         .map_err(|e| format!("Failed to load VST3 plugin: {e}"))?;
 
     // Initialize and activate the plugin for audio processing
@@ -595,7 +601,11 @@ pub fn set_vst3_program(_effect_id: u64, _list_id: i32, _program_index: i32) -> 
 // ============================================================================
 
 #[cfg(target_os = "ios")]
-pub fn add_vst3_effect_to_track(_track_id: u64, _plugin_path: &str) -> Result<u64, String> {
+pub fn add_vst3_effect_to_track(
+    _track_id: u64,
+    _plugin_path: &str,
+    _plugin_name: &str,
+) -> Result<u64, String> {
     Err("VST3 plugins are not supported on iOS".to_string())
 }
 

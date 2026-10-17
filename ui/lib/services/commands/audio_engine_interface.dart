@@ -89,7 +89,7 @@ abstract class AudioEngineInterface {
 
   // Effect operations
   int addEffectToTrack(int trackId, String effectType);
-  int addVst3EffectToTrack(int trackId, String effectPath);
+  int addVst3EffectToTrack(int trackId, String effectPath, String pluginName);
   String removeEffectFromTrack(int trackId, int effectId);
 
   /// Add a band to a Graphic EQ. Returns the new band index, or -1 on error.

@@ -616,13 +616,21 @@ mixin _PluginsMixin on _AudioEngineBase {
     }
   }
 
-  /// Add a VST3 plugin to a track's FX chain
+  /// Add a VST3 plugin to a track's FX chain: the plugin named [pluginName]
+  /// in the file at [pluginPath]. A file can hold several (Serum 2 and Serum 2
+  /// FX); an empty or unknown name loads the file's first.
   /// Returns the effect ID (>= 0) or -1 on error
-  int addVst3EffectToTrack(int trackId, String pluginPath) {
+  int addVst3EffectToTrack(int trackId, String pluginPath, String pluginName) {
     try {
       final pathPtr = pluginPath.toNativeUtf8();
-      final effectId = _addVst3EffectToTrack(trackId, pathPtr.cast());
+      final namePtr = pluginName.toNativeUtf8();
+      final effectId = _addVst3EffectToTrack(
+        trackId,
+        pathPtr.cast(),
+        namePtr.cast(),
+      );
       malloc.free(pathPtr);
+      malloc.free(namePtr);
 
       if (effectId < 0) {
         return -1;

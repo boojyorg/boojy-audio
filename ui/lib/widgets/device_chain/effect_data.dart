@@ -20,6 +20,10 @@ class EffectData {
 
   bool get isVst3 => pluginPath != null;
 
+  /// A VST3's plugin name (its file can hold several), or null.
+  String? get vst3PluginName =>
+      type.startsWith('vst3:') ? type.substring('vst3:'.length) : null;
+
   /// Parse the engine's effect info. Built-in effects are
   /// "type:eq,bypassed:0,low_freq:100,…" with numeric values; VST3 effects are
   /// "type:vst3,bypassed:0,name:NAME,path:PATH" with `path` last, so the path

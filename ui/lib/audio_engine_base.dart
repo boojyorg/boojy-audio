@@ -7,6 +7,11 @@ class _AudioEngineBase {
   /// a background isolate can open the same engine ([_openEngine]).
   String? _libPath;
 
+  /// Called with each effect's id just before the engine frees it (effect
+  /// removed or its track deleted), so a VST3's window can be taken down
+  /// while the plugin still exists (`VST3EditorService.closeBeforeRemove`).
+  void Function(int effectId)? beforeEffectRemoved;
+
   // M0 functions
   late final _InitAudioEngineFfi _initAudioEngine;
   late final _FreeRustString _freeRustString;

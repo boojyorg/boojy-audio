@@ -30,8 +30,8 @@ class MockAudioEngine implements AudioEngineInterface {
   /// (effectId, base64) pairs passed to [setVst3State], in call order.
   final List<({int effectId, String stateBase64})> setVst3StateCalls = [];
 
-  /// (trackId, pluginPath) pairs passed to [addVst3EffectToTrack], in order.
-  final List<({int trackId, String path})> addedVst3Plugins = [];
+  /// (trackId, pluginPath, pluginName) passed to [addVst3EffectToTrack], in order.
+  final List<({int trackId, String path, String name})> addedVst3Plugins = [];
 
   /// Captured arguments for remove operations, in call order. These let redo
   /// tests assert that after undo→redo a Remove command targets the *recreated*
@@ -348,9 +348,13 @@ class MockAudioEngine implements AudioEngineInterface {
   }
 
   @override
-  int addVst3EffectToTrack(int trackId, String effectPath) {
+  int addVst3EffectToTrack(int trackId, String effectPath, String pluginName) {
     _record('addVst3EffectToTrack');
-    addedVst3Plugins.add((trackId: trackId, path: effectPath));
+    addedVst3Plugins.add((
+      trackId: trackId,
+      path: effectPath,
+      name: pluginName,
+    ));
     return nextEffectId++;
   }
 

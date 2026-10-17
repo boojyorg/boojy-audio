@@ -65,6 +65,7 @@ void main() {
       expect(command.createdEffectId, isNotNull);
       expect(mockEngine.calls, contains('addVst3EffectToTrack'));
       expect(mockEngine.calls, isNot(contains('addEffectToTrack')));
+      expect(mockEngine.addedVst3Plugins.single.name, 'Plugin');
     });
 
     test('execute fires onEffectAdded callback', () async {
@@ -206,6 +207,28 @@ void main() {
       await command.undo(mockEngine);
 
       expect(mockEngine.calls, contains('addVst3EffectToTrack'));
+    });
+
+    test('undo re-adds a VST3 as the same plugin from its file', () async {
+      // Serum 2's file also holds Serum 2 FX: undo must bring back the FX.
+      mockEngine.effectInfoResponses[10] =
+          'type:vst3,bypassed:0,name:Serum 2 FX,path:/Library/Serum2.vst3';
+      final command = RemoveEffectCommand(
+        trackId: 1,
+        trackName: 'Track 1',
+        effectId: 10,
+        effectName: 'Serum 2 FX',
+        effectType: '/Library/Serum2.vst3',
+        isVst3: true,
+        effectIndex: 0,
+      );
+
+      await command.execute(mockEngine);
+      await command.undo(mockEngine);
+
+      final added = mockEngine.addedVst3Plugins.single;
+      expect(added.path, '/Library/Serum2.vst3');
+      expect(added.name, 'Serum 2 FX');
     });
 
     test('undo fires onEffectAdded callback', () async {

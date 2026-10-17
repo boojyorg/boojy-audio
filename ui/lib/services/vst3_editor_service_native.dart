@@ -30,6 +30,7 @@ class VST3EditorService {
     if (_initialized) return;
     _audioEngine = engine;
     _initialized = true;
+    engine.beforeEffectRemoved = closeBeforeRemove;
 
     // Listen for Swift -> Dart notifications
     _nativeChannel.setMethodCallHandler(_handleNativeCall);
@@ -297,6 +298,27 @@ class VST3EditorService {
     } catch (e) {
       return false;
     }
+  }
+
+  /// Take down [effectId]'s plugin window, floating or docked, BEFORE the
+  /// engine frees the plugin: the plugin is told its editor is going while it
+  /// still exists. Freed with its editor up, a plugin's UI timers fire into
+  /// freed memory (deleting Serum 2 FX crashed the app this way). Built-in
+  /// effects have no window and are skipped.
+  static void closeBeforeRemove(int effectId) {
+    final engine = _audioEngine;
+    if (engine == null) return;
+    if (!engine.getEffectInfo(effectId).startsWith('type:vst3,')) return;
+    final wasFloating = _floatingEffectIds.remove(effectId);
+    try {
+      engine.vst3CloseEditor(effectId);
+    } catch (e) {
+      // Nothing open, or already closed
+    }
+    _channel.invokeMethod(
+      wasFloating ? 'closeFloatingWindow' : 'detachEditor',
+      {'effectId': effectId},
+    );
   }
 
   /// Close the C++ editor during widget dispose, BEFORE the platform view

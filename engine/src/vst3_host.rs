@@ -87,7 +87,10 @@ extern "C" {
         user_data: *mut c_void,
     ) -> c_int;
 
-    pub fn vst3_load_plugin(file_path: *const c_char) -> *mut VST3PluginHandle;
+    pub fn vst3_load_plugin(
+        file_path: *const c_char,
+        class_name: *const c_char,
+    ) -> *mut VST3PluginHandle;
     pub fn vst3_unload_plugin(handle: *mut VST3PluginHandle);
 
     pub fn vst3_get_plugin_info(handle: *mut VST3PluginHandle, info: *mut VST3PluginInfo) -> bool;
@@ -323,11 +326,15 @@ pub struct VST3Plugin {
 }
 
 impl VST3Plugin {
-    pub fn load(file_path: &str) -> Result<Self, String> {
+    /// Load the plugin named `class_name` from the file at `file_path` (a file
+    /// can hold several, e.g. "Serum 2" and "Serum 2 FX"); empty or unknown
+    /// loads the file's first plugin.
+    pub fn load(file_path: &str, class_name: &str) -> Result<Self, String> {
         let path_cstr = CString::new(file_path).map_err(|e| e.to_string())?;
+        let class_cstr = CString::new(class_name).map_err(|e| e.to_string())?;
 
         unsafe {
-            let handle = vst3_load_plugin(path_cstr.as_ptr());
+            let handle = vst3_load_plugin(path_cstr.as_ptr(), class_cstr.as_ptr());
             if handle.is_null() {
                 Err(VST3Host::get_last_error())
             } else {
@@ -679,9 +686,15 @@ pub struct VST3Effect {
 }
 
 impl VST3Effect {
-    /// Create a new `VST3Effect` from a plugin path
-    pub fn new(plugin_path: &str, sample_rate: f64, block_size: i32) -> Result<Self, String> {
-        let plugin = VST3Plugin::load(plugin_path)?;
+    /// Create a new `VST3Effect` for the plugin named `plugin_name` in the file
+    /// at `plugin_path` (see [`VST3Plugin::load`]).
+    pub fn new(
+        plugin_path: &str,
+        plugin_name: &str,
+        sample_rate: f64,
+        block_size: i32,
+    ) -> Result<Self, String> {
+        let plugin = VST3Plugin::load(plugin_path, plugin_name)?;
         let info = plugin.get_info()?;
         let name = info.name_str().to_string();
         let is_instrument = info.is_instrument;
@@ -921,10 +934,12 @@ mod tests {
     use super::*;
     use crate::effects::Effect;
 
+    // No test calls VST3Host::shutdown(): the host is shared by every test in
+    // the run, and shutting it down mid-run fails plugin tests running alongside
+    // ("Host not initialized").
     #[test]
     fn test_vst3_host_init() {
         assert!(VST3Host::init().is_ok());
-        VST3Host::shutdown();
     }
 
     #[test]
@@ -939,7 +954,6 @@ mod tests {
         .ok();
 
         println!("Found {count} plugins");
-        VST3Host::shutdown();
     }
 
     #[test]
@@ -980,7 +994,7 @@ mod tests {
         // Try to load Serum plugin if available
         let plugin_path = "/Library/Audio/Plug-Ins/VST3/Serum.vst3";
 
-        match VST3Plugin::load(plugin_path) {
+        match VST3Plugin::load(plugin_path, "") {
             Ok(plugin) => {
                 println!("\n=== Successfully loaded Serum ===");
 
@@ -1020,7 +1034,7 @@ mod tests {
     fn test_vst3_effect_wrapper() {
         let plugin_path = "/Library/Audio/Plug-Ins/VST3/Serum.vst3";
 
-        match VST3Effect::new(plugin_path, 48000.0, 512) {
+        match VST3Effect::new(plugin_path, "", 48000.0, 512) {
             Ok(mut effect) => {
                 println!("\n=== Testing VST3Effect Wrapper ===");
                 println!("Effect name: {}", effect.name);
@@ -1064,7 +1078,7 @@ mod tests {
     fn test_vst3_audio_processing() {
         let plugin_path = "/Library/Audio/Plug-Ins/VST3/Serum.vst3";
 
-        if let Ok(plugin) = VST3Plugin::load(plugin_path) {
+        if let Ok(plugin) = VST3Plugin::load(plugin_path, "") {
             println!("\n=== Testing VST3 Audio Processing ===");
 
             plugin
@@ -1110,5 +1124,31 @@ mod tests {
         } else {
             println!("Skipping audio processing test (Serum not available)");
         }
+    }
+
+    #[test]
+    fn a_file_with_two_plugins_loads_the_one_picked_by_name() {
+        // Serum 2's file holds the synth and "Serum 2 FX"; picking the FX
+        // used to load the synth into the effect slot.
+        let path = "/Library/Audio/Plug-Ins/VST3/Serum2.vst3";
+        if !std::path::Path::new(path).exists() {
+            println!("Skipping: Serum 2 not installed");
+            return;
+        }
+        VST3Host::init().unwrap();
+        let load = |name: &str| VST3Effect::new(path, name, 48000.0, 512).unwrap();
+
+        let fx = load("Serum 2 FX");
+        assert_eq!(fx.name(), "Serum 2 FX");
+        assert!(!fx.is_instrument, "the FX is an effect");
+
+        let synth = load("Serum 2");
+        assert_eq!(synth.name(), "Serum 2");
+        assert!(synth.is_instrument, "the synth is an instrument");
+
+        // No name (or one the file doesn't have, e.g. a renamed plugin in an
+        // old project) loads the first plugin, as before.
+        assert_eq!(load("").name(), "Serum 2");
+        assert_eq!(load("No Such Plugin").name(), "Serum 2");
     }
 }

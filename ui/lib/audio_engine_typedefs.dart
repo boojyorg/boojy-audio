@@ -571,8 +571,13 @@ typedef _ScanVst3PluginsStandardFfiNative = ffi.Pointer<Utf8> Function();
 typedef _ScanVst3PluginsStandardFfi = ffi.Pointer<Utf8> Function();
 
 typedef _AddVst3EffectToTrackFfiNative =
-    ffi.Int64 Function(ffi.Uint64, ffi.Pointer<ffi.Char>);
-typedef _AddVst3EffectToTrackFfi = int Function(int, ffi.Pointer<ffi.Char>);
+    ffi.Int64 Function(
+      ffi.Uint64,
+      ffi.Pointer<ffi.Char>,
+      ffi.Pointer<ffi.Char>,
+    );
+typedef _AddVst3EffectToTrackFfi =
+    int Function(int, ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>);
 
 typedef _GetVst3ParameterCountFfiNative = ffi.Int32 Function(ffi.Uint64);
 typedef _GetVst3ParameterCountFfi = int Function(int);

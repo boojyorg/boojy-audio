@@ -193,6 +193,13 @@ mixin _TracksMixin on _AudioEngineBase {
 
   /// Delete a track (cannot delete master track)
   String deleteTrack(int trackId) {
+    final beforeRemoved = beforeEffectRemoved;
+    if (beforeRemoved != null) {
+      for (final id in getTrackEffects(trackId).split(',')) {
+        final effectId = int.tryParse(id.trim());
+        if (effectId != null) beforeRemoved(effectId);
+      }
+    }
     final resultPtr = _deleteTrack(trackId);
     final result = resultPtr.toDartString();
     _freeRustString(resultPtr);
@@ -372,6 +379,7 @@ mixin _TracksMixin on _AudioEngineBase {
 
   /// Remove an effect from a track's FX chain
   String removeEffectFromTrack(int trackId, int effectId) {
+    beforeEffectRemoved?.call(effectId);
     final resultPtr = _removeEffectFromTrack(trackId, effectId);
     final result = resultPtr.toDartString();
     _freeRustString(resultPtr);

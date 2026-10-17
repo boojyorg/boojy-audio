@@ -1218,6 +1218,17 @@ pub enum EffectType {
 }
 
 impl EffectType {
+    /// A VST3 plugin that makes sound from MIDI (a synth, sampler, …), so the
+    /// track's notes go to it instead of the built-in synth. VST3 *effects*
+    /// don't count: notes sent to them are lost and the track goes silent.
+    pub fn is_vst3_instrument(&self) -> bool {
+        match self {
+            #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+            EffectType::VST3(vst3) => vst3.is_instrument,
+            _ => false,
+        }
+    }
+
     pub fn process_frame(&mut self, left: f32, right: f32) -> (f32, f32) {
         match self {
             EffectType::EQ(fx) => fx.process_frame(left, right),

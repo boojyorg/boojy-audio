@@ -110,6 +110,19 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Deleting a plugin no longer crashes Boojy.** The plugin was freed while its window (floating
+  or docked) was still up, and the plugin's own display timer then reached into freed memory:
+  deleting Serum 2 FX took the whole app down. Its window now closes first, whenever a plugin
+  goes: deleted, swapped, undone or with its track. Plugins are also shut down in the order the
+  VST3 standard asks for.
+- **Picking "Serum 2 FX" gives you Serum 2 FX.** A plugin file can hold more than one plugin, and
+  Boojy always loaded the first, so the FX arrived as the Serum 2 synth. Boojy now loads the one
+  you picked, and projects reopen with it. (A project saved with the wrong one still has it:
+  delete it and add Serum 2 FX again.)
+- **A VST3 effect no longer silences Boojy's synth.** Any VST3 on a MIDI track counted as an
+  instrument, so the track's notes went to the effect (Valhalla Supermassive, say) instead of the
+  built-in synth: silence, with the effect on or off, when playing and when exporting. Notes now
+  go to VST3 instruments only.
 - **VST3 effects show in the device chain.** A VST3 effect played but never appeared beside the
   built-in effects: the panel read the plugin's name and location as numbers, gave up and left
   the card out (Windows paths, with their `C:`, too). The card now shows with the plugin's name,

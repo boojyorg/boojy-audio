@@ -169,6 +169,39 @@ void main() {
     }
   });
 
+  testWidgets('a plugin window can close before its effect is freed', (
+    tester,
+  ) async {
+    // Freed with its window up, a VST3's UI timers fire into freed memory
+    // (deleting Serum 2 FX crashed). The engine wrapper calls
+    // beforeEffectRemoved while the effect still exists, on every path that
+    // frees one: removing it, and deleting its track.
+    final h = await DawHarness.start(tester);
+    final engine = h.engine;
+    final previous = engine.beforeEffectRemoved;
+    try {
+      bool exists(int id) => engine.getEffectInfo(id).startsWith('type:');
+      final stillThere = <int, bool>{};
+      engine.beforeEffectRemoved = (id) => stillThere[id] = exists(id);
+
+      final track = engine.createTrack('audio', 'Audio');
+      final reverb = engine.addEffectToTrack(track, 'reverb');
+      final delay = engine.addEffectToTrack(track, 'delay');
+      expect(reverb, greaterThanOrEqualTo(0));
+
+      engine.removeEffectFromTrack(track, reverb);
+      expect(stillThere, {reverb: true}, reason: 'removing an effect');
+      expect(exists(reverb), isFalse, reason: 'then it is freed');
+
+      engine.deleteTrack(track);
+      expect(stillThere[delay], isTrue, reason: 'deleting its track');
+      expect(exists(delay), isFalse);
+    } finally {
+      engine.beforeEffectRemoved = previous;
+      await h.close();
+    }
+  });
+
   testWidgets('a warped clip follows tempo changes, dragged or typed', (
     tester,
   ) async {

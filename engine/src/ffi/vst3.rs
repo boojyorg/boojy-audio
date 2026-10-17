@@ -28,10 +28,15 @@ pub extern "C" fn scan_vst3_plugins_standard_ffi() -> *mut c_char {
     })
 }
 
-/// Add a VST3 effect to a track
+/// Add a VST3 effect to a track: the plugin named `plugin_name` (null or
+/// empty = the file's first) from the file at `plugin_path`.
 /// Returns the effect ID, or -1 on failure
 #[no_mangle]
-pub extern "C" fn add_vst3_effect_to_track_ffi(track_id: u64, plugin_path: *const c_char) -> i64 {
+pub extern "C" fn add_vst3_effect_to_track_ffi(
+    track_id: u64,
+    plugin_path: *const c_char,
+    plugin_name: *const c_char,
+) -> i64 {
     ffi_catch(
         -1,
         AssertUnwindSafe(|| {
@@ -39,9 +44,13 @@ pub extern "C" fn add_vst3_effect_to_track_ffi(track_id: u64, plugin_path: *cons
                 return -1;
             };
 
-            println!("[FFI] Adding VST3 plugin to track {track_id}: {plugin_path_str}");
+            let plugin_name_str = unsafe { cstr_arg(plugin_name) }.unwrap_or("");
 
-            match api::add_vst3_effect_to_track(track_id, plugin_path_str) {
+            println!(
+                "[FFI] Adding VST3 plugin to track {track_id}: {plugin_name_str} from {plugin_path_str}"
+            );
+
+            match api::add_vst3_effect_to_track(track_id, plugin_path_str, plugin_name_str) {
                 Ok(effect_id) => {
                     println!("[FFI] VST3 plugin added with effect ID: {effect_id}");
                     effect_id as i64
