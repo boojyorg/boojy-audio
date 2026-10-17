@@ -725,17 +725,14 @@ fn volume_automation_across_render_blocks_is_click_free() {
     assert!(longest_silence(&left[1..]) <= 1, "dropout inside the tone");
 }
 
-#[test]
-fn busy_mix_with_effects_and_sends_stays_valid() {
-    // Everything at once, deliberately too loud: tracks summing well over
-    // full scale, every built-in effect, a send to a reverb return, and a
-    // synth. The export must stay finite and inside ±1 (the master limiter's
-    // job) with no dropout in the always-playing tone.
+/// Everything at once, deliberately too loud: tracks summing well over full
+/// scale, every built-in effect, a send to a reverb return, and a synth
+/// playing notes, over `len` frames.
+fn busy_mix(len: usize) -> AudioGraph {
     use crate::effects::{Chorus, Compressor, Delay, EffectType, ParametricEQ, Reverb};
     use crate::midi::{MidiClip, MidiEvent};
 
     let (graph, tone) = graph_with_track();
-    let len = 6 * SR;
     let (drums, synth, ret) = {
         let mut tm = graph.track_manager.lock();
         (
@@ -800,11 +797,215 @@ fn busy_mix_with_effects_and_sends_stays_valid() {
             });
         });
     }
+    graph
+}
 
+#[test]
+fn busy_mix_with_effects_and_sends_stays_valid() {
+    // The export must stay finite and inside ±1 (the master limiter's job)
+    // with no dropout in the always-playing tone.
+    let len = 6 * SR;
+    let graph = busy_mix(len);
     let buf = render(&graph, len);
     assert_valid(&buf, "busy mix");
     assert!(
         longest_silence(&channel(&buf, 0)[1..]) <= 1,
         "dropout in a mix that never stops playing"
     );
+}
+
+// ── The live render path (the device callback's body) ──────────────────────
+//
+// A device asks for whatever buffer size it likes: Windows varies it, and
+// sample-rate conversion asks for uneven counts. So what plays must not
+// depend on how the audio is split into buffers.
+
+/// Buffer sizes a device might ask for, cycled: the usual 512; tiny and odd
+/// ones plus one over the 2048-frame scratch capacity; one big buffer.
+const SPLITS: [&[usize]; 3] = [&[512], &[1, 37, 480, 512, 1023, 2500, 64], &[3000]];
+
+/// Render `total` frames through the live path, in buffers of `sizes`. The
+/// metronome (on by default) clicks in the live path only; tests that want
+/// it set it up themselves.
+fn render_live(graph: &AudioGraph, total: usize, sizes: &[usize]) -> Vec<f32> {
+    let mut live = graph.realtime_render(f64::from(TARGET_SAMPLE_RATE));
+    let mut out = Vec::with_capacity(total * 2);
+    let mut sizes = sizes.iter().cycle();
+    while out.len() < total * 2 {
+        let frames = (*sizes.next().unwrap()).min(total - out.len() / 2);
+        let mut buf = vec![0.0; frames * 2];
+        live.render(&mut buf, 2);
+        out.extend_from_slice(&buf);
+    }
+    out
+}
+
+/// Render a fresh `build()` once per split; every split must play the same.
+fn same_for_every_split(build: impl Fn() -> AudioGraph, total: usize, what: &str) -> Vec<f32> {
+    let first = render_live(&build(), total, SPLITS[0]);
+    for sizes in &SPLITS[1..] {
+        let other = render_live(&build(), total, sizes);
+        // Bit-identical, not just close: the same maths in the same order
+        let diff = first
+            .iter()
+            .zip(&other)
+            .position(|(a, b)| a.to_bits() != b.to_bits());
+        assert_eq!(
+            diff, None,
+            "{what}: buffers of {sizes:?} differ at sample {diff:?}"
+        );
+    }
+    first
+}
+
+/// Frames where a sound starts after at least `gap` silent frames (left).
+fn onsets(buf: &[f32], gap: usize) -> Vec<usize> {
+    let mut found = Vec::new();
+    let mut silent = gap;
+    for (i, &s) in channel(buf, 0).iter().enumerate() {
+        if s == 0.0 {
+            silent += 1;
+        } else {
+            if silent >= gap {
+                found.push(i);
+            }
+            silent = 0;
+        }
+    }
+    found
+}
+
+#[test]
+fn live_playback_plays_every_sample_once_and_in_order() {
+    for start in [0, 59_253] {
+        for sizes in SPLITS {
+            let (mut graph, track) = graph_with_track();
+            let len = SR;
+            place(&graph, track, ramp_clip(len, 2), seconds(start), 0.0, None);
+            graph.recorder.set_metronome_enabled(false);
+            graph.play().unwrap();
+            let total = start + len + 1_000;
+            let buf = render_live(&graph, total, sizes);
+            assert_ramp(
+                &buf,
+                post_gains(&graph, track),
+                &span(total, start, |i| i, len),
+                &format!("clip at frame {start}, buffers of {sizes:?}"),
+            );
+        }
+    }
+}
+
+#[test]
+fn live_busy_mix_is_the_same_whatever_the_buffer_sizes() {
+    // Synth notes, sends, every built-in effect and the limiter: none of it
+    // may depend on where one buffer ends and the next starts.
+    let total = 2 * SR;
+    let buf = same_for_every_split(
+        || {
+            let mut graph = busy_mix(total);
+            graph.recorder.set_metronome_enabled(true); // in the mix too
+            graph.play().unwrap();
+            graph
+        },
+        total,
+        "busy mix",
+    );
+    assert_valid(&buf, "live busy mix");
+}
+
+#[test]
+fn live_midi_notes_start_on_their_frame() {
+    use crate::midi::{MidiClip, MidiEvent};
+
+    let build = || {
+        let mut graph = AudioGraph::new().unwrap();
+        let track = graph
+            .track_manager
+            .lock()
+            .create_track(TrackType::Midi, "Synth".into());
+        graph.track_synth_manager.lock().create_synth(track);
+        graph.recorder.set_metronome_enabled(false);
+        // A second apart, so each note's release dies away before the next
+        let notes = [1_000_u64, 49_000, 97_037]
+            .into_iter()
+            .flat_map(|at| {
+                [
+                    MidiEvent::note_on(60, 100, at),
+                    MidiEvent::note_off(60, 0, at + 2_000),
+                ]
+            })
+            .collect();
+        graph
+            .add_midi_clip_to_track(
+                track,
+                Arc::new(MidiClip::with_events(notes, TARGET_SAMPLE_RATE)),
+                0.0,
+                0,
+            )
+            .unwrap();
+        graph.play().unwrap();
+        graph
+    };
+    let buf = same_for_every_split(build, 2 * SR + 4_000, "synth notes");
+    let found = onsets(&buf, 4_000);
+    assert_eq!(found.len(), 3, "three notes, found onsets at {found:?}");
+    // Same delay from each note's frame to its first sound
+    let lag = found[0] - 1_000;
+    assert_eq!(found, vec![1_000 + lag, 49_000 + lag, 97_037 + lag]);
+}
+
+#[test]
+fn live_render_while_stopped_plays_held_notes_and_keeps_the_playhead() {
+    // Stopped, the callback still renders the synths (the virtual piano and
+    // live MIDI input) but must not move the playhead.
+    let build = || {
+        let graph = AudioGraph::new().unwrap();
+        graph.recorder.set_metronome_enabled(false);
+        let track = graph
+            .track_manager
+            .lock()
+            .create_track(TrackType::Midi, "Synth".into());
+        let mut synths = graph.track_synth_manager.lock();
+        synths.create_synth(track);
+        synths.note_on(track, 60, 100);
+        drop(synths);
+        graph
+    };
+    let buf = same_for_every_split(build, SR / 2, "held note while stopped");
+    assert!(buf.iter().any(|&s| s != 0.0), "the held note is audible");
+    assert_valid(&buf, "held note while stopped");
+
+    let graph = build();
+    render_live(&graph, SR / 2, SPLITS[1]);
+    assert_eq!(
+        graph
+            .playhead_samples
+            .load(std::sync::atomic::Ordering::SeqCst),
+        0,
+        "stopped: playhead stays put"
+    );
+}
+
+#[test]
+fn live_count_in_clicks_land_on_every_beat() {
+    // A one-bar count-in at 120 BPM while stopped: four clicks, a beat
+    // (24,000 frames) apart, whatever the buffer sizes.
+    let build = || {
+        let graph = AudioGraph::new().unwrap();
+        graph.recorder.set_tempo(120.0);
+        graph.recorder.set_count_in_bars(1);
+        graph.recorder.start_recording().unwrap();
+        graph
+    };
+    let buf = same_for_every_split(build, 2 * SR, "count-in");
+    let found = onsets(&buf, 1_000);
+    assert_eq!(found.len(), 4, "four count-in clicks, found {found:?}");
+    for pair in found.windows(2) {
+        assert_eq!(
+            pair[1] - pair[0],
+            SR / 2,
+            "a beat apart at 120 BPM: {found:?}"
+        );
+    }
 }

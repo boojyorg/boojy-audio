@@ -375,6 +375,12 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Groundwork for playing at the right speed on any device.** The engine's live audio loop
+  (about 700 lines written inline where the sound device asks for audio) is now one function that
+  fills any number of frames, so it can be tested without a device and, next, fed through
+  sample-rate conversion. Six new tests play clips, synth notes, a busy mix and the count-in
+  through it in buffers of 1 to 3,000 frames and check the result is identical. Nothing you hear
+  changes.
 - **The Library and Mixer are the same size, and one never closes the other.** Both open at 280 px
   in a new project and drag between 200 and 480 px; the Mixer used to open nearly twice as wide.
   Making one wider used to close the Mixer once the timeline got narrow, and Show Library or Show

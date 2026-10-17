@@ -5,10 +5,17 @@ use crate::audio_health::{
     lock_or_count, BufferTimer, GapDetector, EFFECT_LOCK_WAITS, RECORDER_LOCK_WAITS,
     SYNTH_LOCK_WAITS, TRACK_LOCK_WAITS,
 };
-use crate::effects::{Effect, EffectManager};
-use crate::track::{AutomationPoint, TimelineClip, TimelineMidiClip, TrackId, TrackType};
+use crate::audio_input::InputTap;
+use crate::effects::{Effect, EffectManager, Limiter};
+use crate::recorder::RecorderCallbackRefs;
+use crate::synth::TrackSynthManager;
+use crate::track::{
+    AutomationPoint, TimelineClip, TimelineMidiClip, TrackId, TrackManager, TrackType,
+};
+use parking_lot::Mutex;
 use std::collections::HashMap;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
+use std::sync::Arc;
 
 use cpal::traits::DeviceTrait;
 
@@ -519,66 +526,31 @@ impl AudioGraph {
         // Clone for tracking actual buffer size in callback
         let actual_buffer_size = self.actual_buffer_size.clone();
 
-        // Clone Arcs for the audio callback
-        let playhead_samples = self.playhead_samples.clone();
-        let state = self.state.clone();
-        // The audio thread's own end of the input: never waits on the input
-        // manager, which the UI locks for meters.
-        let input_tap = self.input_manager.lock().tap();
-        let recorder_refs = self.recorder.get_callback_refs();
-
-        // M4: Clone track and effect managers
-        let track_manager = self.track_manager.clone();
-        let effect_manager = self.effect_manager.clone();
-        let master_limiter = self.master_limiter.clone();
-
         // C12: tell the filter-based effects (EQ/Compressor/Limiter) the real stream
         // rate so their coefficients are correct in the non-48k fallback path. Done
         // before the stream starts; new effects inherit it via create_effect. (The
         // wider engine time-math still assumes TARGET_SAMPLE_RATE — see the config
         // selection comment above.)
         let stream_sample_rate = config.sample_rate.0 as f32;
-        effect_manager.lock().set_sample_rate(stream_sample_rate);
-        master_limiter.lock().set_sample_rate(stream_sample_rate);
+        self.effect_manager
+            .lock()
+            .set_sample_rate(stream_sample_rate);
+        self.master_limiter
+            .lock()
+            .set_sample_rate(stream_sample_rate);
 
         // Publish the real stream rate so the rest of the engine (recording
         // duration math C22, offline-render pin/restore) can read it.
         self.stream_sample_rate
             .store(config.sample_rate.0, Ordering::Relaxed);
-        // Captured by the callback for the monitoring fade ramp (C4).
-        let monitoring_ramp_rate = f64::from(config.sample_rate.0);
         // Audio health (dropout counters): the buffer budget and gap check
         // need the stream's real rate.
         let stream_rate = config.sample_rate.0;
         let mut gap_detector = GapDetector::new(stream_rate);
 
-        // M6: Clone track synth manager
-        let track_synth_manager = self.track_synth_manager.clone();
-
-        // Pre-allocate reusable buffers for the audio callback to avoid
-        // per-callback allocations on the audio thread
-        let mut snapshot_buf: Vec<TrackSnapshot> = Vec::with_capacity(16);
-        let mut return_snapshot_buf: Vec<TrackSnapshot> = Vec::with_capacity(4);
-        let mut peak_buf: HashMap<TrackId, (f32, f32)> = HashMap::with_capacity(16);
-        let mut stopped_snapshot_buf: Vec<StoppedTrackSnapshot> = Vec::with_capacity(16);
-
-        // Per-buffer (sub-block) scratch buffers for the playing path. The FX chain
-        // runs once per sub-block via `process_block` (so VST3 plugins process a whole
-        // buffer per call instead of one sample at a time). All hoisted + reused, so the
-        // audio thread stays allocation-free in steady state.
-        let mut scratch_l: Vec<f32> = Vec::with_capacity(2048);
-        let mut scratch_r: Vec<f32> = Vec::with_capacity(2048);
-        let mut mix_l: Vec<f32> = Vec::with_capacity(2048);
-        let mut mix_r: Vec<f32> = Vec::with_capacity(2048);
-        let mut master_l: Vec<f32> = Vec::with_capacity(2048);
-        let mut master_r: Vec<f32> = Vec::with_capacity(2048);
-        let mut input_l: Vec<f32> = Vec::with_capacity(2048);
-        let mut input_r: Vec<f32> = Vec::with_capacity(2048);
-        // Per-return block accumulators (num_returns × block_len).
-        let mut return_bus_l: Vec<Vec<f32>> = Vec::with_capacity(4);
-        let mut return_bus_r: Vec<Vec<f32>> = Vec::with_capacity(4);
-        // Reusable VST3 MIDI event queue: (event_type, channel, data1, data2, sample_offset).
-        let mut vst3_events: Vec<(i32, i32, i32, i32, i32)> = Vec::with_capacity(128);
+        // The callback's render state, with the monitoring fade ramp (C4) at the
+        // stream's rate. Built here so the audio thread never allocates.
+        let mut render = self.realtime_render(f64::from(config.sample_rate.0));
 
         let stream = device.build_output_stream(
             &config,
@@ -605,712 +577,7 @@ impl AudioGraph {
                 let _buffer_timer = BufferTimer::start(frames, stream_rate);
                 gap_detector.on_callback(info.timestamp().callback, frames);
 
-                // Check if we should be playing (lock-free atomic read)
-                let is_playing = state.load(Ordering::SeqCst) == TransportState::Playing as u8;
-
-                if !is_playing {
-                    // Even when not playing, we might be recording or using virtual piano
-                    // Process metronome, recording, AND synths (for real-time MIDI input)
-                    // but DON'T advance playhead or trigger MIDI clips from timeline
-
-                    // Lock the synth, effect, and track managers ONCE for the
-                    // whole buffer, counting any wait (`lock_or_count`), like
-                    // the playing path. The stopped path used to
-                    // re-acquire effect_manager and track_manager *per sample*
-                    // with blocking locks (C1) — the exact realtime stall the
-                    // playing path was deliberately hardened against.
-                    //
-                    // LOCK ORDER: track_manager BEFORE effect_manager — the API
-                    // layer (api/effects.rs add/remove_effect_to_track) takes
-                    // track→effect; acquiring effect→track here is an AB/BA
-                    // deadlock that silently froze the UI on add/remove-effect
-                    // while stopped (C32).
-                    let mut synth_guard =
-                        Some(lock_or_count(&track_synth_manager, &SYNTH_LOCK_WAITS));
-                    // Snapshot per-track state under a SHORT track_manager
-                    // lock instead of holding it across the whole buffer. The
-                    // stopped path used to keep track_manager locked for every
-                    // frame of the callback, so any UI FFI call that walks the
-                    // track list (mute/solo/arm writes, meter polling) stalled
-                    // behind the audio thread — the suspected root cause of
-                    // the 100–400 ms M/S/R/I button lag while stopped (#19).
-                    // Peaks and monitoring fade gains accumulate in the
-                    // snapshot and are written back under a brief lock after
-                    // the buffer, mirroring the playing path.
-                    stopped_snapshot_buf.clear();
-                    let has_solo = {
-                        let tm = lock_or_count(&track_manager, &TRACK_LOCK_WAITS);
-                        for track_arc in tm.get_all_tracks() {
-                            let track = lock_or_count(&track_arc, &TRACK_LOCK_WAITS);
-                            // Skip master track in per-track processing
-                            if track.track_type == TrackType::Master {
-                                continue;
-                            }
-                            stopped_snapshot_buf.push(StoppedTrackSnapshot {
-                                id: track.id,
-                                volume_gain: track.get_gain(),
-                                pan_left: track.get_pan_gains().0,
-                                pan_right: track.get_pan_gains().1,
-                                muted: track.mute,
-                                soloed: track.solo,
-                                fx_chain: track.fx_chain.clone(),
-                                armed: track.armed,
-                                input_monitoring: track.input_monitoring,
-                                input_channel: track.input_channel,
-                                is_audio_track: track.track_type == TrackType::Audio,
-                                monitoring_fade_gain: track.monitoring_fade_gain,
-                                peak_left: 0.0,
-                                peak_right: 0.0,
-                            });
-                        }
-                        tm.has_solo()
-                    }; // track_manager released — UI calls proceed while we render
-
-                    let mut effect_guard = lock_or_count(&effect_manager, &EFFECT_LOCK_WAITS);
-
-                    let mut master_peak_left = 0.0f32;
-                    let mut master_peak_right = 0.0f32;
-
-                    for frame_idx in 0..frames {
-                        let (input_left, input_right) = input_tap.read_frame();
-
-                        // Process recording and get metronome output
-                        let (met_left, met_right) =
-                            recorder_refs.process_frame(input_left, input_right, false);
-
-                        // Start with metronome output
-                        let mut out_left = met_left;
-                        let mut out_right = met_right;
-
-                        // Process each track (synth + VST3 instruments + volume/pan + metering)
-                        // This is necessary for:
-                        // 1. Per-track synthesizer output from MIDI input
-                        // 2. VST3 instruments that need continuous process() calls
-                        // 3. Track-level metering for level meters in UI
-                        for snap in &mut stopped_snapshot_buf {
-                            // Get per-track synth output FIRST
-                            let mut track_left = 0.0f32;
-                            let mut track_right = 0.0f32;
-
-                            if let Some(ref mut synth_manager) = synth_guard {
-                                let (synth_left, synth_right) =
-                                    synth_manager.process_sample_stereo(snap.id);
-                                track_left += synth_left;
-                                track_right += synth_right;
-                            }
-
-                            // Input monitoring: mix live input for armed audio tracks
-                            {
-                                let should_monitor =
-                                    snap.armed && snap.input_monitoring && snap.is_audio_track;
-                                update_monitoring_fade(
-                                    &mut snap.monitoring_fade_gain,
-                                    should_monitor,
-                                    monitoring_ramp_rate,
-                                );
-
-                                if snap.monitoring_fade_gain > 0.0 {
-                                    // Only a stereo pair is captured: even
-                                    // channels map to left, odd to right (C9 —
-                                    // previously every channel >= 1 monitored right).
-                                    let ch = snap.input_channel as usize;
-                                    let input_sample = if ch.is_multiple_of(2) {
-                                        input_left
-                                    } else {
-                                        input_right
-                                    };
-                                    track_left += input_sample * snap.monitoring_fade_gain as f32;
-                                    track_right += input_sample * snap.monitoring_fade_gain as f32;
-                                }
-                            }
-
-                            // Handle mute/solo (FX still run on silence to keep
-                            // VST3 alive; peaks stay at 0)
-                            if snap.muted || (has_solo && !snap.soloed) {
-                                process_effect_chain(
-                                    &snap.fx_chain,
-                                    &mut effect_guard,
-                                    0.0,
-                                    0.0,
-                                    true,
-                                    1.0,
-                                );
-                                continue;
-                            }
-
-                            // Process FX chain for this track
-                            let (fx_l, fx_r) = process_effect_chain(
-                                &snap.fx_chain,
-                                &mut effect_guard,
-                                track_left,
-                                track_right,
-                                false,
-                                snap.volume_gain,
-                            );
-
-                            // Apply track volume and pan AFTER FX chain
-                            track_left = fx_l * snap.volume_gain * snap.pan_left;
-                            track_right = fx_r * snap.volume_gain * snap.pan_right;
-
-                            // Accumulate peak levels for metering (written back
-                            // to the track after the buffer)
-                            snap.peak_left = snap.peak_left.max(track_left.abs());
-                            snap.peak_right = snap.peak_right.max(track_right.abs());
-
-                            // Mix into output
-                            out_left += track_left;
-                            out_right += track_right;
-                        }
-
-                        // Master peak over the WHOLE buffer (the old per-frame
-                        // variable only ever recorded the final frame's level)
-                        master_peak_left = master_peak_left.max(out_left.abs());
-                        master_peak_right = master_peak_right.max(out_right.abs());
-
-                        // Mix library preview audio (independent of transport)
-                        let (preview_left, preview_right) =
-                            crate::api::preview::preview_process_sample();
-                        out_left += preview_left;
-                        out_right += preview_right;
-
-                        // Output metronome + synths + VST3 + preview when not playing
-                        write_frame(data, frame_idx, channels, out_left, out_right);
-                    }
-
-                    // Release effect manager BEFORE re-acquiring track_manager
-                    // (the C32 track→effect lock order).
-                    drop(effect_guard);
-
-                    // Brief end-of-buffer lock: write back peaks + monitoring
-                    // fade gains (update_peaks is a running max, so muted
-                    // tracks' 0.0 entries leave their meters untouched —
-                    // matching the old per-frame behaviour).
-                    {
-                        let tm = lock_or_count(&track_manager, &TRACK_LOCK_WAITS);
-                        for snap in &stopped_snapshot_buf {
-                            if let Some(track_arc) = tm.get_track(snap.id) {
-                                let mut track = lock_or_count(&track_arc, &TRACK_LOCK_WAITS);
-                                track.monitoring_fade_gain = snap.monitoring_fade_gain;
-                                track.update_peaks(snap.peak_left, snap.peak_right);
-                            }
-                        }
-                        let master_arc = tm.get_master_track();
-                        lock_or_count(&master_arc, &TRACK_LOCK_WAITS)
-                            .update_peaks(master_peak_left, master_peak_right);
-                    }
-                    return;
-                }
-
-                // frames already calculated at top of callback
-                let current_playhead = playhead_samples.load(Ordering::SeqCst);
-
-                // Timeline positions live in REAL seconds — the same domain the
-                // playhead, MIDI clips, automation points and the UI all use.
-                // Tempo only changes where the UI *places* things (beats →
-                // seconds), never how fast the engine advances through them.
-                // (A legacy tempo/120 "playhead scaling" here made audio clips
-                // start early/late AND play at the wrong speed at any tempo
-                // other than 120 BPM, while MIDI clips played correctly.)
-
-                // NOTE: Legacy MIDI clip processing removed - all MIDI now handled per-track
-
-                // M5.5: Track-based mixing (replaces legacy clip mixing)
-
-                // Reuse pre-allocated buffers (clear without deallocating)
-                snapshot_buf.clear();
-                return_snapshot_buf.clear();
-                peak_buf.clear();
-
-                let (has_solo, master_snapshot, return_index) = {
-                    let tm = lock_or_count(&track_manager, &TRACK_LOCK_WAITS);
-                    let has_solo_flag = tm.has_solo();
-                    let all_tracks = tm.get_all_tracks();
-                    let mut master_snap = None;
-
-                    for track_arc in all_tracks {
-                        {
-                            let track = lock_or_count(&track_arc, &TRACK_LOCK_WAITS);
-                            let snap = TrackSnapshot {
-                                id: track.id,
-                                audio_clips: track.audio_clips.clone(),
-                                midi_clips: track.midi_clips.clone(),
-                                volume_gain: track.get_gain(),
-                                pan_left: track.get_pan_gains().0,
-                                pan_right: track.get_pan_gains().1,
-                                muted: track.mute,
-                                soloed: track.solo,
-                                fx_chain: track.fx_chain.clone(),
-                                sends: track
-                                    .sends
-                                    .iter()
-                                    .map(|send| (send.target_track_id, send.amount))
-                                    .collect(),
-                                volume_automation: track.volume_automation.clone(),
-                                armed: track.armed,
-                                input_monitoring: track.input_monitoring,
-                                input_channel: track.input_channel,
-                                is_audio_track: track.track_type == TrackType::Audio,
-                                monitoring_fade_gain: track.monitoring_fade_gain,
-                            };
-
-                            match track.track_type {
-                                TrackType::Master => master_snap = Some(snap),
-                                TrackType::Return => return_snapshot_buf.push(snap),
-                                _ => snapshot_buf.push(snap),
-                            }
-                        }
-                    }
-
-                    let return_index: HashMap<u64, usize> = return_snapshot_buf
-                        .iter()
-                        .enumerate()
-                        .map(|(idx, snap)| (snap.id, idx))
-                        .collect();
-
-                    (has_solo_flag, master_snap, return_index)
-                }; // All locks released here!
-                let mut master_peak_left = 0.0f32;
-                let mut master_peak_right = 0.0f32;
-
-                // OPTIMIZATION: Lock synth manager ONCE before the frame loop
-                let mut synth_guard = Some(lock_or_count(&track_synth_manager, &SYNTH_LOCK_WAITS));
-
-                // OPTIMIZATION: Lock effect manager ONCE before the frame loop
-                let mut effect_guard = lock_or_count(&effect_manager, &EFFECT_LOCK_WAITS);
-
-                // Check if recording is active (skip clip playback on armed tracks)
-                let is_recording = *lock_or_count(&recorder_refs.state, &RECORDER_LOCK_WAITS)
-                    == crate::recorder::RecordingState::Recording;
-
-                // Process the callback in sub-blocks of at most MAX_VST3_BLOCK frames
-                // (see the const's doc comment for why). Within each sub-block the FX chain
-                // runs once per effect via `process_block` — VST3 plugins process the whole
-                // chunk in a single call (the fix), while built-in effects loop
-                // `process_frame` internally (output unchanged).
-                //
-                // Size the hoisted per-buffer scratch (capacity 2048, so resize never
-                // allocates on the audio thread).
-                scratch_l.resize(MAX_VST3_BLOCK, 0.0);
-                scratch_r.resize(MAX_VST3_BLOCK, 0.0);
-                mix_l.resize(MAX_VST3_BLOCK, 0.0);
-                mix_r.resize(MAX_VST3_BLOCK, 0.0);
-                master_l.resize(MAX_VST3_BLOCK, 0.0);
-                master_r.resize(MAX_VST3_BLOCK, 0.0);
-                input_l.resize(MAX_VST3_BLOCK, 0.0);
-                input_r.resize(MAX_VST3_BLOCK, 0.0);
-                let num_returns = return_snapshot_buf.len();
-                return_bus_l.resize_with(num_returns, || Vec::with_capacity(MAX_VST3_BLOCK));
-                return_bus_r.resize_with(num_returns, || Vec::with_capacity(MAX_VST3_BLOCK));
-                for buf in &mut return_bus_l {
-                    buf.resize(MAX_VST3_BLOCK, 0.0);
-                }
-                for buf in &mut return_bus_r {
-                    buf.resize(MAX_VST3_BLOCK, 0.0);
-                }
-
-                let mut sb_start = 0usize;
-                while sb_start < frames {
-                    let sb_len = MAX_VST3_BLOCK.min(frames - sb_start);
-
-                    // Reset per-sub-block mix + return accumulators.
-                    for i in 0..sb_len {
-                        mix_l[i] = 0.0;
-                        mix_r[i] = 0.0;
-                    }
-                    for ret in 0..num_returns {
-                        for i in 0..sb_len {
-                            return_bus_l[ret][i] = 0.0;
-                            return_bus_r[ret][i] = 0.0;
-                        }
-                    }
-
-                    // Read input once per frame up front (a single consumer of the input
-                    // ring, exactly as before) so monitoring, recording and the latency
-                    // test all see the same per-frame samples.
-                    for i in 0..sb_len {
-                        let (il, ir) = input_tap.read_frame();
-                        input_l[i] = il;
-                        input_r[i] = ir;
-                    }
-
-                    // --- Tracks ---
-                    for track_snap in &mut snapshot_buf {
-                        let audible = !track_snap.muted && (!has_solo || track_snap.soloed);
-                        // Skip existing clip playback on armed tracks during recording
-                        // (user should only hear new input, not old overlapping clips).
-                        let skip_clips = track_snap.armed && is_recording;
-
-                        // Does this track host an actual VST3 instrument (vs built-in FX)?
-                        #[cfg(all(feature = "vst3", not(target_os = "ios")))]
-                        let has_vst3_instrument = track_snap.fx_chain.iter().any(|effect_id| {
-                            if let Some(effect_arc) = effect_guard.get_effect(*effect_id) {
-                                let effect = lock_or_count(&effect_arc, &EFFECT_LOCK_WAITS);
-                                matches!(*effect, crate::effects::EffectType::VST3(_))
-                            } else {
-                                false
-                            }
-                        });
-                        #[cfg(not(all(feature = "vst3", not(target_os = "ios"))))]
-                        let has_vst3_instrument = false;
-
-                        vst3_events.clear();
-
-                        // Pass 1: fill scratch with the pre-FX signal (clips + built-in
-                        // synth + input monitoring), dispatching built-in-synth MIDI
-                        // per-sample and queuing VST3 MIDI with a sample offset.
-                        if let Some(ref mut synth_manager) = synth_guard {
-                            for i in 0..sb_len {
-                                let playhead_frame = current_playhead + (sb_start + i) as u64;
-                                let playhead_seconds =
-                                    playhead_frame as f64 / f64::from(TARGET_SAMPLE_RATE);
-
-                                let mut track_left = 0.0;
-                                let mut track_right = 0.0;
-
-                                if !skip_clips {
-                                    for timeline_clip in &track_snap.audio_clips {
-                                        let (cl, cr) = render_audio_clip_sample(
-                                            timeline_clip,
-                                            playhead_seconds,
-                                        );
-                                        track_left += cl;
-                                        track_right += cr;
-                                    }
-                                }
-
-                                if !skip_clips {
-                                    for timeline_midi_clip in &track_snap.midi_clips {
-                                        let clip_start_samples = frame_at(
-                                            timeline_midi_clip.start_time
-                                                * f64::from(TARGET_SAMPLE_RATE),
-                                        )
-                                            as u64;
-                                        let clip_end_samples = clip_start_samples
-                                            + timeline_midi_clip.clip.duration_samples;
-
-                                        // Use <= for end boundary so note-offs at exact clip end fire.
-                                        if playhead_frame >= clip_start_samples
-                                            && playhead_frame <= clip_end_samples
-                                        {
-                                            let frame_in_clip = playhead_frame - clip_start_samples;
-                                            for event in &timeline_midi_clip.clip.events {
-                                                if event.timestamp_samples == frame_in_clip {
-                                                    match event.event_type {
-                                                        crate::midi::MidiEventType::NoteOn {
-                                                            note,
-                                                            velocity,
-                                                        } => {
-                                                            if has_vst3_instrument {
-                                                                vst3_events.push((
-                                                                    0,
-                                                                    0,
-                                                                    i32::from(note),
-                                                                    i32::from(velocity),
-                                                                    i as i32,
-                                                                ));
-                                                            } else {
-                                                                synth_manager.note_on(
-                                                                    track_snap.id,
-                                                                    note,
-                                                                    velocity,
-                                                                );
-                                                            }
-                                                        }
-                                                        crate::midi::MidiEventType::NoteOff {
-                                                            note,
-                                                            velocity: _,
-                                                        } => {
-                                                            if has_vst3_instrument {
-                                                                vst3_events.push((
-                                                                    1,
-                                                                    0,
-                                                                    i32::from(note),
-                                                                    0,
-                                                                    i as i32,
-                                                                ));
-                                                            } else {
-                                                                synth_manager
-                                                                    .note_off(track_snap.id, note);
-                                                            }
-                                                        }
-                                                        crate::midi::MidiEventType::ControlChange {
-                                                            controller,
-                                                            value,
-                                                        } => {
-                                                            if has_vst3_instrument {
-                                                                vst3_events.push((
-                                                                    2,
-                                                                    0,
-                                                                    i32::from(controller),
-                                                                    i32::from(value),
-                                                                    i as i32,
-                                                                ));
-                                                            } else {
-                                                                synth_manager.control_change(
-                                                                    track_snap.id,
-                                                                    controller,
-                                                                    value,
-                                                                );
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Per-track built-in synthesizer output (lock already held)
-                                let (synth_left, synth_right) =
-                                    synth_manager.process_sample_stereo(track_snap.id);
-                                track_left += synth_left;
-                                track_right += synth_right;
-
-                                // Input monitoring: mix live input for armed audio tracks
-                                let should_monitor = track_snap.armed
-                                    && track_snap.input_monitoring
-                                    && track_snap.is_audio_track;
-                                update_monitoring_fade(
-                                    &mut track_snap.monitoring_fade_gain,
-                                    should_monitor,
-                                    monitoring_ramp_rate,
-                                );
-                                if track_snap.monitoring_fade_gain > 0.0 {
-                                    // Stereo pair only: even channels → left, odd → right (C9).
-                                    let ch = track_snap.input_channel as usize;
-                                    let input_sample = if ch.is_multiple_of(2) {
-                                        input_l[i]
-                                    } else {
-                                        input_r[i]
-                                    };
-                                    track_left +=
-                                        input_sample * track_snap.monitoring_fade_gain as f32;
-                                    track_right +=
-                                        input_sample * track_snap.monitoring_fade_gain as f32;
-                                }
-
-                                scratch_l[i] = track_left;
-                                scratch_r[i] = track_right;
-                            }
-                        }
-
-                        // Pass 2: flush queued VST3 MIDI at their offsets, then run the FX
-                        // chain once over the whole sub-block.
-                        #[cfg(all(feature = "vst3", not(target_os = "ios")))]
-                        if has_vst3_instrument && !vst3_events.is_empty() {
-                            for effect_id in &track_snap.fx_chain {
-                                if let Some(effect_arc) = effect_guard.get_effect(*effect_id) {
-                                    let mut effect = lock_or_count(&effect_arc, &EFFECT_LOCK_WAITS);
-                                    if let crate::effects::EffectType::VST3(ref mut vst3) = *effect
-                                    {
-                                        for &(et, ch, d1, d2, off) in &vst3_events {
-                                            let _ = vst3.process_midi_event(et, ch, d1, d2, off);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        process_effect_chain_block(
-                            &track_snap.fx_chain,
-                            &mut effect_guard,
-                            &mut scratch_l[..sb_len],
-                            &mut scratch_r[..sb_len],
-                            false,
-                            track_snap.volume_gain,
-                        );
-
-                        // Pass 3: per-sample fader/pan (post-FX), metering, sends, mix.
-                        // Multiply/accumulate order preserved → bit-identical to the
-                        // previous path for built-in chains.
-                        for i in 0..sb_len {
-                            let playhead_frame = current_playhead + (sb_start + i) as u64;
-                            let playhead_seconds =
-                                playhead_frame as f64 / f64::from(TARGET_SAMPLE_RATE);
-
-                            let frame_volume_gain = if track_snap.volume_automation.is_empty() {
-                                track_snap.volume_gain
-                            } else {
-                                interpolate_automation_gain(
-                                    &track_snap.volume_automation,
-                                    playhead_seconds,
-                                )
-                            };
-
-                            let mut fx_left = scratch_l[i];
-                            let mut fx_right = scratch_r[i];
-                            fx_left *= frame_volume_gain;
-                            fx_right *= frame_volume_gain;
-                            fx_left *= track_snap.pan_left;
-                            fx_right *= track_snap.pan_right;
-
-                            if audible {
-                                let entry = peak_buf.entry(track_snap.id).or_insert((0.0, 0.0));
-                                entry.0 = entry.0.max(fx_left.abs());
-                                entry.1 = entry.1.max(fx_right.abs());
-
-                                for (return_id, amount) in &track_snap.sends {
-                                    if let Some(&idx) = return_index.get(return_id) {
-                                        return_bus_l[idx][i] += fx_left * amount;
-                                        return_bus_r[idx][i] += fx_right * amount;
-                                    }
-                                }
-                                mix_l[i] += fx_left;
-                                mix_r[i] += fx_right;
-                            }
-                        }
-                    }
-
-                    // --- Return tracks: FX over the accumulated send buffer, then sum to master ---
-                    for (idx, return_snap) in return_snapshot_buf.iter().enumerate() {
-                        let return_audible =
-                            !return_snap.muted && (!has_solo || return_snap.soloed);
-                        if !return_audible {
-                            continue;
-                        }
-
-                        scratch_l[..sb_len].copy_from_slice(&return_bus_l[idx][..sb_len]);
-                        scratch_r[..sb_len].copy_from_slice(&return_bus_r[idx][..sb_len]);
-                        process_effect_chain_block(
-                            &return_snap.fx_chain,
-                            &mut effect_guard,
-                            &mut scratch_l[..sb_len],
-                            &mut scratch_r[..sb_len],
-                            false,
-                            return_snap.volume_gain,
-                        );
-
-                        for i in 0..sb_len {
-                            let playhead_frame = current_playhead + (sb_start + i) as u64;
-                            let playhead_seconds =
-                                playhead_frame as f64 / f64::from(TARGET_SAMPLE_RATE);
-                            let frame_volume_gain = if return_snap.volume_automation.is_empty() {
-                                return_snap.volume_gain
-                            } else {
-                                interpolate_automation_gain(
-                                    &return_snap.volume_automation,
-                                    playhead_seconds,
-                                )
-                            };
-                            let mut fx_left = scratch_l[i];
-                            let mut fx_right = scratch_r[i];
-                            fx_left *= frame_volume_gain;
-                            fx_right *= frame_volume_gain;
-                            fx_left *= return_snap.pan_left;
-                            fx_right *= return_snap.pan_right;
-
-                            let entry = peak_buf.entry(return_snap.id).or_insert((0.0, 0.0));
-                            entry.0 = entry.0.max(fx_left.abs());
-                            entry.1 = entry.1.max(fx_right.abs());
-
-                            mix_l[i] += fx_left;
-                            mix_r[i] += fx_right;
-                        }
-                    }
-
-                    // --- Master: volume/pan per-sample, then master FX over the block ---
-                    master_l[..sb_len].copy_from_slice(&mix_l[..sb_len]);
-                    master_r[..sb_len].copy_from_slice(&mix_r[..sb_len]);
-                    if let Some(ref master_snap) = master_snapshot {
-                        for i in 0..sb_len {
-                            master_l[i] *= master_snap.volume_gain;
-                            master_r[i] *= master_snap.volume_gain;
-                            master_l[i] *= master_snap.pan_left;
-                            master_r[i] *= master_snap.pan_right;
-                        }
-                        process_effect_chain_block(
-                            &master_snap.fx_chain,
-                            &mut effect_guard,
-                            &mut master_l[..sb_len],
-                            &mut master_r[..sb_len],
-                            false,
-                            1.0, // volume already applied to master buffer above
-                        );
-                    }
-
-                    // In-place count-in (recording at/near bar 1, no room for
-                    // a full pre-roll): mute track playback so the count-in
-                    // isn't accompanied by the very bars being recorded over.
-                    // The metronome is mixed in after the limiter, so it stays.
-                    if recorder_refs.count_in_in_place.load(Ordering::Relaxed)
-                        && *lock_or_count(&recorder_refs.state, &RECORDER_LOCK_WAITS)
-                            == crate::recorder::RecordingState::CountingIn
-                    {
-                        master_l[..sb_len].fill(0.0);
-                        master_r[..sb_len].fill(0.0);
-                    }
-
-                    // --- Per-sample tail: recording/metronome, limiter, metering,
-                    // preview, output write. These stay strictly per-frame
-                    // and in order (recorder + preview advance per sample). ---
-                    {
-                        let mut limiter = lock_or_count(&master_limiter, &EFFECT_LOCK_WAITS);
-                        for i in 0..sb_len {
-                            let frame_idx = sb_start + i;
-
-                            // Process recording (metronome handled separately below)
-                            let (met_left, met_right) =
-                                recorder_refs.process_frame(input_l[i], input_r[i], true);
-
-                            // Apply master limiter to prevent clipping
-                            let (limited_left, limited_right) =
-                                limiter.process_frame(master_l[i], master_r[i]);
-
-                            // Update master peak levels for metering (before metronome is added)
-                            master_peak_left = master_peak_left.max(limited_left.abs());
-                            master_peak_right = master_peak_right.max(limited_right.abs());
-
-                            // Add metronome AFTER metering so it doesn't affect the master meter
-                            let mut output_left = limited_left + met_left;
-                            let mut output_right = limited_right + met_right;
-
-                            // Mix library preview audio (independent of transport)
-                            let (preview_left, preview_right) =
-                                crate::api::preview::preview_process_sample();
-                            output_left += preview_left;
-                            output_right += preview_right;
-
-                            // Write to output buffer (interleaved, channel-count aware + sanitized)
-                            write_frame(data, frame_idx, channels, output_left, output_right);
-                        }
-                    }
-
-                    sb_start += sb_len;
-                }
-
-                // Release effect manager lock before acquiring track_manager lock for peak updates
-                drop(effect_guard);
-
-                // Update track peak levels and monitoring fade gains (brief lock after buffer processing)
-                {
-                    let tm = lock_or_count(&track_manager, &TRACK_LOCK_WAITS);
-                    for track_snap in &snapshot_buf {
-                        if let Some(track_arc) = tm.get_track(track_snap.id) {
-                            {
-                                let mut track = lock_or_count(&track_arc, &TRACK_LOCK_WAITS);
-                                track.monitoring_fade_gain = track_snap.monitoring_fade_gain;
-                            }
-                        }
-                    }
-                    for (track_id, (peak_l, peak_r)) in &peak_buf {
-                        if let Some(track_arc) = tm.get_track(*track_id) {
-                            {
-                                let mut track = lock_or_count(&track_arc, &TRACK_LOCK_WAITS);
-                                track.update_peaks(*peak_l, *peak_r);
-                            }
-                        }
-                    }
-                    // Update master track peaks
-                    {
-                        let master_arc = tm.get_master_track();
-                        {
-                            let mut master = lock_or_count(&master_arc, &TRACK_LOCK_WAITS);
-                            master.update_peaks(master_peak_left, master_peak_right);
-                        };
-                    }
-                }
-
-                // Advance playhead
-                playhead_samples.fetch_add(frames as u64, Ordering::SeqCst);
+                render.render(data, channels);
             },
             {
                 // C99: publish stream failures (device disconnect) so the UI
@@ -1329,6 +596,804 @@ impl AudioGraph {
     }
 }
 
+/// Everything the realtime callback renders with: the graph's shared state
+/// plus scratch buffers allocated up front, so the audio thread never
+/// allocates in steady state. [`RealtimeRender::render`] is the callback body;
+/// the device callback adds only the device-specific parts (denormal flush,
+/// buffer timing and gap detection).
+pub(crate) struct RealtimeRender {
+    playhead_samples: Arc<AtomicU64>,
+    state: Arc<AtomicU8>,
+    /// The audio thread's own end of the input: never waits on the input
+    /// manager, which the UI locks for meters.
+    input_tap: Arc<InputTap>,
+    recorder_refs: RecorderCallbackRefs,
+    track_manager: Arc<Mutex<TrackManager>>,
+    effect_manager: Arc<Mutex<EffectManager>>,
+    master_limiter: Arc<Mutex<Limiter>>,
+    track_synth_manager: Arc<Mutex<TrackSynthManager>>,
+    /// Rate of the monitoring fade ramp (C4).
+    monitoring_ramp_rate: f64,
+    snapshot_buf: Vec<TrackSnapshot>,
+    return_snapshot_buf: Vec<TrackSnapshot>,
+    peak_buf: HashMap<TrackId, (f32, f32)>,
+    stopped_snapshot_buf: Vec<StoppedTrackSnapshot>,
+    // Per-buffer (sub-block) scratch buffers for the playing path. The FX chain
+    // runs once per sub-block via `process_block` (so VST3 plugins process a whole
+    // buffer per call instead of one sample at a time).
+    scratch_l: Vec<f32>,
+    scratch_r: Vec<f32>,
+    mix_l: Vec<f32>,
+    mix_r: Vec<f32>,
+    master_l: Vec<f32>,
+    master_r: Vec<f32>,
+    input_l: Vec<f32>,
+    input_r: Vec<f32>,
+    /// Per-return block accumulators (num_returns × block_len).
+    return_bus_l: Vec<Vec<f32>>,
+    return_bus_r: Vec<Vec<f32>>,
+    /// Reusable VST3 MIDI event queue: (event_type, channel, data1, data2, sample_offset).
+    vst3_events: Vec<(i32, i32, i32, i32, i32)>,
+}
+
+impl AudioGraph {
+    /// The realtime callback's render state for this graph, with the
+    /// monitoring fade ramp at `monitoring_ramp_rate`.
+    pub(crate) fn realtime_render(&self, monitoring_ramp_rate: f64) -> RealtimeRender {
+        RealtimeRender {
+            playhead_samples: self.playhead_samples.clone(),
+            state: self.state.clone(),
+            input_tap: self.input_manager.lock().tap(),
+            recorder_refs: self.recorder.get_callback_refs(),
+            track_manager: self.track_manager.clone(),
+            effect_manager: self.effect_manager.clone(),
+            master_limiter: self.master_limiter.clone(),
+            track_synth_manager: self.track_synth_manager.clone(),
+            monitoring_ramp_rate,
+            snapshot_buf: Vec::with_capacity(16),
+            return_snapshot_buf: Vec::with_capacity(4),
+            peak_buf: HashMap::with_capacity(16),
+            stopped_snapshot_buf: Vec::with_capacity(16),
+            scratch_l: Vec::with_capacity(2048),
+            scratch_r: Vec::with_capacity(2048),
+            mix_l: Vec::with_capacity(2048),
+            mix_r: Vec::with_capacity(2048),
+            master_l: Vec::with_capacity(2048),
+            master_r: Vec::with_capacity(2048),
+            input_l: Vec::with_capacity(2048),
+            input_r: Vec::with_capacity(2048),
+            return_bus_l: Vec::with_capacity(4),
+            return_bus_r: Vec::with_capacity(4),
+            vst3_events: Vec::with_capacity(128),
+        }
+    }
+}
+
+impl RealtimeRender {
+    /// Render one device buffer into `data` (interleaved, `channels` per
+    /// frame) and advance the playhead while playing.
+    pub(crate) fn render(&mut self, data: &mut [f32], channels: usize) {
+        let frames = data.len() / channels;
+        let monitoring_ramp_rate = self.monitoring_ramp_rate;
+        let Self {
+            playhead_samples,
+            state,
+            input_tap,
+            recorder_refs,
+            track_manager,
+            effect_manager,
+            master_limiter,
+            track_synth_manager,
+            monitoring_ramp_rate: _,
+            snapshot_buf,
+            return_snapshot_buf,
+            peak_buf,
+            stopped_snapshot_buf,
+            scratch_l,
+            scratch_r,
+            mix_l,
+            mix_r,
+            master_l,
+            master_r,
+            input_l,
+            input_r,
+            return_bus_l,
+            return_bus_r,
+            vst3_events,
+        } = self;
+
+        // Check if we should be playing (lock-free atomic read)
+        let is_playing = state.load(Ordering::SeqCst) == TransportState::Playing as u8;
+
+        if !is_playing {
+            // Even when not playing, we might be recording or using virtual piano
+            // Process metronome, recording, AND synths (for real-time MIDI input)
+            // but DON'T advance playhead or trigger MIDI clips from timeline
+
+            // Lock the synth, effect, and track managers ONCE for the
+            // whole buffer, counting any wait (`lock_or_count`), like
+            // the playing path. The stopped path used to
+            // re-acquire effect_manager and track_manager *per sample*
+            // with blocking locks (C1) — the exact realtime stall the
+            // playing path was deliberately hardened against.
+            //
+            // LOCK ORDER: track_manager BEFORE effect_manager — the API
+            // layer (api/effects.rs add/remove_effect_to_track) takes
+            // track→effect; acquiring effect→track here is an AB/BA
+            // deadlock that silently froze the UI on add/remove-effect
+            // while stopped (C32).
+            let mut synth_guard = Some(lock_or_count(track_synth_manager, &SYNTH_LOCK_WAITS));
+            // Snapshot per-track state under a SHORT track_manager
+            // lock instead of holding it across the whole buffer. The
+            // stopped path used to keep track_manager locked for every
+            // frame of the callback, so any UI FFI call that walks the
+            // track list (mute/solo/arm writes, meter polling) stalled
+            // behind the audio thread — the suspected root cause of
+            // the 100–400 ms M/S/R/I button lag while stopped (#19).
+            // Peaks and monitoring fade gains accumulate in the
+            // snapshot and are written back under a brief lock after
+            // the buffer, mirroring the playing path.
+            stopped_snapshot_buf.clear();
+            let has_solo = {
+                let tm = lock_or_count(track_manager, &TRACK_LOCK_WAITS);
+                for track_arc in tm.get_all_tracks() {
+                    let track = lock_or_count(&track_arc, &TRACK_LOCK_WAITS);
+                    // Skip master track in per-track processing
+                    if track.track_type == TrackType::Master {
+                        continue;
+                    }
+                    stopped_snapshot_buf.push(StoppedTrackSnapshot {
+                        id: track.id,
+                        volume_gain: track.get_gain(),
+                        pan_left: track.get_pan_gains().0,
+                        pan_right: track.get_pan_gains().1,
+                        muted: track.mute,
+                        soloed: track.solo,
+                        fx_chain: track.fx_chain.clone(),
+                        armed: track.armed,
+                        input_monitoring: track.input_monitoring,
+                        input_channel: track.input_channel,
+                        is_audio_track: track.track_type == TrackType::Audio,
+                        monitoring_fade_gain: track.monitoring_fade_gain,
+                        peak_left: 0.0,
+                        peak_right: 0.0,
+                    });
+                }
+                tm.has_solo()
+            }; // track_manager released — UI calls proceed while we render
+
+            let mut effect_guard = lock_or_count(effect_manager, &EFFECT_LOCK_WAITS);
+
+            let mut master_peak_left = 0.0f32;
+            let mut master_peak_right = 0.0f32;
+
+            for frame_idx in 0..frames {
+                let (input_left, input_right) = input_tap.read_frame();
+
+                // Process recording and get metronome output
+                let (met_left, met_right) =
+                    recorder_refs.process_frame(input_left, input_right, false);
+
+                // Start with metronome output
+                let mut out_left = met_left;
+                let mut out_right = met_right;
+
+                // Process each track (synth + VST3 instruments + volume/pan + metering)
+                // This is necessary for:
+                // 1. Per-track synthesizer output from MIDI input
+                // 2. VST3 instruments that need continuous process() calls
+                // 3. Track-level metering for level meters in UI
+                for snap in stopped_snapshot_buf.iter_mut() {
+                    // Get per-track synth output FIRST
+                    let mut track_left = 0.0f32;
+                    let mut track_right = 0.0f32;
+
+                    if let Some(ref mut synth_manager) = synth_guard {
+                        let (synth_left, synth_right) =
+                            synth_manager.process_sample_stereo(snap.id);
+                        track_left += synth_left;
+                        track_right += synth_right;
+                    }
+
+                    // Input monitoring: mix live input for armed audio tracks
+                    {
+                        let should_monitor =
+                            snap.armed && snap.input_monitoring && snap.is_audio_track;
+                        update_monitoring_fade(
+                            &mut snap.monitoring_fade_gain,
+                            should_monitor,
+                            monitoring_ramp_rate,
+                        );
+
+                        if snap.monitoring_fade_gain > 0.0 {
+                            // Only a stereo pair is captured: even
+                            // channels map to left, odd to right (C9 —
+                            // previously every channel >= 1 monitored right).
+                            let ch = snap.input_channel as usize;
+                            let input_sample = if ch.is_multiple_of(2) {
+                                input_left
+                            } else {
+                                input_right
+                            };
+                            track_left += input_sample * snap.monitoring_fade_gain as f32;
+                            track_right += input_sample * snap.monitoring_fade_gain as f32;
+                        }
+                    }
+
+                    // Handle mute/solo (FX still run on silence to keep
+                    // VST3 alive; peaks stay at 0)
+                    if snap.muted || (has_solo && !snap.soloed) {
+                        process_effect_chain(
+                            &snap.fx_chain,
+                            &mut effect_guard,
+                            0.0,
+                            0.0,
+                            true,
+                            1.0,
+                        );
+                        continue;
+                    }
+
+                    // Process FX chain for this track
+                    let (fx_l, fx_r) = process_effect_chain(
+                        &snap.fx_chain,
+                        &mut effect_guard,
+                        track_left,
+                        track_right,
+                        false,
+                        snap.volume_gain,
+                    );
+
+                    // Apply track volume and pan AFTER FX chain
+                    track_left = fx_l * snap.volume_gain * snap.pan_left;
+                    track_right = fx_r * snap.volume_gain * snap.pan_right;
+
+                    // Accumulate peak levels for metering (written back
+                    // to the track after the buffer)
+                    snap.peak_left = snap.peak_left.max(track_left.abs());
+                    snap.peak_right = snap.peak_right.max(track_right.abs());
+
+                    // Mix into output
+                    out_left += track_left;
+                    out_right += track_right;
+                }
+
+                // Master peak over the WHOLE buffer (the old per-frame
+                // variable only ever recorded the final frame's level)
+                master_peak_left = master_peak_left.max(out_left.abs());
+                master_peak_right = master_peak_right.max(out_right.abs());
+
+                // Mix library preview audio (independent of transport)
+                let (preview_left, preview_right) = crate::api::preview::preview_process_sample();
+                out_left += preview_left;
+                out_right += preview_right;
+
+                // Output metronome + synths + VST3 + preview when not playing
+                write_frame(data, frame_idx, channels, out_left, out_right);
+            }
+
+            // Release effect manager BEFORE re-acquiring track_manager
+            // (the C32 track→effect lock order).
+            drop(effect_guard);
+
+            // Brief end-of-buffer lock: write back peaks + monitoring
+            // fade gains (update_peaks is a running max, so muted
+            // tracks' 0.0 entries leave their meters untouched —
+            // matching the old per-frame behaviour).
+            {
+                let tm = lock_or_count(track_manager, &TRACK_LOCK_WAITS);
+                for snap in stopped_snapshot_buf.iter() {
+                    if let Some(track_arc) = tm.get_track(snap.id) {
+                        let mut track = lock_or_count(&track_arc, &TRACK_LOCK_WAITS);
+                        track.monitoring_fade_gain = snap.monitoring_fade_gain;
+                        track.update_peaks(snap.peak_left, snap.peak_right);
+                    }
+                }
+                let master_arc = tm.get_master_track();
+                lock_or_count(&master_arc, &TRACK_LOCK_WAITS)
+                    .update_peaks(master_peak_left, master_peak_right);
+            }
+            return;
+        }
+
+        // frames already calculated at top of callback
+        let current_playhead = playhead_samples.load(Ordering::SeqCst);
+
+        // Timeline positions live in REAL seconds — the same domain the
+        // playhead, MIDI clips, automation points and the UI all use.
+        // Tempo only changes where the UI *places* things (beats →
+        // seconds), never how fast the engine advances through them.
+        // (A legacy tempo/120 "playhead scaling" here made audio clips
+        // start early/late AND play at the wrong speed at any tempo
+        // other than 120 BPM, while MIDI clips played correctly.)
+
+        // NOTE: Legacy MIDI clip processing removed - all MIDI now handled per-track
+
+        // M5.5: Track-based mixing (replaces legacy clip mixing)
+
+        // Reuse pre-allocated buffers (clear without deallocating)
+        snapshot_buf.clear();
+        return_snapshot_buf.clear();
+        peak_buf.clear();
+
+        let (has_solo, master_snapshot, return_index) = {
+            let tm = lock_or_count(track_manager, &TRACK_LOCK_WAITS);
+            let has_solo_flag = tm.has_solo();
+            let all_tracks = tm.get_all_tracks();
+            let mut master_snap = None;
+
+            for track_arc in all_tracks {
+                {
+                    let track = lock_or_count(&track_arc, &TRACK_LOCK_WAITS);
+                    let snap = TrackSnapshot {
+                        id: track.id,
+                        audio_clips: track.audio_clips.clone(),
+                        midi_clips: track.midi_clips.clone(),
+                        volume_gain: track.get_gain(),
+                        pan_left: track.get_pan_gains().0,
+                        pan_right: track.get_pan_gains().1,
+                        muted: track.mute,
+                        soloed: track.solo,
+                        fx_chain: track.fx_chain.clone(),
+                        sends: track
+                            .sends
+                            .iter()
+                            .map(|send| (send.target_track_id, send.amount))
+                            .collect(),
+                        volume_automation: track.volume_automation.clone(),
+                        armed: track.armed,
+                        input_monitoring: track.input_monitoring,
+                        input_channel: track.input_channel,
+                        is_audio_track: track.track_type == TrackType::Audio,
+                        monitoring_fade_gain: track.monitoring_fade_gain,
+                    };
+
+                    match track.track_type {
+                        TrackType::Master => master_snap = Some(snap),
+                        TrackType::Return => return_snapshot_buf.push(snap),
+                        _ => snapshot_buf.push(snap),
+                    }
+                }
+            }
+
+            let return_index: HashMap<u64, usize> = return_snapshot_buf
+                .iter()
+                .enumerate()
+                .map(|(idx, snap)| (snap.id, idx))
+                .collect();
+
+            (has_solo_flag, master_snap, return_index)
+        }; // All locks released here!
+        let mut master_peak_left = 0.0f32;
+        let mut master_peak_right = 0.0f32;
+
+        // OPTIMIZATION: Lock synth manager ONCE before the frame loop
+        let mut synth_guard = Some(lock_or_count(track_synth_manager, &SYNTH_LOCK_WAITS));
+
+        // OPTIMIZATION: Lock effect manager ONCE before the frame loop
+        let mut effect_guard = lock_or_count(effect_manager, &EFFECT_LOCK_WAITS);
+
+        // Check if recording is active (skip clip playback on armed tracks)
+        let is_recording = *lock_or_count(&recorder_refs.state, &RECORDER_LOCK_WAITS)
+            == crate::recorder::RecordingState::Recording;
+
+        // Process the callback in sub-blocks of at most MAX_VST3_BLOCK frames
+        // (see the const's doc comment for why). Within each sub-block the FX chain
+        // runs once per effect via `process_block` — VST3 plugins process the whole
+        // chunk in a single call (the fix), while built-in effects loop
+        // `process_frame` internally (output unchanged).
+        //
+        // Size the hoisted per-buffer scratch (capacity 2048, so resize never
+        // allocates on the audio thread).
+        scratch_l.resize(MAX_VST3_BLOCK, 0.0);
+        scratch_r.resize(MAX_VST3_BLOCK, 0.0);
+        mix_l.resize(MAX_VST3_BLOCK, 0.0);
+        mix_r.resize(MAX_VST3_BLOCK, 0.0);
+        master_l.resize(MAX_VST3_BLOCK, 0.0);
+        master_r.resize(MAX_VST3_BLOCK, 0.0);
+        input_l.resize(MAX_VST3_BLOCK, 0.0);
+        input_r.resize(MAX_VST3_BLOCK, 0.0);
+        let num_returns = return_snapshot_buf.len();
+        return_bus_l.resize_with(num_returns, || Vec::with_capacity(MAX_VST3_BLOCK));
+        return_bus_r.resize_with(num_returns, || Vec::with_capacity(MAX_VST3_BLOCK));
+        for buf in return_bus_l.iter_mut() {
+            buf.resize(MAX_VST3_BLOCK, 0.0);
+        }
+        for buf in return_bus_r.iter_mut() {
+            buf.resize(MAX_VST3_BLOCK, 0.0);
+        }
+
+        let mut sb_start = 0usize;
+        while sb_start < frames {
+            let sb_len = MAX_VST3_BLOCK.min(frames - sb_start);
+
+            // Reset per-sub-block mix + return accumulators.
+            for i in 0..sb_len {
+                mix_l[i] = 0.0;
+                mix_r[i] = 0.0;
+            }
+            for ret in 0..num_returns {
+                for i in 0..sb_len {
+                    return_bus_l[ret][i] = 0.0;
+                    return_bus_r[ret][i] = 0.0;
+                }
+            }
+
+            // Read input once per frame up front (a single consumer of the input
+            // ring, exactly as before) so monitoring, recording and the latency
+            // test all see the same per-frame samples.
+            for i in 0..sb_len {
+                let (il, ir) = input_tap.read_frame();
+                input_l[i] = il;
+                input_r[i] = ir;
+            }
+
+            // --- Tracks ---
+            for track_snap in snapshot_buf.iter_mut() {
+                let audible = !track_snap.muted && (!has_solo || track_snap.soloed);
+                // Skip existing clip playback on armed tracks during recording
+                // (user should only hear new input, not old overlapping clips).
+                let skip_clips = track_snap.armed && is_recording;
+
+                // Does this track host an actual VST3 instrument (vs built-in FX)?
+                #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+                let has_vst3_instrument = track_snap.fx_chain.iter().any(|effect_id| {
+                    if let Some(effect_arc) = effect_guard.get_effect(*effect_id) {
+                        let effect = lock_or_count(&effect_arc, &EFFECT_LOCK_WAITS);
+                        matches!(*effect, crate::effects::EffectType::VST3(_))
+                    } else {
+                        false
+                    }
+                });
+                #[cfg(not(all(feature = "vst3", not(target_os = "ios"))))]
+                let has_vst3_instrument = false;
+
+                vst3_events.clear();
+
+                // Pass 1: fill scratch with the pre-FX signal (clips + built-in
+                // synth + input monitoring), dispatching built-in-synth MIDI
+                // per-sample and queuing VST3 MIDI with a sample offset.
+                if let Some(ref mut synth_manager) = synth_guard {
+                    for i in 0..sb_len {
+                        let playhead_frame = current_playhead + (sb_start + i) as u64;
+                        let playhead_seconds =
+                            playhead_frame as f64 / f64::from(TARGET_SAMPLE_RATE);
+
+                        let mut track_left = 0.0;
+                        let mut track_right = 0.0;
+
+                        if !skip_clips {
+                            for timeline_clip in &track_snap.audio_clips {
+                                let (cl, cr) =
+                                    render_audio_clip_sample(timeline_clip, playhead_seconds);
+                                track_left += cl;
+                                track_right += cr;
+                            }
+                        }
+
+                        if !skip_clips {
+                            for timeline_midi_clip in &track_snap.midi_clips {
+                                let clip_start_samples = frame_at(
+                                    timeline_midi_clip.start_time * f64::from(TARGET_SAMPLE_RATE),
+                                ) as u64;
+                                let clip_end_samples =
+                                    clip_start_samples + timeline_midi_clip.clip.duration_samples;
+
+                                // Use <= for end boundary so note-offs at exact clip end fire.
+                                if playhead_frame >= clip_start_samples
+                                    && playhead_frame <= clip_end_samples
+                                {
+                                    let frame_in_clip = playhead_frame - clip_start_samples;
+                                    for event in &timeline_midi_clip.clip.events {
+                                        if event.timestamp_samples == frame_in_clip {
+                                            match event.event_type {
+                                                crate::midi::MidiEventType::NoteOn {
+                                                    note,
+                                                    velocity,
+                                                } => {
+                                                    if has_vst3_instrument {
+                                                        vst3_events.push((
+                                                            0,
+                                                            0,
+                                                            i32::from(note),
+                                                            i32::from(velocity),
+                                                            i as i32,
+                                                        ));
+                                                    } else {
+                                                        synth_manager.note_on(
+                                                            track_snap.id,
+                                                            note,
+                                                            velocity,
+                                                        );
+                                                    }
+                                                }
+                                                crate::midi::MidiEventType::NoteOff {
+                                                    note,
+                                                    velocity: _,
+                                                } => {
+                                                    if has_vst3_instrument {
+                                                        vst3_events.push((
+                                                            1,
+                                                            0,
+                                                            i32::from(note),
+                                                            0,
+                                                            i as i32,
+                                                        ));
+                                                    } else {
+                                                        synth_manager.note_off(track_snap.id, note);
+                                                    }
+                                                }
+                                                crate::midi::MidiEventType::ControlChange {
+                                                    controller,
+                                                    value,
+                                                } => {
+                                                    if has_vst3_instrument {
+                                                        vst3_events.push((
+                                                            2,
+                                                            0,
+                                                            i32::from(controller),
+                                                            i32::from(value),
+                                                            i as i32,
+                                                        ));
+                                                    } else {
+                                                        synth_manager.control_change(
+                                                            track_snap.id,
+                                                            controller,
+                                                            value,
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Per-track built-in synthesizer output (lock already held)
+                        let (synth_left, synth_right) =
+                            synth_manager.process_sample_stereo(track_snap.id);
+                        track_left += synth_left;
+                        track_right += synth_right;
+
+                        // Input monitoring: mix live input for armed audio tracks
+                        let should_monitor = track_snap.armed
+                            && track_snap.input_monitoring
+                            && track_snap.is_audio_track;
+                        update_monitoring_fade(
+                            &mut track_snap.monitoring_fade_gain,
+                            should_monitor,
+                            monitoring_ramp_rate,
+                        );
+                        if track_snap.monitoring_fade_gain > 0.0 {
+                            // Stereo pair only: even channels → left, odd → right (C9).
+                            let ch = track_snap.input_channel as usize;
+                            let input_sample = if ch.is_multiple_of(2) {
+                                input_l[i]
+                            } else {
+                                input_r[i]
+                            };
+                            track_left += input_sample * track_snap.monitoring_fade_gain as f32;
+                            track_right += input_sample * track_snap.monitoring_fade_gain as f32;
+                        }
+
+                        scratch_l[i] = track_left;
+                        scratch_r[i] = track_right;
+                    }
+                }
+
+                // Pass 2: flush queued VST3 MIDI at their offsets, then run the FX
+                // chain once over the whole sub-block.
+                #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+                if has_vst3_instrument && !vst3_events.is_empty() {
+                    for effect_id in &track_snap.fx_chain {
+                        if let Some(effect_arc) = effect_guard.get_effect(*effect_id) {
+                            let mut effect = lock_or_count(&effect_arc, &EFFECT_LOCK_WAITS);
+                            if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
+                                for &(et, ch, d1, d2, off) in vst3_events.iter() {
+                                    let _ = vst3.process_midi_event(et, ch, d1, d2, off);
+                                }
+                            }
+                        }
+                    }
+                }
+                process_effect_chain_block(
+                    &track_snap.fx_chain,
+                    &mut effect_guard,
+                    &mut scratch_l[..sb_len],
+                    &mut scratch_r[..sb_len],
+                    false,
+                    track_snap.volume_gain,
+                );
+
+                // Pass 3: per-sample fader/pan (post-FX), metering, sends, mix.
+                // Multiply/accumulate order preserved → bit-identical to the
+                // previous path for built-in chains.
+                for i in 0..sb_len {
+                    let playhead_frame = current_playhead + (sb_start + i) as u64;
+                    let playhead_seconds = playhead_frame as f64 / f64::from(TARGET_SAMPLE_RATE);
+
+                    let frame_volume_gain = if track_snap.volume_automation.is_empty() {
+                        track_snap.volume_gain
+                    } else {
+                        interpolate_automation_gain(&track_snap.volume_automation, playhead_seconds)
+                    };
+
+                    let mut fx_left = scratch_l[i];
+                    let mut fx_right = scratch_r[i];
+                    fx_left *= frame_volume_gain;
+                    fx_right *= frame_volume_gain;
+                    fx_left *= track_snap.pan_left;
+                    fx_right *= track_snap.pan_right;
+
+                    if audible {
+                        let entry = peak_buf.entry(track_snap.id).or_insert((0.0, 0.0));
+                        entry.0 = entry.0.max(fx_left.abs());
+                        entry.1 = entry.1.max(fx_right.abs());
+
+                        for (return_id, amount) in &track_snap.sends {
+                            if let Some(&idx) = return_index.get(return_id) {
+                                return_bus_l[idx][i] += fx_left * amount;
+                                return_bus_r[idx][i] += fx_right * amount;
+                            }
+                        }
+                        mix_l[i] += fx_left;
+                        mix_r[i] += fx_right;
+                    }
+                }
+            }
+
+            // --- Return tracks: FX over the accumulated send buffer, then sum to master ---
+            for (idx, return_snap) in return_snapshot_buf.iter().enumerate() {
+                let return_audible = !return_snap.muted && (!has_solo || return_snap.soloed);
+                if !return_audible {
+                    continue;
+                }
+
+                scratch_l[..sb_len].copy_from_slice(&return_bus_l[idx][..sb_len]);
+                scratch_r[..sb_len].copy_from_slice(&return_bus_r[idx][..sb_len]);
+                process_effect_chain_block(
+                    &return_snap.fx_chain,
+                    &mut effect_guard,
+                    &mut scratch_l[..sb_len],
+                    &mut scratch_r[..sb_len],
+                    false,
+                    return_snap.volume_gain,
+                );
+
+                for i in 0..sb_len {
+                    let playhead_frame = current_playhead + (sb_start + i) as u64;
+                    let playhead_seconds = playhead_frame as f64 / f64::from(TARGET_SAMPLE_RATE);
+                    let frame_volume_gain = if return_snap.volume_automation.is_empty() {
+                        return_snap.volume_gain
+                    } else {
+                        interpolate_automation_gain(
+                            &return_snap.volume_automation,
+                            playhead_seconds,
+                        )
+                    };
+                    let mut fx_left = scratch_l[i];
+                    let mut fx_right = scratch_r[i];
+                    fx_left *= frame_volume_gain;
+                    fx_right *= frame_volume_gain;
+                    fx_left *= return_snap.pan_left;
+                    fx_right *= return_snap.pan_right;
+
+                    let entry = peak_buf.entry(return_snap.id).or_insert((0.0, 0.0));
+                    entry.0 = entry.0.max(fx_left.abs());
+                    entry.1 = entry.1.max(fx_right.abs());
+
+                    mix_l[i] += fx_left;
+                    mix_r[i] += fx_right;
+                }
+            }
+
+            // --- Master: volume/pan per-sample, then master FX over the block ---
+            master_l[..sb_len].copy_from_slice(&mix_l[..sb_len]);
+            master_r[..sb_len].copy_from_slice(&mix_r[..sb_len]);
+            if let Some(ref master_snap) = master_snapshot {
+                for i in 0..sb_len {
+                    master_l[i] *= master_snap.volume_gain;
+                    master_r[i] *= master_snap.volume_gain;
+                    master_l[i] *= master_snap.pan_left;
+                    master_r[i] *= master_snap.pan_right;
+                }
+                process_effect_chain_block(
+                    &master_snap.fx_chain,
+                    &mut effect_guard,
+                    &mut master_l[..sb_len],
+                    &mut master_r[..sb_len],
+                    false,
+                    1.0, // volume already applied to master buffer above
+                );
+            }
+
+            // In-place count-in (recording at/near bar 1, no room for
+            // a full pre-roll): mute track playback so the count-in
+            // isn't accompanied by the very bars being recorded over.
+            // The metronome is mixed in after the limiter, so it stays.
+            if recorder_refs.count_in_in_place.load(Ordering::Relaxed)
+                && *lock_or_count(&recorder_refs.state, &RECORDER_LOCK_WAITS)
+                    == crate::recorder::RecordingState::CountingIn
+            {
+                master_l[..sb_len].fill(0.0);
+                master_r[..sb_len].fill(0.0);
+            }
+
+            // --- Per-sample tail: recording/metronome, limiter, metering,
+            // preview, output write. These stay strictly per-frame
+            // and in order (recorder + preview advance per sample). ---
+            {
+                let mut limiter = lock_or_count(master_limiter, &EFFECT_LOCK_WAITS);
+                for i in 0..sb_len {
+                    let frame_idx = sb_start + i;
+
+                    // Process recording (metronome handled separately below)
+                    let (met_left, met_right) =
+                        recorder_refs.process_frame(input_l[i], input_r[i], true);
+
+                    // Apply master limiter to prevent clipping
+                    let (limited_left, limited_right) =
+                        limiter.process_frame(master_l[i], master_r[i]);
+
+                    // Update master peak levels for metering (before metronome is added)
+                    master_peak_left = master_peak_left.max(limited_left.abs());
+                    master_peak_right = master_peak_right.max(limited_right.abs());
+
+                    // Add metronome AFTER metering so it doesn't affect the master meter
+                    let mut output_left = limited_left + met_left;
+                    let mut output_right = limited_right + met_right;
+
+                    // Mix library preview audio (independent of transport)
+                    let (preview_left, preview_right) =
+                        crate::api::preview::preview_process_sample();
+                    output_left += preview_left;
+                    output_right += preview_right;
+
+                    // Write to output buffer (interleaved, channel-count aware + sanitized)
+                    write_frame(data, frame_idx, channels, output_left, output_right);
+                }
+            }
+
+            sb_start += sb_len;
+        }
+
+        // Release effect manager lock before acquiring track_manager lock for peak updates
+        drop(effect_guard);
+
+        // Update track peak levels and monitoring fade gains (brief lock after buffer processing)
+        {
+            let tm = lock_or_count(track_manager, &TRACK_LOCK_WAITS);
+            for track_snap in snapshot_buf.iter() {
+                if let Some(track_arc) = tm.get_track(track_snap.id) {
+                    {
+                        let mut track = lock_or_count(&track_arc, &TRACK_LOCK_WAITS);
+                        track.monitoring_fade_gain = track_snap.monitoring_fade_gain;
+                    }
+                }
+            }
+            for (track_id, (peak_l, peak_r)) in peak_buf.iter() {
+                if let Some(track_arc) = tm.get_track(*track_id) {
+                    {
+                        let mut track = lock_or_count(&track_arc, &TRACK_LOCK_WAITS);
+                        track.update_peaks(*peak_l, *peak_r);
+                    }
+                }
+            }
+            // Update master track peaks
+            {
+                let master_arc = tm.get_master_track();
+                {
+                    let mut master = lock_or_count(&master_arc, &TRACK_LOCK_WAITS);
+                    master.update_peaks(master_peak_left, master_peak_right);
+                };
+            }
+        }
+
+        // Advance playhead
+        playhead_samples.fetch_add(frames as u64, Ordering::SeqCst);
+    }
+}
 #[cfg(test)]
 mod tests {
     // Exact float comparisons are intentional here: the values under test are
