@@ -196,6 +196,8 @@ struct VST3PluginInstance {
     IPtr<IAudioProcessor> processor;
     IPtr<IEditController> controller;
     std::string file_path;
+    // Name of the class loaded from the file (see pick_audio_class)
+    std::string class_name;
     VST3::Hosting::Module::Ptr module;
 
     // Audio setup
@@ -505,7 +507,21 @@ int vst3_scan_standard_locations(VST3ScanCallback callback, void* user_data) {
     return total;
 }
 
-VST3PluginHandle vst3_load_plugin(const char* file_path) {
+// The audio class to load from a plugin file: the one named `wanted` when
+// given and present (a file can hold several, e.g. "Serum 2" and "Serum 2 FX"),
+// else the first. Load and info both use it, so they describe the same class.
+static const VST3::Hosting::ClassInfo* pick_audio_class(
+    const std::vector<VST3::Hosting::ClassInfo>& classes, const std::string& wanted) {
+    const VST3::Hosting::ClassInfo* first = nullptr;
+    for (const auto& class_info : classes) {
+        if (class_info.category() != kVstAudioEffectClass) continue;
+        if (!wanted.empty() && class_info.name() == wanted) return &class_info;
+        if (!first) first = &class_info;
+    }
+    return first;
+}
+
+VST3PluginHandle vst3_load_plugin(const char* file_path, const char* class_name) {
     if (!file_path) {
         set_error("Invalid file path");
         return nullptr;
@@ -531,9 +547,12 @@ VST3PluginHandle vst3_load_plugin(const char* file_path) {
         instance->module = module;
         auto factory = module->getFactory();
 
-        // Find the first audio effect class
-        for (const auto& class_info : factory.classInfos()) {
-            if (class_info.category() == kVstAudioEffectClass) {
+        // The picked audio class (the first when none is named)
+        auto classes = factory.classInfos();
+        if (const auto* picked = pick_audio_class(classes, class_name ? class_name : "")) {
+            {
+                const auto& class_info = *picked;
+                instance->class_name = class_info.name();
                 // Create the component using modern API
                 auto component = factory.createInstance<IComponent>(class_info.ID());
                 if (!component) {
@@ -618,9 +637,14 @@ void vst3_unload_plugin(VST3PluginHandle handle) {
         vst3_close_editor(handle);
     }
 
-    // Deactivate if active
+    // Deactivate if active: stop processing, then deactivate the component.
+    // VST3 requires setActive(false) before terminate(); skipping it left some
+    // plugins' internal resources (and timers) set up past their teardown.
     if (instance->active && instance->processor) {
         instance->processor->setProcessing(false);
+        if (instance->component) {
+            instance->component->setActive(false);
+        }
         instance->active = false;
     }
 
@@ -666,7 +690,7 @@ bool vst3_get_plugin_info(VST3PluginHandle handle, VST3PluginInfo* info) {
     info->is_instrument = false;
     info->is_effect = false;
 
-    // Detect instrument-vs-effect from the loaded module's first audio class —
+    // Detect instrument-vs-effect from the loaded module's picked audio class —
     // the SAME class vst3_load_plugin instantiates — mirroring the detection in
     // vst3_scan_directory. Without this the type was hardcoded to "effect", so
     // any VST3 instrument loaded from a saved project path was treated as an
@@ -678,8 +702,10 @@ bool vst3_get_plugin_info(VST3PluginHandle handle, VST3PluginInfo* info) {
         factory.get()->getFactoryInfo(&factory_info);
         std::strncpy(info->vendor, factory_info.vendor, sizeof(info->vendor) - 1);
 
-        for (const auto& class_info : factory.classInfos()) {
-            if (class_info.category() == kVstAudioEffectClass) {
+        auto classes = factory.classInfos();
+        if (const auto* picked = pick_audio_class(classes, instance->class_name)) {
+            {
+                const auto& class_info = *picked;
                 std::string subcat_str = class_info.subCategoriesString();
                 std::string plugin_name = class_info.name();
                 std::strncpy(info->name, plugin_name.c_str(), sizeof(info->name) - 1);
@@ -715,7 +741,7 @@ bool vst3_get_plugin_info(VST3PluginHandle handle, VST3PluginInfo* info) {
                 if (!info->is_instrument && !info->is_effect) {
                     info->is_instrument = true;
                 }
-                break;  // first audio class — the one vst3_load_plugin loaded
+                // (the class vst3_load_plugin loaded)
             }
         }
     }

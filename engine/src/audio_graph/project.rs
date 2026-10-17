@@ -748,7 +748,13 @@ impl AudioGraph {
                     let sample_rate = f64::from(TARGET_SAMPLE_RATE);
                     let block_size = buffer_preset.samples().max(512) as i32;
 
-                    match VST3Effect::new(&vst3_data.plugin_path, sample_rate, block_size) {
+                    // By name: a file can hold several plugins (Serum 2 / Serum 2 FX)
+                    match VST3Effect::new(
+                        &vst3_data.plugin_path,
+                        &vst3_data.plugin_name,
+                        sample_rate,
+                        block_size,
+                    ) {
                         Ok(mut vst3_effect) => {
                             // Initialize the plugin
                             if let Err(e) = vst3_effect.initialize() {

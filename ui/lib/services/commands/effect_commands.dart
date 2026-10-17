@@ -69,7 +69,12 @@ class AddEffectCommand extends Command {
   @override
   Future<void> execute(AudioEngineInterface engine) async {
     if (isVst3) {
-      _createdEffectId = engine.addVst3EffectToTrack(trackId, effectType);
+      // For a VST3, effectType is the plugin's path and effectName its name
+      _createdEffectId = engine.addVst3EffectToTrack(
+        trackId,
+        effectType,
+        effectName,
+      );
     } else {
       _createdEffectId = engine.addEffectToTrack(trackId, effectType);
     }
@@ -151,7 +156,11 @@ class RemoveEffectCommand extends Command {
     // Re-add the effect (the engine appends it to the end of the chain and
     // assigns a new id).
     final int restored = isVst3
-        ? engine.addVst3EffectToTrack(trackId, effectType)
+        ? engine.addVst3EffectToTrack(
+            trackId,
+            effectType,
+            _removed?.vst3PluginName ?? '',
+          )
         : engine.addEffectToTrack(trackId, effectType);
     if (restored < 0) return;
     _currentEffectId = restored;

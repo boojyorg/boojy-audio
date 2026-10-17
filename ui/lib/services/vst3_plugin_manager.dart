@@ -232,7 +232,11 @@ class Vst3PluginManager extends ChangeNotifier {
   ) {
     try {
       final pluginPath = plugin['path'] ?? '';
-      final effectId = _audioEngine.addVst3EffectToTrack(trackId, pluginPath);
+      final effectId = _audioEngine.addVst3EffectToTrack(
+        trackId,
+        pluginPath,
+        plugin['name'] ?? '',
+      );
 
       if (effectId >= 0) {
         _trackEffects[trackId] ??= [];

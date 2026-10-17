@@ -63,24 +63,19 @@ fn reset_builtin_fx_offline(effect_mgr: &EffectManager, fx_chain: &[u64]) {
     }
 }
 
-/// True if the chain hosts a VST3 plugin, which receives the track's MIDI as an
-/// instrument. Built-in effects (reverb, EQ, …) do not — for those the track's
-/// MIDI must reach the built-in synth instead. This mirrors the realtime
-/// renderer's routing decision (`renderer.rs`): without it, offline export used
+/// True if the chain hosts a VST3 instrument, which receives the track's MIDI.
+/// Built-in and VST3 effects do not — for those the track's MIDI must reach
+/// the built-in synth instead. This mirrors the realtime renderer's routing
+/// decision (`renderer.rs`): without it, offline export used
 /// `!fx_chain.is_empty()`, so any MIDI track carrying a built-in effect routed
-/// its notes to the (absent) VST3 queue and exported silent. (Bug C6)
-#[cfg(all(feature = "vst3", not(target_os = "ios")))]
-fn fx_chain_hosts_vst3(effect_mgr: &EffectManager, fx_chain: &[u64]) -> bool {
+/// its notes to the (absent) VST3 queue and exported silent (bug C6); counting
+/// every VST3 did the same for a VST3 effect.
+fn fx_chain_hosts_vst3_instrument(effect_mgr: &EffectManager, fx_chain: &[u64]) -> bool {
     fx_chain.iter().any(|effect_id| {
-        effect_mgr.get_effect(*effect_id).is_some_and(|effect_arc| {
-            matches!(*effect_arc.lock(), crate::effects::EffectType::VST3(_))
-        })
+        effect_mgr
+            .get_effect(*effect_id)
+            .is_some_and(|effect_arc| effect_arc.lock().is_vst3_instrument())
     })
-}
-
-#[cfg(not(all(feature = "vst3", not(target_os = "ios"))))]
-fn fx_chain_hosts_vst3(_effect_mgr: &EffectManager, _fx_chain: &[u64]) -> bool {
-    false
 }
 
 /// A queued MIDI event for a VST3 instrument: `(event_type, channel, data1,
@@ -312,7 +307,7 @@ impl OfflineSources {
             muted: bool,
             soloed: bool,
             fx_chain: Vec<u64>,
-            has_vst3_instrument: bool, // fx_chain hosts a VST3 plugin → MIDI routes to it, not the synth (C6)
+            has_vst3_instrument: bool, // fx_chain hosts a VST3 instrument → MIDI routes to it, not the synth (C6)
             sends: Vec<(u64, f32)>,
             volume_automation: Vec<AutomationPoint>, // For per-frame interpolation
         }
@@ -390,7 +385,8 @@ impl OfflineSources {
         let live_fx_sample_rate = {
             let mut effect_mgr = self.effect_manager.lock();
             for snap in &mut track_snapshots {
-                snap.has_vst3_instrument = fx_chain_hosts_vst3(&effect_mgr, &snap.fx_chain);
+                snap.has_vst3_instrument =
+                    fx_chain_hosts_vst3_instrument(&effect_mgr, &snap.fx_chain);
             }
 
             // Pin built-in FX to the export rate: the live stream may run at
@@ -832,7 +828,7 @@ impl OfflineSources {
             // FX state the mix render saw at t=0, not the state it left behind.
             reset_builtin_fx_offline(&effect_mgr, &track_snap.fx_chain);
             (
-                fx_chain_hosts_vst3(&effect_mgr, &track_snap.fx_chain),
+                fx_chain_hosts_vst3_instrument(&effect_mgr, &track_snap.fx_chain),
                 live_rate,
             )
         };

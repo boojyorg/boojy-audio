@@ -85,9 +85,6 @@ items below with throwaway tests (each fix brings its own) and ran into the 48 k
   9% slow and 1.5 semitones flat. Needs sample-rate conversion on the output and the input (the input opens at 48 kHz,
   which most devices offer; one that can't would crackle). A bigger job than the bugs above.
 - New Project keeps the previous tempo and time signature (U2).
-- **A plugin file with more than one plugin always loads the first.** Serum 2's file holds the
-  synth and "Serum 2 FX"; picking the FX loads the synth (`vst3_host.cpp` takes the first audio
-  class). Load the class that was picked. Needs the C++ library rebuilt.
 - "Mute Clip" on a MIDI clip doesn't silence it: the scheduler ignores the flag. The consistency
   checker compares note counts, not the notes or mute, so it missed this; make it compare both.
 - **Adding a VST3 while playing crackles.** Loading the plugin holds the track lock, so the

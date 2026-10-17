@@ -36,6 +36,11 @@ void main() {
       await undo.execute(manager.addPluginCommand(1, supermassive));
 
       expect(engine.addedVst3Plugins.single.path, supermassive.path);
+      expect(
+        engine.addedVst3Plugins.single.name,
+        supermassive.name,
+        reason: 'the plugin is picked by name within its file',
+      );
       expect(manager.getTrackPluginCounts()[1], 1);
       expect(manager.getPluginInfo(20)?['name'], 'ValhallaSupermassive');
 

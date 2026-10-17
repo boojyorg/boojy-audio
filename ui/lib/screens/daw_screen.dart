@@ -776,7 +776,11 @@ class _DAWScreenState extends State<DAWScreen>
       final rename = hasAutomaticName(trackId);
 
       // Load the VST3 plugin as a track instrument
-      final effectId = audioEngine!.addVst3EffectToTrack(trackId, plugin.path);
+      final effectId = audioEngine!.addVst3EffectToTrack(
+        trackId,
+        plugin.path,
+        plugin.name,
+      );
       if (effectId < 0) {
         return;
       }

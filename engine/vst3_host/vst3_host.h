@@ -38,9 +38,10 @@ int vst3_scan_directory(const char* directory, VST3ScanCallback callback, void* 
 // Scan standard VST3 plugin locations
 int vst3_scan_standard_locations(VST3ScanCallback callback, void* user_data);
 
-// Load a plugin from file path
-// Returns handle to plugin or NULL on failure
-VST3PluginHandle vst3_load_plugin(const char* file_path);
+// Load a plugin from file path. A file can hold several plugins (e.g. "Serum 2"
+// and "Serum 2 FX"): `class_name` picks one by name; NULL, empty or not found
+// loads the first. Returns handle to plugin or NULL on failure
+VST3PluginHandle vst3_load_plugin(const char* file_path, const char* class_name);
 
 // Unload a plugin
 void vst3_unload_plugin(VST3PluginHandle handle);

@@ -88,10 +88,10 @@ class _BuiltinEffectSnapshot extends _EffectSnapshot {
   });
 }
 
-/// A VST3 plugin: rebuilt via `addVst3EffectToTrack(path)` + `setVst3State`.
-/// [name] is carried so the restored plugin can be re-registered with the UI's
-/// plugin manager (so its editor/param panel and the track's plugin-count chip
-/// reappear).
+/// A VST3 plugin: rebuilt via `addVst3EffectToTrack(path, name)` +
+/// `setVst3State`. [name] picks the plugin within its file (Serum 2 / Serum 2
+/// FX) and re-registers it with the UI's plugin manager (so its editor/param
+/// panel and the track's plugin-count chip reappear).
 class _Vst3EffectSnapshot extends _EffectSnapshot {
   final String path;
   final String name;
@@ -253,7 +253,11 @@ class DeleteTrackCommand extends Command {
             bypassed: b.bypassed,
           );
         case final _Vst3EffectSnapshot v:
-          final effectId = engine.addVst3EffectToTrack(newTrackId, v.path);
+          final effectId = engine.addVst3EffectToTrack(
+            newTrackId,
+            v.path,
+            v.name,
+          );
           if (effectId < 0) {
             // Plugin moved or uninstalled since the delete — can't reload.
             anyVst3Failed = true;

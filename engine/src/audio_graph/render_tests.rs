@@ -1009,3 +1009,63 @@ fn live_count_in_clicks_land_on_every_beat() {
         );
     }
 }
+
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
+#[test]
+fn synth_track_with_a_vst3_effect_still_plays_its_notes() {
+    // Every VST3 used to count as an instrument, so a MIDI track playing the
+    // built-in synth sent its notes to the VST3 *effect* instead: silent,
+    // whether the effect was on or off. Live playback and export alike.
+    use crate::effects::EffectType;
+    use crate::midi::{MidiClip, MidiEvent};
+    use crate::vst3_host::{VST3Effect, VST3Host};
+
+    let path = "/Library/Audio/Plug-Ins/VST3/ValhallaSupermassive.vst3";
+    if !std::path::Path::new(path).exists() {
+        println!("Skipping: Valhalla Supermassive not installed");
+        return;
+    }
+    VST3Host::init().unwrap();
+    for bypassed in [false, true] {
+        let mut graph = AudioGraph::new().unwrap();
+        graph.recorder.set_metronome_enabled(false);
+        let track = graph
+            .track_manager
+            .lock()
+            .create_track(TrackType::Midi, "Synth".into());
+        graph.track_synth_manager.lock().create_synth(track);
+        let notes = vec![
+            MidiEvent::note_on(60, 100, 100),
+            MidiEvent::note_off(60, 0, SR as u64 / 2),
+        ];
+        graph
+            .add_midi_clip_to_track(
+                track,
+                Arc::new(MidiClip::with_events(notes, TARGET_SAMPLE_RATE)),
+                0.0,
+                0,
+            )
+            .unwrap();
+        let mut reverb = VST3Effect::new(path, "", 48000.0, 512).unwrap();
+        reverb.initialize().unwrap();
+        assert!(!reverb.is_instrument, "Supermassive is an effect");
+        let id = graph
+            .effect_manager
+            .lock()
+            .create_effect(EffectType::VST3(reverb));
+        edit_track(&graph, track, |t| t.fx_chain.push(id));
+        graph.effect_manager.lock().set_bypass(id, bypassed);
+
+        let exported = render(&graph, SR);
+        assert!(
+            exported.iter().any(|&s| s != 0.0),
+            "export plays the notes (effect bypassed: {bypassed})"
+        );
+        graph.play().unwrap();
+        let live = render_live(&graph, SR, SPLITS[0]);
+        assert!(
+            live.iter().any(|&s| s != 0.0),
+            "live playback plays the notes (effect bypassed: {bypassed})"
+        );
+    }
+}

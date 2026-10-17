@@ -1035,15 +1035,14 @@ impl RealtimeRender {
                 // (user should only hear new input, not old overlapping clips).
                 let skip_clips = track_snap.armed && is_recording;
 
-                // Does this track host an actual VST3 instrument (vs built-in FX)?
+                // Does this track host a VST3 instrument (vs VST3 or built-in FX)?
                 #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                 let has_vst3_instrument = track_snap.fx_chain.iter().any(|effect_id| {
-                    if let Some(effect_arc) = effect_guard.get_effect(*effect_id) {
-                        let effect = lock_or_count(&effect_arc, &EFFECT_LOCK_WAITS);
-                        matches!(*effect, crate::effects::EffectType::VST3(_))
-                    } else {
-                        false
-                    }
+                    effect_guard
+                        .get_effect(*effect_id)
+                        .is_some_and(|effect_arc| {
+                            lock_or_count(&effect_arc, &EFFECT_LOCK_WAITS).is_vst3_instrument()
+                        })
                 });
                 #[cfg(not(all(feature = "vst3", not(target_os = "ios"))))]
                 let has_vst3_instrument = false;
