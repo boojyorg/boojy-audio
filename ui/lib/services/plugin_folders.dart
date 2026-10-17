@@ -28,19 +28,38 @@ List<String> vst3Folders() {
 
 /// Whether a plugin was installed or removed in [folders] after [since].
 ///
-/// Adding or removing a plugin changes its folder's modified time. Installers
-/// often use a vendor folder inside the VST3 folder, so the folders one level
-/// down count too. Missing folders are skipped.
+/// Adding or removing a plugin changes its folder's modified time. The engine
+/// searches every folder inside a VST3 folder (installers use vendor and
+/// category folders), so every folder counts down to the plugin bundles,
+/// whose insides don't. Missing folders are skipped: [savedPluginsMissing]
+/// catches a removed VST3 folder.
 bool pluginFoldersChangedSince(DateTime since, List<String> folders) {
   for (final path in folders) {
     final folder = Directory(path);
-    if (!folder.existsSync()) continue;
-    if (folder.statSync().modified.isAfter(since)) return true;
-    for (final entry in folder.listSync(followLinks: false)) {
-      if (entry is Directory && entry.statSync().modified.isAfter(since)) {
-        return true;
-      }
+    if (folder.existsSync() && _folderChangedSince(folder, since)) return true;
+  }
+  return false;
+}
+
+bool _folderChangedSince(Directory folder, DateTime since) {
+  if (folder.statSync().modified.isAfter(since)) return true;
+  final List<FileSystemEntity> entries;
+  try {
+    entries = folder.listSync(followLinks: false);
+  } on FileSystemException {
+    return false; // Unreadable: the engine can't scan it either
+  }
+  for (final entry in entries) {
+    if (entry is Directory &&
+        !entry.path.endsWith('.vst3') &&
+        _folderChangedSince(entry, since)) {
+      return true;
     }
   }
   return false;
 }
+
+/// Whether any of the saved list's plugin bundles at [paths] is gone, for
+/// example because its whole VST3 folder was deleted.
+bool savedPluginsMissing(Iterable<String> paths) =>
+    paths.any((path) => path.isNotEmpty && !Directory(path).existsSync());

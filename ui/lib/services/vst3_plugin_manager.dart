@@ -163,13 +163,17 @@ class Vst3PluginManager extends ChangeNotifier {
     }
   }
 
-  /// Whether a VST3 folder changed after the saved list was made. Without
-  /// this, plugins installed after the first scan never showed up.
+  /// Whether a plugin was installed or removed after the saved list was
+  /// made. Without this, plugins installed after the first scan never showed
+  /// up.
   Future<bool> _pluginsChangedSinceScan() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final scannedAt = prefs.getInt('vst3_scan_timestamp');
       if (scannedAt == null) return true;
+      if (savedPluginsMissing(_availablePlugins.map((p) => p['path'] ?? ''))) {
+        return true;
+      }
       return pluginFoldersChangedSince(
         DateTime.fromMillisecondsSinceEpoch(scannedAt),
         vst3Folders(),
