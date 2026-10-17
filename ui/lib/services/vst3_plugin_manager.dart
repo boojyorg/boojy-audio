@@ -6,6 +6,7 @@ import '../utils/logger.dart';
 import '../models/vst3_plugin_data.dart';
 import '../widgets/shared/boojy_notice.dart';
 import 'commands/effect_commands.dart';
+import 'plugin_folders.dart';
 
 /// Manages VST3 plugin scanning, caching, and track effects.
 ///
@@ -162,6 +163,27 @@ class Vst3PluginManager extends ChangeNotifier {
     }
   }
 
+  /// Whether a plugin was installed or removed after the saved list was
+  /// made. Without this, plugins installed after the first scan never showed
+  /// up.
+  Future<bool> _pluginsChangedSinceScan() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final scannedAt = prefs.getInt('vst3_scan_timestamp');
+      if (scannedAt == null) return true;
+      if (savedPluginsMissing(_availablePlugins.map((p) => p['path'] ?? ''))) {
+        return true;
+      }
+      return pluginFoldersChangedSince(
+        DateTime.fromMillisecondsSinceEpoch(scannedAt),
+        vst3Folders(),
+      );
+    } catch (e) {
+      Log.e('VST3PluginManager: Error checking plugin folders: $e');
+      return false;
+    }
+  }
+
   /// Scan for VST3 plugins
   ///
   /// Returns a status message describing the result.
@@ -172,8 +194,8 @@ class Vst3PluginManager extends ChangeNotifier {
     if (!forceRescan && !_isScanned) {
       await loadCachedPlugins();
 
-      // If cache loaded successfully, we're done
-      if (_availablePlugins.isNotEmpty) {
+      // The saved list is good unless a plugin was installed or removed since
+      if (_availablePlugins.isNotEmpty && !await _pluginsChangedSinceScan()) {
         return 'Loaded ${_availablePlugins.length} plugin(s) from cache';
       }
     }
