@@ -67,7 +67,7 @@ extension SnapValueExtension on SnapValue {
 /// Used by DAWScreen to manage resizable panels.
 class UILayoutState extends ChangeNotifier {
   // Panel widths
-  double _mixerPanelWidth = 380.0;
+  double _mixerPanelWidth = sidePanelDefaultWidth;
   double _editorPanelHeight = 250.0;
 
   // Library panel column widths (stored separately, panel width is computed)
@@ -75,12 +75,12 @@ class UILayoutState extends ChangeNotifier {
   // that projects and settings persist, and only their sum is shown. Keep the
   // left part at its floor so the sum tracks the right part.
   double _libraryLeftColumnWidth = 60.0;
-  double _libraryRightColumnWidth = 172.0;
+  double _libraryRightColumnWidth = 212.0; // 280 px panel
 
   // Memory of last size before collapse (for restore on expand)
   double _libraryLastLeftColumnWidth = 60.0;
-  double _libraryLastRightColumnWidth = 172.0;
-  double _mixerLastWidth = 380.0;
+  double _libraryLastRightColumnWidth = 212.0;
+  double _mixerLastWidth = sidePanelDefaultWidth;
   double _editorLastHeight = 250.0;
 
   // Panel visibility
@@ -99,63 +99,43 @@ class UILayoutState extends ChangeNotifier {
   double _loopStartBeats = defaultLoopStartBeats;
   double _loopEndBeats = defaultLoopEndBeats;
 
-  // Fixed minimums (usability floor)
-  static const double libraryMinWidth = 160.0; // left min + divider + right min
+  // Library and Mixer share one size range (Tyr, 2026-10-17). Below 200 the
+  // Mixer drops track names.
+  static const double sidePanelMinWidth = 200.0;
+  static const double sidePanelDefaultWidth = 280.0;
+  static const double sidePanelMaxWidth = 480.0;
+  static const double libraryMinWidth = sidePanelMinWidth;
+  static const double mixerMinWidth = sidePanelMinWidth;
+  static const double mixerMaxWidth = sidePanelMaxWidth;
 
-  // Library panel internal column constraints
+  // Library panel internal column constraints. The one-tree Library keeps the
+  // left column at its default; the right column carries the rest of the
+  // shared range.
   static const double libraryLeftColumnMin = 60.0;
   static const double libraryLeftColumnMax = 250.0;
   static const double libraryLeftColumnDefault = 60.0;
-  static const double libraryRightColumnMin = 92.0;
-  static const double libraryRightColumnMax = 400.0;
   static const double libraryDividerWidth = 8.0;
-  static const double mixerMinWidth = 200.0;
+  static const double libraryRightColumnMin =
+      sidePanelMinWidth - libraryLeftColumnDefault - libraryDividerWidth;
+  static const double libraryRightColumnMax =
+      sidePanelMaxWidth - libraryLeftColumnDefault - libraryDividerWidth;
   static const double editorMinHeight = 150.0;
-
-  // Hard maximums (prevent absurdly large panels on big screens)
-  static const double libraryHardMax = 600.0;
-  static const double mixerHardMax = 500.0;
   static const double editorHardMax = 800.0;
-
-  // Percentage-based constraints
-  static const double libraryDefaultPct = 0.15;
-  static const double libraryMaxPct = 0.30;
-  static const double mixerDefaultPct = 0.28;
-  static const double mixerMaxPct = 0.35;
   static const double editorDefaultPct = 0.32;
   static const double editorMaxPct = 0.65;
 
-  // Minimum arrangement view width (protects timeline visibility)
-  static const double minArrangementWidth = 200.0;
+  // Minimum arrangement view width (protects timeline visibility): the empty
+  // project's prompt card is ~330 wide (270 of buttons + padding)
+  static const double minArrangementWidth = 340.0;
 
-  // Collapsed library width (fully hidden)
-  static const double libraryCollapsedWidth = 0.0;
-
-  // Calculate actual max based on window size (percentage OR hard max, whichever is smaller)
-  static double getLibraryMaxWidth(double windowWidth) {
-    return min(windowWidth * libraryMaxPct, libraryHardMax);
-  }
-
-  static double getMixerMaxWidth(double windowWidth) {
-    return min(windowWidth * mixerMaxPct, mixerHardMax);
-  }
+  // Room each visible side panel's section keeps for its resize divider
+  static const double sidePanelDividerWidth = 4.0;
 
   static double getEditorMaxHeight(double windowHeight) {
     return min(windowHeight * editorMaxPct, editorHardMax);
   }
 
   // Get default size for initial layout
-  static double getLibraryDefaultWidth(double windowWidth) {
-    return max(
-      libraryMinWidth,
-      min(windowWidth * libraryDefaultPct, libraryHardMax),
-    );
-  }
-
-  static double getMixerDefaultWidth(double windowWidth) {
-    return max(mixerMinWidth, min(windowWidth * mixerDefaultPct, mixerHardMax));
-  }
-
   static double getEditorDefaultHeight(double windowHeight) {
     return max(
       editorMinHeight,
@@ -163,20 +143,13 @@ class UILayoutState extends ChangeNotifier {
     );
   }
 
-  /// Reset all resizable panels (library, mixer, editor) to their proportional
-  /// baseline sizes for the given window. Called on new-project creation and on
+  /// Reset all resizable panels (library, mixer, editor) to their baseline
+  /// sizes (the editor's is proportional to the window). Called on new-project creation and on
   /// first launch so every new project opens at a consistent size instead of
   /// inheriting the last drag. Per-project sizes are still restored separately
   /// via [applyLayout] when an existing project is opened.
   void resetSizesToDefaults(double windowWidth, double windowHeight) {
-    final libraryTotal = getLibraryDefaultWidth(windowWidth);
-    _libraryLeftColumnWidth = libraryLeftColumnDefault;
-    _libraryRightColumnWidth =
-        (libraryTotal - libraryLeftColumnDefault - libraryDividerWidth).clamp(
-          libraryRightColumnMin,
-          libraryRightColumnMax,
-        );
-    _mixerPanelWidth = getMixerDefaultWidth(windowWidth);
+    _setSidePanelDefaults();
     _editorPanelHeight = getEditorDefaultHeight(windowHeight);
     notifyListeners();
   }
@@ -189,31 +162,83 @@ class UILayoutState extends ChangeNotifier {
   double get libraryPanelWidth =>
       _libraryLeftColumnWidth + libraryDividerWidth + _libraryRightColumnWidth;
 
-  /// Get current arrangement view width
-  double getArrangementWidth(double windowWidth) {
-    final libraryWidth = _isLibraryPanelCollapsed
-        ? libraryCollapsedWidth
-        : libraryPanelWidth;
-    final mixerWidth = _isMixerVisible ? _mixerPanelWidth : 0.0;
-    return windowWidth - libraryWidth - mixerWidth;
+  void _setSidePanelDefaults() {
+    _libraryLeftColumnWidth = libraryLeftColumnDefault;
+    _libraryRightColumnWidth =
+        sidePanelDefaultWidth - libraryLeftColumnDefault - libraryDividerWidth;
+    _mixerPanelWidth = sidePanelDefaultWidth;
   }
 
-  /// Check if there's room to show library panel (when expanding from collapsed)
-  bool canShowLibrary(double windowWidth) {
-    final mixerWidth = _isMixerVisible ? _mixerPanelWidth : 0.0;
-    final libraryWidth = libraryPanelWidth; // Width it would be if expanded
-    final arrangementWidth = windowWidth - libraryWidth - mixerWidth;
-    return arrangementWidth >= minArrangementWidth;
+  /// The Library and Mixer widths as drawn in a window [windowWidth] wide
+  /// (0 while hidden). Each keeps the width the user chose; when both don't
+  /// fit beside a [minArrangementWidth] timeline, the wider one gives way
+  /// first, then both together, never below [sidePanelMinWidth]. Panels never
+  /// close for lack of room: the window's minimum size fits both at minimum.
+  ({double library, double mixer}) displayedPanelWidths(double windowWidth) {
+    var library = _isLibraryPanelCollapsed ? 0.0 : libraryPanelWidth;
+    var mixer = _isMixerVisible ? _mixerPanelWidth : 0.0;
+    var excess = library + mixer - _roomForSidePanels(windowWidth);
+    if (excess > 0 && library != mixer) {
+      // The wider one gives way, down to the narrower one's width
+      final floor = max(min(library, mixer), sidePanelMinWidth);
+      if (library > mixer) {
+        final cut = min(excess, max(0.0, library - floor));
+        library -= cut;
+        excess -= cut;
+      } else {
+        final cut = min(excess, max(0.0, mixer - floor));
+        mixer -= cut;
+        excess -= cut;
+      }
+    }
+    if (excess > 0) {
+      final shown = (library > 0 ? 1 : 0) + (mixer > 0 ? 1 : 0);
+      final each = excess / shown;
+      if (library > 0) library = max(sidePanelMinWidth, library - each);
+      if (mixer > 0) mixer = max(sidePanelMinWidth, mixer - each);
+    }
+    return (library: library, mixer: mixer);
   }
 
-  /// Check if there's room to show mixer panel
-  bool canShowMixer(double windowWidth) {
-    final libraryWidth = _isLibraryPanelCollapsed
-        ? libraryCollapsedWidth
-        : libraryPanelWidth;
-    final mixerWidth = _mixerPanelWidth; // Width it would be if expanded
-    final arrangementWidth = windowWidth - libraryWidth - mixerWidth;
-    return arrangementWidth >= minArrangementWidth;
+  /// Makes the drawn widths the chosen ones. Called when a drag starts, so a
+  /// drag never squeezes the other panel to make room.
+  void keepDisplayedWidths(double windowWidth) {
+    final shown = displayedPanelWidths(windowWidth);
+    if (shown.library > 0) {
+      _libraryRightColumnWidth =
+          (shown.library - _libraryLeftColumnWidth - libraryDividerWidth).clamp(
+            libraryRightColumnMin,
+            libraryRightColumnMax,
+          );
+    }
+    if (shown.mixer > 0) _mixerPanelWidth = shown.mixer;
+    notifyListeners();
+  }
+
+  /// The widest the Library can be dragged: the shared max, or less so the
+  /// Mixer (as drawn) and a [minArrangementWidth] timeline still fit.
+  double libraryDragMax(double windowWidth) => _dragMax(
+    windowWidth,
+    otherPanel: displayedPanelWidths(windowWidth).mixer,
+  );
+
+  /// The widest the Mixer can be dragged; see [libraryDragMax].
+  double mixerDragMax(double windowWidth) => _dragMax(
+    windowWidth,
+    otherPanel: displayedPanelWidths(windowWidth).library,
+  );
+
+  double _dragMax(double windowWidth, {required double otherPanel}) => max(
+    sidePanelMinWidth,
+    min(sidePanelMaxWidth, _roomForSidePanels(windowWidth) - otherPanel),
+  );
+
+  /// Window width left for the visible side panels beside a
+  /// [minArrangementWidth] timeline and their dividers.
+  double _roomForSidePanels(double windowWidth) {
+    final shown =
+        (_isLibraryPanelCollapsed ? 0 : 1) + (_isMixerVisible ? 1 : 0);
+    return windowWidth - minArrangementWidth - shown * sidePanelDividerWidth;
   }
 
   // ============================================
@@ -263,18 +288,22 @@ class UILayoutState extends ChangeNotifier {
 
   /// Resize right column (outer divider) - left column stays fixed. Stops at
   /// the minimum: only the Library button hides the panel, so it never
-  /// vanishes mid-drag.
-  void resizeRightColumn(double delta) {
+  /// vanishes mid-drag. [maxWidth] caps the whole panel ([libraryDragMax]).
+  void resizeRightColumn(double delta, {double maxWidth = sidePanelMaxWidth}) {
+    final rightMax = min(
+      libraryRightColumnMax,
+      maxWidth - _libraryLeftColumnWidth - libraryDividerWidth,
+    );
     _libraryRightColumnWidth = (_libraryRightColumnWidth + delta).clamp(
       libraryRightColumnMin,
-      libraryRightColumnMax,
+      max(libraryRightColumnMin, rightMax),
     );
     notifyListeners();
   }
 
   double get mixerPanelWidth => _mixerPanelWidth;
   set mixerPanelWidth(double width) {
-    _mixerPanelWidth = width.clamp(mixerMinWidth, mixerHardMax);
+    _mixerPanelWidth = width.clamp(mixerMinWidth, mixerMaxWidth);
     notifyListeners();
   }
 
@@ -460,9 +489,7 @@ class UILayoutState extends ChangeNotifier {
 
   /// Reset all panel sizes and visibility to defaults
   void resetLayout() {
-    _libraryLeftColumnWidth = libraryLeftColumnDefault;
-    _libraryRightColumnWidth = libraryRightColumnMin;
-    _mixerPanelWidth = 380.0;
+    _setSidePanelDefaults();
     _editorPanelHeight = 250.0;
     _isLibraryPanelCollapsed = false;
     _isMixerVisible = true;
@@ -475,7 +502,7 @@ class UILayoutState extends ChangeNotifier {
     // Backwards compatible: split total width into left + right columns
     final totalWidth = layout.libraryWidth.clamp(
       libraryMinWidth,
-      libraryHardMax,
+      sidePanelMaxWidth,
     );
     // The saved left-column split is ignored: the one-tree Library keeps the
     // left column at its default so the outer divider can shrink the whole
@@ -484,7 +511,7 @@ class UILayoutState extends ChangeNotifier {
       libraryLeftColumnDefault,
       totalWidth - libraryLeftColumnDefault - libraryDividerWidth,
     );
-    _mixerPanelWidth = layout.mixerWidth.clamp(mixerMinWidth, mixerHardMax);
+    _mixerPanelWidth = layout.mixerWidth.clamp(mixerMinWidth, mixerMaxWidth);
     _editorPanelHeight = layout.bottomHeight.clamp(
       editorMinHeight,
       editorHardMax,

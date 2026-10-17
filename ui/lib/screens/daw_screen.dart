@@ -77,9 +77,14 @@ class _DAWScreenState extends State<DAWScreen>
         DAWVst3Mixin,
         DAWLibraryMixin,
         DAWProjectMixin {
+  // Visibility at the last build: the side panels animate only when one
+  // opens or closes, so window resizes and drags never leave them briefly
+  // too wide
+  bool? _libraryWasShown;
+  bool? _mixerWasShown;
+  bool _animateSidePanels = false;
+
   // Drag state for disabling panel animations during resize
-  bool _isDraggingLibrary = false;
-  bool _isDraggingMixer = false;
   bool _isDraggingEditor = false;
 
   // Synchronized divider hover state (shared between transport bar and content)
@@ -1428,25 +1433,53 @@ class _DAWScreenState extends State<DAWScreen>
     startRecording(isAlreadyPlaying: playbackController.isPlaying);
   }
 
+  /// A drag starts from the widths on screen, and saves them, so it never
+  /// squeezes the other panel (see [UILayoutState.keepDisplayedWidths]).
+  void _keepDisplayedPanelWidths(double windowWidth) {
+    uiLayout.keepDisplayedWidths(windowWidth);
+    userSettings.libraryRightColumnWidth = uiLayout.libraryRightColumnWidth;
+    userSettings.mixerWidth = uiLayout.mixerPanelWidth;
+  }
+
+  /// Whether a side panel opened or closed since the last build. Both panels
+  /// then animate together: the one that stays grows back to its chosen width
+  /// while the other slides, and as both layouts fit the window, every frame
+  /// between them does too.
+  bool _sidePanelToggled() {
+    final libraryShown = !uiLayout.isLibraryPanelCollapsed;
+    final mixerShown = uiLayout.isMixerVisible;
+    final toggled =
+        (_libraryWasShown != null && _libraryWasShown != libraryShown) ||
+        (_mixerWasShown != null && _mixerWasShown != mixerShown);
+    _libraryWasShown = libraryShown;
+    _mixerWasShown = mixerShown;
+    return toggled;
+  }
+
   Widget _buildLibrarySection() {
+    final windowWidth = MediaQuery.sizeOf(context).width;
+    // While hidden, keep laying out at the width it will open at
+    final shownWidth = uiLayout.isLibraryPanelCollapsed
+        ? uiLayout.libraryPanelWidth
+        : uiLayout.displayedPanelWidths(windowWidth).library;
     return AnimatedContainer(
-      duration: _isDraggingLibrary
-          ? Duration.zero
-          : AnimationConstants.panelDuration,
+      duration: _animateSidePanels
+          ? AnimationConstants.panelDuration
+          : Duration.zero,
       curve: Curves.easeInOut,
       width: uiLayout.isLibraryPanelCollapsed
           ? 0
-          : uiLayout.libraryPanelWidth + 4,
+          : shownWidth + UILayoutState.sidePanelDividerWidth,
       clipBehavior: Clip.hardEdge,
       decoration: const BoxDecoration(),
       child: OverflowBox(
         alignment: Alignment.centerLeft,
-        maxWidth: uiLayout.libraryPanelWidth + 4,
-        minWidth: uiLayout.libraryPanelWidth + 4,
+        maxWidth: shownWidth + UILayoutState.sidePanelDividerWidth,
+        minWidth: shownWidth + UILayoutState.sidePanelDividerWidth,
         child: Row(
           children: [
             SizedBox(
-              width: uiLayout.libraryPanelWidth,
+              width: shownWidth,
               child: libraryPreviewService != null
                   ? ChangeNotifierProvider<LibraryPreviewService>.value(
                       value: libraryPreviewService!,
@@ -1478,15 +1511,18 @@ class _DAWScreenState extends State<DAWScreen>
               orientation: DividerOrientation.vertical,
               isCollapsed: uiLayout.isLibraryPanelCollapsed,
               activeNotifier: _leftDividerActive,
-              onDragStart: () => setState(() => _isDraggingLibrary = true),
-              onDragEnd: () => setState(() => _isDraggingLibrary = false),
+              onDragStart: () =>
+                  setState(() => _keepDisplayedPanelWidths(windowWidth)),
               onDrag: (delta) {
                 setState(() {
-                  uiLayout.resizeRightColumn(delta);
+                  // Stops at the shared max, or where the timeline would get
+                  // too narrow: the Mixer never moves to make room
+                  uiLayout.resizeRightColumn(
+                    delta,
+                    maxWidth: uiLayout.libraryDragMax(windowWidth),
+                  );
                   userSettings.libraryRightColumnWidth =
                       uiLayout.libraryRightColumnWidth;
-                  userSettings.libraryCollapsed =
-                      uiLayout.isLibraryPanelCollapsed;
                 });
               },
               onDoubleClick: () {
@@ -1630,18 +1666,25 @@ class _DAWScreenState extends State<DAWScreen>
   }
 
   Widget _buildMixerSection() {
+    final windowWidth = MediaQuery.sizeOf(context).width;
+    // While hidden, keep laying out at the width it will open at
+    final shownWidth = uiLayout.isMixerVisible
+        ? uiLayout.displayedPanelWidths(windowWidth).mixer
+        : uiLayout.mixerPanelWidth;
     return AnimatedContainer(
-      duration: _isDraggingMixer
-          ? Duration.zero
-          : AnimationConstants.panelDuration,
+      duration: _animateSidePanels
+          ? AnimationConstants.panelDuration
+          : Duration.zero,
       curve: Curves.easeInOut,
-      width: uiLayout.isMixerVisible ? uiLayout.mixerPanelWidth + 4 : 0,
+      width: uiLayout.isMixerVisible
+          ? shownWidth + UILayoutState.sidePanelDividerWidth
+          : 0,
       clipBehavior: Clip.hardEdge,
       decoration: const BoxDecoration(),
       child: OverflowBox(
         alignment: Alignment.centerRight,
-        maxWidth: uiLayout.mixerPanelWidth + 4,
-        minWidth: uiLayout.mixerPanelWidth + 4,
+        maxWidth: shownWidth + UILayoutState.sidePanelDividerWidth,
+        minWidth: shownWidth + UILayoutState.sidePanelDividerWidth,
         child: Row(
           children: [
             // Divider: Timeline/Mixer
@@ -1649,15 +1692,18 @@ class _DAWScreenState extends State<DAWScreen>
               orientation: DividerOrientation.vertical,
               isCollapsed: !uiLayout.isMixerVisible,
               activeNotifier: _rightDividerActive,
-              onDragStart: () => setState(() => _isDraggingMixer = true),
-              onDragEnd: () => setState(() => _isDraggingMixer = false),
+              onDragStart: () =>
+                  setState(() => _keepDisplayedPanelWidths(windowWidth)),
               onDrag: (delta) {
-                final windowWidth = MediaQuery.of(context).size.width;
-                final maxWidth = UILayoutState.getMixerMaxWidth(windowWidth);
                 setState(() {
-                  // Stops at the minimum; only the Mixer button hides it
+                  // Stops at the minimum (only the Mixer button hides it) and
+                  // at the shared max or where the timeline would get too
+                  // narrow: the Library never moves to make room
                   uiLayout.mixerPanelWidth = (uiLayout.mixerPanelWidth - delta)
-                      .clamp(UILayoutState.mixerMinWidth, maxWidth);
+                      .clamp(
+                        UILayoutState.mixerMinWidth,
+                        uiLayout.mixerDragMax(windowWidth),
+                      );
                   userSettings.mixerWidth = uiLayout.mixerPanelWidth;
                 });
               },
@@ -1670,7 +1716,7 @@ class _DAWScreenState extends State<DAWScreen>
             ),
 
             SizedBox(
-              width: uiLayout.mixerPanelWidth,
+              width: shownWidth,
               child: TrackMixerPanel(
                 key: mixerKey,
                 audioEngine: audioEngine,
@@ -1681,7 +1727,7 @@ class _DAWScreenState extends State<DAWScreen>
                 getTrackColor: getTrackColor,
                 config: MixerPanelConfig(
                   isEngineReady: isAudioGraphInitialized,
-                  panelWidth: uiLayout.mixerPanelWidth,
+                  panelWidth: shownWidth,
                   onTogglePanel: toggleMixer,
                   isRecording:
                       recordingController.isRecording ||
@@ -1773,12 +1819,13 @@ class _DAWScreenState extends State<DAWScreen>
   @override
   Widget build(BuildContext context) {
     final windowSize = MediaQuery.of(context).size;
+    _animateSidePanels = _sidePanelToggled();
 
     // Initialize panel sizes based on window size on first launch
     if (!hasInitializedPanelSizes && userSettings.isLoaded) {
       hasInitializedPanelSizes = true;
       if (!userSettings.hasSavedPanelSettings) {
-        // First launch: use percentage-based sizing for all resizable panels.
+        // First launch: baseline sizes for all resizable panels.
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             setState(() {
@@ -1790,20 +1837,6 @@ class _DAWScreenState extends State<DAWScreen>
           }
         });
       }
-    }
-
-    // Auto-collapse panels if arrangement width falls below minimum
-    // Close mixer first (if visible), then library
-    final arrangementWidth = uiLayout.getArrangementWidth(windowSize.width);
-    if (arrangementWidth < UILayoutState.minArrangementWidth) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (uiLayout.isMixerVisible) {
-          uiLayout.collapseMixer();
-        } else if (!uiLayout.isLibraryPanelCollapsed) {
-          uiLayout.collapseLibrary();
-        }
-      });
     }
 
     return StableMenuBar(

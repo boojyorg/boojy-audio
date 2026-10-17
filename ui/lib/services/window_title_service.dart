@@ -1,3 +1,5 @@
+import 'dart:ui' show Size;
+
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform;
 import 'package:window_manager/window_manager.dart';
@@ -27,6 +29,13 @@ class WindowTitleService {
         TitleBarStyle.hidden,
         windowButtonVisibility: true,
       );
+    }
+
+    // macOS sets the same minimum natively (MainFlutterWindow.swift). Both
+    // side panels at their 200 px minimum plus the timeline fit in it, so
+    // panels never have to close for lack of room.
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      await windowManager.setMinimumSize(const Size(960, 600));
     }
 
     _initialized = true;
