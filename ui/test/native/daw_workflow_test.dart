@@ -12,6 +12,7 @@ import 'package:boojy_audio/services/audio_clip_engine_sync.dart';
 import 'package:boojy_audio/services/commands/effect_commands.dart';
 import 'package:boojy_audio/services/state_consistency.dart';
 import 'package:boojy_audio/services/undo_redo_manager.dart';
+import 'package:boojy_audio/state/ui_layout_state.dart';
 import 'package:boojy_audio/widgets/audio_editor/audio_editor.dart';
 import 'package:boojy_audio/widgets/audio_editor/audio_editor_controls_bar.dart';
 import 'package:boojy_audio/widgets/device_chain/effect_data.dart';
@@ -130,6 +131,39 @@ void main() {
       await h.settle();
       expect(drawn(LibraryPanel), 480, reason: 'chosen width comes back');
       expect(drawn(TrackMixerPanel), 480);
+    } finally {
+      await h.close();
+    }
+  });
+
+  testWidgets('hiding one squeezed panel never squeezes the timeline', (
+    tester,
+  ) async {
+    final h = await DawHarness.start(tester);
+    try {
+      h.daw.uiLayout.restoreLibraryWidths(60, 412); // 480
+      h.daw.uiLayout.mixerPanelWidth = 480;
+      tester.view.physicalSize = const Size(960, 600); // both drawn at 306
+      await h.settle();
+
+      // Frame by frame through the slide: the panel that stays grows back
+      // to 480 while the other closes, and they must share the window
+      Future<void> slide(String tooltip) async {
+        await tester.tap(find.byTooltip(tooltip));
+        for (var ms = 0; ms <= 300; ms += 16) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(
+            tester.getSize(find.byType(TimelineView)).width,
+            greaterThanOrEqualTo(UILayoutState.minArrangementWidth),
+            reason: '$tooltip, ${ms}ms in',
+          );
+        }
+      }
+
+      await slide('Hide Library');
+      await slide('Show Library');
+      await slide('Hide Mixer');
+      await slide('Show Mixer');
     } finally {
       await h.close();
     }

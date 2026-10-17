@@ -77,10 +77,12 @@ class _DAWScreenState extends State<DAWScreen>
         DAWVst3Mixin,
         DAWLibraryMixin,
         DAWProjectMixin {
-  // Visibility at the last build: panels animate only when they open or
-  // close, so window resizes and drags never leave them briefly too wide
+  // Visibility at the last build: the side panels animate only when one
+  // opens or closes, so window resizes and drags never leave them briefly
+  // too wide
   bool? _libraryWasShown;
   bool? _mixerWasShown;
+  bool _animateSidePanels = false;
 
   // Drag state for disabling panel animations during resize
   bool _isDraggingEditor = false;
@@ -1439,17 +1441,31 @@ class _DAWScreenState extends State<DAWScreen>
     userSettings.mixerWidth = uiLayout.mixerPanelWidth;
   }
 
+  /// Whether a side panel opened or closed since the last build. Both panels
+  /// then animate together: the one that stays grows back to its chosen width
+  /// while the other slides, and as both layouts fit the window, every frame
+  /// between them does too.
+  bool _sidePanelToggled() {
+    final libraryShown = !uiLayout.isLibraryPanelCollapsed;
+    final mixerShown = uiLayout.isMixerVisible;
+    final toggled =
+        (_libraryWasShown != null && _libraryWasShown != libraryShown) ||
+        (_mixerWasShown != null && _mixerWasShown != mixerShown);
+    _libraryWasShown = libraryShown;
+    _mixerWasShown = mixerShown;
+    return toggled;
+  }
+
   Widget _buildLibrarySection() {
     final windowWidth = MediaQuery.sizeOf(context).width;
     // While hidden, keep laying out at the width it will open at
     final shownWidth = uiLayout.isLibraryPanelCollapsed
         ? uiLayout.libraryPanelWidth
         : uiLayout.displayedPanelWidths(windowWidth).library;
-    final isShown = !uiLayout.isLibraryPanelCollapsed;
-    final animate = _libraryWasShown != null && _libraryWasShown != isShown;
-    _libraryWasShown = isShown;
     return AnimatedContainer(
-      duration: animate ? AnimationConstants.panelDuration : Duration.zero,
+      duration: _animateSidePanels
+          ? AnimationConstants.panelDuration
+          : Duration.zero,
       curve: Curves.easeInOut,
       width: uiLayout.isLibraryPanelCollapsed
           ? 0
@@ -1655,11 +1671,10 @@ class _DAWScreenState extends State<DAWScreen>
     final shownWidth = uiLayout.isMixerVisible
         ? uiLayout.displayedPanelWidths(windowWidth).mixer
         : uiLayout.mixerPanelWidth;
-    final isShown = uiLayout.isMixerVisible;
-    final animate = _mixerWasShown != null && _mixerWasShown != isShown;
-    _mixerWasShown = isShown;
     return AnimatedContainer(
-      duration: animate ? AnimationConstants.panelDuration : Duration.zero,
+      duration: _animateSidePanels
+          ? AnimationConstants.panelDuration
+          : Duration.zero,
       curve: Curves.easeInOut,
       width: uiLayout.isMixerVisible
           ? shownWidth + UILayoutState.sidePanelDividerWidth
@@ -1804,12 +1819,13 @@ class _DAWScreenState extends State<DAWScreen>
   @override
   Widget build(BuildContext context) {
     final windowSize = MediaQuery.of(context).size;
+    _animateSidePanels = _sidePanelToggled();
 
     // Initialize panel sizes based on window size on first launch
     if (!hasInitializedPanelSizes && userSettings.isLoaded) {
       hasInitializedPanelSizes = true;
       if (!userSettings.hasSavedPanelSettings) {
-        // First launch: use percentage-based sizing for all resizable panels.
+        // First launch: baseline sizes for all resizable panels.
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             setState(() {
