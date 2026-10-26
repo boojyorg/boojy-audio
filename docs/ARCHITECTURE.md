@@ -51,7 +51,10 @@ locks, and the beats-vs-seconds contract are in `.claude/rules/ffi.md`. Adding a
 ## Audio graph and mixer routing
 
 The realtime callback (`audio_graph/renderer.rs`) and offline export (`audio_graph/offline.rs`)
-are built on the same signal chain, so a bounced file should match what you hear. Two known
+are built on the same signal chain, so a bounced file should match what you hear. The engine
+renders, records and runs every effect at 48 kHz; a device at another rate is converted at the
+boundary (`rate_convert.rs`: output in the callback's `DeviceOutput`, input in the input
+callback), and at 48 kHz nothing is converted. Two known
 gaps (review of 2026-09-13, C1 and C7): the stopped-transport path processes VST3s differently,
 and export shares the live effect instances with the callback, so starting an export stops
 playback and Play and Record wait until it ends. Export renders on a background isolate from

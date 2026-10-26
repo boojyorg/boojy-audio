@@ -110,6 +110,17 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Headphones that can't run at 48 kHz play at the right speed and pitch.** Boojy works at
+  48 kHz. Some headsets only offer 44.1 kHz (or 16 kHz for a Bluetooth headset in call mode),
+  and on those everything played about 9% slow and a semitone and a half flat. Boojy now
+  converts its sound to the device's rate on the way out, so songs, the metronome and
+  previews sound right. Effects and plugins always run at 48 kHz. A microphone that can't
+  run at 48 kHz is converted on the way in and kept in step with your headphones, so its takes
+  no longer crackle; hearing yourself through it has about 20 ms more delay. Takes land in
+  time either way. 48 kHz devices play exactly as before. (A device that switches rate while
+  Boojy is open, like AirPods when their mic turns on, isn't followed yet.)
+- **The audio log notes when the microphone skips.** A line says when the input ran ahead of
+  or fell behind the output, so a glitch in a take shows up in the log.
 - **Deleting a plugin no longer crashes Boojy.** The plugin was freed while its window (floating
   or docked) was still up, and the plugin's own display timer then reached into freed memory:
   deleting Serum 2 FX took the whole app down. Its window now closes first, whenever a plugin

@@ -150,7 +150,7 @@ pub fn set_track_armed(track_id: TrackId, armed: bool) -> Result<String, String>
     // is before deciding whether hearing it is safe.
     let feedback_risk = if armed && is_audio {
         let mut input_manager = graph.input_manager.lock();
-        input_manager.sync_open(true, graph.current_stream_sample_rate());
+        input_manager.sync_open(true);
         let risk = match (input_manager.active(), graph.output_device_name()) {
             (Some(input), Some(output)) => {
                 crate::audio_input::is_builtin_mic_and_speakers(&input.name, &output)

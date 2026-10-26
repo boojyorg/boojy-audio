@@ -1163,16 +1163,17 @@ fn metronome_stays_in_phase_after_a_live_tempo_change() {
 }
 
 // ============================================================================
-// OFFLINE RENDER vs LIVE STREAM RATE (locks Phase 8: the C2 offline pin)
+// EFFECTS RUN AT THE ENGINE RATE (whatever rate the device runs at)
 // ============================================================================
 
 #[test]
-fn offline_render_pins_builtin_fx_to_engine_rate_and_restores_the_live_rate() {
+fn offline_render_runs_builtin_fx_at_the_engine_rate() {
     let _guard = engine_lock();
 
     // A short burst at t=0 through a 100%-wet, no-feedback 500 ms delay: the
     // render is silent until the echo, whose position measures the delay's
-    // effective sample rate.
+    // effective sample rate. The device's rate never reaches the effects
+    // (it's converted at the device boundary), so this holds on any device.
     let dir = temp_dir("offline_rate_pin");
     let wav = write_sine_wav(&dir, "burst.wav", 0.05, 0.8);
     let track_id = create_track("Audio", "Echo".to_string()).unwrap();
@@ -1183,14 +1184,6 @@ fn offline_render_pins_builtin_fx_to_engine_rate_and_restores_the_live_rate() {
     set_effect_parameter(effect_id, "feedback", 0.0).unwrap();
     set_effect_parameter(effect_id, "wet_dry", 1.0).unwrap();
 
-    // Simulate a 44.1 kHz device: the renderer fans the real stream rate out
-    // to every effect when the stream opens (C12), so the delay is now tuned
-    // for 44.1 kHz — but offline renders are written as 48 kHz files.
-    {
-        let graph = get_audio_graph().unwrap().lock();
-        graph.effect_manager.lock().set_sample_rate(44_100.0);
-    }
-
     let first_audible = |samples: &[f32]| -> Option<usize> {
         samples
             .as_chunks::<2>()
@@ -1199,16 +1192,14 @@ fn offline_render_pins_builtin_fx_to_engine_rate_and_restores_the_live_rate() {
             .position(|frame| frame[0].abs() > 0.05 || frame[1].abs() > 0.05)
     };
 
-    let (mix, stem, restored_rate) = {
+    let (mix, stem) = {
         let graph = get_audio_graph().unwrap().lock();
-        let mix = graph.render_offline(1.0);
-        let stem = graph.render_track_offline(track_id, 1.0);
-        let rate = graph.effect_manager.lock().sample_rate();
-        (mix, stem, rate)
+        (
+            graph.render_offline(1.0),
+            graph.render_track_offline(track_id, 1.0),
+        )
     };
 
-    // Pinned to the engine rate during the render: the 500 ms echo lands at
-    // 24000 frames (48 kHz), not 22050 (the live device rate).
     let mix_echo = first_audible(&mix).expect("mix should contain the echo");
     assert!(
         (24_000..24_050).contains(&mix_echo),
@@ -1219,21 +1210,6 @@ fn offline_render_pins_builtin_fx_to_engine_rate_and_restores_the_live_rate() {
         (24_000..24_050).contains(&stem_echo),
         "stem echo should land at 500 ms × 48 kHz ≈ 24000 frames, got {stem_echo}"
     );
-
-    // …and the live device rate is put back afterwards.
-    assert!(
-        (restored_rate - 44_100.0).abs() < f32::EPSILON,
-        "live stream rate must be restored after the render, got {restored_rate}"
-    );
-
-    // Clean up the simulated device rate for the tests that follow.
-    {
-        let graph = get_audio_graph().unwrap().lock();
-        graph
-            .effect_manager
-            .lock()
-            .set_sample_rate(TARGET_SAMPLE_RATE as f32);
-    }
 }
 
 // ============================================================================

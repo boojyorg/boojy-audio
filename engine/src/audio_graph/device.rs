@@ -1,6 +1,5 @@
 /// Audio device selection, buffer size management, and latency control
 use super::{AudioGraph, BufferSizePreset};
-use crate::audio_file::TARGET_SAMPLE_RATE;
 use std::sync::atomic::Ordering;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -151,8 +150,9 @@ impl AudioGraph {
             }
         }
 
-        // Convert frames to milliseconds
-        let sample_rate = TARGET_SAMPLE_RATE as f32;
+        // Convert frames to milliseconds. CoreAudio counts them at the
+        // device's own rate, which isn't 48 kHz when the output is converted.
+        let sample_rate = self.stream_sample_rate.load(Ordering::Relaxed).max(1) as f32;
         let input_latency_ms =
             (input_latency_frames + input_safety_offset) as f32 / sample_rate * 1000.0;
         let output_latency_ms =
@@ -174,7 +174,8 @@ impl AudioGraph {
     #[allow(clippy::unnecessary_wraps)]
     pub(crate) fn query_coreaudio_latency(&self) -> anyhow::Result<()> {
         let buffer_samples = self.get_actual_buffer_size();
-        let sample_rate = TARGET_SAMPLE_RATE as f32;
+        // The buffer is counted in device frames, at the device's rate.
+        let sample_rate = self.stream_sample_rate.load(Ordering::Relaxed).max(1) as f32;
         let estimated_latency_ms = buffer_samples as f32 / sample_rate * 1000.0;
 
         *self.hardware_input_latency_ms.lock() = estimated_latency_ms;

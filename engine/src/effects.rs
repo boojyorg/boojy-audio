@@ -1317,8 +1317,6 @@ pub struct EffectManager {
     /// Per-effect output peak levels (linear 0.0+), written by audio thread
     peak_levels: HashMap<EffectId, (f32, f32)>,
     next_id: EffectId,
-    /// Current device sample rate, applied to new effects and fanned out on change.
-    sample_rate: f32,
 }
 
 impl Default for EffectManager {
@@ -1334,46 +1332,11 @@ impl EffectManager {
             bypass_states: HashMap::new(),
             peak_levels: HashMap::new(),
             next_id: 0,
-            sample_rate: TARGET_SAMPLE_RATE as f32,
-        }
-    }
-
-    /// Set the device sample rate and fan it out to every existing effect.
-    /// Called by the renderer once the real stream rate is known.
-    pub fn set_sample_rate(&mut self, sample_rate: f32) {
-        self.sample_rate = sample_rate;
-        for effect in self.effects.values() {
-            effect.lock().set_sample_rate(sample_rate);
-        }
-    }
-
-    /// The sample rate the effects are currently configured for.
-    pub fn sample_rate(&self) -> f32 {
-        self.sample_rate
-    }
-
-    /// Set the rate on built-in effects only, leaving VST3 plugins untouched.
-    ///
-    /// Used by the offline renderer to pin built-in DSP to the export rate
-    /// (`TARGET_SAMPLE_RATE`) and restore the live stream rate afterwards.
-    /// VST3 is excluded for the same reason `reset_builtin_fx_offline` skips
-    /// it: a VST3 rate change is a full deactivate/reinitialize/activate
-    /// cycle, far too heavy to fire twice per export (VST3 export fidelity is
-    /// its own later cycle, C27–C30).
-    pub fn set_builtin_sample_rate(&mut self, sample_rate: f32) {
-        self.sample_rate = sample_rate;
-        for effect in self.effects.values() {
-            let mut effect = effect.lock();
-            #[cfg(all(feature = "vst3", not(target_os = "ios")))]
-            if matches!(*effect, EffectType::VST3(_)) {
-                continue;
-            }
-            effect.set_sample_rate(sample_rate);
         }
     }
 
     /// Create a new effect and return its ID
-    pub fn create_effect(&mut self, mut effect: EffectType) -> EffectId {
+    pub fn create_effect(&mut self, effect: EffectType) -> EffectId {
         let id = self.next_id;
         self.next_id += 1;
 
@@ -1383,9 +1346,6 @@ impl EffectManager {
             id
         );
 
-        // New effects inherit the current device rate so their coefficients are
-        // correct even if the stream isn't running at TARGET_SAMPLE_RATE.
-        effect.set_sample_rate(self.sample_rate);
         self.effects.insert(id, Arc::new(Mutex::new(effect)));
         self.bypass_states.insert(id, false); // Effects start not bypassed
         self.peak_levels.insert(id, (0.0, 0.0));
@@ -1897,17 +1857,5 @@ mod sample_rate_tests {
         rev.set_sample_rate(96_000.0); // grow — and survive more processing
         let at_96k = impulse_response(&mut rev);
         assert!(at_96k.iter().all(|s| s.is_finite()));
-    }
-
-    #[test]
-    fn effect_manager_builtin_rate_roundtrip() {
-        // The offline renderer pins built-ins to TARGET_SAMPLE_RATE and
-        // restores the live rate afterwards — the stored rate must follow.
-        let mut mgr = EffectManager::new();
-        assert_eq!(mgr.sample_rate(), TARGET_SAMPLE_RATE as f32);
-        mgr.set_builtin_sample_rate(44_100.0);
-        assert_eq!(mgr.sample_rate(), 44_100.0);
-        mgr.set_builtin_sample_rate(TARGET_SAMPLE_RATE as f32);
-        assert_eq!(mgr.sample_rate(), TARGET_SAMPLE_RATE as f32);
     }
 }

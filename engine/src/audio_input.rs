@@ -1,12 +1,15 @@
+use crate::audio_file::TARGET_SAMPLE_RATE;
+use crate::audio_health::INPUT_SKIPS;
+use crate::rate_convert::InputConverter;
 use anyhow::Result;
 /// Audio input and recording functionality
 use cpal::traits::{DeviceTrait, HostTrait};
 use parking_lot::Mutex;
 use ringbuf::{
     traits::{Consumer, Observer, Producer, Split},
-    HeapCons, HeapRb,
+    HeapCons, HeapProd, HeapRb,
 };
-use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU32, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -21,16 +24,39 @@ const RING_SECONDS: f64 = 0.5;
 const MAX_BACKLOG_FRAMES: usize = 2048;
 const BACKLOG_TARGET_FRAMES: usize = 512;
 
+/// Converted input: frames kept in hand beyond the two devices' callback
+/// sizes, so the output never finds the ring empty.
+const CUSHION_MARGIN: usize = 64;
+
 /// The audio thread's end of the input. Separate from [`AudioInputManager`]
 /// so the audio thread never waits on the manager's lock, which the UI takes
 /// many times a second for meters and health (each miss used to drop a
 /// sample: a click). Its own lock is only taken when the input opens or
 /// closes.
+///
+/// A converted input (a microphone that can't run at 48 kHz) holds a cushion
+/// of frames: the input fills the ring to it before the first read, steers
+/// its conversion to stay there, and re-fills it if the ring ever runs dry.
+/// A 48 kHz input reads as it always did.
 #[derive(Default)]
 pub struct InputTap {
     consumer: Mutex<Option<HeapCons<f32>>>,
     /// Channels per frame in the ring: 1 or 2.
     channels: AtomicU16,
+    /// The input is converted (see above).
+    converted: AtomicBool,
+    /// Converted input: frames to hold, and the level above which the
+    /// oldest are dropped back down to it. Set by the input callback.
+    cushion: AtomicUsize,
+    max_backlog: AtomicUsize,
+    /// Converted input: reads give silence until the cushion has filled.
+    priming: AtomicBool,
+    /// The largest number of frames one render has read since it opened.
+    largest_read_block: AtomicUsize,
+    /// Converted input: engine frames a sound is delayed by, in the
+    /// converter and waiting in the ring behind the cushion (f32 bits),
+    /// published by the input callback.
+    added_delay: AtomicU32,
 }
 
 impl InputTap {
@@ -46,7 +72,26 @@ impl InputTap {
         };
         let channels = usize::from(self.channels.load(Ordering::Relaxed).max(1));
         let backlog = cons.occupied_len() / channels;
-        if backlog > MAX_BACKLOG_FRAMES {
+        if self.converted.load(Ordering::Relaxed) {
+            let cushion = self.cushion.load(Ordering::Relaxed);
+            if self.priming.load(Ordering::Relaxed) {
+                if backlog < cushion.max(1) {
+                    return (0.0, 0.0);
+                }
+                self.priming.store(false, Ordering::Relaxed);
+            }
+            if backlog == 0 {
+                // Ran dry: a click. Count it and build the cushion back up.
+                INPUT_SKIPS.fetch_add(1, Ordering::Relaxed);
+                self.priming.store(true, Ordering::Relaxed);
+                return (0.0, 0.0);
+            }
+            if backlog > self.max_backlog.load(Ordering::Relaxed) {
+                INPUT_SKIPS.fetch_add(1, Ordering::Relaxed);
+                cons.skip((backlog - cushion) * channels);
+            }
+        } else if backlog > MAX_BACKLOG_FRAMES {
+            INPUT_SKIPS.fetch_add(1, Ordering::Relaxed);
             cons.skip((backlog - BACKLOG_TARGET_FRAMES) * channels);
         }
         let left = cons.try_pop().unwrap_or(0.0);
@@ -57,14 +102,112 @@ impl InputTap {
         }
     }
 
-    fn attach(&self, consumer: HeapCons<f32>, channels: u16) {
+    /// Called by the renderer at the start of each render, with the frames
+    /// it's about to read, so a converted input knows how big a cushion to
+    /// keep.
+    #[inline]
+    pub fn begin_block(&self, frames: usize) {
+        self.largest_read_block.fetch_max(frames, Ordering::Relaxed);
+    }
+
+    /// The largest render the output has asked for since the input opened.
+    fn largest_read_block(&self) -> usize {
+        self.largest_read_block.load(Ordering::Relaxed)
+    }
+
+    fn set_limits(&self, cushion: usize, max_backlog: usize) {
+        self.cushion.store(cushion, Ordering::Relaxed);
+        self.max_backlog.store(max_backlog, Ordering::Relaxed);
+    }
+
+    /// Engine frames conversion delays the input by. Zero for an
+    /// unconverted input.
+    fn added_delay(&self) -> f64 {
+        if !self.converted.load(Ordering::Relaxed) {
+            return 0.0;
+        }
+        f64::from(f32::from_bits(self.added_delay.load(Ordering::Relaxed)))
+    }
+
+    fn attach(&self, consumer: HeapCons<f32>, channels: u16, converted: bool) {
         let mut slot = self.consumer.lock();
         self.channels.store(channels, Ordering::Relaxed);
+        self.converted.store(converted, Ordering::Relaxed);
+        self.priming.store(converted, Ordering::Relaxed);
+        self.set_limits(0, MAX_BACKLOG_FRAMES);
+        self.largest_read_block.store(0, Ordering::Relaxed);
+        self.added_delay.store(0f32.to_bits(), Ordering::Relaxed);
         *slot = Some(consumer);
     }
 
     fn detach(&self) {
         *self.consumer.lock() = None;
+    }
+}
+
+/// The input callback's work after metering: hand the microphone's frames to
+/// the audio thread through the ring, converted to the engine rate when the
+/// input needs it.
+struct InputFeed {
+    producer: HeapProd<f32>,
+    tap: Arc<InputTap>,
+    /// Channels per device frame, and how many of them are kept (1 or 2).
+    stride: usize,
+    kept: usize,
+    converter: Option<InputConverter>,
+    /// The largest callback so far, in engine frames.
+    largest_callback: usize,
+    /// Frames already waiting in the ring when a callback's frames arrive,
+    /// averaged: each new frame is read that many frames later than it
+    /// would be without the cushion.
+    waiting: f64,
+}
+
+impl InputFeed {
+    fn feed(&mut self, data: &[f32]) {
+        let waiting = self.producer.occupied_len() / self.kept;
+        let (producer, kept) = (&mut self.producer, self.kept);
+        let mut dropped = false;
+        let mut push = |left: f32, right: f32| {
+            dropped |= producer.try_push(left).is_err();
+            if kept == 2 {
+                dropped |= producer.try_push(right).is_err();
+            }
+        };
+        let Some(converter) = &mut self.converter else {
+            // Keep the first two channels of each frame; an interface's
+            // inputs 3+ aren't selectable yet.
+            for frame in data.chunks_exact(self.stride) {
+                push(frame[0], frame.get(1).copied().unwrap_or(0.0));
+            }
+            if dropped {
+                INPUT_SKIPS.fetch_add(1, Ordering::Relaxed);
+            }
+            return;
+        };
+        converter.process(data, self.stride, &mut push);
+        if dropped {
+            INPUT_SKIPS.fetch_add(1, Ordering::Relaxed);
+        }
+
+        // Hold enough for one of these callbacks plus one and a half of the
+        // output's reads, whatever order the two devices call back in.
+        let frames = data.len() / self.stride;
+        let engine_frames = (frames as f64 * converter.engine_per_device()).ceil() as usize;
+        self.largest_callback = self.largest_callback.max(engine_frames);
+        let reads = self.tap.largest_read_block();
+        let cushion = self.largest_callback + reads * 3 / 2 + CUSHION_MARGIN;
+        self.tap
+            .set_limits(cushion, cushion + self.largest_callback + reads + 256);
+        let level = self.producer.occupied_len() / self.kept;
+        converter.steer(level, cushion, engine_frames);
+
+        let smoothing = (engine_frames as f64 / f64::from(TARGET_SAMPLE_RATE)).min(1.0);
+        self.waiting += smoothing * (waiting as f64 - self.waiting);
+        let delay = (converter.delay_engine_frames() + self.waiting) as f32;
+        self.tap
+            .added_delay
+            .store(delay.to_bits(), Ordering::Relaxed);
     }
 }
 
@@ -245,8 +388,6 @@ pub struct AudioInputManager {
     tap: Arc<InputTap>,
     /// Channels on the open device (the ring keeps at most the first two).
     input_channels: u16,
-    /// Sample rate the input opened at; it must match the output stream.
-    open_rate: u32,
     /// Peak levels per channel (stored as f32 bits in `AtomicU32` for lock-free access)
     /// Updated in the input callback, read by the UI for metering
     input_peak_left: Arc<AtomicU32>,
@@ -273,7 +414,6 @@ impl AudioInputManager {
             input_stream: None,
             tap: Arc::new(InputTap::default()),
             input_channels: 1, // Default to mono
-            open_rate: 0,
             input_peak_left: Arc::new(AtomicU32::new(0)),
             input_peak_right: Arc::new(AtomicU32::new(0)),
             heard: Arc::new(AtomicBool::new(false)),
@@ -378,12 +518,11 @@ impl AudioInputManager {
         self.tap.clone()
     }
 
-    /// Start capturing from the chosen input device at `rate`, the output
-    /// stream's rate. The audio thread reads one input frame per output
-    /// frame, so a different input rate (a Scarlett left at 44.1 kHz under a
-    /// 48 kHz engine) runs the ring dry ~8% of the time: crackle in the take
-    /// and in monitoring.
-    pub fn start_capture(&mut self, rate: u32) -> Result<()> {
+    /// Start capturing from the chosen input device. It opens at 48 kHz when
+    /// it can. Otherwise it opens at its own rate and its frames are
+    /// converted to 48 kHz on the way in, steered to keep pace with the
+    /// output (its clock never runs at quite the same speed).
+    pub fn start_capture(&mut self) -> Result<()> {
         use cpal::traits::StreamTrait;
 
         if self.choice == InputChoice::Off {
@@ -401,30 +540,50 @@ impl AudioInputManager {
             .iter()
             .map(|r| (r.channels(), r.min_sample_rate().0, r.max_sample_rate().0))
             .collect();
-        let config: cpal::StreamConfig =
-            if let Some(i) = pick_input_config_index(&triples, rate, default.channels()) {
-                ranges[i].with_sample_rate(cpal::SampleRate(rate)).config()
-            } else {
-                eprintln!(
-                    "⚠️  [AudioInput] {} can't run at {rate} Hz; using {:?}. \
-                     Input will crackle until sample-rate conversion exists.",
-                    device.name().unwrap_or_default(),
-                    default.sample_rate()
-                );
-                default.config()
-            };
+        let config: cpal::StreamConfig = if let Some(i) =
+            pick_input_config_index(&triples, TARGET_SAMPLE_RATE, default.channels())
+        {
+            ranges[i]
+                .with_sample_rate(cpal::SampleRate(TARGET_SAMPLE_RATE))
+                .config()
+        } else {
+            default.config()
+        };
+        let device_name = device.name()?;
+        let rate = config.sample_rate.0;
 
         println!("Starting audio capture:");
-        println!("  Device: {}", device.name()?);
+        println!("  Device: {device_name}");
         println!("  Config: {config:?}");
 
         self.input_channels = config.channels;
         let num_channels = usize::from(config.channels.max(1));
         let kept = num_channels.min(2);
 
-        let ring: HeapRb<f32> =
-            HeapRb::new((RING_SECONDS * f64::from(config.sample_rate.0) * 2.0) as usize);
-        let (mut producer, consumer) = ring.split();
+        let converter = if rate == TARGET_SAMPLE_RATE {
+            None
+        } else {
+            println!("  Converting {rate} Hz to {TARGET_SAMPLE_RATE} Hz");
+            Some(
+                InputConverter::new(rate, kept)
+                    .ok_or_else(|| anyhow::anyhow!("Can't convert input from {rate} Hz"))?,
+            )
+        };
+        let converted = converter.is_some();
+
+        // Ring frames are at the engine rate once converted.
+        let ring_rate = if converted { TARGET_SAMPLE_RATE } else { rate };
+        let ring: HeapRb<f32> = HeapRb::new((RING_SECONDS * f64::from(ring_rate) * 2.0) as usize);
+        let (producer, consumer) = ring.split();
+        let mut feed = InputFeed {
+            producer,
+            tap: self.tap.clone(),
+            stride: num_channels,
+            kept,
+            converter,
+            largest_callback: 0,
+            waiting: 0.0,
+        };
 
         // Clone peak tracking atomics for use in the callback
         let peak_left = self.input_peak_left.clone();
@@ -437,18 +596,13 @@ impl AudioInputManager {
             move |data: &[f32], _: &cpal::InputCallbackInfo| {
                 let mut max_left: f32 = 0.0;
                 let mut max_right: f32 = 0.0;
-                // Keep the first two channels of each frame; an interface's
-                // inputs 3+ aren't selectable yet.
                 for frame in data.chunks_exact(num_channels) {
-                    let left = frame[0];
-                    max_left = max_left.max(left.abs());
-                    let _ = producer.try_push(left);
+                    max_left = max_left.max(frame[0].abs());
                     if kept == 2 {
-                        let right = frame[1];
-                        max_right = max_right.max(right.abs());
-                        let _ = producer.try_push(right);
+                        max_right = max_right.max(frame[1].abs());
                     }
                 }
+                feed.feed(data);
                 if kept == 1 {
                     max_right = max_left;
                 }
@@ -466,9 +620,8 @@ impl AudioInputManager {
 
         stream.play()?;
 
-        self.tap.attach(consumer, kept as u16);
+        self.tap.attach(consumer, kept as u16, converted);
         self.input_stream = Some(stream);
-        self.open_rate = rate;
         self.opened_at = Some(Instant::now());
         self.open_error = None;
 
@@ -494,12 +647,8 @@ impl AudioInputManager {
     /// running) and the choice isn't Off; close it otherwise. A failed open
     /// is remembered for [`Self::health`] instead of returned, so arming a
     /// track never fails because the microphone did.
-    pub fn sync_open(&mut self, want_open: bool, rate: u32) {
+    pub fn sync_open(&mut self, want_open: bool) {
         let should_open = want_open && self.choice != InputChoice::Off;
-        // The output moved to another rate (device change): reopen to match.
-        if should_open && self.is_capturing() && self.open_rate != rate {
-            let _ = self.stop_capture();
-        }
         if !should_open {
             if self.is_capturing() {
                 if let Err(e) = self.stop_capture() {
@@ -512,7 +661,7 @@ impl AudioInputManager {
         if self.is_capturing() {
             return;
         }
-        if let Err(e) = self.start_capture(rate) {
+        if let Err(e) = self.start_capture() {
             eprintln!("⚠️  [AudioInput] Opening input failed: {e}");
             self.open_error = Some(e.to_string());
         }
@@ -536,6 +685,16 @@ impl AudioInputManager {
             self.opened_at.map(|t| t.elapsed()),
             self.heard.load(Ordering::Relaxed),
         )
+    }
+
+    /// Engine frames the open input's conversion delays a recording by:
+    /// the converter's own delay plus the extra it waits in the ring. Zero
+    /// when the input isn't converted.
+    pub fn convert_delay(&self) -> usize {
+        if !self.is_capturing() {
+            return 0;
+        }
+        self.tap.added_delay().round() as usize
     }
 
     /// Check if currently capturing audio
@@ -670,7 +829,7 @@ mod tests {
     fn input_off_never_opens() {
         let mut manager = AudioInputManager::new().unwrap();
         manager.set_choice(InputChoice::Off);
-        manager.sync_open(true, 48_000);
+        manager.sync_open(true);
         assert!(!manager.is_capturing());
         assert_eq!(manager.health(), InputHealth::Off);
     }
@@ -719,14 +878,14 @@ mod tests {
     }
 
     #[test]
-    fn input_config_matches_the_output_rate() {
+    fn input_config_prefers_the_engine_rate() {
         // A Scarlett offering 44.1k–192k on 2 channels: pick 48k there.
         let ranges = [(2, 44_100, 192_000)];
         assert_eq!(pick_input_config_index(&ranges, 48_000, 2), Some(0));
         // Prefer the default channel count when several ranges fit.
         let ranges = [(1, 48_000, 48_000), (2, 48_000, 48_000)];
         assert_eq!(pick_input_config_index(&ranges, 48_000, 2), Some(1));
-        // Nothing at 48k: caller falls back to the device default.
+        // Nothing at 48k: caller opens at the device default and converts.
         assert_eq!(
             pick_input_config_index(&[(2, 44_100, 44_100)], 48_000, 2),
             None
@@ -744,13 +903,13 @@ mod tests {
         let tap = InputTap::default();
         let (mut prod, cons) = HeapRb::<f32>::new(16).split();
         prod.push_slice(&[0.1, 0.2]);
-        tap.attach(cons, 1);
+        tap.attach(cons, 1, false);
         assert_eq!(tap.read_frame(), (0.1, 0.1));
         assert_eq!(tap.read_frame(), (0.2, 0.2));
 
         let (mut prod, cons) = HeapRb::<f32>::new(16).split();
         prod.push_slice(&[0.1, 0.2, 0.3, 0.4]);
-        tap.attach(cons, 2);
+        tap.attach(cons, 2, false);
         assert_eq!(tap.read_frame(), (0.1, 0.2));
         assert_eq!(tap.read_frame(), (0.3, 0.4));
         assert_eq!(tap.read_frame(), (0.0, 0.0));
@@ -763,9 +922,158 @@ mod tests {
         let (mut prod, cons) = HeapRb::<f32>::new(8192).split();
         let frames: Vec<f32> = (0..4096u16).map(f32::from).collect();
         prod.push_slice(&frames);
-        tap.attach(cons, 1);
+        tap.attach(cons, 1, false);
         // 4096 waiting > MAX_BACKLOG_FRAMES: skip to the newest 512 (+ 1 read).
         assert_eq!(tap.read_frame().0, (4096 - BACKLOG_TARGET_FRAMES) as f32);
+    }
+
+    /// A converted input from a device at `rate`, as the input callback
+    /// builds it, and its tap.
+    fn converted_feed(rate: u32) -> (InputFeed, Arc<InputTap>) {
+        let tap = Arc::new(InputTap::default());
+        let (producer, consumer) = HeapRb::<f32>::new(48_000).split();
+        tap.attach(consumer, 1, true);
+        let feed = InputFeed {
+            producer,
+            tap: tap.clone(),
+            stride: 1,
+            kept: 1,
+            converter: InputConverter::new(rate, 1),
+            largest_callback: 0,
+            waiting: 0.0,
+        };
+        (feed, tap)
+    }
+
+    fn ring_level(tap: &InputTap) -> usize {
+        tap.consumer
+            .lock()
+            .as_ref()
+            .map_or(0, Observer::occupied_len)
+    }
+
+    /// Run a converted 44.1 kHz microphone whose clock runs at `drift` × its
+    /// rate against a 48 kHz output for two minutes. Returns the ring's lowest
+    /// and highest level after the first ten seconds, and the tap.
+    fn drifting_mic(drift: f64) -> (usize, usize, Arc<InputTap>) {
+        let (in_rate, in_block, read_block) = (44_100.0, 441, 512);
+        let (mut feed, tap) = converted_feed(44_100);
+        let data = vec![0.1f32; in_block];
+        let (mut next_in, mut next_read) = (0.0f64, 0.0f64);
+        let (mut lowest, mut highest) = (usize::MAX, 0);
+        while next_in.min(next_read) < 120.0 {
+            if next_in <= next_read {
+                feed.feed(&data);
+                next_in += in_block as f64 / (in_rate * drift);
+            } else {
+                tap.begin_block(read_block);
+                if next_read > 10.0 {
+                    highest = highest.max(ring_level(&tap));
+                }
+                for _ in 0..read_block {
+                    let _ = tap.read_frame();
+                }
+                if next_read > 10.0 {
+                    lowest = lowest.min(ring_level(&tap));
+                }
+                next_read += read_block as f64 / f64::from(TARGET_SAMPLE_RATE);
+            }
+        }
+        (lowest, highest, tap)
+    }
+
+    #[test]
+    fn a_microphone_on_its_own_clock_keeps_pace() {
+        // 0.1% fast or slow: unsteered, that's 48 frames a second too many or
+        // too few, so within a minute the ring overflows (a skip) or runs
+        // dry (a click). Steered, it holds its level.
+        for drift in [1.001, 0.999] {
+            let (lowest, highest, tap) = drifting_mic(drift);
+            let cushion = tap.cushion.load(Ordering::Relaxed);
+            assert!(lowest > 0, "{drift}: ran dry");
+            assert!(!tap.priming.load(Ordering::Relaxed), "{drift}: ran dry");
+            assert!(
+                highest <= cushion + 512,
+                "{drift}: ran high: {highest} with a cushion of {cushion}"
+            );
+        }
+    }
+
+    /// Play an impulse at engine frame `at` through a device at `rate` whose
+    /// input hears its own output (a loopback cable), and record what comes
+    /// back in. Returns the frame the impulse lands on in the take after the
+    /// conversion delay is taken off.
+    fn loopback(rate: u32, at: usize) -> usize {
+        // 10 ms buffers whatever the rate, so the device itself adds the
+        // same delay every time.
+        let block = rate as usize / 100;
+        let tap = Arc::new(InputTap::default());
+        let (producer, consumer) = HeapRb::<f32>::new(96_000).split();
+        let converter = (rate != TARGET_SAMPLE_RATE).then(|| InputConverter::new(rate, 1).unwrap());
+        tap.attach(consumer, 1, converter.is_some());
+        let mut feed = InputFeed {
+            producer,
+            tap: tap.clone(),
+            stride: 1,
+            kept: 1,
+            converter,
+            largest_callback: 0,
+            waiting: 0.0,
+        };
+        let mut output = crate::rate_convert::OutputConverter::new(rate);
+
+        // The engine: plays the impulse, records the input frame by frame.
+        let mut frame = 0usize;
+        let mut take = Vec::new();
+        let mut engine = |buf: &mut [f32]| {
+            tap.begin_block(buf.len() / 2);
+            for out in buf.as_chunks_mut::<2>().0 {
+                take.push(tap.read_frame().0);
+                let s = if frame == at { 1.0 } else { 0.0 };
+                *out = [s, s];
+                frame += 1;
+            }
+        };
+        // Each 10 ms cycle the device delivers what it played last cycle,
+        // then asks for the next buffer.
+        let mut played = vec![0.0f32; block];
+        let cycles = (at + 48_000) / (TARGET_SAMPLE_RATE as usize / 100);
+        for _ in 0..cycles {
+            feed.feed(&played);
+            if let Some(conv) = &mut output {
+                conv.fill(block, &mut engine, |i, l, _| played[i] = l);
+            } else {
+                let mut buf = vec![0.0; block * 2];
+                engine(&mut buf);
+                for (i, f) in buf.as_chunks::<2>().0.iter().enumerate() {
+                    played[i] = f[0];
+                }
+            }
+        }
+        let output_delay = output.as_ref().map_or(
+            0.0,
+            crate::rate_convert::OutputConverter::delay_engine_frames,
+        );
+        let late = (output_delay + tap.added_delay()).round() as usize;
+        let peak = (0..take.len())
+            .max_by(|&a, &b| take[a].abs().total_cmp(&take[b].abs()))
+            .unwrap();
+        peak - late
+    }
+
+    #[test]
+    fn a_converted_take_lands_where_a_48k_take_does() {
+        // Ten seconds in, once the input has settled (it opens when a track
+        // is armed, well before recording starts). Unconverted, these takes
+        // would land 1000-1300 frames (20-27 ms) late.
+        for k in 0..4 {
+            let at = 480_000 + k * 113;
+            let reference = loopback(TARGET_SAMPLE_RATE, at);
+            for rate in [16_000, 44_100, 96_000] {
+                let off = loopback(rate, at) as i64 - reference as i64;
+                assert!(off.abs() <= 8, "{rate} Hz take is {off} frames off");
+            }
+        }
     }
 
     #[test]

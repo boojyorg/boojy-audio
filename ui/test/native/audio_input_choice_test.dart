@@ -85,6 +85,7 @@ void main() {
         'effectLockWaits',
         'trackLockWaits',
         'recorderLockWaits',
+        'inputSkips',
         'bufferFrames',
         'sampleRate',
       ]) {

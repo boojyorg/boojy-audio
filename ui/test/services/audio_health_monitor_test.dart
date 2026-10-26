@@ -7,6 +7,7 @@ Map<String, Object?> health({
   int peak = 40,
   int trackWaits = 0,
   int effectWaits = 0,
+  int inputSkips = 0,
 }) => {
   'lateBuffers': late,
   'missedBuffers': missed,
@@ -15,6 +16,7 @@ Map<String, Object?> health({
   'effectLockWaits': effectWaits,
   'trackLockWaits': trackWaits,
   'recorderLockWaits': 0,
+  'inputSkips': inputSkips,
   'bufferFrames': 128,
   'sampleRate': 48000,
 };
@@ -84,6 +86,16 @@ void main() {
     expect(lines, hasLength(2));
     expect(lines.last, contains('waited on: effects ×2'));
     expect(AudioHealthMonitor.dropoutsThisSession.value, 4);
+  });
+
+  test('input skips get their own line and are not playback dropouts', () {
+    tickThrough([health(inputSkips: 2), health(inputSkips: 3)]);
+    expect(
+      lines.single,
+      'Input skipped ×1 (microphone ran ahead or fell behind) · '
+      'playing at 1:23.4 · 12 tracks, 3 plugins',
+    );
+    expect(AudioHealthMonitor.dropoutsThisSession.value, 0);
   });
 
   test('an engine that cannot answer is skipped, not counted', () {
