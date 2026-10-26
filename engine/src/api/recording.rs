@@ -237,7 +237,7 @@ pub fn start_recording() -> Result<String, String> {
         } else {
             // Usually already open because an audio track is armed. A failed
             // open is kept for get_audio_input_health (MIDI still records).
-            input_manager.sync_open(true, graph.current_stream_sample_rate());
+            input_manager.sync_open(true);
             input_manager.is_capturing()
         }
     };
@@ -256,11 +256,11 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
 
-    // Use the rate the stream actually ran at — duration math and resampling
-    // inside stop_recording depend on it (C22).
+    // Takes are recorded at the engine rate; sample-rate conversion delays
+    // them slightly, so trim that off the start to keep them in time.
     let clip_option = graph
         .recorder
-        .stop_recording(graph.current_stream_sample_rate())?;
+        .stop_recording(graph.recording_convert_delay())?;
 
     // Close the input unless an audio track is still armed: then it stays
     // open so the meter keeps moving and you keep hearing yourself.

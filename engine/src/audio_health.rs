@@ -24,6 +24,10 @@ pub(crate) static EFFECT_LOCK_WAITS: AtomicU64 = AtomicU64::new(0);
 pub(crate) static TRACK_LOCK_WAITS: AtomicU64 = AtomicU64::new(0);
 pub(crate) static RECORDER_LOCK_WAITS: AtomicU64 = AtomicU64::new(0);
 
+/// Times the microphone's audio skipped: frames dropped because the input ran
+/// ahead of the output, or a gap because it fell behind.
+pub(crate) static INPUT_SKIPS: AtomicU64 = AtomicU64::new(0);
+
 /// Gaps longer than this are a sleep/wake or a stream restart, not a crackle.
 const MAX_COUNTED_GAP: Duration = Duration::from_secs(2);
 
@@ -151,6 +155,7 @@ pub struct AudioHealthSnapshot {
     pub effect_lock_waits: u64,
     pub track_lock_waits: u64,
     pub recorder_lock_waits: u64,
+    pub input_skips: u64,
     pub buffer_frames: u32,
     pub sample_rate: u32,
 }
@@ -165,6 +170,7 @@ pub(crate) fn snapshot(buffer_frames: u32, sample_rate: u32) -> AudioHealthSnaps
         effect_lock_waits: EFFECT_LOCK_WAITS.load(Ordering::Relaxed),
         track_lock_waits: TRACK_LOCK_WAITS.load(Ordering::Relaxed),
         recorder_lock_waits: RECORDER_LOCK_WAITS.load(Ordering::Relaxed),
+        input_skips: INPUT_SKIPS.load(Ordering::Relaxed),
         buffer_frames,
         sample_rate,
     }

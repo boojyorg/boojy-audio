@@ -41,8 +41,8 @@ each state-of-play review ([RELEASING.md](RELEASING.md#milestone-reviews)).
   the dropout counter and log, Piano Roll undo, export off the UI thread, built-in MP3, the
   appcast fix and U4 (VST3 effects in the device chain) are done. Row 1 is the furthest
   behind: Tyr makes a song with the log on and notes every issue. Alongside: the plugin rescan
-  → the other reproduced bugs (backup, samples, stems, mute, New Project) in small PRs →
-  sample-rate conversion → reproduce-or-drop the rest → the loop in the engine → the
+  → sample-rate conversion (done 2026-10-26) → the other reproduced bugs (backup, samples,
+  stems, mute, New Project) in small PRs → reproduce-or-drop the rest → the loop in the engine → the
   recording test input (Test plan 11) → editing model prototype. The new test ideas (Test
   plan 9–13) slot in beside the work they cover.
 - **v0.8.0: the app feels right.** UI/UX and bugs, not new sounds: rows 4, 10, 11, 12, 14 and
@@ -78,12 +78,6 @@ items below with throwaway tests (each fix brings its own) and ran into the 48 k
 - **Two tracks with the same name break stem export.** Both stems get the same file name, the
   second commit fails and one stem is left. Make each stem's name unique (names that only differ
   in characters the filename drops, or in case, too).
-- **Devices that can't run at 48 kHz play at the wrong speed and pitch.** The engine asks for
-  48 kHz stereo and falls back to the device's rate while its maths stays at 48 kHz. Bluetooth
-  headphones drop to 16 kHz "headset mode" when their mic is in use, and beginners record with
-  AirPods. Tyr's Arctis Nova 7 offers only 16 and 44.1 kHz, so it plays everything about
-  9% slow and 1.5 semitones flat. Needs sample-rate conversion on the output and the input (the input opens at 48 kHz,
-  which most devices offer; one that can't would crackle). A bigger job than the bugs above.
 - New Project keeps the previous tempo and time signature (U2).
 - "Mute Clip" on a MIDI clip doesn't silence it: the scheduler ignores the flag. The consistency
   checker compares note counts, not the notes or mute, so it missed this; make it compare both.
@@ -160,6 +154,10 @@ speed or recording.
     than ~25% of real time; catches a 10× slowdown, not 5%. Nothing measures speed today (the
     unused Criterion benches were deleted 2026-10-12).
 13. **More seeds nightly**: a scheduled CI run of stress seeds 1–200, so PR checks stay quick.
+14. **Try sample-rate conversion on a real non-48 kHz device** (merged 2026-10-26, tested only
+    in simulation): a headset that only offers 44.1 or 16 kHz, or a Scarlett / the Mac
+    speakers forced to 44.1 kHz with a throwaway override. Check the pitch, the metronome
+    against a phone, a take's timing, Stop, and that the log shows no "Input skipped".
 
 Dogfood a release engine (`./build.sh release`); the debug engine glitches under load. The
 [2026-09-13 review](reviews/2026_09_13_product_review.md) reliability findings (C1–C17) are row
@@ -200,6 +198,17 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
 - **v1.0, unscheduled:** clip normalize; pan automation end to end; swing; LUFS platform targets
   in the export dialog (the engine supports them); localisation; loop recording and take
   comping. Platform prep for web, iPad and Linux is in [PLATFORMS.md](PLATFORMS.md).
+- **Follow a device that changes rate while open.** Conversion covers a device at whatever
+  rate it opens at, but nothing listens for a rate change (AirPods drop to 16 kHz when their
+  mic opens) or for the OS default device changing; the stream keeps its old rate.
+- **Two 48 kHz devices on different clocks can drift** (a Scarlett in, other headphones out):
+  their input isn't converted, so over a long take the ring slowly fills or empties and
+  skips (now in the log as "Input skipped"). Steering it like a converted input would cost
+  ~20 ms of monitoring delay for a MacBook mic with headphones, which share a clock; only
+  worth it if the log shows skips.
+- **Takes aren't shifted for the hardware's own delay**, only for what conversion adds. A
+  take lands late by the interface's input + output latency (a few ms on a wired interface,
+  far more on Bluetooth).
 - **The first input open may switch the device's rate** (a Scarlett left at 44.1 kHz): a short
   hiccup once.
 - **Takes grow a list on the audio thread** (recorder pushes into a `Vec` under a lock). Measured

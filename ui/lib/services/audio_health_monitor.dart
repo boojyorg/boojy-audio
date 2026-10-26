@@ -13,6 +13,10 @@ import 'log_file.dart';
 /// to render a buffer than the buffer lasts) and **skipped** (the sound
 /// card's timestamps jumped a buffer, whatever the cause). One crackle often
 /// shows up as both, so a second counts the larger of the two.
+///
+/// The microphone's input skipping (it ran ahead of or fell behind the
+/// output, e.g. two devices on different clocks) gets a line of its own: it
+/// glitches what you hear of yourself and the take, not the playback.
 class AudioHealthMonitor {
   static const pollInterval = Duration(seconds: 1);
 
@@ -61,6 +65,15 @@ class AudioHealthMonitor {
     if (last == null) return; // First reading is the baseline.
 
     int delta(String key) => (now[key] ?? 0) - (last[key] ?? 0);
+    final inputSkips = delta('inputSkips');
+    if (inputSkips > 0) {
+      writeLine(
+        [
+          'Input skipped ×$inputSkips (microphone ran ahead or fell behind)',
+          describeContext(),
+        ].join(' · '),
+      );
+    }
     final late = delta('lateBuffers');
     final skipped = delta('missedBuffers');
     final dropouts = late > skipped ? late : skipped;

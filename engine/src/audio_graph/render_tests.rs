@@ -1069,3 +1069,146 @@ fn synth_track_with_a_vst3_effect_still_plays_its_notes() {
         );
     }
 }
+
+// ── Devices that don't run at 48 kHz ───────────────────────────────────────
+//
+// The engine renders at 48 kHz; `DeviceOutput` converts for a device at
+// another rate, and at 48 kHz hands the device the engine's output untouched.
+
+/// Render `total` device frames for a stereo device at `rate`, in buffers of
+/// `sizes`, the way the output callback does.
+fn render_device(graph: &AudioGraph, rate: u32, total: usize, sizes: &[usize]) -> Vec<f32> {
+    let mut output = super::renderer::DeviceOutput::new(
+        graph.realtime_render(f64::from(TARGET_SAMPLE_RATE)),
+        rate,
+        graph.output_flush.clone(),
+        graph.output_convert_delay.clone(),
+    );
+    let mut out = Vec::with_capacity(total * 2);
+    let mut sizes = sizes.iter().cycle();
+    while out.len() < total * 2 {
+        let frames = (*sizes.next().unwrap()).min(total - out.len() / 2);
+        let mut buf = vec![0.0; frames * 2];
+        output.fill(&mut buf, 2);
+        out.extend_from_slice(&buf);
+    }
+    out
+}
+
+fn first_difference(a: &[f32], b: &[f32]) -> Option<usize> {
+    a.iter()
+        .zip(b)
+        .position(|(x, y)| x.to_bits() != y.to_bits())
+}
+
+#[test]
+fn a_48k_device_hears_exactly_what_the_engine_renders() {
+    let total = 2 * SR;
+    for sizes in SPLITS {
+        let build = || {
+            let mut graph = busy_mix(total);
+            graph.play().unwrap();
+            graph
+        };
+        let engine = render_live(&build(), total, sizes);
+        let device = render_device(&build(), TARGET_SAMPLE_RATE, total, sizes);
+        assert_eq!(
+            first_difference(&engine, &device),
+            None,
+            "buffers of {sizes:?}"
+        );
+    }
+}
+
+#[test]
+fn a_converted_mix_is_the_same_whatever_the_buffer_sizes() {
+    for rate in [16_000, 44_100] {
+        let total = 2 * rate as usize;
+        let build = || {
+            let mut graph = busy_mix(3 * SR);
+            graph.play().unwrap();
+            graph
+        };
+        let first = render_device(&build(), rate, total, SPLITS[0]);
+        assert_valid(&first, "converted busy mix");
+        for sizes in &SPLITS[1..] {
+            let other = render_device(&build(), rate, total, sizes);
+            assert_eq!(
+                first_difference(&first, &other),
+                None,
+                "{rate} Hz, buffers of {sizes:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_44k_device_plays_at_the_right_pitch_and_speed() {
+    // Before conversion, a 44.1 kHz device played 48 kHz frames as 44.1 kHz
+    // ones: 1 kHz came out at 919 Hz and two seconds took 2.18.
+    let rate = 44_100;
+    let (mut graph, track) = graph_with_track();
+    place(
+        &graph,
+        track,
+        sine_clip(2 * SR, 1_000.0, 0.5),
+        0.0,
+        0.0,
+        None,
+    );
+    graph.recorder.set_metronome_enabled(false);
+    graph.play().unwrap();
+    let buf = render_device(&graph, rate, 3 * rate as usize, SPLITS[1]);
+    let left = channel(&buf, 0);
+
+    let hz = crate::audio_checks::frequency(&left[4_410..2 * 44_100 - 4_410], rate);
+    assert!((hz - 1_000.0).abs() < 1.0, "heard {hz} Hz");
+    // The tone stops two device seconds in (give or take the filter).
+    let last = left.iter().rposition(|s| s.abs() > 0.01).unwrap();
+    assert!(last.abs_diff(2 * 44_100) < 64, "tone ends at frame {last}");
+    // ...and the playhead moved three engine seconds for three device seconds.
+    let playhead = graph
+        .playhead_samples
+        .load(std::sync::atomic::Ordering::Relaxed);
+    assert!(
+        playhead.abs_diff(3 * SR as u64) < 512,
+        "playhead {playhead}"
+    );
+}
+
+#[test]
+fn stop_cuts_off_audio_the_converter_was_holding() {
+    let rate = 44_100;
+    let (mut graph, track) = graph_with_track();
+    place(
+        &graph,
+        track,
+        sine_clip(2 * SR, 1_000.0, 0.5),
+        0.0,
+        0.0,
+        None,
+    );
+    graph.recorder.set_metronome_enabled(false);
+    graph.play().unwrap();
+    let mut output = super::renderer::DeviceOutput::new(
+        graph.realtime_render(f64::from(TARGET_SAMPLE_RATE)),
+        rate,
+        graph.output_flush.clone(),
+        graph.output_convert_delay.clone(),
+    );
+    let mut buf = vec![0.0; 512 * 2];
+    output.fill(&mut buf, 2);
+    assert!(buf.iter().any(|s| s.abs() > 0.1), "playing");
+    assert!(
+        graph
+            .output_convert_delay
+            .load(std::sync::atomic::Ordering::Relaxed)
+            > 0,
+        "the converter reports its delay for recording"
+    );
+
+    graph.stop().unwrap();
+    output.fill(&mut buf, 2);
+    let peak = buf.iter().fold(0.0f32, |m, s| m.max(s.abs()));
+    assert!(peak < 1e-4, "audio from before Stop: {peak}");
+}

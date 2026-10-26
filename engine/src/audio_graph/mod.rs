@@ -196,12 +196,18 @@ pub struct AudioGraph {
     // --- Device Selection ---
     /// Selected output device name (None = use system default)
     pub(crate) selected_output_device: Arc<Mutex<Option<String>>>,
-    /// Sample rate the output stream actually runs at. Usually
-    /// `TARGET_SAMPLE_RATE` (the renderer requests 48 kHz explicitly), but on
-    /// a device that can't provide it the stream falls back to the device
-    /// default — recording duration math and time-based DSP need the real
-    /// rate (C22/C4).
+    /// Sample rate the output device runs at. Usually `TARGET_SAMPLE_RATE`
+    /// (the renderer requests 48 kHz explicitly); a device that can't
+    /// provide it gets the engine's output converted to its rate. Only the
+    /// device-facing parts (buffer timing, the health log) use it: the
+    /// engine itself always runs at `TARGET_SAMPLE_RATE`.
     pub(crate) stream_sample_rate: Arc<std::sync::atomic::AtomicU32>,
+    /// Engine frames the output converter adds between rendering a frame
+    /// and the device playing it (0 at 48 kHz). Recording takes it off.
+    pub(crate) output_convert_delay: Arc<std::sync::atomic::AtomicU32>,
+    /// Bumped to make the output converter drop audio rendered but not yet
+    /// heard (Stop, New Project).
+    pub(crate) output_flush: Arc<AtomicU64>,
     /// Last output-stream error (e.g. the device was disconnected), set by
     /// the cpal error callback. The UI polls and *takes* it (C99) — before
     /// this, a yanked interface only logged to stderr while the playhead
@@ -300,6 +306,8 @@ impl AudioGraph {
             hardware_output_latency_ms: Arc::new(Mutex::new(0.0)),
             selected_output_device: Arc::new(Mutex::new(None)),
             stream_sample_rate: Arc::new(std::sync::atomic::AtomicU32::new(TARGET_SAMPLE_RATE)),
+            output_convert_delay: Arc::new(std::sync::atomic::AtomicU32::new(0)),
+            output_flush: Arc::new(AtomicU64::new(0)),
             stream_error: Arc::new(Mutex::new(None)),
         };
 
@@ -637,6 +645,10 @@ impl AudioGraph {
         // Reset metronome beat position to match current playhead (native only)
         self.recorder.reset_metronome();
 
+        // Drop the ~ms of audio the output converter rendered but hasn't
+        // played, so nothing from before Stop sounds after it.
+        self.output_flush.fetch_add(1, Ordering::Relaxed);
+
         Ok(())
     }
 
@@ -670,11 +682,12 @@ impl AudioGraph {
         TARGET_SAMPLE_RATE
     }
 
-    /// The sample rate the output stream actually runs at. Equals
-    /// `TARGET_SAMPLE_RATE` unless the device couldn't provide 48 kHz and the
-    /// stream fell back to the device default (see `create_audio_stream`).
-    pub fn current_stream_sample_rate(&self) -> u32 {
-        self.stream_sample_rate.load(Ordering::Relaxed)
+    /// Engine frames a recording is late by because of sample-rate
+    /// conversion, on the way out to the device and on the way in from the
+    /// microphone. Zero when both run at 48 kHz.
+    pub fn recording_convert_delay(&self) -> usize {
+        let output = self.output_convert_delay.load(Ordering::Relaxed) as usize;
+        output + self.input_manager.lock().convert_delay()
     }
 
     /// Take (read-and-clear) the last output-stream error, if any (C99).
@@ -704,7 +717,7 @@ impl AudioGraph {
         let mut input_manager = self.input_manager.lock();
         // A running audio take keeps its input; a MIDI-only take never opens one.
         let want_open = armed || (taking && input_manager.is_capturing());
-        input_manager.sync_open(want_open, self.current_stream_sample_rate());
+        input_manager.sync_open(want_open);
     }
 
     /// Name of the output device in use: the one picked in Settings, else

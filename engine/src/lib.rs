@@ -72,6 +72,7 @@ mod audio_input;
 mod ffi;
 mod midi_input;
 mod midi_recorder;
+mod rate_convert; // Sample-rate conversion at the device boundary
 mod recorder;
 
 // VST3 plugin hosting - desktop only (not available on iOS) and requires vst3 feature

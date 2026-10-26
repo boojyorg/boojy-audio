@@ -7,6 +7,7 @@ use crate::audio_health::{
 };
 use crate::audio_input::InputTap;
 use crate::effects::{Effect, EffectManager, Limiter};
+use crate::rate_convert::OutputConverter;
 use crate::recorder::RecorderCallbackRefs;
 use crate::synth::TrackSynthManager;
 use crate::track::{
@@ -14,7 +15,7 @@ use crate::track::{
 };
 use parking_lot::Mutex;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, AtomicU8, Ordering};
 use std::sync::Arc;
 
 use cpal::traits::DeviceTrait;
@@ -62,7 +63,7 @@ fn write_frame(data: &mut [f32], frame_idx: usize, channels: usize, left: f32, r
     }
 }
 
-/// Pure selection logic for [`select_stereo_48k_config`]: given candidate
+/// Pure selection logic for [`select_stereo_config`]: given candidate
 /// `(channels, min_hz, max_hz)` ranges, return the index of the first stereo
 /// range that covers `target_hz`. Extracted so it can be unit-tested without a
 /// real audio device.
@@ -74,8 +75,8 @@ fn pick_stereo_config_index(ranges: &[(u16, u32, u32)], target_hz: u32) -> Optio
 
 /// Find a device output config that is stereo and supports `target_rate`,
 /// pinned to that rate. Returns `None` if the device exposes no stereo config
-/// covering the target rate (caller falls back to the device default).
-fn select_stereo_48k_config(
+/// covering it.
+fn select_stereo_config(
     device: &cpal::Device,
     target_rate: cpal::SampleRate,
 ) -> Option<cpal::SupportedStreamConfig> {
@@ -136,8 +137,8 @@ struct StoppedTrackSnapshot {
 
 /// Update monitoring fade gain with a 20ms ramp to avoid clicks.
 /// Modifies `fade_gain` in place toward 0.0 or 1.0.
-/// `sample_rate` is the rate the stream actually runs at — the ramp is one
-/// step per callback frame, so 20 ms is only 20 ms at the real rate (C4).
+/// `sample_rate` is the rate frames are rendered at — the ramp is one step
+/// per rendered frame, so 20 ms is only 20 ms at the real rate (C4).
 #[inline]
 fn update_monitoring_fade(fade_gain: &mut f64, should_monitor: bool, sample_rate: f64) {
     let target = if should_monitor { 1.0_f64 } else { 0.0_f64 };
@@ -469,22 +470,25 @@ impl AudioGraph {
 
         // Prefer an explicit stereo 48 kHz config. Many devices *support* stereo
         // 48 kHz but report a different default (e.g. 44.1 kHz, or a mono/aggregate
-        // layout) — inheriting that default makes playback run at the wrong pitch or
-        // scrambles channels, because all engine time-math assumes TARGET_SAMPLE_RATE
-        // and the callback assumes interleaved stereo. So request 48 kHz stereo
-        // explicitly when the device can provide it, and fall back (with a loud
-        // warning) to the device default otherwise. True sample-rate conversion for
-        // 48k-incapable devices is deferred to a later cycle.
+        // layout), and at 48 kHz the engine's output goes to the device untouched.
+        // A device that can't run at 48 kHz (headphones that only offer 44.1 kHz,
+        // a Bluetooth headset at 16 kHz) opens at its own rate, stereo if it has
+        // it, and gets the engine's output converted (`DeviceOutput`).
         let target_rate = cpal::SampleRate(TARGET_SAMPLE_RATE);
-        let supported_config = if let Some(cfg) = select_stereo_48k_config(&device, target_rate) {
+        let supported_config = if let Some(cfg) = select_stereo_config(&device, target_rate) {
             dlog!("🔊 [AudioGraph] Using stereo {TARGET_SAMPLE_RATE} Hz config: {cfg:?}");
             cfg
+        } else if let Some(cfg) = select_stereo_config(&device, default_config.sample_rate()) {
+            println!(
+                "🔊 [AudioGraph] Output device can't run at {TARGET_SAMPLE_RATE} Hz; \
+                 converting to {} Hz",
+                cfg.sample_rate().0
+            );
+            cfg
         } else {
-            eprintln!(
-                "⚠️ [AudioGraph] Output device cannot provide stereo {} Hz (default is \
-                 {:?}, {} ch). Playback may be pitched or use the wrong channel layout \
-                 until sample-rate conversion is implemented.",
-                TARGET_SAMPLE_RATE,
+            println!(
+                "🔊 [AudioGraph] Output device can't run at {TARGET_SAMPLE_RATE} Hz; \
+                 converting to its default ({:?}, {} ch)",
                 default_config.sample_rate(),
                 default_config.channels()
             );
@@ -526,31 +530,24 @@ impl AudioGraph {
         // Clone for tracking actual buffer size in callback
         let actual_buffer_size = self.actual_buffer_size.clone();
 
-        // C12: tell the filter-based effects (EQ/Compressor/Limiter) the real stream
-        // rate so their coefficients are correct in the non-48k fallback path. Done
-        // before the stream starts; new effects inherit it via create_effect. (The
-        // wider engine time-math still assumes TARGET_SAMPLE_RATE — see the config
-        // selection comment above.)
-        let stream_sample_rate = config.sample_rate.0 as f32;
-        self.effect_manager
-            .lock()
-            .set_sample_rate(stream_sample_rate);
-        self.master_limiter
-            .lock()
-            .set_sample_rate(stream_sample_rate);
-
-        // Publish the real stream rate so the rest of the engine (recording
-        // duration math C22, offline-render pin/restore) can read it.
-        self.stream_sample_rate
-            .store(config.sample_rate.0, Ordering::Relaxed);
-        // Audio health (dropout counters): the buffer budget and gap check
-        // need the stream's real rate.
+        // Publish the device's rate for the health log. Effects, the limiter
+        // and plugins stay at TARGET_SAMPLE_RATE whatever the device runs at.
         let stream_rate = config.sample_rate.0;
+        self.stream_sample_rate
+            .store(stream_rate, Ordering::Relaxed);
+        // Audio health (dropout counters): the buffer budget and gap check
+        // count device frames at the device's rate.
         let mut gap_detector = GapDetector::new(stream_rate);
 
-        // The callback's render state, with the monitoring fade ramp (C4) at the
-        // stream's rate. Built here so the audio thread never allocates.
-        let mut render = self.realtime_render(f64::from(config.sample_rate.0));
+        // The callback's render and conversion state, built here so the
+        // audio thread never allocates. The engine renders at
+        // TARGET_SAMPLE_RATE, so that's the monitoring fade's rate (C4).
+        let mut output = DeviceOutput::new(
+            self.realtime_render(f64::from(TARGET_SAMPLE_RATE)),
+            stream_rate,
+            self.output_flush.clone(),
+            self.output_convert_delay.clone(),
+        );
 
         let stream = device.build_output_stream(
             &config,
@@ -577,7 +574,7 @@ impl AudioGraph {
                 let _buffer_timer = BufferTimer::start(frames, stream_rate);
                 gap_detector.on_callback(info.timestamp().callback, frames);
 
-                render.render(data, channels);
+                output.fill(data, channels);
             },
             {
                 // C99: publish stream failures (device disconnect) so the UI
@@ -593,6 +590,62 @@ impl AudioGraph {
         )?;
 
         Ok(stream)
+    }
+}
+
+/// The output callback's body: the engine's render, converted to the
+/// device's rate when the device doesn't run at `TARGET_SAMPLE_RATE`.
+pub(crate) struct DeviceOutput {
+    render: RealtimeRender,
+    converter: Option<OutputConverter>,
+    /// The graph's flush counter, and the value this output last acted on.
+    flush: Arc<AtomicU64>,
+    flushed: u64,
+    /// Where the conversion's delay is published, in engine frames.
+    delay: Arc<AtomicU32>,
+}
+
+impl DeviceOutput {
+    pub(crate) fn new(
+        render: RealtimeRender,
+        device_rate: u32,
+        flush: Arc<AtomicU64>,
+        delay: Arc<AtomicU32>,
+    ) -> Self {
+        let flushed = flush.load(Ordering::Relaxed);
+        delay.store(0, Ordering::Relaxed);
+        Self {
+            render,
+            converter: OutputConverter::new(device_rate),
+            flush,
+            flushed,
+            delay,
+        }
+    }
+
+    /// Fill one device buffer (interleaved, `channels` per frame). At 48 kHz
+    /// the engine renders straight into it, exactly as before conversion
+    /// existed.
+    pub(crate) fn fill(&mut self, data: &mut [f32], channels: usize) {
+        let Some(converter) = &mut self.converter else {
+            self.render.render(data, channels);
+            return;
+        };
+        let flush = self.flush.load(Ordering::Relaxed);
+        if flush != self.flushed {
+            self.flushed = flush;
+            converter.flush();
+        }
+        let render = &mut self.render;
+        converter.fill(
+            data.len() / channels,
+            |buf| render.render(buf, 2),
+            |i, left, right| write_frame(data, i, channels, left, right),
+        );
+        self.delay.store(
+            converter.delay_engine_frames().round() as u32,
+            Ordering::Relaxed,
+        );
     }
 }
 
@@ -701,6 +754,8 @@ impl RealtimeRender {
             return_bus_r,
             vst3_events,
         } = self;
+
+        input_tap.begin_block(frames);
 
         // Check if we should be playing (lock-free atomic read)
         let is_playing = state.load(Ordering::SeqCst) == TransportState::Playing as u8;
