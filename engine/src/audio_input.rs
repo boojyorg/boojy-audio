@@ -9,7 +9,7 @@ use ringbuf::{
     traits::{Consumer, Observer, Producer, Split},
     HeapCons, HeapProd, HeapRb,
 };
-use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -24,8 +24,8 @@ const RING_SECONDS: f64 = 0.5;
 const MAX_BACKLOG_FRAMES: usize = 2048;
 const BACKLOG_TARGET_FRAMES: usize = 512;
 
-/// Converted input: frames kept in hand beyond the two devices' callback
-/// sizes, so the output never finds the ring empty.
+/// Converted input: frames kept in hand beyond one of the output's reads,
+/// so the output never finds the ring empty.
 const CUSHION_MARGIN: usize = 64;
 
 /// The audio thread's end of the input. Separate from [`AudioInputManager`]
@@ -35,9 +35,9 @@ const CUSHION_MARGIN: usize = 64;
 /// closes.
 ///
 /// A converted input (a microphone that can't run at 48 kHz) holds a cushion
-/// of frames: the input fills the ring to it before the first read, steers
-/// its conversion to stay there, and re-fills it if the ring ever runs dry.
-/// A 48 kHz input reads as it always did.
+/// of frames: reads wait until the input callback has filled it, the input
+/// steers its conversion to stay there, and the cushion is re-filled if the
+/// ring ever runs dry. A 48 kHz input reads as it always did.
 #[derive(Default)]
 pub struct InputTap {
     consumer: Mutex<Option<HeapCons<f32>>>,
@@ -49,10 +49,16 @@ pub struct InputTap {
     /// oldest are dropped back down to it. Set by the input callback.
     cushion: AtomicUsize,
     max_backlog: AtomicUsize,
-    /// Converted input: reads give silence until the cushion has filled.
+    /// Converted input: reads give silence until the input callback says
+    /// the cushion has filled...
     priming: AtomicBool,
+    /// ...and then skip this many frames it overfilled by.
+    release_skip: AtomicUsize,
     /// The largest number of frames one render has read since it opened.
     largest_read_block: AtomicUsize,
+    /// Renders so far: tells the input whether the output read since its
+    /// last callback.
+    reads: AtomicU64,
     /// Converted input: engine frames a sound is delayed by, in the
     /// converter and waiting in the ring behind the cushion (f32 bits),
     /// published by the input callback.
@@ -73,13 +79,13 @@ impl InputTap {
         let channels = usize::from(self.channels.load(Ordering::Relaxed).max(1));
         let backlog = cons.occupied_len() / channels;
         if self.converted.load(Ordering::Relaxed) {
-            let cushion = self.cushion.load(Ordering::Relaxed);
-            if self.priming.load(Ordering::Relaxed) {
-                if backlog < cushion.max(1) {
-                    return (0.0, 0.0);
-                }
-                self.priming.store(false, Ordering::Relaxed);
+            if self.priming.load(Ordering::Acquire) {
+                return (0.0, 0.0);
             }
+            let skip = self.release_skip.swap(0, Ordering::Relaxed).min(backlog);
+            cons.skip(skip * channels);
+            let backlog = backlog - skip;
+            let cushion = self.cushion.load(Ordering::Relaxed);
             if backlog == 0 {
                 // Ran dry: a click. Count it and build the cushion back up.
                 INPUT_SKIPS.fetch_add(1, Ordering::Relaxed);
@@ -108,6 +114,7 @@ impl InputTap {
     #[inline]
     pub fn begin_block(&self, frames: usize) {
         self.largest_read_block.fetch_max(frames, Ordering::Relaxed);
+        self.reads.fetch_add(1, Ordering::Relaxed);
     }
 
     /// The largest render the output has asked for since the input opened.
@@ -134,6 +141,7 @@ impl InputTap {
         self.channels.store(channels, Ordering::Relaxed);
         self.converted.store(converted, Ordering::Relaxed);
         self.priming.store(converted, Ordering::Relaxed);
+        self.release_skip.store(0, Ordering::Relaxed);
         self.set_limits(0, MAX_BACKLOG_FRAMES);
         self.largest_read_block.store(0, Ordering::Relaxed);
         self.added_delay.store(0f32.to_bits(), Ordering::Relaxed);
@@ -158,17 +166,50 @@ struct InputFeed {
     /// The largest callback so far, in engine frames.
     largest_callback: usize,
     /// Frames already waiting in the ring when a callback's frames arrive,
-    /// averaged: each new frame is read that many frames later than it
-    /// would be without the cushion.
+    /// beyond those a 48 kHz input would have waiting (the ones pushed since
+    /// the output last read), averaged: each new frame is read that many
+    /// frames later than it would be without conversion.
     waiting: f64,
+    /// The tap's render count at the last callback, and the frames pushed
+    /// since that count last changed.
+    reads_seen: u64,
+    pushed_since_read: usize,
 }
 
 impl InputFeed {
+    fn new(
+        producer: HeapProd<f32>,
+        tap: Arc<InputTap>,
+        stride: usize,
+        kept: usize,
+        converter: Option<InputConverter>,
+    ) -> Self {
+        Self {
+            producer,
+            tap,
+            stride,
+            kept,
+            converter,
+            largest_callback: 0,
+            waiting: f64::NAN,
+            reads_seen: 0,
+            pushed_since_read: 0,
+        }
+    }
+
     fn feed(&mut self, data: &[f32]) {
-        let waiting = self.producer.occupied_len() / self.kept;
+        let reads = self.tap.reads.load(Ordering::Relaxed);
+        if reads != self.reads_seen {
+            self.reads_seen = reads;
+            self.pushed_since_read = 0;
+        }
+        let waiting =
+            (self.producer.occupied_len() / self.kept).saturating_sub(self.pushed_since_read);
         let (producer, kept) = (&mut self.producer, self.kept);
         let mut dropped = false;
+        let mut pushed = 0;
         let mut push = |left: f32, right: f32| {
+            pushed += 1;
             dropped |= producer.try_push(left).is_err();
             if kept == 2 {
                 dropped |= producer.try_push(right).is_err();
@@ -189,22 +230,43 @@ impl InputFeed {
         if dropped {
             INPUT_SKIPS.fetch_add(1, Ordering::Relaxed);
         }
+        self.pushed_since_read += pushed;
 
-        // Hold enough for one of these callbacks plus one and a half of the
-        // output's reads, whatever order the two devices call back in.
+        // Keep one of the output's reads (plus a margin) waiting beyond what
+        // a 48 kHz input would have, so a read can come at any moment
+        // between two callbacks without finding the ring empty. The reader
+        // holds off until that and a read are in hand, so the extra starts
+        // where steering keeps it, and the delay is steady from the start.
         let frames = data.len() / self.stride;
         let engine_frames = (frames as f64 * converter.engine_per_device()).ceil() as usize;
         self.largest_callback = self.largest_callback.max(engine_frames);
         let reads = self.tap.largest_read_block();
-        let cushion = self.largest_callback + reads * 3 / 2 + CUSHION_MARGIN;
+        let extra = reads + CUSHION_MARGIN;
+        let cushion = extra + reads;
         self.tap
             .set_limits(cushion, cushion + self.largest_callback + reads + 256);
-        let level = self.producer.occupied_len() / self.kept;
-        converter.steer(level, cushion, engine_frames);
 
-        let smoothing = (engine_frames as f64 / f64::from(TARGET_SAMPLE_RATE)).min(1.0);
-        self.waiting += smoothing * (waiting as f64 - self.waiting);
-        let delay = (converter.delay_engine_frames() + self.waiting) as f32;
+        // While the cushion fills nothing is read: no steering, and the delay
+        // average starts afresh once reads begin. Reads begin with exactly
+        // `extra` waiting: any more is skipped.
+        if self.tap.priming.load(Ordering::Relaxed) {
+            self.waiting = f64::NAN;
+            if waiting >= extra {
+                self.tap
+                    .release_skip
+                    .store(waiting - extra, Ordering::Relaxed);
+                self.tap.priming.store(false, Ordering::Release);
+            }
+        } else {
+            converter.steer(waiting, extra, engine_frames);
+            self.waiting = crate::rate_convert::smooth(self.waiting, waiting as f64, engine_frames);
+        }
+        let waited = if self.waiting.is_nan() {
+            0.0
+        } else {
+            self.waiting
+        };
+        let delay = (converter.delay_engine_frames() + waited) as f32;
         self.tap
             .added_delay
             .store(delay.to_bits(), Ordering::Relaxed);
@@ -575,15 +637,7 @@ impl AudioInputManager {
         let ring_rate = if converted { TARGET_SAMPLE_RATE } else { rate };
         let ring: HeapRb<f32> = HeapRb::new((RING_SECONDS * f64::from(ring_rate) * 2.0) as usize);
         let (producer, consumer) = ring.split();
-        let mut feed = InputFeed {
-            producer,
-            tap: self.tap.clone(),
-            stride: num_channels,
-            kept,
-            converter,
-            largest_callback: 0,
-            waiting: 0.0,
-        };
+        let mut feed = InputFeed::new(producer, self.tap.clone(), num_channels, kept, converter);
 
         // Clone peak tracking atomics for use in the callback
         let peak_left = self.input_peak_left.clone();
@@ -933,15 +987,7 @@ mod tests {
         let tap = Arc::new(InputTap::default());
         let (producer, consumer) = HeapRb::<f32>::new(48_000).split();
         tap.attach(consumer, 1, true);
-        let feed = InputFeed {
-            producer,
-            tap: tap.clone(),
-            stride: 1,
-            kept: 1,
-            converter: InputConverter::new(rate, 1),
-            largest_callback: 0,
-            waiting: 0.0,
-        };
+        let feed = InputFeed::new(producer, tap.clone(), 1, 1, InputConverter::new(rate, 1));
         (feed, tap)
     }
 
@@ -1000,26 +1046,19 @@ mod tests {
     }
 
     /// Play an impulse at engine frame `at` through a device at `rate` whose
-    /// input hears its own output (a loopback cable), and record what comes
-    /// back in. Returns the frame the impulse lands on in the take after the
-    /// conversion delay is taken off.
-    fn loopback(rate: u32, at: usize) -> usize {
-        // 10 ms buffers whatever the rate, so the device itself adds the
-        // same delay every time.
-        let block = rate as usize / 100;
+    /// input hears its own output (a loopback cable), with input and output
+    /// callbacks every `in_ms` and `out_ms` milliseconds, and record what
+    /// comes back for a second after it. Returns the frame the impulse lands
+    /// on in the take once the conversion delay (read at the end, as Stop
+    /// does) is taken off.
+    fn loopback(rate: u32, at: usize, in_ms: usize, out_ms: usize) -> i64 {
+        let in_block = rate as usize * in_ms / 1000;
+        let out_block = rate as usize * out_ms / 1000;
         let tap = Arc::new(InputTap::default());
         let (producer, consumer) = HeapRb::<f32>::new(96_000).split();
         let converter = (rate != TARGET_SAMPLE_RATE).then(|| InputConverter::new(rate, 1).unwrap());
         tap.attach(consumer, 1, converter.is_some());
-        let mut feed = InputFeed {
-            producer,
-            tap: tap.clone(),
-            stride: 1,
-            kept: 1,
-            converter,
-            largest_callback: 0,
-            waiting: 0.0,
-        };
+        let mut feed = InputFeed::new(producer, tap.clone(), 1, 1, converter);
         let mut output = crate::rate_convert::OutputConverter::new(rate);
 
         // The engine: plays the impulse, records the input frame by frame.
@@ -1034,44 +1073,70 @@ mod tests {
                 frame += 1;
             }
         };
-        // Each 10 ms cycle the device delivers what it played last cycle,
-        // then asks for the next buffer.
-        let mut played = vec![0.0f32; block];
-        let cycles = (at + 48_000) / (TARGET_SAMPLE_RATE as usize / 100);
-        for _ in 0..cycles {
-            feed.feed(&played);
-            if let Some(conv) = &mut output {
-                conv.fill(block, &mut engine, |i, l, _| played[i] = l);
+        // Device time in device frames. The output callback at time t fills
+        // the buffer that plays from t + out_block; the input callback at t
+        // delivers what played over the last in_block frames.
+        let mut played = vec![0.0f32; out_block];
+        let (mut next_in, mut next_out) = (in_block, 0);
+        let end = (at + 48_000) * rate as usize / TARGET_SAMPLE_RATE as usize;
+        while next_in.min(next_out) < end {
+            if next_in <= next_out {
+                feed.feed(&played[next_in - in_block..next_in]);
+                next_in += in_block;
             } else {
-                let mut buf = vec![0.0; block * 2];
-                engine(&mut buf);
-                for (i, f) in buf.as_chunks::<2>().0.iter().enumerate() {
-                    played[i] = f[0];
+                let mut buf = vec![0.0f32; out_block];
+                if let Some(conv) = &mut output {
+                    conv.fill(out_block, &mut engine, |i, l, _| buf[i] = l);
+                } else {
+                    let mut stereo = vec![0.0; out_block * 2];
+                    engine(&mut stereo);
+                    for (i, f) in stereo.as_chunks::<2>().0.iter().enumerate() {
+                        buf[i] = f[0];
+                    }
                 }
+                played.extend(buf);
+                next_out += out_block;
             }
         }
         let output_delay = output.as_ref().map_or(
             0.0,
             crate::rate_convert::OutputConverter::delay_engine_frames,
         );
-        let late = (output_delay + tap.added_delay()).round() as usize;
+        let late = (output_delay + tap.added_delay()).round() as i64;
         let peak = (0..take.len())
             .max_by(|&a, &b| take[a].abs().total_cmp(&take[b].abs()))
             .unwrap();
-        peak - late
+        peak as i64 - late
+    }
+
+    /// How far a converted take lands from the 48 kHz take, for each rate.
+    fn misalignment(at: usize, in_ms: usize, out_ms: usize) -> Vec<(u32, i64)> {
+        let reference = loopback(TARGET_SAMPLE_RATE, at, in_ms, out_ms);
+        [16_000, 44_100, 96_000]
+            .into_iter()
+            .map(|rate| (rate, loopback(rate, at, in_ms, out_ms) - reference))
+            .collect()
     }
 
     #[test]
     fn a_converted_take_lands_where_a_48k_take_does() {
-        // Ten seconds in, once the input has settled (it opens when a track
-        // is armed, well before recording starts). Unconverted, these takes
-        // would land 1000-1300 frames (20-27 ms) late.
-        for k in 0..4 {
-            let at = 480_000 + k * 113;
-            let reference = loopback(TARGET_SAMPLE_RATE, at);
-            for rate in [16_000, 44_100, 96_000] {
-                let off = loopback(rate, at) as i64 - reference as i64;
-                assert!(off.abs() <= 8, "{rate} Hz take is {off} frames off");
+        // Settled (ten seconds after arming) and straight after arming, with
+        // equal and unequal input and output buffers. Unconverted, these
+        // takes would land 1000-4000 frames (20-80 ms) late.
+        for (at, in_ms, out_ms) in [
+            (480_000, 10, 10),
+            (480_000, 10, 40),
+            (480_000, 40, 10),
+            (4_800, 10, 10),
+            (4_800, 10, 40),
+            (9_600, 40, 10),
+        ] {
+            for (rate, off) in misalignment(at, in_ms, out_ms) {
+                assert!(
+                    off.abs() <= 64,
+                    "{rate} Hz, impulse at {at}, {in_ms} ms in / {out_ms} ms out: \
+                     {off} frames off"
+                );
             }
         }
     }

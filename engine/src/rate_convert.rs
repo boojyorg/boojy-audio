@@ -33,20 +33,27 @@ const MAX_STEER: f64 = 1.005;
 
 /// How hard the input converter corrects: ratio change per frame of error
 /// in the input buffer's level. Gives a ~2 s correction time against the
-/// level's ~1 s average, which settles without overshoot.
+/// level's quarter-second average, which settles without overshoot.
 const STEER_GAIN: f64 = 1e-5;
 
 fn engine_rate() -> f64 {
     f64::from(TARGET_SAMPLE_RATE)
 }
 
-/// Fold `value` into a running average over about a second of audio;
-/// `frames` is how many engine frames passed since the last value.
-fn smooth(average: f64, value: f64, frames: usize) -> f64 {
+/// Seconds of audio the delay and level averages cover: long enough to
+/// smooth over callback patterns, short enough to be right a moment after
+/// a stream opens.
+const AVERAGE_SECONDS: f64 = 0.25;
+
+/// Fold `value` into a running average over [`AVERAGE_SECONDS`]; `frames`
+/// is how many engine frames passed since the last value. A NaN average
+/// starts from `value`.
+pub(crate) fn smooth(average: f64, value: f64, frames: usize) -> f64 {
     if average.is_nan() {
         return value;
     }
-    average + (frames as f64 / engine_rate()).min(1.0) * (value - average)
+    let weight = (frames as f64 / (engine_rate() * AVERAGE_SECONDS)).min(1.0);
+    average + weight * (value - average)
 }
 
 fn sinc_params() -> SincInterpolationParameters {
@@ -291,11 +298,12 @@ impl InputConverter {
         }
     }
 
-    /// Nudge the conversion so the input buffer holds `target` frames.
-    /// `level` is its level now, just after this callback's frames went in,
-    /// and `frames` how many engine frames they were. Two devices never run
-    /// at exactly the same speed; without this the buffer slowly fills
-    /// (growing delay, then a skip) or empties (a click).
+    /// Nudge the conversion so `target` frames wait in the input buffer
+    /// (beyond those a 48 kHz input would have). `level` is how many wait
+    /// now, as this callback's frames arrive, and `frames` how many engine
+    /// frames they are. Two devices never run at exactly the same speed;
+    /// without this the buffer slowly fills (growing delay, then a skip) or
+    /// empties (a click).
     pub fn steer(&mut self, level: usize, target: usize, frames: usize) {
         let target = target as f64;
         if self.level.is_nan() {
