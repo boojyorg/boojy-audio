@@ -154,6 +154,10 @@ speed or recording.
     than ~25% of real time; catches a 10× slowdown, not 5%. Nothing measures speed today (the
     unused Criterion benches were deleted 2026-10-12).
 13. **More seeds nightly**: a scheduled CI run of stress seeds 1–200, so PR checks stay quick.
+14. **Try sample-rate conversion on a real non-48 kHz device** (merged 2026-10-26, tested only
+    in simulation): a headset that only offers 44.1 or 16 kHz, or a Scarlett / the Mac
+    speakers forced to 44.1 kHz with a throwaway override. Check the pitch, the metronome
+    against a phone, a take's timing, Stop, and that the log shows no "Input skipped".
 
 Dogfood a release engine (`./build.sh release`); the debug engine glitches under load. The
 [2026-09-13 review](reviews/2026_09_13_product_review.md) reliability findings (C1–C17) are row
