@@ -110,6 +110,10 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Two tracks with the same name both export as stems.** Both stems were given the same file
+  name, so the export failed and left one file or none. The second now gets a number: "Song -
+  Drums.wav" and "Song - Drums 2.wav". Names that only differ in capitals, or in characters a
+  file name can't hold ("Lead/Synth" and "Lead_Synth"), count as the same too.
 - **Headphones that can't run at 48 kHz play at the right speed and pitch.** Boojy works at
   48 kHz. Some headsets only offer 44.1 kHz (or 16 kHz for a Bluetooth headset in call mode),
   and on those everything played about 9% slow and a semitone and a half flat. Boojy now

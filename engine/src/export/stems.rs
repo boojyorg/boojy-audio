@@ -6,7 +6,7 @@ use super::mp3::export_mp3;
 use super::options::{ExportOptions, ExportResult};
 use super::partial::PartialFiles;
 use super::wav::export_wav;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Information about a track for stem export
 #[derive(Debug, Clone)]
@@ -59,6 +59,17 @@ impl Default for StemExportResult {
     }
 }
 
+/// A track name with the characters a filename can't hold replaced.
+fn safe_track_name(track_name: &str) -> String {
+    track_name
+        .chars()
+        .map(|c| match c {
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+            _ => c,
+        })
+        .collect()
+}
+
 /// Generate stem filename from base name and track name
 ///
 /// # Arguments
@@ -69,36 +80,33 @@ impl Default for StemExportResult {
 /// # Returns
 /// Filename like "Summer Vibes - Drums.wav"
 pub fn generate_stem_filename(base_name: &str, track_name: &str, extension: &str) -> String {
-    // Sanitize track name for filesystem
-    let safe_track_name: String = track_name
-        .chars()
-        .map(|c| match c {
-            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
-            _ => c,
-        })
-        .collect();
-
-    format!("{base_name} - {safe_track_name}.{extension}")
+    format!("{base_name} - {}.{extension}", safe_track_name(track_name))
 }
 
-/// Generate stem output path
+/// The names stems get in their filenames, one per track and in the same
+/// order, each different from the others: a name already taken gets a
+/// number ("Drums", "Drums 2", "Drums 3").
 ///
-/// # Arguments
-/// * `output_dir` - Output directory path
-/// * `base_name` - Base filename
-/// * `track_name` - Track name
-/// * `options` - Export options (for extension)
-///
-/// # Returns
-/// Full path for the stem file
-pub fn generate_stem_path(
-    output_dir: &Path,
-    base_name: &str,
-    track_name: &str,
-    options: &ExportOptions,
-) -> PathBuf {
-    let filename = generate_stem_filename(base_name, track_name, options.file_extension());
-    output_dir.join(filename)
+/// Two names are the same file when they differ only in case (macOS and
+/// Windows don't tell `Drums.wav` from `drums.wav`) or in characters the
+/// filename can't hold (`Lead/Synth` and `Lead_Synth`). Sharing one name,
+/// the second stem replaced the first while they were written and the
+/// export then failed moving a file that was gone.
+pub fn unique_stem_names<'a>(track_names: impl IntoIterator<Item = &'a str>) -> Vec<String> {
+    let mut taken = std::collections::HashSet::new();
+    track_names
+        .into_iter()
+        .map(|track_name| {
+            let safe = safe_track_name(track_name);
+            let mut name = safe.clone();
+            let mut number = 2;
+            while !taken.insert(name.to_lowercase()) {
+                name = format!("{safe} {number}");
+                number += 1;
+            }
+            name
+        })
+        .collect()
 }
 
 /// Export a single stem (track audio)
@@ -162,15 +170,23 @@ pub fn export_stems(
         .map_err(|e| format!("Failed to create output directory: {e}"))?;
 
     let mut result = StemExportResult::new();
-    let selected = tracks.iter().filter(|(info, _)| info.selected).count();
 
-    for (i, (track_info, samples)) in tracks.iter().filter(|(info, _)| info.selected).enumerate() {
-        let output_path = generate_stem_path(output_dir, base_name, &track_info.name, options);
+    let selected_tracks: Vec<_> = tracks.iter().filter(|(info, _)| info.selected).collect();
+    let stem_names = unique_stem_names(selected_tracks.iter().map(|(info, _)| info.name.as_str()));
+
+    for (i, ((track_info, samples), stem_name)) in
+        selected_tracks.iter().zip(&stem_names).enumerate()
+    {
+        let output_path = output_dir.join(generate_stem_filename(
+            base_name,
+            stem_name,
+            options.file_extension(),
+        ));
 
         // Written under a temporary name; the caller moves every stem into
         // place once all are done ([`PartialFiles::commit`]).
         // This stem's share of the progress.
-        let share = |done: f64| (i as f64 + done) / selected as f64;
+        let share = |done: f64| (i as f64 + done) / selected_tracks.len() as f64;
         let mut on_stem_block = |done| on_block(share(done));
         match export_stem(
             samples,
@@ -252,6 +268,91 @@ mod tests {
         assert!(seen.windows(2).all(|w| w[0] <= w[1]), "{seen:?}");
         assert_eq!(seen.last(), Some(&1.0), "{seen:?}");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Exports one short stem per name and returns the files left in the
+    /// folder once they have moved into place.
+    fn exported_stem_files(folder: &str, track_names: &[&str]) -> Vec<String> {
+        let audio: Vec<f32> = (0..4_800 * 2)
+            .map(|i| 0.3 * ((i / 2) as f32 * 0.05).sin())
+            .collect();
+        let tracks: Vec<_> = track_names
+            .iter()
+            .zip(1..)
+            .map(|(name, id)| {
+                let info = StemTrackInfo {
+                    id,
+                    name: (*name).to_string(),
+                    selected: true,
+                };
+                (info, audio.clone())
+            })
+            .collect();
+        let dir = std::env::temp_dir().join(folder);
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut files = PartialFiles::default();
+
+        let result = export_stems(
+            &tracks,
+            &dir,
+            "Song",
+            &ExportOptions::wav(super::super::options::WavBitDepth::Int16),
+            &mut files,
+            &mut |_| true,
+        )
+        .unwrap();
+        files
+            .commit(&super::super::ExportProgressState::new())
+            .unwrap();
+
+        let mut found: Vec<String> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        found.sort();
+        let mut reported: Vec<String> = result
+            .stems
+            .iter()
+            .map(|stem| {
+                let path = Path::new(&stem.path);
+                path.file_name().unwrap().to_string_lossy().into_owned()
+            })
+            .collect();
+        reported.sort();
+        assert_eq!(found, reported, "the result lists the files written");
+        let _ = std::fs::remove_dir_all(&dir);
+        found
+    }
+
+    #[test]
+    fn two_tracks_with_the_same_name_export_two_stems() {
+        assert_eq!(
+            exported_stem_files("stems_same_name", &["Drums", "Drums"]),
+            ["Song - Drums 2.wav", "Song - Drums.wav"]
+        );
+    }
+
+    #[test]
+    fn names_differing_only_in_case_or_dropped_characters_export_separately() {
+        assert_eq!(
+            exported_stem_files(
+                "stems_same_file",
+                &["Lead/Synth", "lead_synth", "LEAD:SYNTH"]
+            ),
+            [
+                "Song - LEAD_SYNTH 3.wav",
+                "Song - Lead_Synth.wav",
+                "Song - lead_synth 2.wav"
+            ]
+        );
+    }
+
+    #[test]
+    fn a_numbered_name_never_takes_a_name_another_track_has() {
+        assert_eq!(
+            unique_stem_names(["Drums", "Drums", "Drums 2", "Bass"]),
+            ["Drums", "Drums 2", "Drums 2 2", "Bass"]
+        );
     }
 
     #[test]
