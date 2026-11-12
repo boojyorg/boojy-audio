@@ -110,6 +110,10 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **A failed backup no longer hides the last good one.** Boojy keeps a backup every five minutes
+  for crash recovery. When one failed (a full disk, say), Boojy still pointed recovery at it, so
+  after a crash there was nothing to offer, even with an older backup sitting there. Recovery now
+  keeps offering the last backup that worked, and failed ones never push the good ones out.
 - **Headphones that can't run at 48 kHz play at the right speed and pitch.** Boojy works at
   48 kHz. Some headsets only offer 44.1 kHz (or 16 kHz for a Bluetooth headset in call mode),
   and on those everything played about 9% slow and a semitone and a half flat. Boojy now
