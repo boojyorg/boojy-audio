@@ -108,7 +108,12 @@ impl Default for ExportFormat {
 }
 
 /// Comprehensive export options
+///
+/// Read from JSON for stem export; a field the sender leaves out takes its
+/// default. Stem export from the dialog failed on every try because the
+/// dialog never sent `platform_target`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ExportOptions {
     /// Output format (WAV or MP3)
     pub format: ExportFormat,
@@ -322,6 +327,24 @@ impl ExportResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn options_read_from_json_without_every_field() {
+        // What the export dialog sends for stems: no range, no loudness target.
+        let json = r#"{"format":{"Wav":{"bit_depth":"Int24"}},"sample_rate":48000,"normalize":true,"dither":false,"mono":false}"#;
+        let options: ExportOptions = serde_json::from_str(json).unwrap();
+
+        assert!(matches!(
+            options.format,
+            ExportFormat::Wav {
+                bit_depth: WavBitDepth::Int24
+            }
+        ));
+        assert_eq!(options.sample_rate, 48_000);
+        assert!(options.normalize);
+        assert_eq!(options.platform_target, PlatformTarget::None);
+        assert_eq!((options.start_time, options.end_time), (None, None));
+    }
 
     #[test]
     fn test_default_options() {
