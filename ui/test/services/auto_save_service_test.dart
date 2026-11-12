@@ -282,14 +282,15 @@ void main() {
     test('a save that throws counts as a failed backup', () async {
       await service.writeBackup(dir.path, works, now: minute(0));
 
-      final worked = await service.writeBackup(
-        dir.path,
-        (_) => throw const FileSystemException('gone'),
-        now: minute(5),
-      );
+      // It throws part-way, with its folder already made.
+      final worked = await service.writeBackup(dir.path, (path) {
+        Directory(path).createSync();
+        throw const FileSystemException('gone');
+      }, now: minute(5));
 
       expect(worked, false);
       expect(offered(), '${dir.path}/autosave_2026-11-12T10-00-00.audio');
+      expect(backups(), ['autosave_2026-11-12T10-00-00.audio']);
     });
 
     test('only the newest three backups are kept', () async {

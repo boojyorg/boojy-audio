@@ -147,24 +147,33 @@ class AutoSaveService extends ChangeNotifier {
         .split('.')[0];
     final backupPath = '$directory/autosave_$timestamp.audio';
 
+    // Assume it was there until we know otherwise: a folder that existed
+    // before this save is never ours to delete.
+    var existedBefore = true;
     try {
-      final existedBefore = await directoryExists(backupPath);
+      existedBefore = await directoryExists(backupPath);
       final result = await save(backupPath);
-      if (!result.success) {
-        Log.e('AutoSaveService: Backup failed: ${result.message}');
-        if (!existedBefore && await directoryExists(backupPath)) {
-          await deleteDirectory(backupPath);
-        }
-        return false;
+      if (result.success) {
+        await _updateCrashRecoveryMarker(directory, backupPath);
+        await _rotateBackups(directory);
+        return true;
       }
-
-      await _updateCrashRecoveryMarker(directory, backupPath);
-      await _rotateBackups(directory);
-      return true;
+      Log.e('AutoSaveService: Backup failed: ${result.message}');
     } catch (e) {
       Log.e('AutoSaveService: Failed to create backup: $e');
-      return false;
     }
+
+    // Failed, whether the save said so or threw: take away what it left, or
+    // the half-written folder would count as the newest backup and push a
+    // good one out at the next rotation.
+    try {
+      if (!existedBefore && await directoryExists(backupPath)) {
+        await deleteDirectory(backupPath);
+      }
+    } catch (e) {
+      Log.e('AutoSaveService: Failed to remove a failed backup: $e');
+    }
+    return false;
   }
 
   /// Update crash recovery marker file
