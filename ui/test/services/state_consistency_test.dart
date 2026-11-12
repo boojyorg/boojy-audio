@@ -275,16 +275,65 @@ void main() {
       expect(
         withEngineNote(engineNote(pitch: 62)).single,
         contains(
-          'note: screen pitch 60 at 0.000s for 0.500s (velocity 100), '
-          'engine pitch 62 at 0.000s for 0.500s (velocity 100)',
+          'note start: screen pitch 60 at 0.000s (velocity 100), '
+          'engine pitch 62 at 0.000s (velocity 100)',
         ),
       );
-      expect(withEngineNote(engineNote(start: 0.25)).single, contains('note:'));
-      expect(withEngineNote(engineNote(length: 1)).single, contains('note:'));
+      expect(
+        withEngineNote(engineNote(start: 0.25, length: 0.25)).single,
+        contains('note start:'),
+      );
       expect(
         withEngineNote(engineNote(velocity: 64)).single,
-        contains('note:'),
+        contains('note start:'),
       );
+      expect(
+        withEngineNote(engineNote(length: 1)).single,
+        contains(
+          'note end: screen pitch 60 at 0.500s, engine pitch 60 at 1.000s',
+        ),
+      );
+    });
+
+    test('a note inside another of the same pitch is not a difference', () {
+      // The engine pairs each note end with the oldest note still sounding,
+      // so 0 to 4 with 1 to 2 inside it reads back as 0 to 2 and 1 to 4.
+      final clip = screenMidi().copyWith(
+        notes: [
+          MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 4),
+          MidiNoteData(note: 60, velocity: 90, startTime: 1, duration: 1),
+        ],
+      );
+      final problems = compare(
+        engineMidiClips: [
+          engineMidi(
+            heard: [
+              engineNote(length: 1),
+              engineNote(velocity: 90, start: 0.5, length: 1.5),
+            ],
+          ),
+        ],
+        midiClips: [clip],
+        midiEngineIds: {10: 7},
+      );
+      expect(problems, isEmpty);
+    });
+
+    test('two notes starting together are matched whatever their order', () {
+      final clip = screenMidi().copyWith(
+        notes: [
+          MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 1),
+          MidiNoteData(note: 60, velocity: 40, startTime: 0, duration: 1),
+        ],
+      );
+      final problems = compare(
+        engineMidiClips: [
+          engineMidi(heard: [engineNote(velocity: 40), engineNote()]),
+        ],
+        midiClips: [clip],
+        midiEngineIds: {10: 7},
+      );
+      expect(problems, isEmpty);
     });
 
     test('notes in a different order are still the same notes', () {

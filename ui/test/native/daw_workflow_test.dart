@@ -554,6 +554,72 @@ void main() {
     }
   });
 
+  testWidgets('a muted clip reopens muted even if the layout file is lost', (
+    tester,
+  ) async {
+    // The engine saves mute beside the notes. The screen's own file (names,
+    // colours) can be missing, as in a backup whose layout write failed.
+    final h = await DawHarness.start(tester);
+    try {
+      await tester.tap(find.text('MIDI').first);
+      await h.settle();
+      final manager = h.daw.midiPlaybackManager!;
+      h.daw.midiClipController.updateClip(
+        manager.midiClips.single.copyWith(
+          notes: [
+            MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 1),
+          ],
+        ),
+        h.daw.playheadPosition,
+      );
+      await h.daw.timelineKey.currentState!.toggleMidiClipMute(
+        manager.midiClips.single,
+      );
+      await h.settle();
+
+      final path = '${h.tempDir.path}/NoLayout.audio';
+      await h.realTime(() => h.daw.saveProjectToPath(path));
+      await h.settleUntil(() => !h.daw.isLoading, what: 'the save');
+      File('$path/ui_layout.json').deleteSync();
+      h.daw.executeNewProject();
+      await h.settle();
+      await h.realTime(() => h.daw.openRecentProject(path));
+      await h.settleUntil(
+        () => h.daw.midiPlaybackManager!.midiClips.length == 1,
+        what: 'the reopened project to show its clip',
+      );
+      await h.settle();
+
+      expect(h.daw.midiPlaybackManager!.midiClips.single.isMuted, isTrue);
+      h.expectScreenMatchesEngine(after: 'reopening without the layout file');
+    } finally {
+      await h.close();
+    }
+  });
+
+  testWidgets('a note inside another of the same pitch matches the engine', (
+    tester,
+  ) async {
+    final h = await DawHarness.start(tester);
+    try {
+      await tester.tap(find.text('MIDI').first);
+      await h.settle();
+      h.daw.midiClipController.updateClip(
+        h.daw.midiPlaybackManager!.midiClips.single.copyWith(
+          notes: [
+            MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 4),
+            MidiNoteData(note: 60, velocity: 90, startTime: 1, duration: 1),
+          ],
+        ),
+        h.daw.playheadPosition,
+      );
+      await h.settle();
+      h.expectScreenMatchesEngine(after: 'drawing a note inside another');
+    } finally {
+      await h.close();
+    }
+  });
+
   testWidgets('save and reopen keep warped and duplicated tracks', (
     tester,
   ) async {

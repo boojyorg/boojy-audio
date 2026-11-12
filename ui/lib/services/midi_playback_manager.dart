@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/midi_note_data.dart';
+import '../utils/logger.dart';
 import 'commands/audio_engine_interface.dart';
 
 /// Manages MIDI clip playback, scheduling, and editing state.
@@ -222,7 +223,18 @@ class MidiPlaybackManager extends ChangeNotifier {
 
     // "Mute Clip". The engine keeps the notes (a reopened project reads them
     // back from it) and plays none of them.
-    _audioEngine.setMidiClipMuted(rustClipId, muted: clip.isMuted);
+    _pushMute(rustClipId, muted: clip.isMuted);
+  }
+
+  /// Tell the engine a clip's mute state, and say so in the log if it
+  /// couldn't take it (the clip would show muted and still play).
+  void _pushMute(int rustClipId, {required bool muted}) {
+    final result = _audioEngine.setMidiClipMuted(rustClipId, muted: muted);
+    if (result.startsWith('Error:')) {
+      Log.e(
+        'MidiPlaybackManager: mute not applied to clip $rustClipId: $result',
+      );
+    }
   }
 
   /// Reschedule all MIDI clips with new tempo
@@ -453,6 +465,8 @@ class MidiPlaybackManager extends ChangeNotifier {
       final startTimeSeconds = double.tryParse(parts[2]) ?? 0.0;
       final durationSeconds = double.tryParse(parts[3]) ?? 0.0;
       // parts[4] is note_count - not needed since we fetch notes
+      // parts[6]: "Mute Clip", which the engine saves beside the notes.
+      final mutedInEngine = parts.length > 6 && parts[6] == '1';
 
       if (rustClipId < 0 || trackId < 0) continue;
 
@@ -503,6 +517,7 @@ class MidiPlaybackManager extends ChangeNotifier {
         loopLength: durationBeats > 0 ? durationBeats : 16.0,
         notes: notes,
         name: 'MIDI Clip',
+        isMuted: mutedInEngine,
       );
 
       // Merge saved UI metadata, matched by (trackId, startTime).
@@ -516,7 +531,9 @@ class MidiPlaybackManager extends ChangeNotifier {
         clipData = clipData.copyWith(
           name: meta.name,
           color: meta.color,
-          isMuted: meta.isMuted,
+          // Either says muted: a project from before the engine saved mute
+          // has it only here.
+          isMuted: mutedInEngine || meta.isMuted,
           canRepeat: meta.canRepeat,
           contentStartOffset: meta.contentStartOffset,
           // The saved arrangement length: the engine's own is rounded up to a
@@ -531,9 +548,8 @@ class MidiPlaybackManager extends ChangeNotifier {
 
       _midiClips.add(_withoutRepeats(clipData));
       _dartToRustClipIds[dartClipId] = rustClipId;
-      // The engine doesn't save mute; the screen does, and gives it back.
-      if (clipData.isMuted) {
-        _audioEngine.setMidiClipMuted(rustClipId, muted: true);
+      if (clipData.isMuted != mutedInEngine) {
+        _pushMute(rustClipId, muted: clipData.isMuted);
       }
     }
 

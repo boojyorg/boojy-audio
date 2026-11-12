@@ -157,10 +157,15 @@ class EngineSnapshot {
 
 String _muteWord(bool muted) => muted ? 'muted' : 'not muted';
 
-/// The first note the screen and the engine disagree on, as a one-item list;
-/// empty when they hold the same notes, null when the engine's weren't read.
-/// Both are put in the same order first (pitch, then start), since neither
-/// side promises one.
+/// The first note start or end the screen and the engine disagree on, as a
+/// one-item list; empty when they hold the same notes, null when the
+/// engine's weren't read.
+///
+/// Starts and ends are compared separately, not note by note. The engine
+/// holds note-ons and note-offs and pairs them itself when asked for notes,
+/// giving each note-off to the oldest sounding note of its pitch: a note
+/// from beat 0 to 4 with another of the same pitch inside it, 1 to 2, comes
+/// back as 0 to 2 and 1 to 4. The same events, so the same sound.
 List<String>? _noteDifference(
   MidiClipData clip,
   List<EngineMidiNote>? engineNotes,
@@ -177,27 +182,50 @@ List<String>? _noteDifference(
         lengthSeconds: n.duration * secondsPerBeat,
       ),
   ];
-  int order(EngineMidiNote a, EngineMidiNote b) {
-    final byPitch = a.pitch.compareTo(b.pitch);
-    return byPitch != 0 ? byPitch : a.startSeconds.compareTo(b.startSeconds);
+  if (screen.length != engineNotes.length) {
+    return ['notes: screen ${screen.length}, engine ${engineNotes.length}'];
   }
 
-  final heard = [...engineNotes]..sort(order);
-  screen.sort(order);
-  if (screen.length != heard.length) {
-    return ['notes: screen ${screen.length}, engine ${heard.length}'];
-  }
-  for (var i = 0; i < screen.length; i++) {
-    final s = screen[i];
-    final e = heard[i];
-    if (s.pitch != e.pitch ||
-        s.velocity != e.velocity ||
-        (s.startSeconds - e.startSeconds).abs() > _seconds ||
-        (s.lengthSeconds - e.lengthSeconds).abs() > _seconds) {
-      return ['note: screen $s, engine $e'];
+  // (pitch, time, velocity) of every note start, in a fixed order.
+  List<(int, double, int)> starts(List<EngineMidiNote> notes) =>
+      [for (final n in notes) (n.pitch, n.startSeconds, n.velocity)]
+        ..sort(_byPitchTimeVelocity);
+  // Note ends carry no velocity.
+  List<(int, double, int)> ends(List<EngineMidiNote> notes) =>
+      [for (final n in notes) (n.pitch, n.startSeconds + n.lengthSeconds, 0)]
+        ..sort(_byPitchTimeVelocity);
+
+  String? firstDifference(
+    String what,
+    List<(int, double, int)> onScreen,
+    List<(int, double, int)> inEngine,
+  ) {
+    for (var i = 0; i < onScreen.length; i++) {
+      final (pitch, time, velocity) = onScreen[i];
+      final (enginePitch, engineTime, engineVelocity) = inEngine[i];
+      if (pitch != enginePitch ||
+          velocity != engineVelocity ||
+          (time - engineTime).abs() > _seconds) {
+        String say(int p, double t, int v) =>
+            'pitch $p at ${t.toStringAsFixed(3)}s'
+            '${what == 'note start' ? ' (velocity $v)' : ''}';
+        return '$what: screen ${say(pitch, time, velocity)}, '
+            'engine ${say(enginePitch, engineTime, engineVelocity)}';
+      }
     }
+    return null;
   }
-  return const [];
+
+  final difference =
+      firstDifference('note start', starts(screen), starts(engineNotes)) ??
+      firstDifference('note end', ends(screen), ends(engineNotes));
+  return [?difference];
+}
+
+int _byPitchTimeVelocity((int, double, int) a, (int, double, int) b) {
+  if (a.$1 != b.$1) return a.$1.compareTo(b.$1);
+  if (a.$2 != b.$2) return a.$2.compareTo(b.$2);
+  return a.$3.compareTo(b.$3);
 }
 
 const _seconds = 1e-3; // position and length tolerance
