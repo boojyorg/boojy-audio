@@ -110,6 +110,8 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **New Project starts at 120 BPM in 4/4.** It kept the tempo and time signature of whatever was
+  open before, so a fresh "Untitled" could start at 174 BPM in 3/4.
 - **Stem export works.** Every stem export ended in "Couldn't export": the export window left a
   setting out of what it sent the engine, and misread the engine's reply. Stems now export, and
   the window reports how many were written.
