@@ -209,7 +209,7 @@ mixin DAWProjectMixin
     // applyTempo would move them and push them back.
     timelineKey.currentState?.clearClips();
     const fresh = ProjectMetadata(name: 'Untitled');
-    setState(() => projectMetadata = fresh.copyWith(bpm: tempo));
+    projectMetadata = fresh; // applyTempo redraws
     applyTempo(fresh.bpm);
     audioEngine?.setTimeSignature(fresh.timeSignatureNumerator);
 
