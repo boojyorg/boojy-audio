@@ -110,6 +110,10 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Mute Clip silences a MIDI clip.** Muting a MIDI clip from its menu did nothing: it kept
+  playing, and came out in exports too. A muted clip is now silent when you play and when you
+  export, keeps its notes, and is still muted when you reopen the project. Muting is one undo
+  step. Muting while a note sounds lets the note end, not hang.
 - **Headphones that can't run at 48 kHz play at the right speed and pitch.** Boojy works at
   48 kHz. Some headsets only offer 44.1 kHz (or 16 kHz for a Bluetooth headset in call mode),
   and on those everything played about 9% slow and a semitone and a half flat. Boojy now

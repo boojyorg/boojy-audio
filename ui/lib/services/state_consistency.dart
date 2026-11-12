@@ -10,6 +10,53 @@ import 'commands/audio_engine_interface.dart';
 // and development builds after every action, catch that the moment it
 // happens.
 
+/// One note as the engine holds it (an entry of `getMidiClipNotes`), in
+/// seconds from the start of its clip.
+class EngineMidiNote {
+  final int pitch;
+  final int velocity;
+  final double startSeconds;
+  final double lengthSeconds;
+
+  const EngineMidiNote({
+    required this.pitch,
+    required this.velocity,
+    required this.startSeconds,
+    required this.lengthSeconds,
+  });
+
+  @override
+  String toString() =>
+      'pitch $pitch at ${startSeconds.toStringAsFixed(3)}s for '
+      '${lengthSeconds.toStringAsFixed(3)}s (velocity $velocity)';
+}
+
+/// Parse `getMidiClipNotes`: `;`-separated `note,velocity,start_time,duration`.
+List<EngineMidiNote> parseMidiClipNotes(String raw) {
+  if (raw.isEmpty || raw.startsWith('Error:')) return const [];
+  final notes = <EngineMidiNote>[];
+  for (final entry in raw.split(';')) {
+    final f = entry.split(',');
+    if (f.length < 4) continue;
+    final pitch = int.tryParse(f[0]);
+    final velocity = int.tryParse(f[1]);
+    final start = double.tryParse(f[2]);
+    final length = double.tryParse(f[3]);
+    if (pitch == null || velocity == null || start == null || length == null) {
+      continue;
+    }
+    notes.add(
+      EngineMidiNote(
+        pitch: pitch,
+        velocity: velocity,
+        startSeconds: start,
+        lengthSeconds: length,
+      ),
+    );
+  }
+  return notes;
+}
+
 /// One MIDI clip as the engine lists it (a row of `getAllMidiClipsInfo`).
 class EngineMidiClipInfo {
   final int clipId;
@@ -20,18 +67,40 @@ class EngineMidiClipInfo {
   /// On a track, so it plays (not only held in the engine's clip storage).
   final bool plays;
 
+  /// Under "Mute Clip": the engine keeps its notes and plays none.
+  final bool muted;
+
+  /// The notes themselves; null when only the row was read, and then only
+  /// [noteCount] can be compared. A count alone misses a clip holding the
+  /// right number of wrong notes.
+  final List<EngineMidiNote>? notes;
+
   const EngineMidiClipInfo({
     required this.clipId,
     required this.trackId,
     required this.startSeconds,
     required this.noteCount,
     required this.plays,
+    this.muted = false,
+    this.notes,
   });
+
+  EngineMidiClipInfo withNotes(List<EngineMidiNote> notes) =>
+      EngineMidiClipInfo(
+        clipId: clipId,
+        trackId: trackId,
+        startSeconds: startSeconds,
+        noteCount: noteCount,
+        plays: plays,
+        muted: muted,
+        notes: notes,
+      );
 }
 
 /// Parse `getAllMidiClipsInfo`: `;`-separated rows of
-/// `clip_id,track_id,start_time,duration,note_count,plays`. Rows from an
-/// engine without the `plays` field count as playing when on a track.
+/// `clip_id,track_id,start_time,duration,note_count,plays,muted`. Rows from
+/// an engine without the `plays` field count as playing when on a track, and
+/// without `muted` as not muted.
 List<EngineMidiClipInfo> parseMidiClipsInfo(String raw) {
   if (raw.isEmpty || raw.startsWith('Error:')) return const [];
   final clips = <EngineMidiClipInfo>[];
@@ -52,6 +121,7 @@ List<EngineMidiClipInfo> parseMidiClipsInfo(String raw) {
         startSeconds: start,
         noteCount: notes,
         plays: f.length > 5 ? f[5] == '1' : trackId >= 0,
+        muted: f.length > 6 && f[6] == '1',
       ),
     );
   }
@@ -73,8 +143,61 @@ class EngineSnapshot {
   factory EngineSnapshot.read(AudioEngineInterface engine) => EngineSnapshot(
     tempo: engine.getTempo(),
     audioClips: parseAudioClipsInfo(engine.getAllAudioClipsInfo()),
-    midiClips: parseMidiClipsInfo(engine.getAllMidiClipsInfo()),
+    midiClips: [
+      for (final clip in parseMidiClipsInfo(engine.getAllMidiClipsInfo()))
+        if (clip.plays)
+          clip.withNotes(
+            parseMidiClipNotes(engine.getMidiClipNotes(clip.clipId)),
+          )
+        else
+          clip,
+    ],
   );
+}
+
+String _muteWord(bool muted) => muted ? 'muted' : 'not muted';
+
+/// The first note the screen and the engine disagree on, as a one-item list;
+/// empty when they hold the same notes, null when the engine's weren't read.
+/// Both are put in the same order first (pitch, then start), since neither
+/// side promises one.
+List<String>? _noteDifference(
+  MidiClipData clip,
+  List<EngineMidiNote>? engineNotes,
+  double tempo,
+) {
+  if (engineNotes == null) return null;
+  final secondsPerBeat = 60.0 / tempo;
+  final screen = [
+    for (final n in clip.unrolledNotes())
+      EngineMidiNote(
+        pitch: n.note,
+        velocity: n.velocity,
+        startSeconds: n.startTime * secondsPerBeat,
+        lengthSeconds: n.duration * secondsPerBeat,
+      ),
+  ];
+  int order(EngineMidiNote a, EngineMidiNote b) {
+    final byPitch = a.pitch.compareTo(b.pitch);
+    return byPitch != 0 ? byPitch : a.startSeconds.compareTo(b.startSeconds);
+  }
+
+  final heard = [...engineNotes]..sort(order);
+  screen.sort(order);
+  if (screen.length != heard.length) {
+    return ['notes: screen ${screen.length}, engine ${heard.length}'];
+  }
+  for (var i = 0; i < screen.length; i++) {
+    final s = screen[i];
+    final e = heard[i];
+    if (s.pitch != e.pitch ||
+        s.velocity != e.velocity ||
+        (s.startSeconds - e.startSeconds).abs() > _seconds ||
+        (s.lengthSeconds - e.lengthSeconds).abs() > _seconds) {
+      return ['note: screen $s, engine $e'];
+    }
+  }
+  return const [];
 }
 
 const _seconds = 1e-3; // position and length tolerance
@@ -182,7 +305,12 @@ List<String> compareScreenWithEngine({
         'track: screen ${clip.trackId}, engine ${e.trackId}',
       if ((e.startSeconds - startSeconds).abs() > _seconds)
         'start: screen ${startSeconds}s, engine ${e.startSeconds}s',
-      if (e.noteCount != notes) 'notes: screen $notes, engine ${e.noteCount}',
+      if (e.noteCount != notes)
+        'notes: screen $notes, engine ${e.noteCount}'
+      else
+        ...?_noteDifference(clip, e.notes, engine.tempo),
+      if (e.muted != clip.isMuted)
+        'mute: screen ${_muteWord(clip.isMuted)}, engine ${_muteWord(e.muted)}',
     ];
     if (differences.isNotEmpty) {
       problems.add('$label differs: ${differences.join('; ')}');

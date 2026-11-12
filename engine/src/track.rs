@@ -191,6 +191,10 @@ pub struct TimelineMidiClip {
     pub start_time: f64,
     /// Track ID this clip belongs to (for cleanup on track deletion)
     pub track_id: Option<TrackId>,
+    /// "Mute Clip": the clip keeps its notes but starts none of them. Note-offs
+    /// still go out, so a clip muted while one of its notes sounds lets go of
+    /// it instead of leaving it hanging.
+    pub muted: bool,
 }
 /// Track types supported in Boojy Audio
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

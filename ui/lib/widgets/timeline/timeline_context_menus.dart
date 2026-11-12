@@ -302,10 +302,16 @@ mixin TimelineContextMenusMixin
   // MIDI CLIP PROPERTY TOGGLES
   // ========================================================================
 
-  /// Toggle mute state of a MIDI clip
-  void toggleMidiClipMute(MidiClipData clip) {
-    final mutedClip = clip.copyWith(isMuted: !clip.isMuted);
-    widget.midiClipCallbacks.onUpdated?.call(mutedClip);
+  /// "Mute Clip": mute or unmute a MIDI clip, as one undo step.
+  Future<void> toggleMidiClipMute(MidiClipData clip) async {
+    await UndoRedoManager().execute(
+      MidiClipSnapshotCommand(
+        beforeState: clip,
+        afterState: clip.copyWith(isMuted: !clip.isMuted),
+        actionDescription: clip.isMuted ? 'Unmute Clip' : 'Mute Clip',
+        onApplyState: widget.midiClipCallbacks.onUpdated,
+      ),
+    );
   }
 
   /// Toggle loop state of a MIDI clip (controls if content can repeat when stretched)

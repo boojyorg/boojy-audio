@@ -852,6 +852,8 @@ impl AudioGraph {
                             clip: clip_arc.clone(),
                             start_time: clip_data.start_time,
                             track_id: Some(track_id),
+                            // Mute is the screen's to restore (it saves it).
+                            muted: false,
                         });
                     }
 
@@ -864,6 +866,8 @@ impl AudioGraph {
                             clip: clip_arc,
                             start_time: clip_data.start_time,
                             track_id: Some(track_id),
+                            // Mute is the screen's to restore (it saves it).
+                            muted: false,
                         });
                     }
 

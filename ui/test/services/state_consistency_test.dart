@@ -55,15 +55,33 @@ ClipData screenAudio({
   canRepeat: canRepeat,
 );
 
-MidiClipData screenMidi({int id = 10, int track = 2, double startBeats = 4}) =>
-    MidiClipData(
-      clipId: id,
-      trackId: track,
-      startTime: startBeats,
-      duration: 4,
-      name: 'Riff',
-      notes: [MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 1)],
-    );
+MidiClipData screenMidi({
+  int id = 10,
+  int track = 2,
+  double startBeats = 4,
+  bool muted = false,
+}) => MidiClipData(
+  clipId: id,
+  trackId: track,
+  startTime: startBeats,
+  duration: 4,
+  name: 'Riff',
+  isMuted: muted,
+  notes: [MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 1)],
+);
+
+/// The engine's copy of [screenMidi]'s one note (a beat is 0.5 s at 120 BPM).
+EngineMidiNote engineNote({
+  int pitch = 60,
+  int velocity = 100,
+  double start = 0,
+  double length = 0.5,
+}) => EngineMidiNote(
+  pitch: pitch,
+  velocity: velocity,
+  startSeconds: start,
+  lengthSeconds: length,
+);
 
 EngineMidiClipInfo engineMidi({
   int id = 7,
@@ -71,12 +89,16 @@ EngineMidiClipInfo engineMidi({
   double start = 2, // beat 4 at 120 BPM
   int notes = 1,
   bool plays = true,
+  bool muted = false,
+  List<EngineMidiNote>? heard,
 }) => EngineMidiClipInfo(
   clipId: id,
   trackId: track,
   startSeconds: start,
-  noteCount: notes,
+  noteCount: heard?.length ?? notes,
   plays: plays,
+  muted: muted,
+  notes: heard,
 );
 
 List<String> compare({
@@ -236,10 +258,98 @@ void main() {
       expect(problems.single, contains('start: screen 2.0s, engine 3.0s'));
       expect(problems.single, contains('notes: screen 1, engine 0'));
     });
+
+    List<String> withEngineNote(EngineMidiNote note) => compare(
+      engineMidiClips: [
+        engineMidi(heard: [note]),
+      ],
+      midiClips: [screenMidi()],
+      midiEngineIds: {10: 7},
+    );
+
+    test('the same notes agree', () {
+      expect(withEngineNote(engineNote()), isEmpty);
+    });
+
+    test('the right number of notes, but the wrong ones', () {
+      expect(
+        withEngineNote(engineNote(pitch: 62)).single,
+        contains(
+          'note: screen pitch 60 at 0.000s for 0.500s (velocity 100), '
+          'engine pitch 62 at 0.000s for 0.500s (velocity 100)',
+        ),
+      );
+      expect(withEngineNote(engineNote(start: 0.25)).single, contains('note:'));
+      expect(withEngineNote(engineNote(length: 1)).single, contains('note:'));
+      expect(
+        withEngineNote(engineNote(velocity: 64)).single,
+        contains('note:'),
+      );
+    });
+
+    test('notes in a different order are still the same notes', () {
+      final clip = screenMidi().copyWith(
+        notes: [
+          MidiNoteData(note: 64, velocity: 100, startTime: 1, duration: 1),
+          MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 1),
+        ],
+      );
+      final problems = compare(
+        engineMidiClips: [
+          engineMidi(heard: [engineNote(), engineNote(pitch: 64, start: 0.5)]),
+        ],
+        midiClips: [clip],
+        midiEngineIds: {10: 7},
+      );
+      expect(problems, isEmpty);
+    });
+
+    test('a muted clip the engine still plays (Mute Clip)', () {
+      final problems = compare(
+        engineMidiClips: [
+          engineMidi(heard: [engineNote()]),
+        ],
+        midiClips: [screenMidi(muted: true)],
+        midiEngineIds: {10: 7},
+      );
+      expect(problems.single, contains('mute: screen muted, engine not muted'));
+    });
+
+    test('a clip the engine mutes but the screen shows playing', () {
+      final problems = compare(
+        engineMidiClips: [
+          engineMidi(muted: true, heard: [engineNote()]),
+        ],
+        midiClips: [screenMidi()],
+        midiEngineIds: {10: 7},
+      );
+      expect(problems.single, contains('mute: screen not muted, engine muted'));
+    });
+
+    test('a muted clip keeps its notes in the engine', () {
+      final problems = compare(
+        engineMidiClips: [
+          engineMidi(muted: true, heard: [engineNote()]),
+        ],
+        midiClips: [screenMidi(muted: true)],
+        midiEngineIds: {10: 7},
+      );
+      expect(problems, isEmpty);
+    });
   });
 
   test('the screen and engine at different tempos', () {
     expect(compare(screenTempo: 170).single, contains('Tempo'));
+  });
+
+  test('parseMidiClipNotes reads each note, skipping broken entries', () {
+    final notes = parseMidiClipNotes('60,100,0.5,0.25;oops;64,90,1,2');
+    expect(notes.map((n) => '$n'), [
+      'pitch 60 at 0.500s for 0.250s (velocity 100)',
+      'pitch 64 at 1.000s for 2.000s (velocity 90)',
+    ]);
+    expect(parseMidiClipNotes(''), isEmpty);
+    expect(parseMidiClipNotes('Error: no clip'), isEmpty);
   });
 
   group('parseMidiClipsInfo', () {
@@ -247,6 +357,12 @@ void main() {
       final clips = parseMidiClipsInfo('7,2,2.0,2.0,4,1;8,-1,0.0,2.0,0,0');
       expect(clips.map((c) => c.plays), [true, false]);
       expect(clips.first.noteCount, 4);
+    });
+
+    test('reads the muted field; older rows count as not muted', () {
+      final clips = parseMidiClipsInfo('7,2,2.0,2.0,4,1,1;8,2,0.0,2.0,0,1,0');
+      expect(clips.map((c) => c.muted), [true, false]);
+      expect(parseMidiClipsInfo('7,2,2.0,2.0,4,1').single.muted, isFalse);
     });
 
     test('older rows without plays count as playing when on a track', () {

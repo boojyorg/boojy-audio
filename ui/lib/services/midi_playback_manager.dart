@@ -219,6 +219,10 @@ class MidiPlaybackManager extends ChangeNotifier {
         clipStartTimeSeconds,
       );
     }
+
+    // "Mute Clip". The engine keeps the notes (a reopened project reads them
+    // back from it) and plays none of them.
+    _audioEngine.setMidiClipMuted(rustClipId, muted: clip.isMuted);
   }
 
   /// Reschedule all MIDI clips with new tempo
@@ -527,6 +531,10 @@ class MidiPlaybackManager extends ChangeNotifier {
 
       _midiClips.add(_withoutRepeats(clipData));
       _dartToRustClipIds[dartClipId] = rustClipId;
+      // The engine doesn't save mute; the screen does, and gives it back.
+      if (clipData.isMuted) {
+        _audioEngine.setMidiClipMuted(rustClipId, muted: true);
+      }
     }
 
     notifyListeners();
