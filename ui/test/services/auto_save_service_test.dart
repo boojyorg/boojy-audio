@@ -237,7 +237,8 @@ void main() {
 
     List<String> backups() => [
       for (final e in dir.listSync())
-        if (e.path.endsWith('.audio')) e.path.split('/').last,
+        if (e.path.endsWith('.audio'))
+          e.path.split(Platform.pathSeparator).last,
     ]..sort();
 
     DateTime minute(int m) => DateTime(2026, 11, 12, 10, m);
