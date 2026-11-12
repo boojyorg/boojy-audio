@@ -110,6 +110,8 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **New Project starts at 120 BPM in 4/4.** It kept the tempo and time signature of whatever was
+  open before, so a fresh "Untitled" could start at 174 BPM in 3/4.
 - **Headphones that can't run at 48 kHz play at the right speed and pitch.** Boojy works at
   48 kHz. Some headsets only offer 44.1 kHz (or 16 kHz for a Bluetooth headset in call mode),
   and on those everything played about 9% slow and a semitone and a half flat. Boojy now

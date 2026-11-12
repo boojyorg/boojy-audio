@@ -27,6 +27,7 @@ import 'package:boojy_audio/widgets/shared/editors/unified_nav_bar.dart';
 import 'package:boojy_audio/widgets/timeline/timeline_models.dart';
 import 'package:boojy_audio/widgets/timeline_view.dart';
 import 'package:boojy_audio/widgets/track_mixer_panel.dart';
+import 'package:boojy_audio/widgets/transport_bar.dart';
 import 'package:boojy_audio/widgets/transport_bar/count_in_toggle_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -480,6 +481,35 @@ void main() {
       }
     },
   );
+
+  testWidgets('New Project starts at 120 BPM in 4/4, whatever came before', (
+    tester,
+  ) async {
+    final h = await DawHarness.start(tester);
+    TransportBar toolbar() => tester.widget(find.byType(TransportBar));
+    try {
+      await dropClip(h, 'loop.wav');
+      await h.daw.onTempoChanged(174);
+      await toolbar().onTimeSignatureChanged!(3, 4);
+      await h.settle();
+      expect(h.engine.getTempo(), 174);
+      expect(toolbar().beatsPerBar, 3);
+
+      h.daw.executeNewProject();
+      await h.settle();
+
+      expect(h.daw.tempo, 120, reason: 'the tempo box');
+      expect(h.engine.getTempo(), 120, reason: 'what the engine plays at');
+      expect(h.daw.projectMetadata.bpm, 120, reason: 'what Save would write');
+      expect(toolbar().beatsPerBar, 4);
+      expect(h.daw.projectMetadata.timeSignatureDenominator, 4);
+      expect(h.daw.timelineKey.currentState!.clips, isEmpty);
+      expect(h.daw.undoRedoManager.canUndo, isFalse);
+      h.expectScreenMatchesEngine(after: 'New Project');
+    } finally {
+      await h.close();
+    }
+  });
 
   testWidgets('save and reopen keep warped and duplicated tracks', (
     tester,

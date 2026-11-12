@@ -78,7 +78,6 @@ items below with throwaway tests (each fix brings its own) and ran into the 48 k
 - **Two tracks with the same name break stem export.** Both stems get the same file name, the
   second commit fails and one stem is left. Make each stem's name unique (names that only differ
   in characters the filename drops, or in case, too).
-- New Project keeps the previous tempo and time signature (U2).
 - "Mute Clip" on a MIDI clip doesn't silence it: the scheduler ignores the flag. The consistency
   checker compares note counts, not the notes or mute, so it missed this; make it compare both.
 - **Adding a VST3 while playing crackles.** Loading the plugin holds the track lock, so the
