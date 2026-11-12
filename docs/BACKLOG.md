@@ -203,6 +203,20 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
   project templates, drum presets, tempo-synced library preview, auditioning synth presets in
   the library (never built: clicking one plays nothing) and a loop library. Content before
   content-dependent onboarding.
+- **Look and feel direction (Tyr, 2026-11-12):** take inspiration from GarageBand and Logic Pro
+  (the nicest DAWs to look at) and from macOS itself: modern, clean, a little space-age. Tyr
+  scores the look 6.5 and wants 8.5, half a point past the 8 every row aims for.
+- **One component set, after v0.8** *(Tyr)*: every button, dropdown, field, knob, fader and
+  toggle drawn from about eight components with the same states (rest, hover, pressed, active,
+  disabled, focus) and sizes. Start with an inventory sheet: every variant in use today,
+  rendered side by side in both themes. Then migrate one area at a time and add a check that
+  fails when new code goes round the set. Do it after the editing model changes the toolbar.
+  Components alone are worth about a point; the rest is layout, text hierarchy, empty states
+  and motion.
+- **A traditional mixer in the bottom panel (beta candidate, not soon):** a Mixer tab beside
+  the editor with tall faders, big meters, pan and sends, for mixing and mastering. The right
+  panel stays the default and keeps the essentials; the two have different jobs, not the same
+  controls twice. No routing block (inputs, outputs, monitoring).
 - **v1.0, unscheduled:** clip normalize; pan automation end to end; swing; LUFS platform targets
   in the export dialog (the engine supports them); localisation; loop recording and take
   comping. Platform prep for web, iPad and Linux is in [PLATFORMS.md](PLATFORMS.md).
