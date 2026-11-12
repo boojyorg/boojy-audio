@@ -109,11 +109,10 @@ impl Default for ExportFormat {
 
 /// Comprehensive export options
 ///
-/// Read from JSON for stem export; a field the sender leaves out takes its
-/// default. Stem export from the dialog failed on every try because the
-/// dialog never sent `platform_target`.
+/// Read from JSON for stem export. The format and settings must be there (a
+/// misspelt one is an error, not a silent default); the range and the
+/// loudness target may be left out.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
 pub struct ExportOptions {
     /// Output format (WAV or MP3)
     pub format: ExportFormat,
@@ -129,7 +128,9 @@ pub struct ExportOptions {
     pub start_time: Option<f64>,
     /// End time for loop region export (None = project end)
     pub end_time: Option<f64>,
-    /// Platform loudness target
+    /// Platform loudness target. Optional in JSON: the export dialog doesn't
+    /// send one for stems, and every stem export failed for want of it.
+    #[serde(default)]
     pub platform_target: PlatformTarget,
 }
 
@@ -344,6 +345,14 @@ mod tests {
         assert!(options.normalize);
         assert_eq!(options.platform_target, PlatformTarget::None);
         assert_eq!((options.start_time, options.end_time), (None, None));
+    }
+
+    #[test]
+    fn options_missing_a_setting_are_refused_not_defaulted() {
+        // "sampleRate" for "sample_rate": better an error than a quiet 44.1 kHz.
+        let json = r#"{"format":{"Wav":{"bit_depth":"Int24"}},"sampleRate":48000,"normalize":true,"dither":false,"mono":false}"#;
+        let error = serde_json::from_str::<ExportOptions>(json).unwrap_err();
+        assert!(error.to_string().contains("sample_rate"), "{error}");
     }
 
     #[test]
