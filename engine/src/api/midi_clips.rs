@@ -13,20 +13,25 @@ use std::sync::Arc;
 
 /// Get all MIDI clips info
 /// Returns semicolon-separated list of clip info strings
-/// Each clip: "`clip_id,track_id,start_time,duration,note_count,plays`" (`plays` is 1 when the
-/// clip is on a track and so plays, 0 when it is only held in storage)
+/// Each clip: "`clip_id,track_id,start_time,duration,note_count,plays,muted`" (`plays` is 1 when
+/// the clip is on a track and so plays, 0 when it is only held in storage; `muted` is 1 for a
+/// clip under "Mute Clip", read from the track's copy, the one that plays)
 pub fn get_all_midi_clips_info() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
 
     // Track copies hold authoritative arrangement start times after drag/move.
     let track_manager = graph.track_manager.lock();
-    let mut on_track: std::collections::HashMap<u64, (i64, f64)> = std::collections::HashMap::new();
+    let mut on_track: std::collections::HashMap<u64, (i64, f64, bool)> =
+        std::collections::HashMap::new();
     for track in track_manager.get_all_tracks() {
         let track_lock = track.lock();
         for timeline_clip in &track_lock.midi_clips {
             let track_id = timeline_clip.track_id.unwrap_or(track_lock.id) as i64;
-            on_track.insert(timeline_clip.id, (track_id, timeline_clip.start_time));
+            on_track.insert(
+                timeline_clip.id,
+                (track_id, timeline_clip.start_time, timeline_clip.muted),
+            );
         }
     }
     drop(track_manager);
@@ -35,9 +40,9 @@ pub fn get_all_midi_clips_info() -> Result<String, String> {
 
     let midi_clips = graph.get_midi_clips().lock();
     for timeline_clip in midi_clips.iter() {
-        let (track_id_str, start_time) =
-            if let Some((track_id, track_start)) = on_track.get(&timeline_clip.id) {
-                (*track_id, *track_start)
+        let (track_id_str, start_time, muted) =
+            if let Some((track_id, track_start, muted)) = on_track.get(&timeline_clip.id) {
+                (*track_id, *track_start, *muted)
             } else {
                 let track_id = timeline_clip.track_id.unwrap_or(u64::MAX) as i64;
                 let track_id_str = if track_id == u64::MAX as i64 {
@@ -45,18 +50,19 @@ pub fn get_all_midi_clips_info() -> Result<String, String> {
                 } else {
                     track_id
                 };
-                (track_id_str, timeline_clip.start_time)
+                (track_id_str, timeline_clip.start_time, timeline_clip.muted)
             };
         let duration = timeline_clip.clip.duration_seconds();
         let plays = u8::from(on_track.contains_key(&timeline_clip.id));
         clips_info.push(format!(
-            "{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{}",
             timeline_clip.id,
             track_id_str,
             start_time,
             duration,
             note_count(&timeline_clip.clip),
-            plays
+            plays,
+            u8::from(muted)
         ));
     }
     drop(midi_clips);
@@ -75,17 +81,52 @@ pub fn get_all_midi_clips_info() -> Result<String, String> {
             let track_id = timeline_clip.track_id.unwrap_or(track_lock.id) as i64;
             let duration = timeline_clip.clip.duration_seconds();
             clips_info.push(format!(
-                "{},{},{},{},{},1",
+                "{},{},{},{},{},1,{}",
                 timeline_clip.id,
                 track_id,
                 timeline_clip.start_time,
                 duration,
-                note_count(&timeline_clip.clip)
+                note_count(&timeline_clip.clip),
+                u8::from(timeline_clip.muted)
             ));
         }
     }
 
     Ok(clips_info.join(";"))
+}
+
+/// "Mute Clip": a muted clip keeps its notes and place but plays nothing,
+/// live and in export, until it is unmuted.
+pub fn set_midi_clip_muted(clip_id: u64, muted: bool) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+
+    // The track's copy is the one that plays; the stored one is kept in step.
+    let mut found = false;
+    {
+        let track_manager = graph.track_manager.lock();
+        for track in track_manager.get_all_tracks() {
+            let mut track = track.lock();
+            for clip in track.midi_clips.iter_mut().filter(|c| c.id == clip_id) {
+                clip.muted = muted;
+                found = true;
+            }
+        }
+    }
+    {
+        let mut midi_clips = graph.get_midi_clips().lock();
+        for clip in midi_clips.iter_mut().filter(|c| c.id == clip_id) {
+            clip.muted = muted;
+            found = true;
+        }
+    }
+
+    if found {
+        let state = if muted { "muted" } else { "unmuted" };
+        Ok(format!("MIDI clip {clip_id} {state}"))
+    } else {
+        Err(format!("MIDI clip {clip_id} not found"))
+    }
 }
 
 /// Notes in a clip (note-ons; control changes such as sustain don't count).

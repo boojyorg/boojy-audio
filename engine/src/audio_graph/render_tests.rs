@@ -955,6 +955,88 @@ fn live_midi_notes_start_on_their_frame() {
     assert_eq!(found, vec![1_000 + lag, 49_000 + lag, 97_037 + lag]);
 }
 
+/// A synth track with one clip holding a note from frame 1,000 to 20,000.
+fn graph_with_a_midi_note() -> (AudioGraph, TrackId) {
+    use crate::midi::{MidiClip, MidiEvent};
+
+    let mut graph = AudioGraph::new().unwrap();
+    let track = graph
+        .track_manager
+        .lock()
+        .create_track(TrackType::Midi, "Synth".into());
+    graph.track_synth_manager.lock().create_synth(track);
+    graph.recorder.set_metronome_enabled(false);
+    let clip = MidiClip::with_events(
+        vec![
+            MidiEvent::note_on(60, 100, 1_000),
+            MidiEvent::note_off(60, 0, 20_000),
+        ],
+        TARGET_SAMPLE_RATE,
+    );
+    graph
+        .add_midi_clip_to_track(track, Arc::new(clip), 0.0, 0)
+        .unwrap();
+    graph.play().unwrap();
+    (graph, track)
+}
+
+fn mute_midi_clips(graph: &AudioGraph, track: TrackId, muted: bool) {
+    edit_track(graph, track, |t| {
+        for clip in &mut t.midi_clips {
+            clip.muted = muted;
+        }
+    });
+}
+
+#[test]
+fn a_muted_midi_clip_is_silent_live_in_the_export_and_in_its_stem() {
+    let audible = |muted: bool| -> [bool; 3] {
+        let heard = |render: &dyn Fn(&AudioGraph, TrackId) -> Vec<f32>| {
+            let (graph, track) = graph_with_a_midi_note();
+            mute_midi_clips(&graph, track, muted);
+            render(&graph, track).iter().any(|&s| s != 0.0)
+        };
+        [
+            heard(&|graph, _| render_live(graph, SR, SPLITS[1])),
+            heard(&|graph, _| graph.render_offline(1.0)),
+            heard(&|graph, track| graph.render_track_offline(track, 1.0)),
+        ]
+    };
+
+    assert_eq!(audible(false), [true; 3], "live, export, stem: unmuted");
+    assert_eq!(audible(true), [false; 3], "live, export, stem: muted");
+}
+
+#[test]
+fn a_midi_clip_plays_again_once_unmuted() {
+    let (graph, track) = graph_with_a_midi_note();
+    mute_midi_clips(&graph, track, true);
+    mute_midi_clips(&graph, track, false);
+
+    let buf = render_live(&graph, SR, SPLITS[1]);
+    assert!(buf.iter().any(|&s| s != 0.0), "the note is audible");
+}
+
+#[test]
+fn a_clip_muted_while_its_note_sounds_lets_go_of_the_note() {
+    // Its note-off still has to reach the synth, or the note hangs for good.
+    let (graph, track) = graph_with_a_midi_note();
+    let mut live = graph.realtime_render(f64::from(TARGET_SAMPLE_RATE));
+    let mut start = vec![0.0; 10_000 * 2];
+    live.render(&mut start, 2);
+    assert!(start.iter().any(|&s| s != 0.0), "the note has started");
+
+    mute_midi_clips(&graph, track, true);
+    let mut rest = vec![0.0; 2 * SR * 2];
+    live.render(&mut rest, 2);
+
+    let last_half_second = &rest[rest.len() - SR..];
+    assert!(
+        last_half_second.iter().all(|&s| s == 0.0),
+        "the note was let go at its end and has died away"
+    );
+}
+
 #[test]
 fn live_render_while_stopped_plays_held_notes_and_keeps_the_playhead() {
     // Stopped, the callback still renders the synths (the virtual piano and

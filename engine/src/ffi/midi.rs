@@ -182,6 +182,17 @@ pub extern "C" fn clear_midi_clip_ffi(clip_id: u64) -> *mut c_char {
     })
 }
 
+/// "Mute Clip": mute or unmute a MIDI clip (it keeps its notes)
+#[no_mangle]
+pub extern "C" fn set_midi_clip_muted_ffi(clip_id: u64, muted: bool) -> *mut c_char {
+    ffi_catch(std::ptr::null_mut(), || {
+        match api::set_midi_clip_muted(clip_id, muted) {
+            Ok(msg) => safe_cstring(msg).into_raw(),
+            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+        }
+    })
+}
+
 /// Quantize a MIDI clip
 #[no_mangle]
 pub extern "C" fn quantize_midi_clip_ffi(clip_id: u64, grid_division: u32) -> *mut c_char {

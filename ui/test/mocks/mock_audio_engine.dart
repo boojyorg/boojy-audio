@@ -49,6 +49,9 @@ class MockAudioEngine implements AudioEngineInterface {
   /// removed (and, after redo, that deletes target the recreated id).
   final List<({int trackId, int clipId})> removedMidiClips = [];
 
+  /// The last mute state [setMidiClipMuted] gave each clip.
+  final Map<int, bool> midiClipMuted = {};
+
   /// Clip ids passed to [clearMidiClip], in call order.
   final List<int> clearedMidiClipIds = [];
 
@@ -592,6 +595,13 @@ class MockAudioEngine implements AudioEngineInterface {
   String clearMidiClip(int clipId) {
     _record('clearMidiClip');
     clearedMidiClipIds.add(clipId);
+    return 'OK';
+  }
+
+  @override
+  String setMidiClipMuted(int clipId, {required bool muted}) {
+    _record('setMidiClipMuted');
+    midiClipMuted[clipId] = muted;
     return 'OK';
   }
 

@@ -1141,6 +1141,8 @@ impl RealtimeRender {
                                     for event in &timeline_midi_clip.clip.events {
                                         if event.timestamp_samples == frame_in_clip {
                                             match event.event_type {
+                                                crate::midi::MidiEventType::NoteOn { .. }
+                                                    if timeline_midi_clip.muted => {}
                                                 crate::midi::MidiEventType::NoteOn {
                                                     note,
                                                     velocity,

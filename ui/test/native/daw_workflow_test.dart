@@ -27,6 +27,7 @@ import 'package:boojy_audio/widgets/shared/editors/unified_nav_bar.dart';
 import 'package:boojy_audio/widgets/timeline/timeline_models.dart';
 import 'package:boojy_audio/widgets/timeline_view.dart';
 import 'package:boojy_audio/widgets/track_mixer_panel.dart';
+import 'package:boojy_audio/widgets/transport_bar.dart';
 import 'package:boojy_audio/widgets/transport_bar/count_in_toggle_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -305,6 +306,56 @@ void main() {
     }
   });
 
+  testWidgets('stems export from the dialog, one file per track, even with '
+      'two tracks of the same name', (tester) async {
+    // Found by Tyr: every stem export said "Couldn't export". The dialog left
+    // a setting out of the options the engine reads, and read the engine's
+    // list of stems as if it were a single total.
+    final h = await DawHarness.start(tester);
+    try {
+      final first = await dropClip(h, 'kick.wav');
+      final second = await dropClip(h, 'snare.wav');
+      expect(second.trackId, isNot(first.trackId));
+      h.engine.setTrackName(first.trackId, 'Drums');
+      h.engine.setTrackName(second.trackId, 'Drums');
+
+      final folder = '${h.tempDir.path}/stems';
+      var json = '';
+      await h.realTime(() async {
+        json = await h.engine.exportStems(
+          outputDir: folder,
+          baseName: 'Song',
+          trackIdsJson: jsonEncode([first.trackId, second.trackId]),
+          optionsJson: stemExportOptionsJson(
+            wav: true,
+            wavBitDepth: 16,
+            mp3Bitrate: 320,
+            sampleRate: 44100,
+            normalize: false,
+            dither: true,
+          ),
+        );
+      });
+      final result = ExportResult.fromStems(
+        json,
+        folder: folder,
+        sampleRate: 44100,
+        wav: true,
+      );
+
+      final files = Directory(folder).listSync().cast<File>();
+      expect(files.map((f) => f.uri.pathSegments.last).toList()..sort(), [
+        'Song - Drums 2.wav',
+        'Song - Drums.wav',
+      ]);
+      expect(result.format, '2 stems (WAV)');
+      expect(result.path, folder);
+      expect(result.fileSize, files.fold<int>(0, (n, f) => n + f.lengthSync()));
+    } finally {
+      await h.close();
+    }
+  });
+
   testWidgets('the app keeps running and talking to the engine during export', (
     tester,
   ) async {
@@ -480,6 +531,174 @@ void main() {
       }
     },
   );
+
+  testWidgets('New Project starts at 120 BPM in 4/4, whatever came before', (
+    tester,
+  ) async {
+    final h = await DawHarness.start(tester);
+    TransportBar toolbar() => tester.widget(find.byType(TransportBar));
+    try {
+      await dropClip(h, 'loop.wav');
+      await h.daw.onTempoChanged(174);
+      await toolbar().onTimeSignatureChanged!(3, 4);
+      await h.settle();
+      expect(h.engine.getTempo(), 174);
+      expect(toolbar().beatsPerBar, 3);
+
+      h.daw.executeNewProject();
+      await h.settle();
+
+      expect(h.daw.tempo, 120, reason: 'the tempo box');
+      expect(h.engine.getTempo(), 120, reason: 'what the engine plays at');
+      expect(h.daw.projectMetadata.bpm, 120, reason: 'what Save would write');
+      expect(toolbar().beatsPerBar, 4);
+      expect(h.daw.projectMetadata.timeSignatureDenominator, 4);
+      expect(h.daw.timelineKey.currentState!.clips, isEmpty);
+      expect(h.daw.undoRedoManager.canUndo, isFalse);
+      h.expectScreenMatchesEngine(after: 'New Project');
+    } finally {
+      await h.close();
+    }
+  });
+
+  testWidgets('Mute Clip silences a MIDI clip, in export too, and keeps its '
+      'notes', (tester) async {
+    final h = await DawHarness.start(tester);
+    try {
+      final timeline = h.daw.timelineKey.currentState!;
+      final manager = h.daw.midiPlaybackManager!;
+      // Whether an export of the project has any sound in it.
+      var exports = 0;
+      Future<bool> exportIsAudible() async {
+        final out = '${h.tempDir.path}/export${exports++}.wav';
+        await h.realTime(() => h.engine.exportWavWithOptions(outputPath: out));
+        final bytes = File(out).readAsBytesSync();
+        final data = ascii.decode(bytes.sublist(0, 200), allowInvalid: true);
+        return bytes.skip(data.indexOf('data') + 8).any((b) => b != 0);
+      }
+
+      await tester.tap(find.text('MIDI').first);
+      await h.settle();
+      h.engine.setTrackInstrument(manager.midiClips.single.trackId, 'synth');
+      h.daw.midiClipController.updateClip(
+        manager.midiClips.single.copyWith(
+          notes: [
+            MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 1),
+            MidiNoteData(note: 64, velocity: 100, startTime: 2, duration: 1),
+          ],
+        ),
+        h.daw.playheadPosition,
+      );
+      await h.settle();
+      expect(await exportIsAudible(), isTrue, reason: 'before muting');
+
+      await timeline.toggleMidiClipMute(manager.midiClips.single);
+      await h.settle();
+      expect(manager.midiClips.single.isMuted, isTrue);
+      h.expectScreenMatchesEngine(after: 'Mute Clip');
+      expect(await exportIsAudible(), isFalse, reason: 'muted');
+
+      await h.daw.undoRedoManager.undo();
+      await h.settle();
+      expect(manager.midiClips.single.isMuted, isFalse);
+      h.expectScreenMatchesEngine(after: 'undoing Mute Clip');
+      expect(await exportIsAudible(), isTrue, reason: 'mute undone');
+      await h.daw.undoRedoManager.redo();
+      await h.settle();
+      h.expectScreenMatchesEngine(after: 'redoing Mute Clip');
+
+      // Saved while muted: the notes are still there when it reopens.
+      final path = '${h.tempDir.path}/Muted.audio';
+      await h.realTime(() => h.daw.saveProjectToPath(path));
+      await h.settleUntil(() => !h.daw.isLoading, what: 'the save');
+      h.daw.executeNewProject();
+      await h.settle();
+      await h.realTime(() => h.daw.openRecentProject(path));
+      await h.settleUntil(
+        () => h.daw.midiPlaybackManager!.midiClips.length == 1,
+        what: 'the reopened project to show its clip',
+      );
+      await h.settle();
+      final reopened = h.daw.midiPlaybackManager!.midiClips.single;
+      expect(reopened.isMuted, isTrue);
+      expect(reopened.notes.map((n) => n.note), [60, 64]);
+      h.expectScreenMatchesEngine(after: 'reopening');
+      expect(await exportIsAudible(), isFalse, reason: 'reopened muted');
+
+      await timeline.toggleMidiClipMute(reopened);
+      await h.settle();
+      h.expectScreenMatchesEngine(after: 'unmuting');
+      expect(await exportIsAudible(), isTrue, reason: 'unmuted');
+    } finally {
+      await h.close();
+    }
+  });
+
+  testWidgets('a muted clip reopens muted even if the layout file is lost', (
+    tester,
+  ) async {
+    // The engine saves mute beside the notes. The screen's own file (names,
+    // colours) can be missing, as in a backup whose layout write failed.
+    final h = await DawHarness.start(tester);
+    try {
+      await tester.tap(find.text('MIDI').first);
+      await h.settle();
+      final manager = h.daw.midiPlaybackManager!;
+      h.daw.midiClipController.updateClip(
+        manager.midiClips.single.copyWith(
+          notes: [
+            MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 1),
+          ],
+        ),
+        h.daw.playheadPosition,
+      );
+      await h.daw.timelineKey.currentState!.toggleMidiClipMute(
+        manager.midiClips.single,
+      );
+      await h.settle();
+
+      final path = '${h.tempDir.path}/NoLayout.audio';
+      await h.realTime(() => h.daw.saveProjectToPath(path));
+      await h.settleUntil(() => !h.daw.isLoading, what: 'the save');
+      File('$path/ui_layout.json').deleteSync();
+      h.daw.executeNewProject();
+      await h.settle();
+      await h.realTime(() => h.daw.openRecentProject(path));
+      await h.settleUntil(
+        () => h.daw.midiPlaybackManager!.midiClips.length == 1,
+        what: 'the reopened project to show its clip',
+      );
+      await h.settle();
+
+      expect(h.daw.midiPlaybackManager!.midiClips.single.isMuted, isTrue);
+      h.expectScreenMatchesEngine(after: 'reopening without the layout file');
+    } finally {
+      await h.close();
+    }
+  });
+
+  testWidgets('a note inside another of the same pitch matches the engine', (
+    tester,
+  ) async {
+    final h = await DawHarness.start(tester);
+    try {
+      await tester.tap(find.text('MIDI').first);
+      await h.settle();
+      h.daw.midiClipController.updateClip(
+        h.daw.midiPlaybackManager!.midiClips.single.copyWith(
+          notes: [
+            MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 4),
+            MidiNoteData(note: 60, velocity: 90, startTime: 1, duration: 1),
+          ],
+        ),
+        h.daw.playheadPosition,
+      );
+      await h.settle();
+      h.expectScreenMatchesEngine(after: 'drawing a note inside another');
+    } finally {
+      await h.close();
+    }
+  });
 
   testWidgets('save and reopen keep warped and duplicated tracks', (
     tester,

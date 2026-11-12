@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/native_dialogs.dart';
 import '../../../models/clip_data.dart';
+import '../../../models/project_metadata.dart';
 import '../../../utils/audio_clips_info.dart';
 import '../../../models/project_view_state.dart';
 import '../../../services/audio_clip_engine_sync.dart';
@@ -201,6 +202,16 @@ mixin DAWProjectMixin
     // track id (colours, instruments, VST3 chips, automation) from the old
     // project would attach to the new project's tracks.
     resetPerTrackUiState();
+
+    // Tempo and time signature back to their defaults (120 BPM, 4/4), and the
+    // old project's name and dates gone. The old clips are already out of the
+    // engine; take them off the timeline before the tempo changes, or
+    // applyTempo would move them and push them back.
+    timelineKey.currentState?.clearClips();
+    const fresh = ProjectMetadata(name: 'Untitled');
+    projectMetadata = fresh; // applyTempo redraws
+    applyTempo(fresh.bpm);
+    audioEngine?.setTimeSignature(fresh.timeSignatureNumerator);
 
     // Loop back to its defaults (off, bars 1-4) for the new project
     uiLayout.resetLoop();

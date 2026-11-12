@@ -184,6 +184,9 @@ typedef _RemoveMidiClipFfi = int Function(int, int);
 
 typedef _ClearMidiClipFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64);
 typedef _ClearMidiClipFfi = ffi.Pointer<Utf8> Function(int);
+typedef _SetMidiClipMutedFfiNative =
+    ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Bool);
+typedef _SetMidiClipMutedFfi = ffi.Pointer<Utf8> Function(int, bool);
 
 // M4 types - Tracks & Mixer
 typedef _CreateTrackFfiNative =
