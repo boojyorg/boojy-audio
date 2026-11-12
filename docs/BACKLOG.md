@@ -206,6 +206,10 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
 - **Look and feel direction (Tyr, 2026-11-12):** take inspiration from GarageBand and Logic Pro
   (the nicest DAWs to look at) and from macOS itself: modern, clean, a little space-age. Tyr
   scores the look 6.5 and wants 8.5, half a point past the 8 every row aims for.
+  From GarageBand on iPad, take how few buttons it shows; leave what makes it feel like a
+  game, and its touch instruments (drum kit, guitar). A virtual piano keyboard is fine. For
+  the Piano Roll, the reference is FL Studio's workflow (how notes are drawn and edited), not
+  its look.
 - **One component set, after v0.8** *(Tyr)*: every button, dropdown, field, knob, fader and
   toggle drawn from about eight components with the same states (rest, hover, pressed, active,
   disabled, focus) and sizes. Start with an inventory sheet: every variant in use today,
