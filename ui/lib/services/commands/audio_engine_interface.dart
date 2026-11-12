@@ -166,6 +166,7 @@ abstract class AudioEngineInterface {
   int addMidiClipToTrack(int trackId, int clipId, double startTimeSeconds);
   int removeMidiClip(int trackId, int clipId);
   String clearMidiClip(int clipId);
+  String setMidiClipMuted(int clipId, {required bool muted});
   String getAllMidiClipsInfo();
   String getMidiClipNotes(int clipId);
   String sendMidiNoteOn(int note, int velocity);

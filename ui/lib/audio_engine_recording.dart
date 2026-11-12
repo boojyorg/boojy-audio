@@ -225,6 +225,19 @@ mixin _RecordingMixin on _AudioEngineBase {
     }
   }
 
+  /// "Mute Clip": a muted MIDI clip keeps its notes and plays none of them,
+  /// live and in export.
+  String setMidiClipMuted(int clipId, {required bool muted}) {
+    try {
+      final resultPtr = _setMidiClipMuted(clipId, muted);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      return 'Error: $e';
+    }
+  }
+
   // ========================================================================
   // MIDI Recording API
   // ========================================================================

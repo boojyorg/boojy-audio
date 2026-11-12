@@ -66,6 +66,7 @@ class _AudioEngineBase {
   late final _AddMidiClipToTrackFfi _addMidiClipToTrack;
   late final _RemoveMidiClipFfi _removeMidiClip;
   late final _ClearMidiClipFfi _clearMidiClip;
+  late final _SetMidiClipMutedFfi _setMidiClipMuted;
 
   // M6 functions - Per-track Synthesizer
   late final _SetTrackInstrumentFfi _setTrackInstrument;
@@ -554,6 +555,12 @@ class _AudioEngineBase {
     _clearMidiClip = _lib
         .lookup<ffi.NativeFunction<_ClearMidiClipFfiNative>>(
           'clear_midi_clip_ffi',
+        )
+        .asFunction();
+
+    _setMidiClipMuted = _lib
+        .lookup<ffi.NativeFunction<_SetMidiClipMutedFfiNative>>(
+          'set_midi_clip_muted_ffi',
         )
         .asFunction();
 

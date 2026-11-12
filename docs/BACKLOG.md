@@ -72,8 +72,6 @@ items below with throwaway tests (each fix brings its own) and ran into the 48 k
   saved as their original location and a missing file loads as silence with no error. Moving
   the project or tidying the sample folder silently loses sounds. Copy them in like clips, and
   say when one is missing.
-- "Mute Clip" on a MIDI clip doesn't silence it: the scheduler ignores the flag. The consistency
-  checker compares note counts, not the notes or mute, so it missed this; make it compare both.
 - **Adding a VST3 while playing crackles.** Loading the plugin holds the track lock, so the
   audio thread waits (log 2026-10-14: one buffer at 123%, "waited on: tracks"). Load it first,
   then take the lock only to insert it.

@@ -128,6 +128,7 @@ impl AudioGraph {
                             audio_file_id: Some(timeline_clip.id), // Simplified: use clip ID as file ID
                             midi_notes: None,
                             midi_cc: None,
+                            muted: false,
                         }
                     })
                     .collect();
@@ -161,6 +162,7 @@ impl AudioGraph {
                             } else {
                                 Some(midi_cc)
                             },
+                            muted: timeline_clip.muted,
                         }
                     })
                     .collect();
@@ -852,6 +854,7 @@ impl AudioGraph {
                             clip: clip_arc.clone(),
                             start_time: clip_data.start_time,
                             track_id: Some(track_id),
+                            muted: clip_data.muted,
                         });
                     }
 
@@ -864,6 +867,7 @@ impl AudioGraph {
                             clip: clip_arc,
                             start_time: clip_data.start_time,
                             track_id: Some(track_id),
+                            muted: clip_data.muted,
                         });
                     }
 

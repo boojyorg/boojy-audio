@@ -110,6 +110,10 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Mute Clip silences a MIDI clip.** Muting a MIDI clip from its menu did nothing: it kept
+  playing, and came out in exports too. A muted clip is now silent when you play and when you
+  export, keeps its notes, and is still muted when you reopen the project. Muting is one undo
+  step. Muting while a note sounds lets the note end, not hang.
 - **New Project starts at 120 BPM in 4/4.** It kept the tempo and time signature of whatever was
   open before, so a fresh "Untitled" could start at 174 BPM in 3/4.
 - **Stem export works.** Every stem export ended in "Couldn't export": the export window left a

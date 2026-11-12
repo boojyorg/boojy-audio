@@ -50,7 +50,7 @@ pub use midi_clips::{
     add_midi_clip_to_track_api, add_midi_clip_to_track_api as add_midi_clip_to_track,
     add_midi_note_to_clip, clear_midi_clip, create_midi_clip, get_all_midi_clips_info,
     get_midi_clip_info, get_midi_clip_notes, quantize_midi_clip, remove_midi_clip,
-    send_midi_note_off, send_midi_note_on,
+    send_midi_note_off, send_midi_note_on, set_midi_clip_muted,
 };
 pub use midi_input::{
     get_midi_input_devices, get_midi_recorder_live_events, refresh_midi_devices,

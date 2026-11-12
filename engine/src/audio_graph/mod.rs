@@ -364,6 +364,7 @@ impl AudioGraph {
             clip,
             start_time,
             track_id: None, // Will be set when added to a track
+            muted: false,
         });
 
         id
@@ -474,6 +475,7 @@ impl AudioGraph {
                 clip,
                 start_time,
                 track_id: Some(track_id),
+                muted: false,
             });
             Some(clip_id)
         } else {

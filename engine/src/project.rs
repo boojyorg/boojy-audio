@@ -142,6 +142,11 @@ pub struct ClipData {
     /// expression, etc.). `#[serde(default)]` keeps older projects loadable.
     #[serde(default)]
     pub midi_cc: Option<Vec<MidiCcData>>,
+    /// "Mute Clip" (MIDI clips). Saved here, beside the notes, so a reopened
+    /// clip is muted whether or not the screen's own file comes back with it.
+    /// Projects from before this field read as not muted.
+    #[serde(default)]
+    pub muted: bool,
 }
 
 /// MIDI note data
@@ -745,6 +750,21 @@ mod tests {
     }
 
     #[test]
+    fn clip_mute_is_saved_and_older_projects_read_as_not_muted() {
+        let old = r#"{"id":1,"start_time":0.0,"offset":0.0,"duration":4.0,"audio_file_id":null,"midi_notes":[]}"#;
+        let clip: ClipData = serde_json::from_str(old).unwrap();
+        assert!(!clip.muted);
+
+        let muted = ClipData {
+            muted: true,
+            ..clip
+        };
+        let reread: ClipData =
+            serde_json::from_str(&serde_json::to_string(&muted).unwrap()).unwrap();
+        assert!(reread.muted);
+    }
+
+    #[test]
     fn test_midi_cc_roundtrips_on_clip() {
         let clip = ClipData {
             id: 1,
@@ -758,6 +778,7 @@ mod tests {
                 value: 64,
                 time: 1.5,
             }]),
+            muted: false,
         };
 
         let json = serde_json::to_string(&clip).unwrap();

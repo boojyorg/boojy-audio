@@ -561,6 +561,145 @@ void main() {
     }
   });
 
+  testWidgets('Mute Clip silences a MIDI clip, in export too, and keeps its '
+      'notes', (tester) async {
+    final h = await DawHarness.start(tester);
+    try {
+      final timeline = h.daw.timelineKey.currentState!;
+      final manager = h.daw.midiPlaybackManager!;
+      // Whether an export of the project has any sound in it.
+      var exports = 0;
+      Future<bool> exportIsAudible() async {
+        final out = '${h.tempDir.path}/export${exports++}.wav';
+        await h.realTime(() => h.engine.exportWavWithOptions(outputPath: out));
+        final bytes = File(out).readAsBytesSync();
+        final data = ascii.decode(bytes.sublist(0, 200), allowInvalid: true);
+        return bytes.skip(data.indexOf('data') + 8).any((b) => b != 0);
+      }
+
+      await tester.tap(find.text('MIDI').first);
+      await h.settle();
+      h.engine.setTrackInstrument(manager.midiClips.single.trackId, 'synth');
+      h.daw.midiClipController.updateClip(
+        manager.midiClips.single.copyWith(
+          notes: [
+            MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 1),
+            MidiNoteData(note: 64, velocity: 100, startTime: 2, duration: 1),
+          ],
+        ),
+        h.daw.playheadPosition,
+      );
+      await h.settle();
+      expect(await exportIsAudible(), isTrue, reason: 'before muting');
+
+      await timeline.toggleMidiClipMute(manager.midiClips.single);
+      await h.settle();
+      expect(manager.midiClips.single.isMuted, isTrue);
+      h.expectScreenMatchesEngine(after: 'Mute Clip');
+      expect(await exportIsAudible(), isFalse, reason: 'muted');
+
+      await h.daw.undoRedoManager.undo();
+      await h.settle();
+      expect(manager.midiClips.single.isMuted, isFalse);
+      h.expectScreenMatchesEngine(after: 'undoing Mute Clip');
+      expect(await exportIsAudible(), isTrue, reason: 'mute undone');
+      await h.daw.undoRedoManager.redo();
+      await h.settle();
+      h.expectScreenMatchesEngine(after: 'redoing Mute Clip');
+
+      // Saved while muted: the notes are still there when it reopens.
+      final path = '${h.tempDir.path}/Muted.audio';
+      await h.realTime(() => h.daw.saveProjectToPath(path));
+      await h.settleUntil(() => !h.daw.isLoading, what: 'the save');
+      h.daw.executeNewProject();
+      await h.settle();
+      await h.realTime(() => h.daw.openRecentProject(path));
+      await h.settleUntil(
+        () => h.daw.midiPlaybackManager!.midiClips.length == 1,
+        what: 'the reopened project to show its clip',
+      );
+      await h.settle();
+      final reopened = h.daw.midiPlaybackManager!.midiClips.single;
+      expect(reopened.isMuted, isTrue);
+      expect(reopened.notes.map((n) => n.note), [60, 64]);
+      h.expectScreenMatchesEngine(after: 'reopening');
+      expect(await exportIsAudible(), isFalse, reason: 'reopened muted');
+
+      await timeline.toggleMidiClipMute(reopened);
+      await h.settle();
+      h.expectScreenMatchesEngine(after: 'unmuting');
+      expect(await exportIsAudible(), isTrue, reason: 'unmuted');
+    } finally {
+      await h.close();
+    }
+  });
+
+  testWidgets('a muted clip reopens muted even if the layout file is lost', (
+    tester,
+  ) async {
+    // The engine saves mute beside the notes. The screen's own file (names,
+    // colours) can be missing, as in a backup whose layout write failed.
+    final h = await DawHarness.start(tester);
+    try {
+      await tester.tap(find.text('MIDI').first);
+      await h.settle();
+      final manager = h.daw.midiPlaybackManager!;
+      h.daw.midiClipController.updateClip(
+        manager.midiClips.single.copyWith(
+          notes: [
+            MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 1),
+          ],
+        ),
+        h.daw.playheadPosition,
+      );
+      await h.daw.timelineKey.currentState!.toggleMidiClipMute(
+        manager.midiClips.single,
+      );
+      await h.settle();
+
+      final path = '${h.tempDir.path}/NoLayout.audio';
+      await h.realTime(() => h.daw.saveProjectToPath(path));
+      await h.settleUntil(() => !h.daw.isLoading, what: 'the save');
+      File('$path/ui_layout.json').deleteSync();
+      h.daw.executeNewProject();
+      await h.settle();
+      await h.realTime(() => h.daw.openRecentProject(path));
+      await h.settleUntil(
+        () => h.daw.midiPlaybackManager!.midiClips.length == 1,
+        what: 'the reopened project to show its clip',
+      );
+      await h.settle();
+
+      expect(h.daw.midiPlaybackManager!.midiClips.single.isMuted, isTrue);
+      h.expectScreenMatchesEngine(after: 'reopening without the layout file');
+    } finally {
+      await h.close();
+    }
+  });
+
+  testWidgets('a note inside another of the same pitch matches the engine', (
+    tester,
+  ) async {
+    final h = await DawHarness.start(tester);
+    try {
+      await tester.tap(find.text('MIDI').first);
+      await h.settle();
+      h.daw.midiClipController.updateClip(
+        h.daw.midiPlaybackManager!.midiClips.single.copyWith(
+          notes: [
+            MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 4),
+            MidiNoteData(note: 60, velocity: 90, startTime: 1, duration: 1),
+          ],
+        ),
+        h.daw.playheadPosition,
+      );
+      await h.settle();
+      h.expectScreenMatchesEngine(after: 'drawing a note inside another');
+    } finally {
+      await h.close();
+    }
+  });
+
   testWidgets('save and reopen keep warped and duplicated tracks', (
     tester,
   ) async {
