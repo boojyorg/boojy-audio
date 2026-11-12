@@ -11,21 +11,22 @@ Every area reaches a solid **8/10: good to great compared with other DAWs**. Tyr
 score together in half points, from using the app and test evidence, not from reading code.
 Sounds and effects are scored on the quality of what exists, not how many there are. First
 scores 2026-09-29, re-scored 2026-10-01 (after #151–#175), 2026-10-04 (after #177–#185),
-2026-10-12 (after #187–#197) and 2026-10-13 (after #199–#207; row 9 back to 6.5 on 2026-10-14
-after a code review reproduced three save and export bugs); re-score before each release and at
-each state-of-play review ([RELEASING.md](RELEASING.md#milestone-reviews)).
+2026-10-12 (after #187–#197), 2026-10-13 (after #199–#207; row 9 back to 6.5 on 2026-10-14
+after a code review reproduced three save and export bugs) and 2026-11-12 (after #209–#222;
+row 1 scored without fresh use of the app); re-score before each release and at each
+state-of-play review ([RELEASING.md](RELEASING.md#milestone-reviews)).
 
 | # | Area | 8/10 means… | Score | Release |
 | --- | --- | --- | --- | --- |
-| 1 | Stability & performance | An hour of normal use with no crashes or crackles; CPU in line with other DAWs | 5 | v0.7 |
+| 1 | Stability & performance | An hour of normal use with no crashes or crackles; CPU in line with other DAWs | 5.5 | v0.7 |
 | 2 | Recording | Audio and MIDI record first time, you hear yourself without noticeable delay, no take is lost | 6.5 | v0.7 |
 | 3 | Arranging & clip editing | Moving, trimming, splitting, duplicating and looping clips is quick; undo always works | 7.5 | v0.7 |
 | 4 | Piano roll & MIDI | You can draw, edit and quantise notes without fighting the tools | 5.5 | v0.8 |
 | 5 | Instruments | The built-in synth, sampler and drums sound good straight away | 3.5 | Later |
 | 6 | Mixing & automation | Levels, pan, sends and automation are clear and dependable | 5.5 | v0.8 (UX) · Later |
-| 7 | Effects & plugins | Built-in effects work and sound good; VST3s load without taking the app down | 5 | v0.8 (UX) · Later |
+| 7 | Effects & plugins | Built-in effects work and sound good; VST3s load without taking the app down | 6 | v0.8 (UX) · Later |
 | 8 | Sound library | Browsing, previewing and dragging sounds in is quick (size not scored) | 3.5 | Later |
-| 9 | Projects & export | Save, reopen, auto-save, crash recovery and export never lose work | 6.5 | v0.7 |
+| 9 | Projects & export | Save, reopen, auto-save, crash recovery and export never lose work | 7 | v0.7 |
 | 10 | First run & learnability | A beginner makes a beat in 10 minutes without a tutorial, no dead buttons | 5 | v0.8 |
 | 11 | Look & feel | Consistent and calm, fits a laptop screen, feels finished | 6.5 | v0.8 |
 | 12 | Input & accessibility | Mouse only, trackpad only, keyboard and mouse, and touch all work; text is readable | 4 | v0.8 |
@@ -37,14 +38,15 @@ each state-of-play review ([RELEASING.md](RELEASING.md#milestone-reviews)).
   row 14 gets the test net that proves it. Includes the editing model ([EDITING.md](EDITING.md))
   after a throwaway Mac + iPad prototype; if the prototype says no or the work balloons, it moves
   to v0.8.
-  **Order (2026-10-14):** the test net, loop-on recording (ignore the loop), multi-track takes,
-  the dropout counter and log, Piano Roll undo, export off the UI thread, built-in MP3, the
-  appcast fix and U4 (VST3 effects in the device chain) are done. Row 1 is the furthest
-  behind: Tyr makes a song with the log on and notes every issue. Alongside: the plugin rescan
-  → sample-rate conversion (done 2026-10-26) → the other reproduced bugs (backup, samples,
-  stems, mute, New Project) in small PRs → reproduce-or-drop the rest → the loop in the engine → the
-  recording test input (Test plan 11) → editing model prototype. The new test ideas (Test
-  plan 9–13) slot in beside the work they cover.
+  **Order (2026-11-12):** the test net, recording fixes, the dropout counter and log, export
+  off the UI thread, built-in MP3, the VST3 fixes, sample-rate conversion and the first bug
+  batch (backup, stems, New Project, Mute Clip) are done. Next: sampler and drum-pad samples
+  copied into the project (the last known bug that loses work, and what holds row 9 below 8) →
+  the VST3-add crackle → test what the export window sends (Test plan 15) → Tyr makes a song
+  with the log on and tries a 44.1 kHz device (row 1 is the lowest v0.7 row and has the least
+  evidence; Test plan 14) → reproduce-or-drop the rest → the loop in the engine → the recording
+  test input (Test plan 11) → editing model prototype. The other test ideas (Test plan 9–13)
+  slot in beside the work they cover.
 - **v0.8.0: the app feels right.** UI/UX and bugs, not new sounds: rows 4, 10, 11, 12, 14 and
   the UX half of 6 and 7. Starting list: the [2026-09-29 UI/UX review](reviews/2026_09_29_ui_ux_review.md).
   Public face (row 15) refreshed at release.
@@ -59,8 +61,8 @@ each state-of-play review ([RELEASING.md](RELEASING.md#milestone-reviews)).
 Classified by the severity rule in [RELEASING.md](RELEASING.md#severity-rule). Review findings
 (IDs U*, B* point into the [UI/UX](reviews/2026_09_29_ui_ux_review.md) and
 [feature-gap](reviews/2026_09_29_feature_gap_review.md) reports) count once a failing test
-reproduces them. A 2026-10-14 code review reproduced U4, U2, Mute Clip and the first three
-items below with throwaway tests (each fix brings its own) and ran into the 48 kHz fallback.
+reproduces them. The sampler-samples item was reproduced by a 2026-10-14 code review's
+throwaway test (its fix brings its own); the VST3 crackle is in Tyr's log.
 
 **Blocks release**
 
@@ -156,6 +158,11 @@ speed or recording.
     speakers forced to 44.1 kHz with a throwaway override. Check the pitch, the metronome
     against a phone, a take's timing, Stop, and that the log shows no "Input skipped".
 
+15. **Test what the screen sends, not what the engine can read**: stem export failed on every
+    try (2026-11-12) because the tests built their options in Rust and never saw the export
+    window's own. Stems now go through the window's code in a workflow test; do the same for
+    the WAV and MP3 paths and MP3 metadata.
+
 Dogfood a release engine (`./build.sh release`); the debug engine glitches under load. The
 [2026-09-13 review](reviews/2026_09_13_product_review.md) reliability findings (C1–C17) are row
 1's starting list; none is reproduced yet.
@@ -176,6 +183,9 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
 - **Move several track faders at once:** select tracks, drag one fader, all move by the same dB
   (as several selected clips' Volume does in the Audio Editor since 2026-10-14). Typing a clip
   volume, and Loop/Warp/BPM on several clips, are also not done.
+- **A muted MIDI clip looks like any other**, and its menu always says "Mute Clip": dim the
+  clip and say "Unmute Clip". "Loop Clip" in the same menu isn't an undo step (Mute Clip's fix
+  is the pattern).
 - **Two `showMenu` calls remain** in `track_mixer_strip.dart`; migrate to `showBoojyMenu`.
 - **Zoom spec** *(Tyr)*: anchor, modifiers, pinch, ruler drag, zoom-to-fit, independent axes.
 - **Sampler workflow** *(Tyr)*: research what it should be before touching it again.
@@ -183,7 +193,8 @@ Dogfood a release engine (`./build.sh release`); the debug engine glitches under
   Windows until it exists.
 - **Engineering gaps**: macOS CI links the committed VST3 `.a` instead of rebuilding it; no
   test loads a real VST3; `daw_screen.dart` (~2,300 lines, no more mixin duplicates) is the
-  next file to split.
+  next file to split; the "app keeps running during export" test's 250 ms limit failed once on
+  CI (395 ms on a busy runner, 2026-11-12) and passed on a re-run.
 
 ## Later
 
