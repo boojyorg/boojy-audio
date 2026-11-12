@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+
 import '../utils/logger.dart';
 import 'project_manager.dart';
 
@@ -111,43 +113,77 @@ class AutoSaveService extends ChangeNotifier {
 
   /// Create a backup for crash recovery
   Future<void> _createBackup() async {
-    if (_backupDirectory == null || _projectManager == null) return;
+    final directory = _backupDirectory;
+    final projectManager = _projectManager;
+    if (directory == null || projectManager == null) return;
 
-    try {
-      // Create timestamped backup
-      final timestamp = DateTime.now()
-          .toIso8601String()
-          .replaceAll(':', '-')
-          .split('.')[0];
-      final backupName = 'autosave_$timestamp.audio';
-      final backupPath = '$_backupDirectory/$backupName';
-
-      // Save backup. Never repoint the project at the backup file — doing so
-      // would silently redirect every subsequent save into the backup folder.
-      final uiLayout = _getUILayout?.call();
-      await _projectManager!.saveProjectToPath(
-        backupPath,
-        uiLayout,
+    // Never repoint the project at the backup file — doing so would silently
+    // redirect every subsequent save into the backup folder.
+    await writeBackup(
+      directory,
+      (path) => projectManager.saveProjectToPath(
+        path,
+        _getUILayout?.call(),
         updateCurrentPath: false,
-      );
+      ),
+    );
+  }
 
-      // Create/update crash recovery marker
-      await _updateCrashRecoveryMarker(backupPath);
+  /// Save a timestamped backup into [directory] with [save], and point crash
+  /// recovery at it. Returns whether the backup worked.
+  ///
+  /// A backup that fails changes nothing: the marker keeps pointing at the
+  /// last backup that worked (so recovery still offers it), older backups are
+  /// kept, and whatever the failed save left behind is removed.
+  @visibleForTesting
+  Future<bool> writeBackup(
+    String directory,
+    Future<ProjectResult> Function(String path) save, {
+    DateTime? now,
+  }) async {
+    final timestamp = (now ?? DateTime.now())
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .split('.')[0];
+    final backupPath = '$directory/autosave_$timestamp.audio';
 
-      // Rotate old backups
-      await _rotateBackups();
+    // Assume it was there until we know otherwise: a folder that existed
+    // before this save is never ours to delete.
+    var existedBefore = true;
+    try {
+      existedBefore = await directoryExists(backupPath);
+      final result = await save(backupPath);
+      if (result.success) {
+        await _updateCrashRecoveryMarker(directory, backupPath);
+        await _rotateBackups(directory);
+        return true;
+      }
+      Log.e('AutoSaveService: Backup failed: ${result.message}');
     } catch (e) {
       Log.e('AutoSaveService: Failed to create backup: $e');
     }
+
+    // Failed, whether the save said so or threw: take away what it left, or
+    // the half-written folder would count as the newest backup and push a
+    // good one out at the next rotation.
+    try {
+      if (!existedBefore && await directoryExists(backupPath)) {
+        await deleteDirectory(backupPath);
+      }
+    } catch (e) {
+      Log.e('AutoSaveService: Failed to remove a failed backup: $e');
+    }
+    return false;
   }
 
   /// Update crash recovery marker file
-  Future<void> _updateCrashRecoveryMarker(String latestBackupPath) async {
-    if (_backupDirectory == null) return;
-
+  Future<void> _updateCrashRecoveryMarker(
+    String directory,
+    String latestBackupPath,
+  ) async {
     try {
       await writeFileAsString(
-        '$_backupDirectory/crash_recovery.marker',
+        '$directory/crash_recovery.marker',
         latestBackupPath,
       );
     } catch (e) {
@@ -156,11 +192,9 @@ class AutoSaveService extends ChangeNotifier {
   }
 
   /// Rotate backups, keeping only the most recent ones
-  Future<void> _rotateBackups() async {
-    if (_backupDirectory == null) return;
-
+  Future<void> _rotateBackups(String directory) async {
     try {
-      final entries = await listDirectory(_backupDirectory!);
+      final entries = await listDirectory(directory);
 
       // Find auto-save folders
       final backups = entries

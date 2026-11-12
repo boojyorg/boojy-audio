@@ -68,17 +68,10 @@ items below with throwaway tests (each fix brings its own) and ran into the 48 k
 
 **Fix before release**
 
-- **A failed backup hides the last good one.** Auto-save ignores whether the backup save worked:
-  it points the crash-recovery marker at the missing folder anyway, so recovery stops offering
-  the previous backup. Only move the marker after a backup that worked.
 - **Sampler and drum-pad samples aren't copied into the project.** Timeline audio is; these are
   saved as their original location and a missing file loads as silence with no error. Moving
   the project or tidying the sample folder silently loses sounds. Copy them in like clips, and
   say when one is missing.
-- **Two tracks with the same name break stem export.** Both stems get the same file name, the
-  second commit fails and one stem is left. Make each stem's name unique (names that only differ
-  in characters the filename drops, or in case, too).
-- New Project keeps the previous tempo and time signature (U2).
 - **Adding a VST3 while playing crackles.** Loading the plugin holds the track lock, so the
   audio thread waits (log 2026-10-14: one buffer at 123%, "waited on: tracks"). Load it first,
   then take the lock only to insert it.
