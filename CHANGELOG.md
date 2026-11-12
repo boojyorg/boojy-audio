@@ -110,6 +110,13 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Stem export works.** Every stem export ended in "Couldn't export": the export window left a
+  setting out of what it sent the engine, and misread the engine's reply. Stems now export, and
+  the window reports how many were written.
+- **Two tracks with the same name both export as stems.** Both stems were given the same file
+  name, so one replaced the other. The second now gets a number: "Song - Drums.wav" and "Song -
+  Drums 2.wav". Names that only differ in capitals, or in characters a file name can't hold
+  ("Lead/Synth" and "Lead_Synth"), count as the same too.
 - **A failed backup no longer hides the last good one.** Boojy keeps a backup every five minutes
   for crash recovery. When one failed (a full disk, say), Boojy still pointed recovery at it, so
   after a crash there was nothing to offer, even with an older backup sitting there. Recovery now

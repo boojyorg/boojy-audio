@@ -307,6 +307,58 @@ class ExportOptions {
 }
 
 /// Export result from FFI
+/// The options for a stem export, as JSON the engine reads (its
+/// `ExportOptions`): the format, then the settings shared with a normal
+/// export. Stems are never mixed down to mono.
+String stemExportOptionsJson({
+  required bool wav,
+  required int wavBitDepth,
+  required int mp3Bitrate,
+  required int sampleRate,
+  required bool normalize,
+  required bool dither,
+}) => jsonEncode({
+  'format': wav
+      ? {
+          'Wav': {'bit_depth': _wavBitDepthString(wavBitDepth)},
+        }
+      : {
+          'Mp3': {'bitrate': _mp3BitrateString(mp3Bitrate)},
+        },
+  'sample_rate': sampleRate,
+  'normalize': normalize,
+  'dither': dither,
+  'mono': false,
+});
+
+// The engine's names for the WAV bit depths and MP3 bitrates.
+
+String _wavBitDepthString(int bitDepth) {
+  switch (bitDepth) {
+    case 16:
+      return 'Int16';
+    case 24:
+      return 'Int24';
+    case 32:
+      return 'Float32';
+    default:
+      return 'Int16';
+  }
+}
+
+String _mp3BitrateString(int bitrate) {
+  switch (bitrate) {
+    case 128:
+      return 'Kbps128';
+    case 192:
+      return 'Kbps192';
+    case 320:
+      return 'Kbps320';
+    default:
+      return 'Kbps320';
+  }
+}
+
 class ExportResult {
   final String path;
   final int fileSize;
@@ -331,6 +383,24 @@ class ExportResult {
       // The engine's name for it; reading 'format' threw on every export,
       // so a written file was reported as "Couldn't export".
       format: json['format_description'] as String,
+    );
+  }
+
+  /// A stem export, from the engine's reply: a JSON list with one entry per
+  /// stem file. Shown as one result for the folder they went into.
+  factory ExportResult.fromStems(
+    String json, {
+    required String folder,
+    required int sampleRate,
+    required bool wav,
+  }) {
+    final stems = (jsonDecode(json) as List).cast<Map<String, dynamic>>();
+    return ExportResult(
+      path: folder,
+      fileSize: stems.fold(0, (sum, stem) => sum + (stem['file_size'] as int)),
+      duration: 0,
+      sampleRate: sampleRate,
+      format: '${stems.length} stems (${wav ? 'WAV' : 'MP3'})',
     );
   }
 
@@ -494,33 +564,6 @@ class _ExportDialogState extends State<ExportDialog> {
   /// Dither automatically when the output is 16-bit PCM (WAV 16-bit).
   bool get _ditherOn => _options.exportWav && _options.wavBitDepth == 16;
 
-  String _wavBitDepthString(int bitDepth) {
-    switch (bitDepth) {
-      case 16:
-        return 'Int16';
-      case 24:
-        return 'Int24';
-      case 32:
-        return 'Float32';
-      default:
-        return 'Int16';
-    }
-  }
-
-  // Helper to convert bitrate int to Rust enum string
-  String _mp3BitrateString(int bitrate) {
-    switch (bitrate) {
-      case 128:
-        return 'Kbps128';
-      case 192:
-        return 'Kbps192';
-      case 320:
-        return 'Kbps320';
-      default:
-        return 'Kbps320';
-    }
-  }
-
   /// Show progress dialog and perform the actual export
   Future<List<ExportResult>> _performExportWithProgress({
     required String baseName,
@@ -550,23 +593,14 @@ class _ExportDialogState extends State<ExportDialog> {
                   .map((t) => t.id)
                   .toList();
 
-              final stemOptionsJson = jsonEncode({
-                'format': _options.exportWav
-                    ? {
-                        'Wav': {
-                          'bit_depth': _wavBitDepthString(_options.wavBitDepth),
-                        },
-                      }
-                    : {
-                        'Mp3': {
-                          'bitrate': _mp3BitrateString(_options.mp3Bitrate),
-                        },
-                      },
-                'sample_rate': _options.sampleRate,
-                'normalize': _options.normalize,
-                'dither': _ditherOn,
-                'mono': false,
-              });
+              final stemOptionsJson = stemExportOptionsJson(
+                wav: _options.exportWav,
+                wavBitDepth: _options.wavBitDepth,
+                mp3Bitrate: _options.mp3Bitrate,
+                sampleRate: _options.sampleRate,
+                normalize: _options.normalize,
+                dither: _ditherOn,
+              );
 
               final stemResultJson = await widget.audioEngine.exportStems(
                 outputDir: folderPath,
@@ -575,16 +609,12 @@ class _ExportDialogState extends State<ExportDialog> {
                 optionsJson: stemOptionsJson,
               );
 
-              final stemResult =
-                  jsonDecode(stemResultJson) as Map<String, dynamic>;
               results.add(
-                ExportResult(
-                  path: folderPath,
-                  fileSize: stemResult['total_size'] as int,
-                  duration: 0,
+                ExportResult.fromStems(
+                  stemResultJson,
+                  folder: folderPath,
                   sampleRate: _options.sampleRate,
-                  format:
-                      '${stemResult['count']} stems (${_options.exportWav ? 'WAV' : 'MP3'})',
+                  wav: _options.exportWav,
                 ),
               );
             }
