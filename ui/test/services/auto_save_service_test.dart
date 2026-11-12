@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:boojy_audio/services/auto_save_service.dart';
+import 'package:boojy_audio/services/project_manager.dart';
 
 void main() {
   group('BackupInfo', () {
@@ -202,6 +205,103 @@ void main() {
         service.stop();
         expect(service.isRunning, false);
       });
+    });
+  });
+
+  group('backups', () {
+    late Directory dir;
+    final service = AutoSaveService();
+
+    setUp(() => dir = Directory.systemTemp.createTempSync('boojy_backups_'));
+    tearDown(() => dir.deleteSync(recursive: true));
+
+    // A save that works leaves a project folder, as the engine does.
+    Future<ProjectResult> works(String path) async {
+      Directory(path).createSync();
+      return ProjectResult(success: true, message: 'Saved', path: path);
+    }
+
+    // A save that fails part-way leaves a half-written folder behind.
+    Future<ProjectResult> fails(String path) async {
+      Directory(path).createSync();
+      return const ProjectResult(success: false, message: 'Error: disk full');
+    }
+
+    /// The backup crash recovery would offer, or null when there is none.
+    String? offered() {
+      final marker = File('${dir.path}/crash_recovery.marker');
+      if (!marker.existsSync()) return null;
+      final path = marker.readAsStringSync().trim();
+      return Directory(path).existsSync() ? path : null;
+    }
+
+    List<String> backups() => [
+      for (final e in dir.listSync())
+        if (e.path.endsWith('.audio')) e.path.split('/').last,
+    ]..sort();
+
+    DateTime minute(int m) => DateTime(2026, 11, 12, 10, m);
+
+    test('a backup that worked is the one recovery offers', () async {
+      expect(await service.writeBackup(dir.path, works, now: minute(0)), true);
+
+      expect(offered(), '${dir.path}/autosave_2026-11-12T10-00-00.audio');
+    });
+
+    test('a failed backup still offers the last one that worked', () async {
+      await service.writeBackup(dir.path, works, now: minute(0));
+
+      expect(await service.writeBackup(dir.path, fails, now: minute(5)), false);
+
+      expect(offered(), '${dir.path}/autosave_2026-11-12T10-00-00.audio');
+    });
+
+    test('a failed backup leaves nothing half-written behind', () async {
+      await service.writeBackup(dir.path, works, now: minute(0));
+      await service.writeBackup(dir.path, fails, now: minute(5));
+
+      expect(backups(), ['autosave_2026-11-12T10-00-00.audio']);
+    });
+
+    test('failed backups never push out the ones that worked', () async {
+      for (var m = 0; m < 3; m++) {
+        await service.writeBackup(dir.path, works, now: minute(m));
+      }
+      for (var m = 3; m < 8; m++) {
+        await service.writeBackup(dir.path, fails, now: minute(m));
+      }
+
+      expect(backups(), [
+        'autosave_2026-11-12T10-00-00.audio',
+        'autosave_2026-11-12T10-01-00.audio',
+        'autosave_2026-11-12T10-02-00.audio',
+      ]);
+      expect(offered(), '${dir.path}/autosave_2026-11-12T10-02-00.audio');
+    });
+
+    test('a save that throws counts as a failed backup', () async {
+      await service.writeBackup(dir.path, works, now: minute(0));
+
+      final worked = await service.writeBackup(
+        dir.path,
+        (_) => throw const FileSystemException('gone'),
+        now: minute(5),
+      );
+
+      expect(worked, false);
+      expect(offered(), '${dir.path}/autosave_2026-11-12T10-00-00.audio');
+    });
+
+    test('only the newest three backups are kept', () async {
+      for (var m = 0; m < 5; m++) {
+        await service.writeBackup(dir.path, works, now: minute(m));
+      }
+
+      expect(backups(), [
+        'autosave_2026-11-12T10-02-00.audio',
+        'autosave_2026-11-12T10-03-00.audio',
+        'autosave_2026-11-12T10-04-00.audio',
+      ]);
     });
   });
 
