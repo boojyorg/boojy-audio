@@ -319,29 +319,24 @@ void main() {
       h.engine.setTrackName(first.trackId, 'Drums');
       h.engine.setTrackName(second.trackId, 'Drums');
 
+      // Through the export window's own code (`runExport`), with its
+      // settings as they are when Stems is switched on.
       final folder = '${h.tempDir.path}/stems';
-      var json = '';
+      var results = <ExportResult>[];
       await h.realTime(() async {
-        json = await h.engine.exportStems(
-          outputDir: folder,
-          baseName: 'Song',
-          trackIdsJson: jsonEncode([first.trackId, second.trackId]),
-          optionsJson: stemExportOptionsJson(
-            wav: true,
-            wavBitDepth: 16,
-            mp3Bitrate: 320,
-            sampleRate: 44100,
-            normalize: false,
-            dither: true,
+        results = await runExport(
+          h.engine,
+          ExportOptions(
+            exportMp3: false,
+            exportWav: true,
+            exportStems: true,
+            stemTracks: stemTracksFromEngine(h.engine),
           ),
+          baseName: 'Song',
+          folderPath: folder,
         );
       });
-      final result = ExportResult.fromStems(
-        json,
-        folder: folder,
-        sampleRate: 44100,
-        wav: true,
-      );
+      final result = results.single;
 
       final files = Directory(folder).listSync().cast<File>();
       expect(files.map((f) => f.uri.pathSegments.last).toList()..sort(), [

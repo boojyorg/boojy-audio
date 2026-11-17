@@ -41,11 +41,11 @@ state-of-play review ([RELEASING.md](RELEASING.md#milestone-reviews)).
   **Order (2026-11-12):** the test net, recording fixes, the dropout counter and log, export
   off the UI thread, built-in MP3, the VST3 fixes, sample-rate conversion, the first bug
   batch (backup, stems, New Project, Mute Clip), sampler and drum-pad samples copied into
-  the project and the VST3-add crackle are done. Next: test what the export window sends
-  (Test plan 15) → Tyr makes a song with the log on and tries a 44.1 kHz device (row 1 is
-  the lowest v0.7 row and has the least evidence; Test plan 14) → reproduce-or-drop the rest → the loop in the engine → the recording
-  test input (Test plan 11) → editing model prototype. The other test ideas (Test plan 9–13)
-  slot in beside the work they cover.
+  the project, the VST3-add crackle and the export window's tests (Test plan 15) are done.
+  Next: Tyr makes a song with the log on and tries a 44.1 kHz device (row 1 is the lowest
+  v0.7 row and has the least evidence; Test plan 14) → reproduce-or-drop the rest → the loop
+  in the engine → the recording test input (Test plan 11) → editing model prototype. The
+  other test ideas (Test plan 9–13) slot in beside the work they cover.
 - **v0.8.0: the app feels right.** UI/UX and bugs, not new sounds: rows 4, 10, 11, 12, 14 and
   the UX half of 6 and 7. Starting list: the [2026-09-29 UI/UX review](reviews/2026_09_29_ui_ux_review.md).
   Public face (row 15) refreshed at release.
@@ -79,12 +79,8 @@ reproduces them.
     different files with one name resolve to the first).
   - A missing sample is only named in the notice at open: the empty pad doesn't say which
     file it wants, and there is no relink.
-  - The VST3 host's last-error text (`g_last_error` in `vst3_host.cpp`) is one shared string
-    written from the audio thread and the UI thread with nothing guarding it. Loading a
-    plugin now overlaps audio processing, so a failed load at the same instant as a failed
-    process call could corrupt it. Make it per-thread (`thread_local`); needs the C++ library
-    rebuilt. From the PR #225 review, same source as the next item, neither run:
-    Duplicate Track may leave two effect ids sharing one VST3 instance.
+  - Duplicate Track may leave two effect ids sharing one VST3 instance (from the PR #225
+    review, not run).
   - The engine's own tests crash about one run in seven on a Mac with Serum installed
     (`libc++abi: … std::range_error: wstring_convert: to_bytes error`, seen twice on
     2026-11-17): the C++ host throws while turning a plugin's text into UTF-8 and nothing
@@ -170,10 +166,12 @@ speed or recording.
     speakers forced to 44.1 kHz with a throwaway override. Check the pitch, the metronome
     against a phone, a take's timing, Stop, and that the log shows no "Input skipped".
 
-15. **Test what the screen sends, not what the engine can read**: stem export failed on every
-    try (2026-11-12) because the tests built their options in Rust and never saw the export
-    window's own. Stems now go through the window's code in a workflow test; do the same for
-    the WAV and MP3 paths and MP3 metadata.
+15. **Test what the screen sends, not what the engine can read** (done 2026-11-17): stem
+    export failed on every try (2026-11-12) because the tests built their options in Rust and
+    never saw the export window's own. The window's export step is now one function
+    (`runExport`) and `ui/test/native/export_window_test.dart` runs it against the real engine
+    for WAV, MP3, MP3 title and artist, both formats and stems, opening each file it wrote.
+    The same gap can exist wherever a dialog builds an engine call itself.
 
 Dogfood a release engine (`./build.sh release`); the debug engine glitches under load. The
 [2026-09-13 review](reviews/2026_09_13_product_review.md) reliability findings (C1–C17) are row

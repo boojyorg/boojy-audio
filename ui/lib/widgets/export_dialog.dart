@@ -299,6 +299,9 @@ class ExportOptions {
     this.artist,
   });
 
+  /// Dither automatically when the output is 16-bit PCM (WAV 16-bit).
+  bool get ditherOn => exportWav && wavBitDepth == 16;
+
   /// Get metadata as JSON for FFI
   String get metadataJson => jsonEncode({
     if (title != null && title!.isNotEmpty) 'title': title,
@@ -357,6 +360,109 @@ String _mp3BitrateString(int bitrate) {
     default:
       return 'Kbps320';
   }
+}
+
+/// The tracks the export window offers as stems, all ticked, as the engine
+/// lists them.
+List<StemTrackInfo> stemTracksFromEngine(AudioEngine engine) {
+  final List<dynamic> tracks = jsonDecode(engine.getTracksForStems());
+  return tracks
+      .map((t) => StemTrackInfo.fromJson(t as Map<String, dynamic>))
+      .toList();
+}
+
+/// Run the export the window's [options] ask for and return what was written:
+/// stems into [folderPath] (named from [baseName]) when stems are on, and the
+/// MP3 and/or WAV at [filePath] with the right extension.
+///
+/// This is everything the export window sends to the engine, kept apart from
+/// the dialogs so tests can run it against the real engine. Stem export once
+/// failed on every try because the tests built their own engine calls and
+/// never ran this code.
+Future<List<ExportResult>> runExport(
+  AudioEngine engine,
+  ExportOptions options, {
+  required String baseName,
+  String? folderPath,
+  String? filePath,
+}) async {
+  final results = <ExportResult>[];
+
+  // Stem export
+  if (options.exportStems && folderPath != null) {
+    final selectedTrackIds = options.stemTracks
+        .where((t) => t.selected)
+        .map((t) => t.id)
+        .toList();
+
+    final stemResultJson = await engine.exportStems(
+      outputDir: folderPath,
+      baseName: baseName,
+      trackIdsJson: jsonEncode(selectedTrackIds),
+      optionsJson: stemExportOptionsJson(
+        wav: options.exportWav,
+        wavBitDepth: options.wavBitDepth,
+        mp3Bitrate: options.mp3Bitrate,
+        sampleRate: options.sampleRate,
+        normalize: options.normalize,
+        dither: options.ditherOn,
+      ),
+    );
+
+    results.add(
+      ExportResult.fromStems(
+        stemResultJson,
+        folder: folderPath,
+        sampleRate: options.sampleRate,
+        wav: options.exportWav,
+      ),
+    );
+  }
+
+  // Regular file export
+  if (filePath != null) {
+    // Export MP3
+    if (options.exportMp3) {
+      final mp3Path = filePath.endsWith('.mp3')
+          ? filePath
+          : '${filePath.replaceAll(RegExp(r'\.[^.]+$'), '')}.mp3';
+
+      final resultJson = await engine.exportMp3WithOptions(
+        outputPath: mp3Path,
+        bitrate: options.mp3Bitrate,
+        sampleRate: options.sampleRate,
+        normalize: options.normalize,
+      );
+      results.add(ExportResult.fromJson(jsonDecode(resultJson)));
+
+      // Write metadata if we have any
+      if (options.title != null || options.artist != null) {
+        try {
+          engine.writeMp3Metadata(mp3Path, options.metadataJson);
+        } catch (e) {
+          Log.e('ExportDialog: Error writing MP3 metadata: $e');
+        }
+      }
+    }
+
+    // Export WAV
+    if (options.exportWav) {
+      final wavPath = filePath.endsWith('.wav')
+          ? filePath
+          : '${filePath.replaceAll(RegExp(r'\.[^.]+$'), '')}.wav';
+
+      final resultJson = await engine.exportWavWithOptions(
+        outputPath: wavPath,
+        bitDepth: options.wavBitDepth,
+        sampleRate: options.sampleRate,
+        normalize: options.normalize,
+        dither: options.ditherOn,
+      );
+      results.add(ExportResult.fromJson(jsonDecode(resultJson)));
+    }
+  }
+
+  return results;
 }
 
 class ExportResult {
@@ -539,13 +645,9 @@ class _ExportDialogState extends State<ExportDialog> {
     setState(() => _loadingTracks = true);
 
     try {
-      final tracksJson = widget.audioEngine.getTracksForStems();
-      final List<dynamic> tracksList = jsonDecode(tracksJson);
-
+      final tracks = stemTracksFromEngine(widget.audioEngine);
       setState(() {
-        _options.stemTracks = tracksList
-            .map((t) => StemTrackInfo.fromJson(t as Map<String, dynamic>))
-            .toList();
+        _options.stemTracks = tracks;
         _loadingTracks = false;
       });
     } catch (e) {
@@ -559,10 +661,6 @@ class _ExportDialogState extends State<ExportDialog> {
     _artistController.dispose();
     super.dispose();
   }
-
-  // Helper to convert bit depth int to Rust enum string
-  /// Dither automatically when the output is 16-bit PCM (WAV 16-bit).
-  bool get _ditherOn => _options.exportWav && _options.wavBitDepth == 16;
 
   /// Show progress dialog and perform the actual export
   Future<List<ExportResult>> _performExportWithProgress({
@@ -586,90 +684,15 @@ class _ExportDialogState extends State<ExportDialog> {
         audioEngine: widget.audioEngine,
         exportTask: () async {
           try {
-            // Stem export
-            if (_options.exportStems && folderPath != null) {
-              final selectedTrackIds = _options.stemTracks
-                  .where((t) => t.selected)
-                  .map((t) => t.id)
-                  .toList();
-
-              final stemOptionsJson = stemExportOptionsJson(
-                wav: _options.exportWav,
-                wavBitDepth: _options.wavBitDepth,
-                mp3Bitrate: _options.mp3Bitrate,
-                sampleRate: _options.sampleRate,
-                normalize: _options.normalize,
-                dither: _ditherOn,
-              );
-
-              final stemResultJson = await widget.audioEngine.exportStems(
-                outputDir: folderPath,
+            results.addAll(
+              await runExport(
+                widget.audioEngine,
+                _options,
                 baseName: baseName,
-                trackIdsJson: jsonEncode(selectedTrackIds),
-                optionsJson: stemOptionsJson,
-              );
-
-              results.add(
-                ExportResult.fromStems(
-                  stemResultJson,
-                  folder: folderPath,
-                  sampleRate: _options.sampleRate,
-                  wav: _options.exportWav,
-                ),
-              );
-            }
-
-            // Regular file export
-            if (filePath != null) {
-              // Export MP3
-              if (_options.exportMp3) {
-                final mp3Path = filePath.endsWith('.mp3')
-                    ? filePath
-                    : '${filePath.replaceAll(RegExp(r'\.[^.]+$'), '')}.mp3';
-
-                final resultJson = await widget.audioEngine
-                    .exportMp3WithOptions(
-                      outputPath: mp3Path,
-                      bitrate: _options.mp3Bitrate,
-                      sampleRate: _options.sampleRate,
-                      normalize: _options.normalize,
-                    );
-
-                final parsed = jsonDecode(resultJson);
-                results.add(ExportResult.fromJson(parsed));
-
-                // Write metadata if we have any
-                if (_options.title != null || _options.artist != null) {
-                  try {
-                    widget.audioEngine.writeMp3Metadata(
-                      mp3Path,
-                      _options.metadataJson,
-                    );
-                  } catch (e) {
-                    Log.e('ExportDialog: Error writing MP3 metadata: $e');
-                  }
-                }
-              }
-
-              // Export WAV
-              if (_options.exportWav) {
-                final wavPath = filePath.endsWith('.wav')
-                    ? filePath
-                    : '${filePath.replaceAll(RegExp(r'\.[^.]+$'), '')}.wav';
-
-                final resultJson = await widget.audioEngine
-                    .exportWavWithOptions(
-                      outputPath: wavPath,
-                      bitDepth: _options.wavBitDepth,
-                      sampleRate: _options.sampleRate,
-                      normalize: _options.normalize,
-                      dither: _ditherOn,
-                    );
-
-                final parsed = jsonDecode(resultJson);
-                results.add(ExportResult.fromJson(parsed));
-              }
-            }
+                folderPath: folderPath,
+                filePath: filePath,
+              ),
+            );
 
             // Close the progress window before the success window opens on
             // top (it was left underneath, saying "Export Complete" again
