@@ -1357,16 +1357,27 @@ impl EffectManager {
         self.effects.get(&id).cloned()
     }
 
+    /// How many effects exist, on any track.
+    pub fn effect_count(&self) -> usize {
+        self.effects.len()
+    }
+
     /// Remove an effect
     pub fn remove_effect(&mut self, id: EffectId) -> bool {
-        if self.effects.remove(&id).is_some() {
-            self.bypass_states.remove(&id);
-            self.peak_levels.remove(&id);
-            eprintln!("🗑️ [EffectManager] Removed effect {id}");
-            true
-        } else {
-            false
-        }
+        self.take_effect(id).is_some()
+    }
+
+    /// Remove an effect and hand it back, so the caller chooses when it is
+    /// destroyed. Shutting a VST3 plugin down is slow; a caller that holds
+    /// this manager's lock (which the audio thread takes every buffer) keeps
+    /// the returned effect and drops it after releasing the lock.
+    #[must_use = "drop the effect after releasing the effect manager lock"]
+    pub fn take_effect(&mut self, id: EffectId) -> Option<Arc<Mutex<EffectType>>> {
+        let effect = self.effects.remove(&id)?;
+        self.bypass_states.remove(&id);
+        self.peak_levels.remove(&id);
+        eprintln!("🗑️ [EffectManager] Removed effect {id}");
+        Some(effect)
     }
 
     /// Set bypass state for an effect

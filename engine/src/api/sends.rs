@@ -290,6 +290,10 @@ pub fn remove_send(source_track_id: TrackId, return_track_id: TrackId) -> Result
 pub fn remove_return(return_track_id: TrackId) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
+    // Declared before the locks so it is dropped after them: the removed
+    // effects (a VST3 shuts down slowly) must not be destroyed while the
+    // audio thread is kept waiting.
+    let mut removed_effects = Vec::new();
     let mut track_manager = graph.track_manager.lock();
     let mut effect_manager = graph.effect_manager.lock();
 
@@ -302,7 +306,7 @@ pub fn remove_return(return_track_id: TrackId) -> Result<String, String> {
 
     let effect_ids: Vec<u64> = return_arc.lock().fx_chain.clone();
     for effect_id in effect_ids {
-        effect_manager.remove_effect(effect_id);
+        removed_effects.extend(effect_manager.take_effect(effect_id));
     }
 
     for track_arc in track_manager.get_all_tracks() {

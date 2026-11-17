@@ -240,15 +240,17 @@ pub fn delete_track(track_id: TrackId) -> Result<String, String> {
         }
     };
 
-    // Remove all VST3 effects in the track's fx_chain
-    if !fx_chain.is_empty() {
-        { let mut effect_manager = graph.effect_manager.lock();
-            for effect_id in &fx_chain {
-                effect_manager.remove_effect(*effect_id);
-                eprintln!("🧹 [API] Removed effect {effect_id} from deleted track {track_id}");
-            }
-        }
-    }
+    // Remove the track's effects. They are taken out under the lock and
+    // destroyed after it: shutting a VST3 plugin down while holding the
+    // effect lock makes the audio thread wait.
+    let removed_effects: Vec<_> = {
+        let mut effect_manager = graph.effect_manager.lock();
+        fx_chain
+            .iter()
+            .filter_map(|effect_id| effect_manager.take_effect(*effect_id))
+            .collect()
+    };
+    drop(removed_effects);
 
     let removed = graph.track_manager.lock().remove_track(track_id);
     // Deleting the last armed audio track closes the input.

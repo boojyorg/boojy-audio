@@ -13,34 +13,49 @@ use crate::track::TrackId;
 pub fn add_effect_to_track(track_id: TrackId, effect_type_str: &str) -> Result<u64, String> {
     use crate::effects::{Chorus, Compressor, Delay, EffectType, Limiter, ParametricEQ, Reverb};
 
+    let effect_id = add_loaded_effect_to_track(track_id, || {
+        Ok(match effect_type_str.to_lowercase().as_str() {
+            "eq" => EffectType::EQ(ParametricEQ::new()),
+            "compressor" => EffectType::Compressor(Compressor::new()),
+            "reverb" => EffectType::Reverb(Reverb::new()),
+            "delay" => EffectType::Delay(Delay::new()),
+            "chorus" => EffectType::Chorus(Chorus::new()),
+            "limiter" => EffectType::Limiter(Limiter::new()),
+            _ => return Err(format!("Unknown effect type: {effect_type_str}")),
+        })
+    })?;
+    eprintln!("🎛️ [API] Added {effect_type_str} effect (ID: {effect_id}) to track {track_id}");
+    Ok(effect_id)
+}
+
+/// Build an effect with `load`, then put it on the end of a track's FX chain.
+///
+/// `load` runs with no engine lock held. Loading a VST3 plugin reads its file
+/// and starts it up, which can take longer than an audio buffer lasts; done
+/// under the track or effect lock it made the audio thread wait and the
+/// sound crackle. The locks are taken only to insert the finished effect.
+pub(crate) fn add_loaded_effect_to_track(
+    track_id: TrackId,
+    load: impl FnOnce() -> Result<crate::effects::EffectType, String>,
+) -> Result<u64, String> {
+    let effect = load()?;
+
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-    let track_manager = graph.track_manager.lock();
-    let mut effect_manager = graph.effect_manager.lock();
-
-    // Create the effect
-    let effect = match effect_type_str.to_lowercase().as_str() {
-        "eq" => EffectType::EQ(ParametricEQ::new()),
-        "compressor" => EffectType::Compressor(Compressor::new()),
-        "reverb" => EffectType::Reverb(Reverb::new()),
-        "delay" => EffectType::Delay(Delay::new()),
-        "chorus" => EffectType::Chorus(Chorus::new()),
-        "limiter" => EffectType::Limiter(Limiter::new()),
-        _ => return Err(format!("Unknown effect type: {effect_type_str}")),
+    // On a missing track the effect comes back out of this block, so it is
+    // destroyed after the locks are released, like everything slow here.
+    let added = {
+        let graph = graph_mutex.lock();
+        let track_manager = graph.track_manager.lock();
+        match track_manager.get_track(track_id) {
+            Some(track_arc) => {
+                let effect_id = graph.effect_manager.lock().create_effect(effect);
+                track_arc.lock().fx_chain.push(effect_id);
+                Ok(effect_id)
+            }
+            None => Err(effect),
+        }
     };
-
-    // Add effect to effect manager
-    let effect_id = effect_manager.create_effect(effect);
-
-    // Add effect to track's FX chain
-    if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock();
-        track.fx_chain.push(effect_id);
-        eprintln!("🎛️ [API] Added {effect_type_str} effect (ID: {effect_id}) to track {track_id}");
-        Ok(effect_id)
-    } else {
-        Err(format!("Track {track_id} not found"))
-    }
+    added.map_err(|_unused_effect| format!("Track {track_id} not found"))
 }
 
 /// Add a band to a Graphic EQ. Returns the new band's index.
@@ -108,27 +123,29 @@ pub fn remove_eq_band(effect_id: u64, index: usize) -> Result<String, String> {
 /// Remove an effect from a track's FX chain
 pub fn remove_effect_from_track(track_id: TrackId, effect_id: u64) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-    let track_manager = graph.track_manager.lock();
-    let mut effect_manager = graph.effect_manager.lock();
+    // The removed effect leaves this block still alive and is destroyed after
+    // the locks are released: shutting a VST3 plugin down under them makes
+    // the audio thread wait.
+    let removed = {
+        let graph = graph_mutex.lock();
+        let track_manager = graph.track_manager.lock();
+        let mut effect_manager = graph.effect_manager.lock();
 
-    // Remove from track's FX chain
-    if let Some(track_arc) = track_manager.get_track(track_id) {
+        let Some(track_arc) = track_manager.get_track(track_id) else {
+            return Err(format!("Track {track_id} not found"));
+        };
         let mut track = track_arc.lock();
-        if let Some(pos) = track.fx_chain.iter().position(|&id| id == effect_id) {
-            track.fx_chain.remove(pos);
-            // Remove from effect manager
-            effect_manager.remove_effect(effect_id);
-            eprintln!("🗑️ [API] Removed effect {effect_id} from track {track_id}");
-            Ok(format!("Effect {effect_id} removed from track {track_id}"))
-        } else {
-            Err(format!(
+        let Some(pos) = track.fx_chain.iter().position(|&id| id == effect_id) else {
+            return Err(format!(
                 "Effect {effect_id} not found in track {track_id}'s FX chain"
-            ))
-        }
-    } else {
-        Err(format!("Track {track_id} not found"))
-    }
+            ));
+        };
+        track.fx_chain.remove(pos);
+        effect_manager.take_effect(effect_id)
+    };
+    drop(removed);
+    eprintln!("🗑️ [API] Removed effect {effect_id} from track {track_id}");
+    Ok(format!("Effect {effect_id} removed from track {track_id}"))
 }
 
 /// Get all effects on a track (returns CSV: "`effect_id,effect_id`,...")

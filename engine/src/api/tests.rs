@@ -2253,3 +2253,115 @@ fn full_path_from_the_other_operating_system_is_kept_as_written() {
         path_str(&project.join("audio/kick.wav"))
     );
 }
+
+// ============================================================================
+// SLOW EFFECT WORK STAYS OUT OF THE AUDIO THREAD'S LOCKS
+// ============================================================================
+
+fn effect_count() -> usize {
+    let graph = get_audio_graph().expect("graph").lock();
+    let count = graph.effect_manager.lock().effect_count();
+    count
+}
+
+/// Adding a VST3 while playing crackled: the plugin was loaded while holding
+/// the track and effect locks, which the audio thread takes every buffer.
+/// The loader must run with every engine lock free.
+#[test]
+fn an_effect_is_loaded_with_no_engine_lock_held() {
+    use crate::effects::{EffectType, Reverb};
+
+    let _guard = engine_lock();
+    let track = create_track("audio", "FX".to_string()).expect("create track");
+
+    let mut loader_ran = false;
+    let effect_id = effects::add_loaded_effect_to_track(track, || {
+        loader_ran = true;
+        let graph = AUDIO_GRAPH
+            .get()
+            .expect("graph")
+            .try_lock()
+            .expect("the graph lock is free while an effect loads");
+        assert!(
+            graph.track_manager.try_lock().is_some(),
+            "the track lock is free while an effect loads"
+        );
+        assert!(
+            graph.effect_manager.try_lock().is_some(),
+            "the effect lock is free while an effect loads"
+        );
+        assert!(
+            graph.track_synth_manager.try_lock().is_some(),
+            "the synth lock is free while an effect loads"
+        );
+        Ok(EffectType::Reverb(Reverb::new()))
+    })
+    .expect("add effect");
+
+    assert!(loader_ran);
+    assert_eq!(get_track_effects(track).unwrap(), effect_id.to_string());
+    assert_eq!(effect_count(), 1);
+}
+
+#[test]
+fn a_failed_load_or_a_missing_track_leaves_no_effect_behind() {
+    use crate::effects::{EffectType, Reverb};
+
+    let _guard = engine_lock();
+    let track = create_track("audio", "FX".to_string()).expect("create track");
+
+    let failed =
+        effects::add_loaded_effect_to_track(track, || Err("plugin would not start".into()));
+    assert_eq!(failed, Err("plugin would not start".to_string()));
+
+    let no_track =
+        effects::add_loaded_effect_to_track(9999, || Ok(EffectType::Reverb(Reverb::new())));
+    assert_eq!(no_track, Err("Track 9999 not found".to_string()));
+    assert!(add_effect_to_track(9999, "reverb").is_err());
+    assert!(add_effect_to_track(track, "no such effect").is_err());
+
+    assert_eq!(effect_count(), 0, "nothing is left in the effect manager");
+    assert_eq!(get_track_effects(track).unwrap(), "");
+}
+
+#[test]
+fn removing_an_effect_a_track_or_a_return_clears_its_effects() {
+    let _guard = engine_lock();
+    let track = create_track("audio", "FX".to_string()).expect("create track");
+    let eq = add_effect_to_track(track, "eq").unwrap();
+    let reverb = add_effect_to_track(track, "reverb").unwrap();
+    assert_eq!(effect_count(), 2);
+
+    remove_effect_from_track(track, eq).expect("remove eq");
+    assert_eq!(get_track_effects(track).unwrap(), reverb.to_string());
+    assert_eq!(effect_count(), 1);
+    assert!(
+        remove_effect_from_track(track, eq).is_err(),
+        "an effect can only be removed once"
+    );
+
+    delete_track(track).expect("delete track");
+    assert_eq!(effect_count(), 0);
+
+    let ret = create_track("return", "Return".to_string()).expect("create return");
+    add_effect_to_track(ret, "delay").unwrap();
+    assert_eq!(effect_count(), 1);
+    remove_return(ret).expect("remove return");
+    assert_eq!(effect_count(), 0);
+}
+
+/// The caller of `take_effect` owns the only reference, so the effect is
+/// destroyed where the caller drops it (after its locks), not inside the
+/// manager.
+#[test]
+fn take_effect_hands_the_effect_to_the_caller() {
+    use crate::effects::{EffectManager, EffectType, Reverb};
+
+    let mut manager = EffectManager::new();
+    let id = manager.create_effect(EffectType::Reverb(Reverb::new()));
+    let taken = manager.take_effect(id).expect("effect taken");
+    assert_eq!(Arc::strong_count(&taken), 1);
+    assert_eq!(manager.effect_count(), 0);
+    assert!(manager.take_effect(id).is_none());
+    assert!(!manager.remove_effect(id));
+}
