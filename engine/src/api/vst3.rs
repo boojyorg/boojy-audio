@@ -52,6 +52,75 @@ pub fn add_vst3_effect_to_track(
 }
 
 #[cfg(not(target_os = "ios"))]
+/// Load a separate copy of every VST3 plugin on a track, each with its
+/// original's settings (Duplicate Track). Returns `(original effect id,
+/// copy)` pairs; a plugin that can't be loaded again is left out.
+///
+/// The originals are read under brief locks, then every copy is loaded with
+/// no lock held (see `add_loaded_effect_to_track`): starting a plugin takes
+/// longer than an audio buffer lasts.
+pub(crate) fn load_vst3_copies(track_id: TrackId) -> Vec<(u64, crate::effects::EffectType)> {
+    use crate::effects::EffectType;
+    use crate::vst3_host::VST3Effect;
+
+    let Ok(graph_mutex) = get_audio_graph() else {
+        return Vec::new();
+    };
+    let (originals, block_size) = {
+        let graph = graph_mutex.lock();
+        let fx_chain = {
+            let track_manager = graph.track_manager.lock();
+            track_manager
+                .get_track(track_id)
+                .map(|track| track.lock().fx_chain.clone())
+                .unwrap_or_default()
+        };
+        let effect_manager = graph.effect_manager.lock();
+        let originals: Vec<_> = fx_chain
+            .iter()
+            .filter_map(|effect_id| {
+                let effect = effect_manager.get_effect(*effect_id)?;
+                let effect = effect.lock();
+                match &*effect {
+                    EffectType::VST3(vst3) => Some((
+                        *effect_id,
+                        vst3.get_plugin_path().to_string(),
+                        vst3.get_name().to_string(),
+                        vst3.get_state().ok(),
+                    )),
+                    _ => None,
+                }
+            })
+            .collect();
+        // Same block size rule as `add_vst3_effect_to_track`.
+        let block_size = graph.preferred_buffer_size.lock().samples().max(512) as i32;
+        (originals, block_size)
+    };
+
+    let sample_rate = f64::from(crate::audio_file::TARGET_SAMPLE_RATE);
+    originals
+        .into_iter()
+        .filter_map(|(effect_id, path, name, state)| {
+            let loaded =
+                VST3Effect::new(&path, &name, sample_rate, block_size).and_then(|mut copy| {
+                    copy.initialize()?;
+                    if let Some(state) = &state {
+                        copy.set_state(state)?;
+                    }
+                    Ok(copy)
+                });
+            match loaded {
+                Ok(copy) => Some((effect_id, EffectType::VST3(copy))),
+                Err(e) => {
+                    eprintln!("⚠️  [API] Couldn't load a copy of {name} ({path}): {e}");
+                    None
+                }
+            }
+        })
+        .collect()
+}
+
+#[cfg(not(target_os = "ios"))]
 /// Get the number of parameters in a VST3 plugin
 pub fn get_vst3_parameter_count(effect_id: u64) -> Result<u32, String> {
     use crate::effects::EffectType;
@@ -587,6 +656,11 @@ pub fn set_vst3_program(_effect_id: u64, _list_id: i32, _program_index: i32) -> 
 // ============================================================================
 // iOS stub functions for VST3 (return "not supported" errors)
 // ============================================================================
+
+#[cfg(target_os = "ios")]
+pub(crate) fn load_vst3_copies(_track_id: TrackId) -> Vec<(u64, crate::effects::EffectType)> {
+    Vec::new()
+}
 
 #[cfg(target_os = "ios")]
 pub fn add_vst3_effect_to_track(

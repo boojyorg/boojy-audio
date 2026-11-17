@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:boojy_audio/models/instrument_data.dart';
 import 'package:boojy_audio/models/track_data.dart';
+import 'package:boojy_audio/widgets/shared/boojy_notice.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/daw_harness.dart';
@@ -109,4 +110,54 @@ void main() {
       await h.close();
     }
   });
+
+  // CI machines have no plugins, so this runs on a developer's Mac only.
+  const plugin = '/Library/Audio/Plug-Ins/VST3/ValhallaSupermassive.vst3';
+  testWidgets(
+    'Duplicate Track gives the copy a VST3 plugin of its own',
+    skip: !Directory(plugin).existsSync(), // a .vst3 is a folder
+    (tester) async {
+      final h = await DawHarness.start(tester);
+      try {
+        Notices.instance.reset();
+        final track = h.engine.createTrack('audio', 'Guitar');
+        final original = h.engine.addVst3EffectToTrack(track, plugin, '');
+        expect(original, greaterThanOrEqualTo(0), reason: 'the plugin loads');
+        final plugins = h.daw.vst3PluginManager!;
+        plugins.registerRestoredPlugin(
+          track,
+          original,
+          path: plugin,
+          name: 'ValhallaSupermassive',
+        );
+        await h.settle();
+
+        final before = h.engine.getAllTrackIds().toSet();
+        await h.daw.onDuplicateTrackRequested(
+          TrackData.fromCSV(h.engine.getTrackInfo(track))!,
+        );
+        await h.settle();
+        final copy = h.engine.getAllTrackIds().toSet().difference(before);
+
+        final copied = plugins.getTrackEffectIds(copy.single);
+        expect(copied, hasLength(1), reason: 'the copy shows its plugin');
+        expect(copied.single, isNot(original));
+        expect(
+          h.engine.getVst3State(copied.single),
+          h.engine.getVst3State(original),
+          reason: "with the original's settings",
+        );
+        expect(Notices.instance.problems, isEmpty);
+
+        // Undo takes the copy's plugin away again; the original stays.
+        await h.daw.performUndo();
+        await h.settle();
+        expect(plugins.getTrackEffectIds(copy.single), isEmpty);
+        expect(plugins.getTrackEffectIds(track), [original]);
+      } finally {
+        Notices.instance.reset();
+        await h.close();
+      }
+    },
+  );
 }

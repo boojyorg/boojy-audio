@@ -350,6 +350,34 @@ mixin DAWTrackMixin
         }
         refreshTrackWidgets();
       },
+      onVst3Copied: (newTrackId, plugins) {
+        // The first copy of the source's VST3 instrument is the new track's
+        // instrument; the rest are effects (editor + count chip).
+        final source = trackController.getTrackInstrument(track.id);
+        var instrumentPath = source?.type == 'vst3' ? source?.pluginPath : null;
+        for (final plugin in plugins) {
+          if (instrumentPath != null && plugin.path == instrumentPath) {
+            trackController.setTrackInstrument(
+              newTrackId,
+              InstrumentData.vst3Instrument(
+                trackId: newTrackId,
+                pluginPath: plugin.path,
+                pluginName: plugin.name,
+                effectId: plugin.effectId,
+              ),
+            );
+            instrumentPath = null;
+          } else {
+            vst3PluginManager?.registerRestoredPlugin(
+              newTrackId,
+              plugin.effectId,
+              path: plugin.path,
+              name: plugin.name,
+            );
+          }
+        }
+        refreshTrackWidgets();
+      },
       onCleanup: (trackId) {
         final timeline = timelineKey.currentState;
         if (timeline != null) {
@@ -358,8 +386,15 @@ mixin DAWTrackMixin
           }
         }
         automationController.onTrackDeleted(trackId);
+        // Closes the copy's plugin windows; then its plugins leave the
+        // plugin manager (the engine destroys them with the track).
         onTrackDeleted(trackId);
+        final plugins = vst3PluginManager;
+        if (plugins != null) {
+          plugins.getTrackEffectIds(trackId).forEach(plugins.forgetPlugin);
+        }
       },
+      onNotice: Notices.problem,
     );
     await undoRedoManager.execute(command);
   }

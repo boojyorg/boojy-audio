@@ -75,8 +75,6 @@ reproduces them.
     that file has moved.
   - A missing sample is only named in the notice at open: the empty pad doesn't say which
     file it wants, and there is no relink.
-  - Duplicate Track may leave two effect ids sharing one VST3 instance (from the PR #225
-    review, not run).
   - The engine keeps a deleted track's instrument for undo, and also keeps it when the delete
     was itself an undo (of Create Track or Duplicate Track), where nothing takes it back. It
     stays in memory until the project closes; the sample audio is shared, so the cost is small.

@@ -259,9 +259,11 @@ class TrackController extends ChangeNotifier {
 
   /// Handle track duplication - copy state from source to new track
   void onTrackDuplicated(int sourceTrackId, int newTrackId) {
-    // Copy instrument mapping
-    if (_trackInstruments.containsKey(sourceTrackId)) {
-      final sourceInstrument = _trackInstruments[sourceTrackId]!;
+    // Copy the built-in instrument's settings. A VST3 instrument isn't copied
+    // here: the copy is a plugin of its own in the engine, with its own
+    // effect id, and the DAW layer sets it from that (onVst3Copied).
+    final sourceInstrument = _trackInstruments[sourceTrackId];
+    if (sourceInstrument != null && sourceInstrument.type != 'vst3') {
       _trackInstruments[newTrackId] = InstrumentData(
         trackId: newTrackId,
         type: sourceInstrument.type,
