@@ -127,8 +127,8 @@ disagreeing, untested wiring in the DAW screen, and a test that pinned the wrong
    Tests call it after every step; debug builds run it after every undoable action and project
    load, and show a notice on any mismatch.
 2. **Workflow tests** per core task through the real DAW screen, headless over the real engine
-   (`ui/test/native/support/daw_harness.dart`; examples in `daw_workflow_test.dart`: tempo and
-   warp, loop toggle, Duplicate Track, save and reopen). Describe outcomes, not clicks; check (1)
+   (`ui/test/native/support/daw_harness.dart`; examples in `daw_workflow_test.dart` and its
+   siblings by topic: tempo and warp, loop toggle, Duplicate Track, save and reopen). Describe outcomes, not clicks; check (1)
    after every step. Recording workflows need a real input, so they aren't covered yet (11).
 3. **Random stress tests** (`ui/test/native/daw_stress_test.dart`): seeded runs of random edits,
    undos and redos, checked with (1) after each; then undo everything back to an empty project,
