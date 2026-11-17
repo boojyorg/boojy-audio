@@ -42,8 +42,12 @@ using namespace Steinberg::Vst;
 
 namespace fs = std::filesystem;
 
-// Global error message
-static std::string g_last_error;
+// Last error message, one per thread. The audio thread (process, MIDI) and
+// the UI thread (load, initialise, editor) both report errors here, and a
+// plugin can be loading while another is processing: one shared string would
+// be written by both at once. Each caller reads the error right after the
+// call that failed, on the same thread, so per-thread is also what it wants.
+static thread_local std::string g_last_error;
 
 // Global host application
 static IPtr<HostApplication> g_host_app;
