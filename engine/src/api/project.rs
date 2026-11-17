@@ -68,11 +68,69 @@ pub fn save_project(project_name: String, project_path_str: String) -> Result<St
         audio_file.relative_path = relative_path;
     }
 
+    // Copy sampler and drum-pad samples in too, and point their saved paths
+    // at the copies, so the project doesn't depend on files elsewhere on disk.
+    for track in &mut project_data.tracks {
+        let track_id = track.id;
+        if let Some(sampler) = track.sampler_settings.as_mut() {
+            let clip = graph.track_synth_manager.lock().sample_clip(track_id, None);
+            sampler.sample_path =
+                save_sample_into_project(&sampler.sample_path, clip.as_deref(), project_path)?;
+        }
+        if let Some(kit) = track.drum_kit_settings.as_mut() {
+            for slot in &mut kit.slots {
+                let Some(sampler) = slot.sampler.as_mut() else {
+                    continue;
+                };
+                let clip = graph
+                    .track_synth_manager
+                    .lock()
+                    .sample_clip(track_id, Some(slot.pad_index));
+                sampler.sample_path =
+                    save_sample_into_project(&sampler.sample_path, clip.as_deref(), project_path)?;
+            }
+        }
+    }
+
     // Save project data to JSON
     project::save_project(&project_data, project_path).map_err(|e| e.to_string())?;
 
     eprintln!("✅ [API] Project saved successfully");
     Ok(format!("Project saved to {}", project_path.display()))
+}
+
+/// Put one sampler or drum-pad sample into the project folder and return the
+/// path to save for it (relative to the project, e.g. `audio/kick.wav`).
+///
+/// `sample_path` is where the sample was loaded from; `loaded` is the sample
+/// in memory, None when the project loader could not find it.
+fn save_sample_into_project(
+    sample_path: &str,
+    loaded: Option<&crate::audio_file::AudioClip>,
+    project_path: &Path,
+) -> Result<String, String> {
+    use crate::project;
+
+    if sample_path.is_empty() {
+        return Ok(String::new());
+    }
+    let source_path = Path::new(sample_path);
+    if source_path.is_file() {
+        return project::copy_sample_to_project(source_path, project_path)
+            .map_err(|e| e.to_string());
+    }
+    // The file has gone since it was loaded: write out what is in memory.
+    if let Some(clip) = loaded {
+        return project::write_sample_clip_to_project(clip, project_path)
+            .map_err(|e| e.to_string());
+    }
+    // Missing since the project was opened. Keep the reference so putting the
+    // file back brings the sound back; relative when it points into this
+    // project, so it still resolves if the folder moves.
+    Ok(source_path.strip_prefix(project_path).map_or_else(
+        |_| sample_path.to_string(),
+        |rel| rel.to_string_lossy().replace('\\', "/"),
+    ))
 }
 
 /// Load project from .audio folder
@@ -91,7 +149,24 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
     eprintln!("📂 [API] Loading project from {}", project_path.display());
 
     // Load project data from JSON
-    let project_data = project::load_project(project_path).map_err(|e| e.to_string())?;
+    let mut project_data = project::load_project(project_path).map_err(|e| e.to_string())?;
+
+    // Sample paths are saved relative to the project folder; the loader needs
+    // real paths. Older projects saved absolute paths, which pass through.
+    for track in &mut project_data.tracks {
+        let samplers =
+            track
+                .sampler_settings
+                .iter_mut()
+                .chain(track.drum_kit_settings.iter_mut().flat_map(|kit| {
+                    kit.slots
+                        .iter_mut()
+                        .filter_map(|slot| slot.sampler.as_mut())
+                }));
+        for sampler in samplers {
+            sampler.sample_path = project::resolve_sample_path(project_path, &sampler.sample_path);
+        }
+    }
 
     // Get audio graph
     let graph_mutex = get_audio_graph()?;

@@ -95,6 +95,7 @@ class _AudioEngineBase {
   late final _DrumNextFreeNoteFfi _drumNextFreeNote;
   late final _GetDrumKitInfoFfi _getDrumKitInfo;
   late final _GetDrumPadWaveformPeaksFfi _getDrumPadWaveformPeaks;
+  late final _GetMissingSamplesFfi _getMissingSamples;
 
   // M4 functions - Tracks & Mixer
   late final _CreateTrackFfi _createTrack;
@@ -923,6 +924,12 @@ class _AudioEngineBase {
     _getDrumKitInfo = _lib
         .lookup<ffi.NativeFunction<_GetDrumKitInfoFfiNative>>(
           'get_drum_kit_info_ffi',
+        )
+        .asFunction();
+
+    _getMissingSamples = _lib
+        .lookup<ffi.NativeFunction<_GetMissingSamplesFfiNative>>(
+          'get_missing_samples_ffi',
         )
         .asFunction();
 

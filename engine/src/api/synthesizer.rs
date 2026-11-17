@@ -388,6 +388,25 @@ pub fn get_drum_kit_info(track_id: u64) -> Result<String, String> {
     serde_json::to_string(&data).map_err(|e| format!("Failed to serialize drum kit: {e}"))
 }
 
+/// File names of the sampler and drum-pad samples the last project load could
+/// not find, as a JSON array of strings (empty when nothing is missing).
+pub fn get_missing_samples() -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let synth_manager = graph.track_synth_manager.lock();
+
+    let names: Vec<String> = synth_manager
+        .missing_samples()
+        .into_iter()
+        .map(|(_, _, path)| {
+            std::path::Path::new(&path)
+                .file_name()
+                .map_or(path.clone(), |n| n.to_string_lossy().into_owned())
+        })
+        .collect();
+    serde_json::to_string(&names).map_err(|e| format!("Failed to serialize missing samples: {e}"))
+}
+
 /// Waveform peaks for a single pad's loaded sample.
 pub fn get_drum_pad_waveform_peaks(
     track_id: u64,

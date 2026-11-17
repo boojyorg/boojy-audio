@@ -428,23 +428,34 @@ pub fn copy_audio_file_to_project(
         return Ok(relative_path);
     }
 
+    // Generate filename: 001-filename.wav
+    let original_name = clean_audio_file_name(source_path);
+    copy_file_into_audio_dir(
+        source_path,
+        project_path,
+        &format!("{file_id:03}-{original_name}"),
+    )
+}
+
+/// Copy `source_path` into the project's `audio/` folder under `wanted`, or
+/// the first free variant of it (`name-2.wav`, ...). Never overwrites a file
+/// already there: it may belong to something else. A file with identical
+/// bytes is this same audio saved before, so it is reused instead of copied.
+/// Returns the project-relative path (`audio/<file>`).
+fn copy_file_into_audio_dir(
+    source_path: &Path,
+    project_path: &Path,
+    wanted: &str,
+) -> Result<String> {
     let audio_dir = project_path.join("audio");
     fs::create_dir_all(&audio_dir).context("Failed to create audio directory")?;
 
-    // Generate filename: 001-filename.wav
-    let original_name = clean_audio_file_name(source_path);
-
-    let wanted = format!("{file_id:03}-{original_name}");
-
-    // Never overwrite a file already in audio/: it may belong to another clip
-    // (names carry ids from earlier sessions). Use the first free name; a file
-    // with identical bytes is this same audio saved before, so reuse it.
     let mut n = 1;
     loop {
         let dest_filename = if n == 1 {
-            wanted.clone()
+            wanted.to_string()
         } else {
-            with_numeric_suffix(&wanted, n)
+            with_numeric_suffix(wanted, n)
         };
         let dest_path = audio_dir.join(&dest_filename);
         if !dest_path.exists() {
@@ -462,6 +473,44 @@ pub fn copy_audio_file_to_project(
     }
 }
 
+/// Copy a sampler or drum-pad sample into the project's `audio/` folder.
+///
+/// Unlike a timeline clip the file keeps its own name (no id prefix), so the
+/// same sample used by several pads is stored once: the second copy finds an
+/// identical file and reuses it. A sample already in this project's `audio/`
+/// folder is reused as is.
+pub fn copy_sample_to_project(source_path: &Path, project_path: &Path) -> Result<String> {
+    if let Some(relative_path) = existing_project_audio_path(source_path, project_path) {
+        return Ok(relative_path);
+    }
+    let name = source_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("sample.wav");
+    copy_file_into_audio_dir(source_path, project_path, name)
+}
+
+/// Write a loaded sampler or drum-pad sample into the project's `audio/`
+/// folder as a WAV, for a sample whose source file has gone since it was
+/// loaded. Named after the source file, with a `.wav` extension because WAV
+/// is what gets written.
+pub fn write_sample_clip_to_project(
+    clip: &crate::audio_file::AudioClip,
+    project_path: &Path,
+) -> Result<String> {
+    let stem = Path::new(&clip.file_path)
+        .file_stem()
+        .and_then(|n| n.to_str())
+        .unwrap_or("sample");
+    // The scratch file is named per sample so two samples never share one.
+    write_clip_into_audio_dir(
+        clip,
+        project_path,
+        &format!("{stem}.wav"),
+        &format!(".saving-{stem}.tmp"),
+    )
+}
+
 /// Write an in-memory audio clip's samples into the project folder as a WAV.
 ///
 /// Used for clips that have no real source file on disk — e.g. freshly recorded
@@ -474,17 +523,32 @@ pub fn write_audio_clip_to_project(
     project_path: &Path,
     file_id: u64,
 ) -> Result<String> {
-    let audio_dir = project_path.join("audio");
-    fs::create_dir_all(&audio_dir).context("Failed to create audio directory")?;
-
     // Mirror copy_audio_file_to_project's naming: 001-filename.wav
     let original_name = clean_audio_file_name(Path::new(&clip.file_path));
-    let wanted = format!("{file_id:03}-{original_name}");
+    write_clip_into_audio_dir(
+        clip,
+        project_path,
+        &format!("{file_id:03}-{original_name}"),
+        &format!(".saving-{file_id:03}.tmp"),
+    )
+}
+
+/// Write `clip` as a 32-bit float WAV into the project's `audio/` folder
+/// under `wanted`, or the first free variant of it. Same never-overwrite rule
+/// as `copy_file_into_audio_dir`.
+fn write_clip_into_audio_dir(
+    clip: &crate::audio_file::AudioClip,
+    project_path: &Path,
+    wanted: &str,
+    temp_name: &str,
+) -> Result<String> {
+    let audio_dir = project_path.join("audio");
+    fs::create_dir_all(&audio_dir).context("Failed to create audio directory")?;
 
     // Write to a scratch file first, then settle on a name that never
     // overwrites anything: the first free name, or an existing file with
     // identical bytes (this clip saved before).
-    let temp_path = audio_dir.join(format!(".saving-{file_id:03}.tmp"));
+    let temp_path = audio_dir.join(temp_name);
     let spec = hound::WavSpec {
         channels: clip.channels as u16,
         sample_rate: clip.sample_rate,
@@ -503,9 +567,9 @@ pub fn write_audio_clip_to_project(
     let mut n = 1;
     loop {
         let dest_filename = if n == 1 {
-            wanted.clone()
+            wanted.to_string()
         } else {
-            with_numeric_suffix(&wanted, n)
+            with_numeric_suffix(wanted, n)
         };
         let dest_path = audio_dir.join(&dest_filename);
         if !dest_path.exists() {
@@ -538,6 +602,17 @@ pub fn unique_saved_clip_ids(project_data: &ProjectData) -> std::collections::Ha
         .into_iter()
         .filter_map(|(id, n)| (n == 1).then_some(id))
         .collect()
+}
+
+/// The path to load a saved sampler or drum-pad sample from. A relative path
+/// (how samples are saved now) is inside the project folder; an absolute one
+/// comes from a project saved before samples were copied in, and is used as is.
+pub fn resolve_sample_path(project_path: &Path, saved_path: &str) -> String {
+    if saved_path.is_empty() || Path::new(saved_path).is_absolute() {
+        saved_path.to_string()
+    } else {
+        project_path.join(saved_path).to_string_lossy().into_owned()
+    }
 }
 
 /// Resolve audio file path (relative to project folder)

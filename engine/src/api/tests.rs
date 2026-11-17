@@ -1889,3 +1889,270 @@ fn cancel_while_encoding_writes_nothing_and_keeps_the_old_file() {
         .collect();
     assert!(leftovers.is_empty(), "no temporary file is left");
 }
+
+// ============================================================================
+// SAMPLER AND DRUM-PAD SAMPLES ARE SAVED INSIDE THE PROJECT
+// ============================================================================
+
+/// The saved sample paths in a project's `project.json`, in track order:
+/// each sampler's path, then each drum pad's.
+fn saved_sample_paths(project: &Path) -> Vec<String> {
+    let json = std::fs::read_to_string(project.join("project.json")).expect("read project.json");
+    let data: crate::project::ProjectData = serde_json::from_str(&json).expect("parse project");
+    let mut paths = Vec::new();
+    for track in &data.tracks {
+        if let Some(sampler) = &track.sampler_settings {
+            paths.push(sampler.sample_path.clone());
+        }
+        if let Some(kit) = &track.drum_kit_settings {
+            paths.extend(
+                kit.slots
+                    .iter()
+                    .filter_map(|slot| slot.sampler.as_ref().map(|s| s.sample_path.clone())),
+            );
+        }
+    }
+    paths
+}
+
+/// A sampler track holding `sample`. Returns the track id.
+fn sampler_track(sample: &Path) -> u64 {
+    let track = create_track("midi", "Sampler".to_string()).expect("create track");
+    create_sampler_for_track(track).expect("create sampler");
+    load_sample_for_track(track, path_str(sample), 60).expect("load sample");
+    track
+}
+
+/// A drum-kit track with one pad per sample. Returns `(track, pad indexes)`.
+fn drum_track(samples: &[&Path]) -> (u64, Vec<u8>) {
+    let track = create_track("midi", "Drums".to_string()).expect("create track");
+    create_drum_kit_for_track(track).expect("create drum kit");
+    let pads = samples
+        .iter()
+        .enumerate()
+        .map(|(i, sample)| {
+            let pad = add_drum_pad(track, 36 + i as u8).expect("add pad") as u8;
+            load_drum_pad_sample(track, pad, path_str(sample)).expect("load pad sample");
+            pad
+        })
+        .collect();
+    (track, pads)
+}
+
+/// Whether the sampler on `track` (or one of its drum pads) has a sample loaded.
+fn has_sample(track: u64, pad: Option<u8>) -> bool {
+    let graph = get_audio_graph().expect("graph").lock();
+    let loaded = graph.track_synth_manager.lock().sample_clip(track, pad);
+    loaded.is_some()
+}
+
+fn missing_sample_names() -> Vec<String> {
+    serde_json::from_str(&get_missing_samples().expect("missing samples")).expect("parse names")
+}
+
+#[test]
+fn samples_are_copied_into_the_project_and_survive_moving_it() {
+    let _guard = engine_lock();
+    let dir = temp_dir("samples_copied");
+    let sources = dir.join("my samples");
+    std::fs::create_dir_all(&sources).unwrap();
+    let lead = write_sine_wav(&sources, "lead.wav", 0.2, 0.5);
+    let kick = write_sine_wav(&sources, "kick.wav", 0.1, 0.8);
+    let snare = write_sine_wav(&sources, "snare.wav", 0.1, 0.3);
+
+    let sampler = sampler_track(&lead);
+    let (drums, pads) = drum_track(&[&kick, &snare]);
+
+    let project = dir.join("Song.audio");
+    save_project("Song".to_string(), path_str(&project)).expect("save");
+
+    assert_eq!(
+        audio_dir_files(&project),
+        vec!["kick.wav", "lead.wav", "snare.wav"],
+        "each sample is copied in under its own name"
+    );
+    assert_eq!(
+        saved_sample_paths(&project),
+        vec!["audio/lead.wav", "audio/kick.wav", "audio/snare.wav"],
+        "saved paths are relative to the project folder"
+    );
+
+    // The user tidies their sample folder and moves the project.
+    std::fs::remove_dir_all(&sources).unwrap();
+    let moved = dir.join("Moved.audio");
+    std::fs::rename(&project, &moved).unwrap();
+
+    load_project(path_str(&moved)).expect("load");
+    assert!(has_sample(sampler, None), "sampler sample loaded");
+    assert!(has_sample(drums, Some(pads[0])), "kick loaded");
+    assert!(has_sample(drums, Some(pads[1])), "snare loaded");
+    assert!(
+        missing_sample_names().is_empty(),
+        "nothing reported missing"
+    );
+
+    // Saving again reuses the files already there.
+    save_project("Song".to_string(), path_str(&moved)).expect("save again");
+    assert_eq!(
+        audio_dir_files(&moved),
+        vec!["kick.wav", "lead.wav", "snare.wav"]
+    );
+    assert_eq!(
+        saved_sample_paths(&moved),
+        vec!["audio/lead.wav", "audio/kick.wav", "audio/snare.wav"]
+    );
+}
+
+#[test]
+fn one_sample_on_several_pads_is_stored_once_and_same_names_do_not_collide() {
+    let _guard = engine_lock();
+    let dir = temp_dir("samples_dedupe");
+    let (a, b) = (dir.join("a"), dir.join("b"));
+    std::fs::create_dir_all(&a).unwrap();
+    std::fs::create_dir_all(&b).unwrap();
+    let kick = write_sine_wav(&a, "kick.wav", 0.1, 0.8);
+    // A different sound that happens to share the name.
+    let other_kick = write_sine_wav(&b, "kick.wav", 0.1, 0.2);
+
+    drum_track(&[&kick, &kick, &kick, &other_kick]);
+
+    let project = dir.join("Song.audio");
+    save_project("Song".to_string(), path_str(&project)).expect("save");
+
+    assert_eq!(audio_dir_files(&project), vec!["kick-2.wav", "kick.wav"]);
+    assert_eq!(
+        saved_sample_paths(&project),
+        vec![
+            "audio/kick.wav",
+            "audio/kick.wav",
+            "audio/kick.wav",
+            "audio/kick-2.wav"
+        ]
+    );
+}
+
+#[test]
+fn sample_deleted_before_the_first_save_is_written_from_memory() {
+    let _guard = engine_lock();
+    let dir = temp_dir("samples_from_memory");
+    let lead = write_sine_wav(&dir, "lead.wav", 0.2, 0.5);
+    let sampler = sampler_track(&lead);
+    std::fs::remove_file(&lead).unwrap();
+
+    let project = dir.join("Song.audio");
+    save_project("Song".to_string(), path_str(&project)).expect("save");
+    assert_eq!(audio_dir_files(&project), vec!["lead.wav"]);
+    assert_eq!(saved_sample_paths(&project), vec!["audio/lead.wav"]);
+
+    load_project(path_str(&project)).expect("load");
+    assert!(
+        has_sample(sampler, None),
+        "the sound came back from the project"
+    );
+}
+
+#[test]
+fn project_saved_with_absolute_sample_paths_loads_and_is_copied_in_on_next_save() {
+    let _guard = engine_lock();
+    let dir = temp_dir("samples_old_project");
+    let lead = write_sine_wav(&dir, "lead.wav", 0.2, 0.5);
+    let sampler = sampler_track(&lead);
+
+    // Write the project the way older versions did: the sample's own
+    // location, nothing copied.
+    let project = dir.join("Old.audio");
+    save_project("Old".to_string(), path_str(&project)).expect("save");
+    let json_path = project.join("project.json");
+    let json = std::fs::read_to_string(&json_path).unwrap();
+    let absolute = serde_json::to_string(&path_str(&lead)).unwrap();
+    std::fs::write(&json_path, json.replace("\"audio/lead.wav\"", &absolute)).unwrap();
+    std::fs::remove_dir_all(project.join("audio")).unwrap();
+    assert_eq!(saved_sample_paths(&project), vec![path_str(&lead)]);
+
+    load_project(path_str(&project)).expect("load old project");
+    assert!(has_sample(sampler, None), "old project still plays");
+
+    save_project("Old".to_string(), path_str(&project)).expect("save");
+    assert_eq!(saved_sample_paths(&project), vec!["audio/lead.wav"]);
+    assert_eq!(audio_dir_files(&project), vec!["lead.wav"]);
+}
+
+#[test]
+fn missing_sample_is_reported_and_its_reference_and_settings_survive_saves() {
+    let _guard = engine_lock();
+    let dir = temp_dir("samples_missing");
+    let lead = write_sine_wav(&dir, "lead.wav", 0.2, 0.5);
+    let kick = write_sine_wav(&dir, "kick.wav", 0.1, 0.8);
+    let snare = write_sine_wav(&dir, "snare.wav", 0.1, 0.3);
+
+    let sampler = sampler_track(&lead);
+    set_sampler_parameter(sampler, "volume_db".to_string(), "-6".to_string()).unwrap();
+    let (drums, pads) = drum_track(&[&kick, &snare]);
+    set_drum_pad_parameter(drums, pads[0], "volume_db".to_string(), "-9".to_string()).unwrap();
+
+    let project = dir.join("Song.audio");
+    save_project("Song".to_string(), path_str(&project)).expect("save");
+    let saved_json = std::fs::read_to_string(project.join("project.json")).unwrap();
+
+    // Two of the three files go missing from the project.
+    let hidden = dir.join("hidden");
+    std::fs::create_dir_all(&hidden).unwrap();
+    for name in ["lead.wav", "kick.wav"] {
+        std::fs::rename(project.join("audio").join(name), hidden.join(name)).unwrap();
+    }
+
+    load_project(path_str(&project)).expect("a missing sample must not block the load");
+    assert_eq!(missing_sample_names(), vec!["lead.wav", "kick.wav"]);
+    assert!(!has_sample(sampler, None));
+    assert!(!has_sample(drums, Some(pads[0])));
+    assert!(has_sample(drums, Some(pads[1])), "the snare is still there");
+    // The UI's view of the kit shows the pad as empty, not as loaded.
+    let kit: crate::drum_kit::DrumKitData =
+        serde_json::from_str(&get_drum_kit_info(drums).unwrap()).unwrap();
+    assert!(kit.slots[0].sampler.is_none(), "missing pad reads as empty");
+
+    // Saving (auto-save does this on its own) must not erase the references.
+    save_project("Song".to_string(), path_str(&project)).expect("save with samples missing");
+    assert_eq!(
+        std::fs::read_to_string(project.join("project.json")).unwrap(),
+        saved_json,
+        "project.json is unchanged by a save while samples are missing"
+    );
+
+    // Put the files back: the sounds and their settings return.
+    for name in ["lead.wav", "kick.wav"] {
+        std::fs::rename(hidden.join(name), project.join("audio").join(name)).unwrap();
+    }
+    load_project(path_str(&project)).expect("load");
+    assert!(missing_sample_names().is_empty());
+    assert!(has_sample(sampler, None));
+    assert!(has_sample(drums, Some(pads[0])));
+    save_project("Song".to_string(), path_str(&project)).expect("save");
+    assert_eq!(
+        std::fs::read_to_string(project.join("project.json")).unwrap(),
+        saved_json,
+        "settings (volume -6 dB and -9 dB) came back with the files"
+    );
+}
+
+#[test]
+fn loading_a_new_sample_over_a_missing_one_replaces_it() {
+    let _guard = engine_lock();
+    let dir = temp_dir("samples_replace_missing");
+    let lead = write_sine_wav(&dir, "lead.wav", 0.2, 0.5);
+    let sampler = sampler_track(&lead);
+    let project = dir.join("Song.audio");
+    save_project("Song".to_string(), path_str(&project)).expect("save");
+    std::fs::remove_file(project.join("audio/lead.wav")).unwrap();
+    std::fs::remove_file(&lead).unwrap();
+
+    load_project(path_str(&project)).expect("load");
+    assert_eq!(missing_sample_names(), vec!["lead.wav"]);
+
+    let bass = write_sine_wav(&dir, "bass.wav", 0.2, 0.5);
+    load_sample_for_track(sampler, path_str(&bass), 60).expect("load replacement");
+    assert!(missing_sample_names().is_empty());
+
+    save_project("Song".to_string(), path_str(&project)).expect("save");
+    assert_eq!(saved_sample_paths(&project), vec!["audio/bass.wav"]);
+}

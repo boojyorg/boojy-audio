@@ -509,6 +509,16 @@ pub extern "C" fn get_drum_kit_info_ffi(track_id: u64) -> *mut c_char {
     })
 }
 
+/// File names of samples the last project load could not find, as a JSON
+/// array string (caller frees via the shared string-free FFI).
+#[no_mangle]
+pub extern "C" fn get_missing_samples_ffi() -> *mut c_char {
+    ffi_catch(std::ptr::null_mut(), || match api::get_missing_samples() {
+        Ok(json) => safe_cstring(json).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+    })
+}
+
 /// Waveform peaks for a single pad's sample. Returns an f32 array; free with
 /// `free_sampler_waveform_peaks_ffi` (same allocation scheme).
 #[no_mangle]

@@ -24,3 +24,20 @@ String cleanAudioFileName(String path) {
   }
   return rest;
 }
+
+/// The notice to show when a project opens with sampler or drum-pad samples
+/// the engine could not find, or null when [fileNames] is empty. A name used
+/// by several pads is listed once; a long list is cut to three names.
+String? missingSamplesMessage(List<String> fileNames) {
+  final names = fileNames.toSet().toList();
+  if (names.isEmpty) return null;
+  if (names.length == 1) {
+    return "Couldn't find the sample ${names.first}. "
+        'It stays silent until you load it again.';
+  }
+  const shown = 3;
+  final listed = names.take(shown).join(', ');
+  final more = names.length > shown ? ' and ${names.length - shown} more' : '';
+  return "Couldn't find ${names.length} samples: $listed$more. "
+      'They stay silent until you load them again.';
+}

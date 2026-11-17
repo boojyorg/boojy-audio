@@ -559,6 +559,9 @@ typedef _DrumNextFreeNoteFfi = int Function(int, int);
 typedef _GetDrumKitInfoFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64);
 typedef _GetDrumKitInfoFfi = ffi.Pointer<Utf8> Function(int);
 
+typedef _GetMissingSamplesFfiNative = ffi.Pointer<Utf8> Function();
+typedef _GetMissingSamplesFfi = ffi.Pointer<Utf8> Function();
+
 typedef _GetDrumPadWaveformPeaksFfiNative =
     ffi.Pointer<ffi.Float> Function(
       ffi.Uint64,

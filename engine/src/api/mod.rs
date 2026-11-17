@@ -79,9 +79,9 @@ pub use sends::{
 };
 pub use synthesizer::{
     add_drum_pad, create_drum_kit_for_track, create_sampler_for_track, drum_next_free_note,
-    get_drum_kit_info, get_drum_pad_waveform_peaks, get_sampler_info, get_sampler_sample_path,
-    get_sampler_waveform_peaks, is_drum_kit_track, is_sampler_track, load_drum_pad_sample,
-    load_sample_for_track, send_track_midi_note_off, send_track_midi_note_on,
+    get_drum_kit_info, get_drum_pad_waveform_peaks, get_missing_samples, get_sampler_info,
+    get_sampler_sample_path, get_sampler_waveform_peaks, is_drum_kit_track, is_sampler_track,
+    load_drum_pad_sample, load_sample_for_track, send_track_midi_note_off, send_track_midi_note_on,
     set_drum_pad_parameter, set_sampler_parameter, set_synth_bypass, set_synth_parameter,
     set_track_instrument, unload_sample_for_track,
 };

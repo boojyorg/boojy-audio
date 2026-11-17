@@ -221,6 +221,43 @@ impl DrumKit {
                 .collect(),
         }
     }
+
+    /// What a project save should write. Same as `get_parameters`, except a
+    /// pad whose sample could not be found on load keeps its saved settings.
+    pub fn saved_parameters(&self) -> DrumKitData {
+        let mut data = self.get_parameters();
+        for (slot, saved) in self.slots.iter().zip(data.slots.iter_mut()) {
+            saved.sampler = slot.sampler.saved_parameters();
+        }
+        data
+    }
+
+    /// The sample loaded on a pad, if any.
+    pub fn pad_sample_clip(&self, pad_index: u8) -> Option<Arc<AudioClip>> {
+        self.slots
+            .iter()
+            .find(|s| s.pad_index == pad_index)
+            .and_then(|s| s.sampler.sample_clip())
+    }
+
+    /// Record that the project loader could not find a pad's sample file.
+    pub fn mark_pad_missing(&mut self, pad_index: u8, data: SamplerData) {
+        if let Some(slot) = self.slot_mut(pad_index) {
+            slot.sampler.mark_missing(data);
+        }
+    }
+
+    /// `(pad_index, path)` for every pad whose sample could not be found.
+    pub fn missing_pad_samples(&self) -> Vec<(u8, String)> {
+        self.slots
+            .iter()
+            .filter_map(|s| {
+                s.sampler
+                    .missing_sample_path()
+                    .map(|p| (s.pad_index, p.to_string()))
+            })
+            .collect()
+    }
 }
 
 // ============================================================================

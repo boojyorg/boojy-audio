@@ -40,9 +40,8 @@ state-of-play review ([RELEASING.md](RELEASING.md#milestone-reviews)).
   to v0.8.
   **Order (2026-11-12):** the test net, recording fixes, the dropout counter and log, export
   off the UI thread, built-in MP3, the VST3 fixes, sample-rate conversion and the first bug
-  batch (backup, stems, New Project, Mute Clip) are done. Next: sampler and drum-pad samples
-  copied into the project (the last known bug that loses work, and what holds row 9 below 8) →
-  the VST3-add crackle → test what the export window sends (Test plan 15) → Tyr makes a song
+  batch (backup, stems, New Project, Mute Clip) and sampler and drum-pad samples copied into
+  the project are done. Next: the VST3-add crackle → test what the export window sends (Test plan 15) → Tyr makes a song
   with the log on and tries a 44.1 kHz device (row 1 is the lowest v0.7 row and has the least
   evidence; Test plan 14) → reproduce-or-drop the rest → the loop in the engine → the recording
   test input (Test plan 11) → editing model prototype. The other test ideas (Test plan 9–13)
@@ -61,8 +60,7 @@ state-of-play review ([RELEASING.md](RELEASING.md#milestone-reviews)).
 Classified by the severity rule in [RELEASING.md](RELEASING.md#severity-rule). Review findings
 (IDs U*, B* point into the [UI/UX](reviews/2026_09_29_ui_ux_review.md) and
 [feature-gap](reviews/2026_09_29_feature_gap_review.md) reports) count once a failing test
-reproduces them. The sampler-samples item was reproduced by a 2026-10-14 code review's
-throwaway test (its fix brings its own); the VST3 crackle is in Tyr's log.
+reproduces them. The VST3 crackle is in Tyr's log.
 
 **Blocks release**
 
@@ -70,14 +68,19 @@ throwaway test (its fix brings its own); the VST3 crackle is in Tyr's log.
 
 **Fix before release**
 
-- **Sampler and drum-pad samples aren't copied into the project.** Timeline audio is; these are
-  saved as their original location and a missing file loads as silence with no error. Moving
-  the project or tidying the sample folder silently loses sounds. Copy them in like clips, and
-  say when one is missing.
 - **Adding a VST3 while playing crackles.** Loading the plugin holds the track lock, so the
   audio thread waits (log 2026-10-14: one buffer at 123%, "waited on: tracks"). Load it first,
   then take the lock only to insert it.
 - *If reproduced:*
+  - Found reading the code for the sampler-samples fix (2026-11-17), none run:
+    **Duplicate Track drops a sampler or drum kit** (`copy_synth` only copies synths), and
+    **undoing Delete Track doesn't bring the instrument back**. "Convert to Sampler" and
+    "create sampler from clip" may pass a path that no longer exists after a reopen. A sample
+    that fails to load in the Sampler or Drum Kit editor shows no notice. Dropping audio on
+    the timeline of a saved project also copies it to `Samples/` (a second copy, and two
+    different files with one name resolve to the first).
+  - A missing sample is only named in the notice at open: the empty pad doesn't say which
+    file it wants, and there is no relink.
   - "Audio clip 0 plays on track 1 but is not on the screen": the dev check fired twice in Tyr's
     session (2026-10-14), action unknown.
   - Something in the window is 4 px too wide (repeated "RenderFlex overflowed by 4.0 pixels on

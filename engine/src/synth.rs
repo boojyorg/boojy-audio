@@ -821,6 +821,67 @@ impl TrackSynthManager {
         }
     }
 
+    /// Sampler settings for a project save (keeps a missing sample's reference).
+    pub fn saved_sampler_parameters(&self, track_id: u64) -> Option<SamplerData> {
+        if let Some(TrackInstrument::Sampler(sampler)) = self.instruments.get(&track_id) {
+            sampler.saved_parameters()
+        } else {
+            None
+        }
+    }
+
+    /// Drum-kit settings for a project save (keeps missing samples' references).
+    pub fn saved_drum_kit_parameters(&self, track_id: u64) -> Option<DrumKitData> {
+        self.instruments
+            .get(&track_id)
+            .and_then(TrackInstrument::as_drum_kit)
+            .map(DrumKit::saved_parameters)
+    }
+
+    /// The sample loaded on a sampler track (`pad_index` None) or on one pad
+    /// of a drum-kit track.
+    pub fn sample_clip(&self, track_id: u64, pad_index: Option<u8>) -> Option<Arc<AudioClip>> {
+        match (self.instruments.get(&track_id)?, pad_index) {
+            (TrackInstrument::Sampler(sampler), None) => sampler.sample_clip(),
+            (TrackInstrument::DrumKit(kit), Some(pad)) => kit.pad_sample_clip(pad),
+            _ => None,
+        }
+    }
+
+    /// Record that the project loader could not find a sample file, so the
+    /// reference survives the next save. `pad_index` None means the track's
+    /// sampler; Some means that pad of its drum kit.
+    pub fn mark_sample_missing(&mut self, track_id: u64, pad_index: Option<u8>, data: SamplerData) {
+        match (self.instruments.get_mut(&track_id), pad_index) {
+            (Some(TrackInstrument::Sampler(sampler)), None) => sampler.mark_missing(data),
+            (Some(TrackInstrument::DrumKit(kit)), Some(pad)) => kit.mark_pad_missing(pad, data),
+            _ => {}
+        }
+    }
+
+    /// Every sample the project loader could not find, as
+    /// `(track_id, pad_index, path)`, ordered by track then pad.
+    pub fn missing_samples(&self) -> Vec<(u64, Option<u8>, String)> {
+        let mut missing = Vec::new();
+        for (track_id, instrument) in &self.instruments {
+            match instrument {
+                TrackInstrument::Sampler(sampler) => {
+                    if let Some(path) = sampler.missing_sample_path() {
+                        missing.push((*track_id, None, path.to_string()));
+                    }
+                }
+                TrackInstrument::DrumKit(kit) => {
+                    for (pad, path) in kit.missing_pad_samples() {
+                        missing.push((*track_id, Some(pad), path));
+                    }
+                }
+                TrackInstrument::Synth(_) => {}
+            }
+        }
+        missing.sort();
+        missing
+    }
+
     /// Restore synth parameters from saved data
     pub fn restore_synth_parameters(&mut self, track_id: u64, data: &SynthData) {
         if let Some(TrackInstrument::Synth(synth)) = self.instruments.get_mut(&track_id) {

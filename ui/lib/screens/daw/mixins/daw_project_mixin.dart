@@ -7,6 +7,7 @@ import '../../../utils/native_dialogs.dart';
 import '../../../models/clip_data.dart';
 import '../../../models/project_metadata.dart';
 import '../../../utils/audio_clips_info.dart';
+import '../../../utils/audio_file_names.dart';
 import '../../../models/project_view_state.dart';
 import '../../../services/audio_clip_engine_sync.dart';
 import '../../../services/commands/project_commands.dart';
@@ -663,6 +664,18 @@ mixin DAWProjectMixin
 
     // Refresh track widgets to show loaded tracks
     refreshTrackWidgets();
+
+    // A sampler or drum-pad sample that wasn't found loads empty. Say which,
+    // so a silent pad isn't a mystery. The id replaces the notice from an
+    // earlier project instead of stacking a second one.
+    final missing = missingSamplesMessage(
+      audioEngine?.getMissingSampleNames() ?? const [],
+    );
+    if (missing != null) {
+      Notices.problem(missing, id: 'missing-samples');
+    } else {
+      Notices.clear('missing-samples');
+    }
   }
 
   /// Rebuild the arrangement's audio clips from the engine's copy of the song,
