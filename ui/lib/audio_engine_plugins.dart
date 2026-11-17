@@ -297,6 +297,13 @@ mixin _PluginsMixin on _AudioEngineBase {
     return _createSamplerForTrack(trackId);
   }
 
+  /// Load the audio of clip [clipId] into a sampler track. The engine shares
+  /// the audio it already holds, so the clip needs no file on disk (a
+  /// recording has none until the first save). Returns true on success.
+  bool loadSampleFromClip(int trackId, int clipId, int rootNote) {
+    return _loadSampleFromClip(trackId, clipId, rootNote) == 1;
+  }
+
   /// Load a sample file into a sampler track
   /// trackId: the sampler track to load the sample into
   /// path: path to the audio file

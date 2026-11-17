@@ -2,7 +2,7 @@
 //!
 //! Functions for managing synthesizers and samplers on MIDI/Sampler tracks.
 
-use super::helpers::get_audio_graph;
+use super::helpers::{get_audio_clips, get_audio_graph};
 use crate::audio_file::load_audio_file;
 use crate::effects::EffectType;
 use std::sync::Arc;
@@ -207,6 +207,30 @@ pub fn load_sample_for_track(track_id: u64, path: String, root_note: u8) -> Resu
     if synth_manager.load_sample(track_id, clip_arc, root_note) {
         Ok(format!(
             "Loaded sample '{path}' ({duration:.2}s) to track {track_id} with root note {root_note}"
+        ))
+    } else {
+        Err(format!("Track {track_id} is not a sampler track"))
+    }
+}
+
+/// Load the audio of clip `clip_id` into a sampler track ("Convert to
+/// Sampler", "create sampler from clip"). The sampler shares the audio the
+/// engine already holds, so it works for a recording that has no file yet and
+/// for a clip whose file has since moved.
+pub fn load_sample_from_clip(track_id: u64, clip_id: u64, root_note: u8) -> Result<String, String> {
+    let clip_arc = get_audio_clips()?
+        .lock()
+        .get(&clip_id)
+        .cloned()
+        .ok_or(format!("Clip {clip_id} not found"))?;
+
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let mut synth_manager = graph.track_synth_manager.lock();
+
+    if synth_manager.load_sample(track_id, clip_arc, root_note) {
+        Ok(format!(
+            "Loaded clip {clip_id} into the sampler on track {track_id}"
         ))
     } else {
         Err(format!("Track {track_id} is not a sampler track"))

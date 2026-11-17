@@ -70,12 +70,9 @@ reproduces them.
 
 - Nothing known.
 - *If reproduced:*
-  - Found reading the code for the sampler-samples fix (2026-11-17), none run: "Convert to
-    Sampler" and
-    "create sampler from clip" may pass a path that no longer exists after a reopen. A sample
-    that fails to load in the Sampler or Drum Kit editor shows no notice. Dropping audio on
-    the timeline of a saved project also copies it to `Samples/` (a second copy, and two
-    different files with one name resolve to the first).
+  - Convert to Sampler and the Audio Editor's sampler button are not undo steps. Undoing a
+    sample load in the Sampler editor reloads the old sample from its file, so it fails if
+    that file has moved.
   - A missing sample is only named in the notice at open: the empty pad doesn't say which
     file it wants, and there is no relink.
   - Duplicate Track may leave two effect ids sharing one VST3 instance (from the PR #225

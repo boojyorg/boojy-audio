@@ -440,6 +440,9 @@ typedef _SendTrackMidiNoteOffFfi = ffi.Pointer<Utf8> Function(int, int, int);
 typedef _CreateSamplerForTrackFfiNative = ffi.Int64 Function(ffi.Uint64);
 typedef _CreateSamplerForTrackFfi = int Function(int);
 
+typedef _LoadSampleFromClipFfiNative =
+    ffi.Int32 Function(ffi.Uint64, ffi.Uint64, ffi.Uint8);
+typedef _LoadSampleFromClipFfi = int Function(int, int, int);
 typedef _LoadSampleForTrackFfiNative =
     ffi.Int32 Function(ffi.Uint64, ffi.Pointer<ffi.Char>, ffi.Uint8);
 typedef _LoadSampleForTrackFfi = int Function(int, ffi.Pointer<ffi.Char>, int);

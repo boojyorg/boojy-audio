@@ -91,7 +91,7 @@ class EditorPanel extends StatefulWidget {
   final Color? trackColor;
 
   // Create sampler from audio clip
-  final Function(String clipPath)? onCreateSamplerFromClip;
+  final void Function(ClipData clip)? onCreateSamplerFromClip;
 
   // Shared undo manager — drum-kit step toggles execute commands on it so
   // Cmd+Z reverts them through the app's normal undo path.
@@ -1345,7 +1345,7 @@ class _EditorPanelState extends State<EditorPanel>
       projectBeatsPerBar: widget.beatsPerBar,
       onProjectTempoChanged: widget.onProjectTempoChanged,
       onCreateSamplerFromClip: widget.onCreateSamplerFromClip != null
-          ? () => widget.onCreateSamplerFromClip?.call(clipData.filePath)
+          ? () => widget.onCreateSamplerFromClip?.call(clipData)
           : null,
     );
   }

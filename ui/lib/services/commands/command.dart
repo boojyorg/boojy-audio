@@ -12,6 +12,11 @@ abstract class Command {
   /// Human-readable description for undo history UI
   String get description;
 
+  /// False when [execute] found it couldn't do its job (a file the engine
+  /// can't read). The undo manager then keeps it out of history: undoing a
+  /// step that changed nothing would be a dead Cmd+Z.
+  bool get changedAnything => true;
+
   /// Optional: timestamp when command was executed
   final DateTime timestamp = DateTime.now();
 }

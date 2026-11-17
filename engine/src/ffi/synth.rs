@@ -160,6 +160,24 @@ pub extern "C" fn load_sample_for_track_ffi(
     )
 }
 
+/// Load an audio clip's audio into a sampler track
+/// Returns 1 on success, 0 on failure
+#[no_mangle]
+pub extern "C" fn load_sample_from_clip_ffi(track_id: u64, clip_id: u64, root_note: u8) -> i32 {
+    ffi_catch(-1, || {
+        match api::load_sample_from_clip(track_id, clip_id, root_note) {
+            Ok(msg) => {
+                println!("[FFI] {msg}");
+                1
+            }
+            Err(e) => {
+                eprintln!("[FFI] Failed to load sample from clip: {e}");
+                0
+            }
+        }
+    })
+}
+
 /// Unload the sample from a sampler track (undo of a first sample load)
 /// Returns 1 on success, 0 on failure
 #[no_mangle]

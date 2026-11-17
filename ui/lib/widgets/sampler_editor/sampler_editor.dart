@@ -363,6 +363,7 @@ class _SamplerEditorState extends State<SamplerEditor> {
         onApplied: () {
           if (mounted) _loadSampleData();
         },
+        onFailed: _showLoadError,
       ),
     );
   }

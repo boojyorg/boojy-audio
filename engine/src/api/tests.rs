@@ -2092,6 +2092,34 @@ fn missing_sample_names() -> Vec<String> {
 }
 
 #[test]
+fn sampler_takes_its_sample_from_a_clip_without_reading_the_file() {
+    let _guard = engine_lock();
+    let dir = temp_dir("sample_from_clip");
+    let wav = write_sine_wav(&dir, "tone.wav", 0.5, 0.5);
+    let audio = create_track("Audio", "Tone".to_string()).unwrap();
+    let clip = load_audio_file_to_track_api(path_str(&wav), audio, 0.0).unwrap();
+    // As for a recording, there is no file to read: the engine has the audio.
+    std::fs::remove_file(&wav).unwrap();
+
+    let track = create_track("midi", "Sampler".to_string()).unwrap();
+    create_sampler_for_track(track).unwrap();
+    load_sample_from_clip(track, clip, 60).unwrap();
+    assert!(has_sample(track, None));
+    assert!(load_sample_from_clip(track, clip + 100, 60).is_err());
+    assert!(
+        load_sample_from_clip(audio, clip, 60).is_err(),
+        "an audio track has no sampler"
+    );
+
+    // The sample is saved with the project and is there when it reopens.
+    let project = dir.join("FromClip.audio");
+    save_project("FromClip".to_string(), path_str(&project)).unwrap();
+    load_project(path_str(&project)).unwrap();
+    assert!(has_sample(track, None));
+    assert!(missing_sample_names().is_empty());
+}
+
+#[test]
 fn samples_are_copied_into_the_project_and_survive_moving_it() {
     let _guard = engine_lock();
     let dir = temp_dir("samples_copied");

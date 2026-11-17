@@ -73,6 +73,7 @@ class UndoRedoManager extends ChangeNotifier {
     await _acquireLock();
     try {
       await command.execute(_engine!);
+      if (!command.changedAnything) return;
 
       // Add to undo stack
       _undoStack.add(command);
@@ -149,9 +150,10 @@ class UndoRedoManager extends ChangeNotifier {
       final command = _redoStack.last;
       await command.execute(_engine!);
 
-      // Redo succeeded — move it back to the undo stack.
+      // Redo ran — move it back to the undo stack, unless this time it
+      // couldn't do its job (see Command.changedAnything): then it's gone.
       _redoStack.removeLast();
-      _undoStack.add(command);
+      if (command.changedAnything) _undoStack.add(command);
 
       notifyListeners();
       return true;

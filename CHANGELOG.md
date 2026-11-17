@@ -120,6 +120,18 @@ All notable changes to Boojy Audio will be documented in this file.
   the same plugin, so deleting it took the instrument away. It now shows as the instrument
   only, and effects after it can still be reordered, deleted and brought back with undo.
 
+- **Convert to Sampler works on recordings and moved files.** Convert to Sampler and the Audio
+  Editor's sampler button now use the clip's own audio, so they no longer fail with "Couldn't
+  load that sample" on a recording or on a file that has moved. If a sampler can't be made, no
+  empty track is left behind.
+
+- **A sample that won't load says so.** Dropping or picking a file Boojy can't read in the
+  Sampler or Drum Kit editor now shows a notice, and the sampler or pad keeps the sample it had.
+
+- **Two files with the same name stay two clips.** In a saved project, dropping a second file
+  called `kick.wav` from another folder used to play the first one again. Boojy also no longer
+  keeps a second copy of dropped audio in a `Samples` folder inside the project.
+
 - **Adding or removing a VST3 while the song plays no longer crackles.** Boojy used to load the
   plugin while the audio engine was kept waiting for it, so a buffer ran late and you heard a
   click. The plugin is now loaded first and slotted in afterwards. Removing a plugin, and

@@ -988,10 +988,7 @@ class _DAWScreenState extends State<DAWScreen>
     if (audioEngine == null) return;
 
     try {
-      // Copy sample to project folder if setting is enabled
-      final finalPath = await prepareSamplePath(filePath);
-
-      final clipId = audioEngine!.loadAudioFileToTrack(finalPath, trackId);
+      final clipId = audioEngine!.loadAudioFileToTrack(filePath, trackId);
       if (clipId < 0) {
         return;
       }
@@ -1005,7 +1002,7 @@ class _DAWScreenState extends State<DAWScreen>
         ClipData(
           clipId: clipId,
           trackId: trackId,
-          filePath: finalPath, // Use the copied path
+          filePath: filePath,
           startTime: 0.0,
           duration: duration,
           waveformPeaks: peaks,
@@ -2150,15 +2147,8 @@ class _DAWScreenState extends State<DAWScreen>
                                       getSelectedTrackType() ?? '',
                                     )
                                   : null,
-                              onCreateSamplerFromClip: (clipPath) {
-                                // Extract filename for track name
-                                final name = clipPath
-                                    .split('/')
-                                    .last
-                                    .split('.')
-                                    .first;
-                                createSamplerTrackWithSample(clipPath, name);
-                              },
+                              onCreateSamplerFromClip:
+                                  createSamplerTrackFromClip,
                             ),
                           ),
 

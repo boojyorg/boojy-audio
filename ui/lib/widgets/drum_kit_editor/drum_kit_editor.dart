@@ -20,6 +20,7 @@ import '../../theme/tokens.dart';
 import '../../utils/track_colors.dart';
 import '../shared/editors/capsule_slider.dart';
 import '../pan_knob.dart';
+import '../shared/boojy_notice.dart';
 import 'drum_step_sequencer.dart';
 
 /// Single source of truth for a pad's colour — shared by the sequencer row
@@ -261,7 +262,11 @@ class _DrumKitEditorState extends State<DrumKitEditor> {
     final engine = widget.audioEngine;
     final tid = widget.trackId;
     if (engine == null || tid == null) return;
-    engine.loadDrumPadSample(tid, padIndex, path);
+    if (!engine.loadDrumPadSample(tid, padIndex, path)) {
+      // The pad keeps the sample it had.
+      Notices.problem("Couldn't load that audio file");
+      return;
+    }
     _refreshKit();
   }
 
