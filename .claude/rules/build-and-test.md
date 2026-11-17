@@ -24,7 +24,9 @@ paths:
   is a failing test, locally a skip; one guard at the top of `main()` handles it, don't add
   per-test guards.
 - **Keep engine-backed test files small.** `flutter test` runs files side by side but the tests
-  inside one file one after another, and each workflow test takes seconds. One 46-test file
+  inside one file one after another, and each workflow test takes seconds. It runs half as
+  many files at once as the machine has cores, so CI's 3-core macOS runner ran one at a time
+  until `ci.yml` set `--concurrency=3`. One 46-test file
   was once the whole CI wait (8 to 9.5 minutes); it is now split by topic
   (`daw_*_workflow_test.dart`, `daw_*_undo_test.dart`, and `daw_stress_regressions_test.dart`
   for bugs the stress test found). Add a new file for a new topic, with shared steps in

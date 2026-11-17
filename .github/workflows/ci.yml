@@ -68,8 +68,13 @@ jobs:
       # headless-foreground hang, reporter-grep success check, and 3x retry are
       # gone. BOOJY_CI=true makes test/native fail loudly (not skip) if the dylib
       # is missing, so a forgotten build can't produce a vacuous green suite (C92).
+      # The test runner defaults to half the cores, rounded down: on this
+      # 3-core runner that is one test file at a time, so the whole suite ran
+      # in series (8 to 10 minutes). Run as many files at once as there are
+      # cores. Files run side by side; the tests inside one file do not, which
+      # is why the engine-backed workflow tests are split by topic.
       - name: Run unit tests
-        run: cd ui && flutter test --dart-define=BOOJY_CI=true
+        run: cd ui && flutter test --dart-define=BOOJY_CI=true --concurrency=3
 
   flutter-checks-windows:
     runs-on: windows-2022
