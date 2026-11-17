@@ -10,16 +10,16 @@ void main() {
     test('one missing sample is named', () {
       expect(
         missingSamplesMessage(const ['kick.wav']),
-        "Couldn't find the sample kick.wav. "
-        'It stays silent until you load it again.',
+        "Couldn't load the sample kick.wav. "
+        'It stays silent until you add it again.',
       );
     });
 
     test('a sample used by several pads is listed once', () {
       expect(
         missingSamplesMessage(const ['kick.wav', 'kick.wav', 'snare.wav']),
-        "Couldn't find 2 samples: kick.wav, snare.wav. "
-        'They stay silent until you load them again.',
+        "Couldn't load 2 samples: kick.wav, snare.wav. "
+        'They stay silent until you add them again.',
       );
     });
 
@@ -32,8 +32,8 @@ void main() {
           'd.wav',
           'e.wav',
         ]),
-        "Couldn't find 5 samples: a.wav, b.wav, c.wav and 2 more. "
-        'They stay silent until you load them again.',
+        "Couldn't load 5 samples: a.wav, b.wav, c.wav and 2 more. "
+        'They stay silent until you add them again.',
       );
     });
   });

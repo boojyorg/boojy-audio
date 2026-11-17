@@ -588,7 +588,7 @@ impl AudioGraph {
                                 loaded = true;
                             }
                             Err(e) => eprintln!(
-                                "⚠️  [Project] Sampler sample not found: {} ({e})",
+                                "⚠️  [Project] Couldn't load sampler sample: {} ({e})",
                                 sampler_data.sample_path
                             ),
                         }
@@ -616,7 +616,7 @@ impl AudioGraph {
                                 }
                                 Err(e) => {
                                     eprintln!(
-                                        "⚠️  [Project] Drum pad sample not found: {path} ({e})"
+                                        "⚠️  [Project] Couldn't load drum pad sample: {path} ({e})"
                                     );
                                     loaded = false;
                                 }

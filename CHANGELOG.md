@@ -114,7 +114,7 @@ All notable changes to Boojy Audio will be documented in this file.
   sampler or drum pad uses into the project folder, as it already did for audio on the
   timeline, so a project still plays after you move it, send it to someone or tidy your sample
   folder. A sound used on several pads is stored once. Projects saved before this pick it up
-  the next time you save them. If a sound still can't be found when a project opens, the
+  the next time you save them. If a sound still can't be loaded when a project opens (missing or damaged), the
   project opens and a notice names the file; the pad keeps its settings, and they come back
   when the file does. Before, the pad loaded empty with no message and the next save (auto-save
   included) erased its sound and settings for good.

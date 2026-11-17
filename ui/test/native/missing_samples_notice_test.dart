@@ -59,8 +59,8 @@ void main() {
       await h.settleUntil(() => !h.daw.isLoading, what: 'the second reopen');
       expect(
         Notices.instance.problems.single.text,
-        "Couldn't find the sample kick.wav. "
-        'It stays silent until you load it again.',
+        "Couldn't load the sample kick.wav. "
+        'It stays silent until you add it again.',
       );
       expect(h.engine.getDrumKitInfo(drums)!.pads.single.hasSample, isFalse);
 
