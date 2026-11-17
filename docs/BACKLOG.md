@@ -70,8 +70,8 @@ reproduces them.
 
 - Nothing known.
 - *If reproduced:*
-  - Found reading the code for the sampler-samples fix (2026-11-17), none run:
-    "Convert to Sampler" and
+  - Found reading the code for the sampler-samples fix (2026-11-17), none run: "Convert to
+    Sampler" and
     "create sampler from clip" may pass a path that no longer exists after a reopen. A sample
     that fails to load in the Sampler or Drum Kit editor shows no notice. Dropping audio on
     the timeline of a saved project also copies it to `Samples/` (a second copy, and two
