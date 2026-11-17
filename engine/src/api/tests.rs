@@ -2273,6 +2273,7 @@ fn an_effect_is_loaded_with_no_engine_lock_held() {
 
     let _guard = engine_lock();
     let track = create_track("audio", "FX".to_string()).expect("create track");
+    let before = effect_count();
 
     let mut loader_ran = false;
     let effect_id = effects::add_loaded_effect_to_track(track, || {
@@ -2300,7 +2301,7 @@ fn an_effect_is_loaded_with_no_engine_lock_held() {
 
     assert!(loader_ran);
     assert_eq!(get_track_effects(track).unwrap(), effect_id.to_string());
-    assert_eq!(effect_count(), 1);
+    assert_eq!(effect_count(), before + 1);
 }
 
 #[test]
@@ -2309,50 +2310,81 @@ fn a_failed_load_or_a_missing_track_leaves_no_effect_behind() {
 
     let _guard = engine_lock();
     let track = create_track("audio", "FX".to_string()).expect("create track");
+    let before = effect_count();
 
     let failed =
         effects::add_loaded_effect_to_track(track, || Err("plugin would not start".into()));
     assert_eq!(failed, Err("plugin would not start".to_string()));
 
-    let no_track =
-        effects::add_loaded_effect_to_track(9999, || Ok(EffectType::Reverb(Reverb::new())));
+    // A missing track is refused before the (slow) load is even started.
+    let mut loader_ran = false;
+    let no_track = effects::add_loaded_effect_to_track(9999, || {
+        loader_ran = true;
+        Ok(EffectType::Reverb(Reverb::new()))
+    });
     assert_eq!(no_track, Err("Track 9999 not found".to_string()));
+    assert!(!loader_ran);
     assert!(add_effect_to_track(9999, "reverb").is_err());
     assert!(add_effect_to_track(track, "no such effect").is_err());
 
-    assert_eq!(effect_count(), 0, "nothing is left in the effect manager");
+    assert_eq!(
+        effect_count(),
+        before,
+        "nothing is left in the effect manager"
+    );
     assert_eq!(get_track_effects(track).unwrap(), "");
 }
 
 #[test]
 fn removing_an_effect_a_track_or_a_return_clears_its_effects() {
     let _guard = engine_lock();
+    let before = effect_count();
     let track = create_track("audio", "FX".to_string()).expect("create track");
     let eq = add_effect_to_track(track, "eq").unwrap();
     let reverb = add_effect_to_track(track, "reverb").unwrap();
-    assert_eq!(effect_count(), 2);
+    assert_eq!(effect_count(), before + 2);
 
     remove_effect_from_track(track, eq).expect("remove eq");
     assert_eq!(get_track_effects(track).unwrap(), reverb.to_string());
-    assert_eq!(effect_count(), 1);
+    assert_eq!(effect_count(), before + 1);
     assert!(
         remove_effect_from_track(track, eq).is_err(),
         "an effect can only be removed once"
     );
 
     delete_track(track).expect("delete track");
-    assert_eq!(effect_count(), 0);
+    assert_eq!(effect_count(), before);
 
     let ret = create_track("return", "Return".to_string()).expect("create return");
     add_effect_to_track(ret, "delay").unwrap();
-    assert_eq!(effect_count(), 1);
+    assert_eq!(effect_count(), before + 1);
     remove_return(ret).expect("remove return");
-    assert_eq!(effect_count(), 0);
+    assert_eq!(effect_count(), before);
+
+    // New Project clears every track's effects too.
+    let other = create_track("audio", "FX".to_string()).expect("create track");
+    add_effect_to_track(other, "chorus").unwrap();
+    clear_all_tracks().expect("clear all tracks");
+    assert_eq!(effect_count(), before);
 }
 
-/// The caller of `take_effect` owns the only reference, so the effect is
-/// destroyed where the caller drops it (after its locks), not inside the
-/// manager.
+/// The master track can't be deleted, so a refused delete must leave its
+/// effects alone.
+#[test]
+fn a_refused_track_delete_keeps_the_tracks_effects() {
+    let _guard = engine_lock();
+    let limiter = add_effect_to_track(0, "limiter").expect("effect on master");
+    let before = effect_count();
+
+    assert!(delete_track(0).is_err());
+    assert_eq!(effect_count(), before);
+    assert_eq!(get_track_effects(0).unwrap(), limiter.to_string());
+
+    remove_effect_from_track(0, limiter).expect("tidy up");
+}
+
+/// `take_effect` gives up the manager's reference, so the effect is dropped
+/// where the caller drops it (after its locks), not inside the manager.
 #[test]
 fn take_effect_hands_the_effect_to_the_caller() {
     use crate::effects::{EffectManager, EffectType, Reverb};

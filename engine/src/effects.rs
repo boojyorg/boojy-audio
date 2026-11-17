@@ -1367,10 +1367,12 @@ impl EffectManager {
         self.take_effect(id).is_some()
     }
 
-    /// Remove an effect and hand it back, so the caller chooses when it is
-    /// destroyed. Shutting a VST3 plugin down is slow; a caller that holds
-    /// this manager's lock (which the audio thread takes every buffer) keeps
-    /// the returned effect and drops it after releasing the lock.
+    /// Remove an effect and hand it back, so the caller chooses when the
+    /// manager's reference to it is dropped. Shutting a VST3 plugin down is
+    /// slow; a caller that holds this manager's lock (which the audio thread
+    /// takes every buffer) keeps the returned effect and drops it after
+    /// releasing the lock. (A VST3 whose plugin is also held elsewhere, such
+    /// as by an open editor, shuts down when the last holder lets go.)
     #[must_use = "drop the effect after releasing the effect manager lock"]
     pub fn take_effect(&mut self, id: EffectId) -> Option<Arc<Mutex<EffectType>>> {
         let effect = self.effects.remove(&id)?;

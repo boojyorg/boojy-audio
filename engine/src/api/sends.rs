@@ -289,36 +289,40 @@ pub fn remove_send(source_track_id: TrackId, return_track_id: TrackId) -> Result
 /// Remove a return track and all sends that target it.
 pub fn remove_return(return_track_id: TrackId) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-    // Declared before the locks so it is dropped after them: the removed
-    // effects (a VST3 shuts down slowly) must not be destroyed while the
-    // audio thread is kept waiting.
-    let mut removed_effects = Vec::new();
-    let mut track_manager = graph.track_manager.lock();
-    let mut effect_manager = graph.effect_manager.lock();
+    // The return's effects leave this block still alive and are destroyed
+    // after every lock is released (a VST3 shuts down slowly; see
+    // `delete_track`).
+    let removed_effects = {
+        let graph = graph_mutex.lock();
+        let mut track_manager = graph.track_manager.lock();
+        let mut effect_manager = graph.effect_manager.lock();
 
-    let return_arc = track_manager
-        .get_track(return_track_id)
-        .ok_or_else(|| format!("Return track {return_track_id} not found"))?;
-    if return_arc.lock().track_type != TrackType::Return {
-        return Err(format!("Track {return_track_id} is not a return track"));
-    }
+        let return_arc = track_manager
+            .get_track(return_track_id)
+            .ok_or_else(|| format!("Return track {return_track_id} not found"))?;
+        if return_arc.lock().track_type != TrackType::Return {
+            return Err(format!("Track {return_track_id} is not a return track"));
+        }
+        let effect_ids: Vec<u64> = return_arc.lock().fx_chain.clone();
 
-    let effect_ids: Vec<u64> = return_arc.lock().fx_chain.clone();
-    for effect_id in effect_ids {
-        removed_effects.extend(effect_manager.take_effect(effect_id));
-    }
+        for track_arc in track_manager.get_all_tracks() {
+            let mut track = track_arc.lock();
+            track
+                .sends
+                .retain(|send| send.target_track_id != return_track_id);
+        }
 
-    for track_arc in track_manager.get_all_tracks() {
-        let mut track = track_arc.lock();
-        track
-            .sends
-            .retain(|send| send.target_track_id != return_track_id);
-    }
+        if !track_manager.remove_track(return_track_id) {
+            return Err(format!("Failed to remove return track {return_track_id}"));
+        }
 
-    if !track_manager.remove_track(return_track_id) {
-        return Err(format!("Failed to remove return track {return_track_id}"));
-    }
+        // Only once the return has really gone.
+        effect_ids
+            .into_iter()
+            .filter_map(|effect_id| effect_manager.take_effect(effect_id))
+            .collect::<Vec<_>>()
+    };
+    drop(removed_effects);
 
     Ok(format!("Removed return track {return_track_id}"))
 }

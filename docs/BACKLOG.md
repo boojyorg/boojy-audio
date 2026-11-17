@@ -79,6 +79,17 @@ reproduces them.
     different files with one name resolve to the first).
   - A missing sample is only named in the notice at open: the empty pad doesn't say which
     file it wants, and there is no relink.
+  - The VST3 host's last-error text (`g_last_error` in `vst3_host.cpp`) is one shared string
+    written from the audio thread and the UI thread with nothing guarding it. Loading a
+    plugin now overlaps audio processing, so a failed load at the same instant as a failed
+    process call could corrupt it. Make it per-thread (`thread_local`); needs the C++ library
+    rebuilt. From the PR #225 review, same source as the next item, neither run:
+    Duplicate Track may leave two effect ids sharing one VST3 instance.
+  - The engine's own tests crash about one run in seven on a Mac with Serum installed
+    (`libc++abi: … std::range_error: wstring_convert: to_bytes error`, seen twice on
+    2026-11-17): the C++ host throws while turning a plugin's text into UTF-8 and nothing
+    catches it. The tests in `vst3_host.rs` load Serum on several threads at once; whether
+    the app can hit it is unknown. CI has no plugins, so it never shows there.
   - The window pauses while a VST3 loads (the load runs on the UI thread; the sound no longer
     crackles). Opening a project loads its plugins under the audio locks, harmless while
     playback is stopped.

@@ -38,9 +38,21 @@ pub(crate) fn add_loaded_effect_to_track(
     track_id: TrackId,
     load: impl FnOnce() -> Result<crate::effects::EffectType, String>,
 ) -> Result<u64, String> {
+    let graph_mutex = get_audio_graph()?;
+    // Don't pay for a plugin start-up and shutdown when the track has
+    // already gone (a redo after its track was deleted). Checked again below,
+    // under the locks, in case it goes while the effect loads.
+    let track_exists = {
+        let graph = graph_mutex.lock();
+        let track_manager = graph.track_manager.lock();
+        track_manager.get_track(track_id).is_some()
+    };
+    if !track_exists {
+        return Err(format!("Track {track_id} not found"));
+    }
+
     let effect = load()?;
 
-    let graph_mutex = get_audio_graph()?;
     // On a missing track the effect comes back out of this block, so it is
     // destroyed after the locks are released, like everything slow here.
     let added = {
