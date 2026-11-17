@@ -70,9 +70,8 @@ reproduces them.
 
 - Nothing known.
 - *If reproduced:*
-  - Found reading the code for the sampler-samples fix (2026-11-17), none run:
-    **Duplicate Track drops a sampler or drum kit** (`copy_synth` only copies synths), and
-    **undoing Delete Track doesn't bring the instrument back**. "Convert to Sampler" and
+  - Found reading the code for the sampler-samples fix (2026-11-17), none run: "Convert to
+    Sampler" and
     "create sampler from clip" may pass a path that no longer exists after a reopen. A sample
     that fails to load in the Sampler or Drum Kit editor shows no notice. Dropping audio on
     the timeline of a saved project also copies it to `Samples/` (a second copy, and two
@@ -81,6 +80,9 @@ reproduces them.
     file it wants, and there is no relink.
   - Duplicate Track may leave two effect ids sharing one VST3 instance (from the PR #225
     review, not run).
+  - The engine keeps a deleted track's instrument for undo, and also keeps it when the delete
+    was itself an undo (of Create Track or Duplicate Track), where nothing takes it back. It
+    stays in memory until the project closes; the sample audio is shared, so the cost is small.
   - The engine's own tests crash about one run in seven on a Mac with Serum installed
     (`libc++abi: … std::range_error: wstring_convert: to_bytes error`, seen twice on
     2026-11-17): the C++ host throws while turning a plugin's text into UTF-8 and nothing

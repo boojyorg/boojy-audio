@@ -129,6 +129,7 @@ abstract class AudioEngineInterface {
   int createSamplerForTrack(int trackId);
   bool loadSampleForTrack(int trackId, String path, int rootNote);
   bool unloadSampleForTrack(int trackId);
+  bool restoreTrackInstrument(int deletedId, int trackId);
   String? getSamplerSamplePath(int trackId);
   String setSamplerParameter(int trackId, String param, String value);
   bool isSamplerTrack(int trackId);

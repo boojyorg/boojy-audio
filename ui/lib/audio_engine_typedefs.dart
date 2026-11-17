@@ -446,6 +446,9 @@ typedef _LoadSampleForTrackFfi = int Function(int, ffi.Pointer<ffi.Char>, int);
 
 typedef _UnloadSampleForTrackFfiNative = ffi.Int32 Function(ffi.Uint64);
 typedef _UnloadSampleForTrackFfi = int Function(int);
+typedef _RestoreTrackInstrumentFfiNative =
+    ffi.Int32 Function(ffi.Uint64, ffi.Uint64);
+typedef _RestoreTrackInstrumentFfi = int Function(int, int);
 
 typedef _GetSamplerSamplePathFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64);
 typedef _GetSamplerSamplePathFfi = ffi.Pointer<Utf8> Function(int);

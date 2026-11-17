@@ -224,13 +224,9 @@ pub fn delete_track(track_id: TrackId) -> Result<String, String> {
     let (removed, removed_effects) = {
         let graph = graph_mutex.lock();
 
-        // Stop any playing notes on the per-track synth to prevent stuck notes
-        {
-            let mut synth_manager = graph.track_synth_manager.lock();
-            synth_manager.all_notes_off(track_id);
-            // Also remove the synth for this track
-            synth_manager.remove_synth(track_id);
-        }
+        // The instrument is silenced and kept, not destroyed, so undoing the
+        // delete can bring it back (restore_track_instrument).
+        graph.track_synth_manager.lock().park_instrument(track_id);
 
         // Remove all MIDI clips belonging to this track from the global collection
         graph.remove_midi_clips_for_track(track_id);
@@ -419,13 +415,11 @@ pub fn duplicate_track_as(track_id: TrackId, new_id: Option<TrackId>) -> Result<
         // track_manager lock is released here
     };
 
-    // Copy instrument assignment if exists (for MIDI tracks)
-    {
-        let mut synth_manager = graph.track_synth_manager.lock();
-        if synth_manager.has_synth(track_id) {
-            synth_manager.copy_synth(track_id, new_track_id);
-        }
-    };
+    // The copy gets its own synth, sampler or drum kit with the same settings.
+    graph
+        .track_synth_manager
+        .lock()
+        .copy_instrument(track_id, new_track_id);
 
     eprintln!(
         "📋 [API] Duplicated track {track_id} → new track {new_track_id} created"

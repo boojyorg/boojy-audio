@@ -127,11 +127,13 @@ typedef RestoredVst3 = ({int effectId, String path, String name});
 /// - The engine id created on undo is tracked in [_currentTrackId] so redo
 ///   deletes the *live* track, not the gone original (C62).
 ///
-/// Remaining documented limitations (surfaced via [onNotice]): tweaked
-/// built-in-*synth* parameters (a fresh default synth is recreated with the
-/// track — `get_synth_parameters` is an engine stub) and the track's exact
-/// position in the list / group nesting. A VST3 plugin that can't be reloaded
-/// (moved or uninstalled since the delete) is also surfaced via [onNotice].
+/// - The built-in instrument (synth, sampler or drum kit) is kept by the engine
+///   when the track is deleted and handed back on undo
+///   (`restoreTrackInstrument`), so it returns with its samples and settings.
+///
+/// Remaining documented limitation: the track's exact position in the list /
+/// group nesting. A VST3 plugin that can't be reloaded (moved or uninstalled
+/// since the delete) is surfaced via [onNotice].
 class DeleteTrackCommand extends Command {
   final int trackId;
   final String trackName;
@@ -226,6 +228,9 @@ class DeleteTrackCommand extends Command {
     var newTrackId = engine.createTrack(trackType, trackName, id: trackId);
     if (newTrackId < 0) newTrackId = engine.createTrack(trackType, trackName);
     if (newTrackId < 0) return;
+    // The engine kept the deleted track's synth, sampler or drum kit; hand it
+    // to the recreated track with its samples and settings as they were.
+    engine.restoreTrackInstrument(_currentTrackId, newTrackId);
     _currentTrackId = newTrackId;
 
     // Mixer

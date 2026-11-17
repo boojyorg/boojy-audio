@@ -176,6 +176,23 @@ void main() {
       },
     );
 
+    test('undo hands the kept instrument to the recreated track', () async {
+      final command = DeleteTrackCommand(
+        trackId: 1,
+        trackName: 'Drums',
+        trackType: 'midi',
+      );
+
+      await command.execute(mockEngine);
+      await command.undo(mockEngine);
+      expect(mockEngine.restoredInstruments, [(1, 1)]);
+
+      // Redo, then undo again: asked for once more.
+      await command.execute(mockEngine);
+      await command.undo(mockEngine);
+      expect(mockEngine.restoredInstruments, [(1, 1), (1, 1)]);
+    });
+
     test(
       'undo rebuilds the built-in FX chain with params and bypass',
       () async {

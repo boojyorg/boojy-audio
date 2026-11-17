@@ -318,6 +318,13 @@ mixin _PluginsMixin on _AudioEngineBase {
     return _unloadSampleForTrack(trackId) == 1;
   }
 
+  /// Give the instrument of deleted track [deletedId] to track [trackId]
+  /// (undo of Delete Track): the engine keeps a deleted track's synth, sampler
+  /// or drum kit. Returns false when that track had none.
+  bool restoreTrackInstrument(int deletedId, int trackId) {
+    return _restoreTrackInstrument(deletedId, trackId) == 1;
+  }
+
   /// Path of the sample currently loaded on a sampler track.
   /// Returns null when the track has no sample (or isn't a sampler).
   String? getSamplerSamplePath(int trackId) {

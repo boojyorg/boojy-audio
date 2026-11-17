@@ -79,6 +79,7 @@ class _AudioEngineBase {
   late final _CreateSamplerForTrackFfi _createSamplerForTrack;
   late final _LoadSampleForTrackFfi _loadSampleForTrack;
   late final _UnloadSampleForTrackFfi _unloadSampleForTrack;
+  late final _RestoreTrackInstrumentFfi _restoreTrackInstrument;
   late final _GetSamplerSamplePathFfi _getSamplerSamplePath;
   late final _SetSamplerParameterFfi _setSamplerParameter;
   late final _IsSamplerTrackFfi _isSamplerTrack;
@@ -844,6 +845,11 @@ class _AudioEngineBase {
         )
         .asFunction();
 
+    _restoreTrackInstrument = _lib
+        .lookup<ffi.NativeFunction<_RestoreTrackInstrumentFfiNative>>(
+          'restore_track_instrument_ffi',
+        )
+        .asFunction();
     _unloadSampleForTrack = _lib
         .lookup<ffi.NativeFunction<_UnloadSampleForTrackFfiNative>>(
           'unload_sample_for_track_ffi',

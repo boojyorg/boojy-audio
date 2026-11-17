@@ -68,6 +68,28 @@ impl DrumKit {
         }
     }
 
+    /// A separate kit with the same pads, samples and settings and no notes
+    /// playing (Duplicate Track). The audio is shared, not copied.
+    pub fn duplicate(&self) -> Self {
+        Self {
+            slots: self
+                .slots
+                .iter()
+                .map(|slot| DrumSlot {
+                    pad_index: slot.pad_index,
+                    pinned_note: slot.pinned_note,
+                    pan: slot.pan,
+                    muted: slot.muted,
+                    soloed: slot.soloed,
+                    choke_group: slot.choke_group,
+                    sampler: slot.sampler.duplicate(),
+                })
+                .collect(),
+            sample_rate: self.sample_rate,
+            next_pad_index: self.next_pad_index,
+        }
+    }
+
     /// Add an empty pad pinned to `pinned_note`. Rejects a duplicate pinned note (which would make
     /// two pads fire on the same MIDI note). Returns the new pad's stable index, or `None` if the
     /// note is already taken.

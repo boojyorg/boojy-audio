@@ -462,6 +462,16 @@ class MockAudioEngine implements AudioEngineInterface {
     return true;
   }
 
+  /// `(deletedId, trackId)` of every restoreTrackInstrument call.
+  final List<(int, int)> restoredInstruments = [];
+
+  @override
+  bool restoreTrackInstrument(int deletedId, int trackId) {
+    _record('restoreTrackInstrument');
+    restoredInstruments.add((deletedId, trackId));
+    return true;
+  }
+
   @override
   String? getSamplerSamplePath(int trackId) {
     _record('getSamplerSamplePath');

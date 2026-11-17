@@ -306,6 +306,33 @@ impl Sampler {
         }
     }
 
+    /// A separate sampler with the same sample and settings and no notes
+    /// playing (Duplicate Track). The audio is shared, not copied.
+    pub fn duplicate(&self) -> Self {
+        Self {
+            voices: (0..MAX_VOICES).map(|_| SamplerVoice::new()).collect(),
+            steal_tails: (0..MAX_VOICES).map(|_| SamplerVoice::new()).collect(),
+            sample: self.sample.clone(),
+            root_note: self.root_note,
+            envelope: self.envelope,
+            loop_enabled: self.loop_enabled,
+            loop_start: self.loop_start,
+            loop_end: self.loop_end,
+            sample_rate: self.sample_rate,
+            volume_db: self.volume_db,
+            transpose_semitones: self.transpose_semitones,
+            fine_cents: self.fine_cents,
+            reversed: self.reversed,
+            original_bpm: self.original_bpm,
+            warp_enabled: self.warp_enabled,
+            warp_mode: self.warp_mode,
+            beats_per_bar: self.beats_per_bar,
+            beat_unit: self.beat_unit,
+            missing: self.missing.clone(),
+            saved_copy: self.saved_copy.clone(),
+        }
+    }
+
     /// Load a sample from an `AudioClip`
     pub fn load_sample(&mut self, clip: Arc<AudioClip>) {
         println!(
