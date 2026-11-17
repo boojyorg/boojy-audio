@@ -71,4 +71,21 @@ void main() {
       expect(EffectData.fromInfo(1, 'type:vst3,bypassed:0,name:X'), isNull);
     });
   });
+
+  group('engineChainOrder', () {
+    test('no instrument in the chain: the cards are the whole order', () {
+      expect(engineChainOrder([5, 6, 7], null, [7, 5, 6]), [7, 5, 6]);
+      expect(engineChainOrder([5, 6, 7], 99, [7, 5, 6]), [7, 5, 6]);
+    });
+
+    test('the instrument keeps its place and the cards fill around it', () {
+      expect(engineChainOrder([5, 6, 7], 5, [7, 6]), [5, 7, 6]);
+      expect(engineChainOrder([6, 5, 7], 5, [7, 6]), [7, 5, 6]);
+      expect(engineChainOrder([6, 7, 5], 5, [7, 6]), [7, 6, 5]);
+    });
+
+    test('an instrument alone stays alone', () {
+      expect(engineChainOrder([5], 5, const []), [5]);
+    });
+  });
 }

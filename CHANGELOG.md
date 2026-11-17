@@ -110,6 +110,11 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **A VST3 instrument shows once in the device chain.** A plugin instrument such as a synth
+  appeared twice: as the instrument, and again as an effect card after it. The second card was
+  the same plugin, so deleting it took the instrument away. It now shows as the instrument
+  only, and effects after it can still be reordered, deleted and brought back with undo.
+
 - **Adding or removing a VST3 while the song plays no longer crackles.** Boojy used to load the
   plugin while the audio engine was kept waiting for it, so a buffer ran late and you heard a
   click. The plugin is now loaded first and slotted in afterwards. Removing a plugin, and

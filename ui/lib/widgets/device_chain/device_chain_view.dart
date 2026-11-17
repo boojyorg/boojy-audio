@@ -94,7 +94,12 @@ class DeviceChainView extends StatefulWidget {
 
 class _DeviceChainViewState extends State<DeviceChainView>
     with AutomaticKeepAliveClientMixin {
+  /// The track's effect cards. A VST3 instrument is in the engine's chain
+  /// too but is NOT in this list: it has the instrument card.
   List<EffectData> _effects = [];
+
+  /// Every id in the engine's chain, in order (the instrument included).
+  List<int> _chainIds = [];
   int? _selectedDeviceId; // null = no selection, -1 = instrument selected
   Timer? _refreshTimer;
   Timer? _meterTimer;
@@ -265,7 +270,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
     if (_isDraggingSlider) return;
 
     if (widget.audioEngine == null || widget.selectedTrackId == null) {
-      if (_effects.isNotEmpty) setState(() => _effects = []);
+      _clearEffects();
       return;
     }
 
@@ -274,15 +279,23 @@ class _DeviceChainViewState extends State<DeviceChainView>
         widget.selectedTrackId!,
       );
       if (effectIds.isEmpty) {
-        if (_effects.isNotEmpty) setState(() => _effects = []);
+        _clearEffects();
         return;
       }
 
+      // A VST3 instrument is one of the engine's "effects" on the track. It
+      // already shows as the instrument card, so it gets no effect card: a
+      // second card for the same plugin could delete or reorder the
+      // instrument by mistake.
+      final instrumentEffectId = widget.instrumentData?.effectId;
+      final chainIds = <int>[];
       final effects = <EffectData>[];
       for (final idStr in effectIds.split(',')) {
         if (idStr.isEmpty) continue;
         final id = int.tryParse(idStr);
         if (id == null) continue;
+        chainIds.add(id);
+        if (id == instrumentEffectId) continue;
 
         final info = widget.audioEngine!.getEffectInfo(id);
         final effect = EffectData.fromInfo(id, info);
@@ -309,10 +322,19 @@ class _DeviceChainViewState extends State<DeviceChainView>
 
       setState(() {
         _effects = effects;
+        _chainIds = chainIds;
       });
     } catch (e) {
-      if (_effects.isNotEmpty) setState(() => _effects = []);
+      _clearEffects();
     }
+  }
+
+  void _clearEffects() {
+    if (_effects.isEmpty && _chainIds.isEmpty) return;
+    setState(() {
+      _effects = [];
+      _chainIds = [];
+    });
   }
 
   // (_loadTrackVolume deleted — it regex-parsed a "volume:Y" format the
@@ -353,7 +375,9 @@ class _DeviceChainViewState extends State<DeviceChainView>
     if (widget.selectedTrackId == null) return;
 
     final effect = _effects.firstWhere((e) => e.id == effectId);
-    final effectIndex = _effects.indexOf(effect);
+    // Position and neighbours in the engine's chain, which also holds a VST3
+    // instrument: undo puts the effect back by reordering the whole chain.
+    final effectIndex = _chainIds.indexOf(effectId);
     final trackId = widget.selectedTrackId!;
     // Captured now: undo can run after this chain shows another track.
     final pluginPath = effect.pluginPath;
@@ -368,10 +392,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
       effectType: effect.pluginPath ?? effect.type,
       isVst3: effect.isVst3,
       effectIndex: effectIndex,
-      siblingEffectIds: _effects
-          .where((e) => e.id != effectId)
-          .map((e) => e.id)
-          .toList(),
+      siblingEffectIds: _chainIds.where((id) => id != effectId).toList(),
       onEffectRemoved: (id) {
         if (pluginPath != null) onVst3Removed?.call(id);
         if (mounted) _loadEffects();
@@ -748,17 +769,22 @@ class _DeviceChainViewState extends State<DeviceChainView>
   Future<void> _reorderEffect(int effectId, int newIndex) async {
     if (widget.selectedTrackId == null) return;
 
-    final oldOrder = _effects.map((e) => e.id).toList();
-    final newOrderList = List<int>.from(oldOrder);
-    newOrderList.remove(effectId);
-    if (newIndex > newOrderList.length) newIndex = newOrderList.length;
-    newOrderList.insert(newIndex, effectId);
+    // [newIndex] counts effect cards; the engine's chain may also hold the
+    // VST3 instrument, which keeps its place (see engineChainOrder).
+    final cardOrder = _effects.map((e) => e.id).toList();
+    cardOrder.remove(effectId);
+    if (newIndex > cardOrder.length) newIndex = cardOrder.length;
+    cardOrder.insert(newIndex, effectId);
 
     final command = ReorderEffectsCommand(
       trackId: widget.selectedTrackId!,
       trackName: widget.trackName ?? 'Track',
-      newOrder: newOrderList,
-      oldOrder: oldOrder,
+      newOrder: engineChainOrder(
+        _chainIds,
+        widget.instrumentData?.effectId,
+        cardOrder,
+      ),
+      oldOrder: List<int>.of(_chainIds),
     );
     await UndoRedoManager().execute(command);
     _loadEffects();
