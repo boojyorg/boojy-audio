@@ -1699,6 +1699,14 @@ fn undoing_delete_track_brings_its_instrument_back() {
     restore_track_instrument(sampler, other).unwrap();
     assert_eq!(instrument_settings(other), before);
 
+    // Only the instrument the track had when it was deleted comes back. The
+    // id is reused without one (redo of Create Track), then deleted again.
+    delete_track(drums).unwrap();
+    create_track_with_id("midi", "Plain".to_string(), drums).unwrap();
+    delete_track(drums).unwrap();
+    create_track_with_id("midi", "Plain".to_string(), drums).unwrap();
+    assert!(restore_track_instrument(drums, drums).is_err());
+
     // A new project forgets what was kept.
     delete_track(other).unwrap();
     clear_all_tracks().unwrap();

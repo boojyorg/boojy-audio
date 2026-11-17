@@ -224,14 +224,9 @@ pub fn delete_track(track_id: TrackId) -> Result<String, String> {
     let (removed, removed_effects) = {
         let graph = graph_mutex.lock();
 
-        // Stop any playing notes on the per-track synth to prevent stuck notes
-        {
-            let mut synth_manager = graph.track_synth_manager.lock();
-            synth_manager.all_notes_off(track_id);
-            // The instrument is kept, not destroyed, so undoing the delete
-            // can bring it back (restore_track_instrument).
-            synth_manager.park_instrument(track_id);
-        }
+        // The instrument is silenced and kept, not destroyed, so undoing the
+        // delete can bring it back (restore_track_instrument).
+        graph.track_synth_manager.lock().park_instrument(track_id);
 
         // Remove all MIDI clips belonging to this track from the global collection
         graph.remove_midi_clips_for_track(track_id);

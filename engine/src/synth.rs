@@ -815,17 +815,19 @@ impl TrackSynthManager {
         self.parked.clear();
     }
 
-    /// Take a deleted track's instrument out of playback and keep it for
-    /// undo. Returns false when the track had none.
+    /// Take a deleted track's instrument out of playback, silent and with
+    /// the sustain pedal up, and keep it for undo. Returns false when the
+    /// track had none; an instrument kept under this id earlier is then
+    /// forgotten, so a later undo can't hand back one the track no longer had.
     pub fn park_instrument(&mut self, track_id: u64) -> bool {
-        match self.instruments.remove(&track_id) {
-            Some(mut instrument) => {
-                instrument.all_notes_off();
-                self.parked.insert(track_id, instrument);
-                true
-            }
-            None => false,
-        }
+        let Some(mut instrument) = self.instruments.remove(&track_id) else {
+            self.parked.remove(&track_id);
+            return false;
+        };
+        instrument.control_change(64, 0);
+        instrument.all_notes_off();
+        self.parked.insert(track_id, instrument);
+        true
     }
 
     /// Give the instrument parked from deleted track `deleted_id` to track
@@ -1291,6 +1293,23 @@ mod tests {
             synth.steal_tails.iter().all(|t| !t.is_active),
             "steal tail still active after the fade window"
         );
+    }
+
+    #[test]
+    fn parked_synth_comes_back_with_the_sustain_pedal_up() {
+        let mut manager = TrackSynthManager::new(48_000.0);
+        manager.create_synth(1);
+        manager.control_change(1, 64, 127);
+        manager.note_on(1, 60, 100);
+
+        assert!(manager.park_instrument(1));
+        assert!(manager.restore_parked_instrument(1, 1));
+
+        let Some(TrackInstrument::Synth(synth)) = manager.instruments.get(&1) else {
+            panic!("the synth is back");
+        };
+        assert!(!synth.sustain_held, "notes played after undo must release");
+        assert_eq!(synth.active_voice_count(), 0);
     }
 
     #[test]
