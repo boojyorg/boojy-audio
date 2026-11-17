@@ -80,6 +80,9 @@ reproduces them.
     file it wants, and there is no relink.
   - Duplicate Track may leave two effect ids sharing one VST3 instance (from the PR #225
     review, not run).
+  - The engine keeps a deleted track's instrument for undo, and also keeps it when the delete
+    was itself an undo (of Create Track or Duplicate Track), where nothing takes it back. It
+    stays in memory until the project closes; the sample audio is shared, so the cost is small.
   - The engine's own tests crash about one run in seven on a Mac with Serum installed
     (`libc++abi: … std::range_error: wstring_convert: to_bytes error`, seen twice on
     2026-11-17): the C++ host throws while turning a plugin's text into UTF-8 and nothing
