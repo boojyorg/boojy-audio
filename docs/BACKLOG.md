@@ -78,10 +78,11 @@ reproduces them.
   - The engine keeps a deleted track's instrument for undo, and also keeps it when the delete
     was itself an undo (of Create Track or Duplicate Track), where nothing takes it back. It
     stays in memory until the project closes; the sample audio is shared, so the cost is small.
-  - The engine's own tests crash about one run in seven on a Mac with Serum installed
-    (`libc++abi: … std::range_error: wstring_convert: to_bytes error`, seen twice on
-    2026-11-17): the C++ host throws while turning a plugin's text into UTF-8 and nothing
-    catches it. The tests in `vst3_host.rs` load Serum on several threads at once; whether
+  - The engine's own tests crash about one run in five on a Mac with Serum installed (5 of 28
+    runs on 2026-11-17, with and without the newer plugin test). Sometimes it is
+    `libc++abi: … std::range_error: wstring_convert: to_bytes error`: the C++ host throws
+    while turning a plugin's text into UTF-8 and nothing catches it. Sometimes it is a plain
+    crash (SIGSEGV or SIGTRAP) in the same tests, so there may be a second cause. The tests in `vst3_host.rs` load Serum on several threads at once; whether
     the app can hit it is unknown. CI has no plugins, so it never shows there.
   - The window pauses while a VST3 loads (the load runs on the UI thread; the sound no longer
     crackles). Opening a project loads its plugins under the audio locks, harmless while
