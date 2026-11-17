@@ -94,3 +94,26 @@ class EffectData {
     pluginPath: pluginPath,
   );
 }
+
+/// The order to send the engine when the effect cards are put in
+/// [cardOrder].
+///
+/// A VST3 instrument sits in the engine's chain ([chainIds]) beside the
+/// track's effects, but the device chain shows it as the instrument card, not
+/// as an effect card. The engine wants every id back when the chain is
+/// reordered, so the instrument keeps the place it had and the cards fill the
+/// places around it.
+List<int> engineChainOrder(
+  List<int> chainIds,
+  int? instrumentEffectId,
+  List<int> cardOrder,
+) {
+  if (instrumentEffectId == null || !chainIds.contains(instrumentEffectId)) {
+    return cardOrder;
+  }
+  final cards = cardOrder.iterator;
+  return [
+    for (final id in chainIds)
+      if (id == instrumentEffectId) id else if (cards.moveNext()) cards.current,
+  ];
+}
