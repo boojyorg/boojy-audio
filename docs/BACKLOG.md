@@ -80,7 +80,14 @@ reproduces them. The VST3 crackle is in Tyr's log.
     the timeline of a saved project also copies it to `Samples/` (a second copy, and two
     different files with one name resolve to the first).
   - A missing sample is only named in the notice at open: the empty pad doesn't say which
-    file it wants, and there is no relink.
+    file it wants, and there is no relink. A file that is there but can't be read gets the
+    same "couldn't find" notice.
+  - Save copies files while holding the engine's main lock, and runs on the UI thread (clips
+    and samples both), so a big project stalls the window on every save and auto-save. Move
+    it off the UI thread as export was.
+  - A project saved by this version opens in v0.6 with its sampler and drum-pad sounds
+    missing (v0.6 can't read a path inside the project), and a save there erases them.
+    Nothing checks the project's format version *(Tyr: see PR #224)*.
   - "Audio clip 0 plays on track 1 but is not on the screen": the dev check fired twice in Tyr's
     session (2026-10-14), action unknown.
   - Something in the window is 4 px too wide (repeated "RenderFlex overflowed by 4.0 pixels on

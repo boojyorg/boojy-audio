@@ -275,6 +275,9 @@ pub struct Sampler {
     /// Saved settings of a sample the project loader could not find. Kept so
     /// the next save writes the reference back instead of erasing it.
     missing: Option<SamplerData>,
+    /// Where an earlier save put this sample's copy (a full path). A later
+    /// save uses it when the file the sample was loaded from has gone.
+    saved_copy: Option<String>,
 }
 
 impl Sampler {
@@ -299,6 +302,7 @@ impl Sampler {
             beats_per_bar: 4,
             beat_unit: 4,
             missing: None,
+            saved_copy: None,
         }
     }
 
@@ -313,6 +317,7 @@ impl Sampler {
         self.loop_start = 0.0;
         self.sample = Some(clip);
         self.missing = None;
+        self.saved_copy = None;
     }
 
     /// Load sample and set root note
@@ -328,6 +333,7 @@ impl Sampler {
         self.all_notes_off();
         self.sample = None;
         self.missing = None;
+        self.saved_copy = None;
         self.loop_start = 0.0;
         self.loop_end = 0.0;
     }
@@ -341,6 +347,16 @@ impl Sampler {
     /// its source file is gone.
     pub fn sample_clip(&self) -> Option<Arc<AudioClip>> {
         self.sample.clone()
+    }
+
+    /// The copy of this sample an earlier save made, if any.
+    pub fn saved_copy(&self) -> Option<&str> {
+        self.saved_copy.as_deref()
+    }
+
+    /// Remember where a save put this sample's copy.
+    pub fn set_saved_copy(&mut self, path: String) {
+        self.saved_copy = Some(path);
     }
 
     /// Record that the project loader could not find this sampler's file.

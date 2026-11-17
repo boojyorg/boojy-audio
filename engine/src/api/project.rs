@@ -72,22 +72,43 @@ pub fn save_project(project_name: String, project_path_str: String) -> Result<St
     // at the copies, so the project doesn't depend on files elsewhere on disk.
     for track in &mut project_data.tracks {
         let track_id = track.id;
-        if let Some(sampler) = track.sampler_settings.as_mut() {
-            let clip = graph.track_synth_manager.lock().sample_clip(track_id, None);
-            sampler.sample_path =
-                save_sample_into_project(&sampler.sample_path, clip.as_deref(), project_path)?;
-        }
-        if let Some(kit) = track.drum_kit_settings.as_mut() {
-            for slot in &mut kit.slots {
-                let Some(sampler) = slot.sampler.as_mut() else {
-                    continue;
-                };
-                let clip = graph
-                    .track_synth_manager
-                    .lock()
-                    .sample_clip(track_id, Some(slot.pad_index));
-                sampler.sample_path =
-                    save_sample_into_project(&sampler.sample_path, clip.as_deref(), project_path)?;
+        let samplers = track
+            .sampler_settings
+            .iter_mut()
+            .map(|sampler| (None, sampler))
+            .chain(track.drum_kit_settings.iter_mut().flat_map(|kit| {
+                kit.slots.iter_mut().filter_map(|slot| {
+                    let pad = slot.pad_index;
+                    slot.sampler.as_mut().map(|sampler| (Some(pad), sampler))
+                })
+            }));
+        for (pad, sampler) in samplers {
+            let (loaded, saved_copy) = {
+                let synths = graph.track_synth_manager.lock();
+                (
+                    synths.sample_clip(track_id, pad),
+                    synths.sample_saved_copy(track_id, pad),
+                )
+            };
+            sampler.sample_path = save_sample_into_project(
+                &sampler.sample_path,
+                loaded.as_deref(),
+                saved_copy.as_deref(),
+                project_path,
+            )?;
+            // Remember the first copy made, so a later save can use it if the
+            // file the sample came from is deleted. An auto-save backup is
+            // not allowed to replace it: backups get removed.
+            let copy = project_path.join(&sampler.sample_path);
+            if loaded.is_some()
+                && !saved_copy.is_some_and(|p| Path::new(&p).is_file())
+                && copy.is_file()
+            {
+                graph.track_synth_manager.lock().set_sample_saved_copy(
+                    track_id,
+                    pad,
+                    copy.to_string_lossy().into_owned(),
+                );
             }
         }
     }
@@ -103,10 +124,12 @@ pub fn save_project(project_name: String, project_path_str: String) -> Result<St
 /// path to save for it (relative to the project, e.g. `audio/kick.wav`).
 ///
 /// `sample_path` is where the sample was loaded from; `loaded` is the sample
-/// in memory, None when the project loader could not find it.
+/// in memory, None when the project loader could not find it; `saved_copy`
+/// is where an earlier save copied it.
 fn save_sample_into_project(
     sample_path: &str,
     loaded: Option<&crate::audio_file::AudioClip>,
+    saved_copy: Option<&str>,
     project_path: &Path,
 ) -> Result<String, String> {
     use crate::project;
@@ -114,23 +137,35 @@ fn save_sample_into_project(
     if sample_path.is_empty() {
         return Ok(String::new());
     }
-    let source_path = Path::new(sample_path);
-    if source_path.is_file() {
-        return project::copy_sample_to_project(source_path, project_path)
-            .map_err(|e| e.to_string());
+    // Copy the file itself when there is one: where it was loaded from, or
+    // failing that the copy an earlier save made (the same bytes, so nothing
+    // is re-encoded and no second file appears).
+    for source in [Some(sample_path), saved_copy].into_iter().flatten() {
+        let source = Path::new(source);
+        if !source.is_file() {
+            continue;
+        }
+        match project::copy_sample_to_project(source, project_path) {
+            Ok(relative_path) => return Ok(relative_path),
+            // An unreadable source (a drive that dropped out) must not stop
+            // the save while the sound is still in memory.
+            Err(e) => eprintln!("⚠️  [API] Couldn't copy sample {}: {e}", source.display()),
+        }
     }
-    // The file has gone since it was loaded: write out what is in memory.
+    // No usable file: write out what is in memory.
     if let Some(clip) = loaded {
         return project::write_sample_clip_to_project(clip, project_path)
             .map_err(|e| e.to_string());
     }
     // Missing since the project was opened. Keep the reference so putting the
-    // file back brings the sound back; relative when it points into this
-    // project, so it still resolves if the folder moves.
-    Ok(source_path.strip_prefix(project_path).map_or_else(
-        |_| sample_path.to_string(),
-        |rel| rel.to_string_lossy().replace('\\', "/"),
-    ))
+    // file back brings the sound back. A file that belongs in a project's
+    // `audio/` folder is saved relative, so it is looked for in whichever
+    // folder this save is writing; any other path is kept exactly as it was.
+    let missing = Path::new(sample_path);
+    Ok(match missing.file_name().and_then(|n| n.to_str()) {
+        Some(name) if project::is_in_project_audio_dir(missing) => format!("audio/{name}"),
+        _ => sample_path.to_string(),
+    })
 }
 
 /// Load project from .audio folder

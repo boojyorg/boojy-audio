@@ -196,6 +196,7 @@ mixin DAWProjectMixin
 
     // Reset project manager state
     projectManager?.newProject();
+    Notices.clear(missingSamplesNoticeId);
     midiPlaybackManager?.clear();
     undoRedoManager.clear();
 
@@ -672,9 +673,9 @@ mixin DAWProjectMixin
       audioEngine?.getMissingSampleNames() ?? const [],
     );
     if (missing != null) {
-      Notices.problem(missing, id: 'missing-samples');
+      Notices.problem(missing, id: missingSamplesNoticeId);
     } else {
-      Notices.clear('missing-samples');
+      Notices.clear(missingSamplesNoticeId);
     }
   }
 

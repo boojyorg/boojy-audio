@@ -310,7 +310,7 @@ pub fn load_project(project_path: &Path) -> Result<ProjectData> {
 
 /// True when `path` is a file directly inside some project's `audio/` folder
 /// (`<Name>.audio/audio/<file>`), i.e. it was put there by an earlier save.
-fn is_in_project_audio_dir(path: &Path) -> bool {
+pub(crate) fn is_in_project_audio_dir(path: &Path) -> bool {
     let Some(audio_dir) = path.parent() else {
         return false;
     };
@@ -608,11 +608,22 @@ pub fn unique_saved_clip_ids(project_data: &ProjectData) -> std::collections::Ha
 /// (how samples are saved now) is inside the project folder; an absolute one
 /// comes from a project saved before samples were copied in, and is used as is.
 pub fn resolve_sample_path(project_path: &Path, saved_path: &str) -> String {
-    if saved_path.is_empty() || Path::new(saved_path).is_absolute() {
+    if saved_path.is_empty() || is_absolute_on_any_os(saved_path) {
         saved_path.to_string()
     } else {
         project_path.join(saved_path).to_string_lossy().into_owned()
     }
+}
+
+/// True for a full path from macOS/Linux (`/Users/...`) or Windows
+/// (`C:\...`, `\\server\...`), whichever of them this build runs on. An old
+/// project opened on the other system must keep its path as written, not have
+/// it mistaken for a file inside the project.
+fn is_absolute_on_any_os(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    path.starts_with('/')
+        || path.starts_with('\\')
+        || (bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':')
 }
 
 /// Resolve audio file path (relative to project folder)

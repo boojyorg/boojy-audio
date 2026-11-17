@@ -64,6 +64,14 @@ void main() {
       );
       expect(h.engine.getDrumKitInfo(drums)!.pads.single.hasSample, isFalse);
 
+      // The notice belongs to that project: New Project takes it away.
+      h.daw.executeNewProject();
+      await h.settle();
+      expect(Notices.instance.problems, isEmpty);
+      await h.realTime(() => h.daw.openRecentProject(path));
+      await h.settleUntil(() => !h.daw.isLoading, what: 'the reopen after new');
+      expect(Notices.instance.problems, hasLength(1));
+
       // Opening a project with nothing missing takes the notice away.
       await h.realTime(() => h.daw.saveProjectToPath(path));
       File(

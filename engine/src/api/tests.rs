@@ -2156,3 +2156,100 @@ fn loading_a_new_sample_over_a_missing_one_replaces_it() {
     save_project("Song".to_string(), path_str(&project)).expect("save");
     assert_eq!(saved_sample_paths(&project), vec!["audio/bass.wav"]);
 }
+
+/// A 16-bit mono WAV: not the format the engine writes from memory, so a
+/// re-encoded copy has different bytes from the original.
+fn write_16_bit_wav(dir: &Path, name: &str) -> PathBuf {
+    let path = dir.join(name);
+    let spec = hound::WavSpec {
+        channels: 1,
+        sample_rate: TARGET_SAMPLE_RATE,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+    let mut writer = hound::WavWriter::create(&path, spec).expect("create wav");
+    for i in 0..4800_i32 {
+        writer
+            .write_sample(((i % 100) * 200) as i16)
+            .expect("write sample");
+    }
+    writer.finalize().expect("finalize wav");
+    path
+}
+
+#[test]
+fn original_deleted_after_a_save_does_not_make_a_second_copy() {
+    let _guard = engine_lock();
+    let dir = temp_dir("samples_original_deleted_later");
+    let kick = write_16_bit_wav(&dir, "kick.wav");
+    drum_track(&[&kick]);
+
+    let project = dir.join("Song.audio");
+    save_project("Song".to_string(), path_str(&project)).expect("save");
+    let first_copy = std::fs::read(project.join("audio/kick.wav")).unwrap();
+
+    // An auto-save backup in between must not become the copy relied on.
+    let backup = dir.join("Backup.audio");
+    save_project("Song".to_string(), path_str(&backup)).expect("backup");
+    std::fs::remove_file(&kick).unwrap();
+    std::fs::remove_dir_all(&backup).unwrap();
+
+    save_project("Song".to_string(), path_str(&project)).expect("save again");
+    assert_eq!(audio_dir_files(&project), vec!["kick.wav"]);
+    assert_eq!(saved_sample_paths(&project), vec!["audio/kick.wav"]);
+    assert_eq!(
+        std::fs::read(project.join("audio/kick.wav")).unwrap(),
+        first_copy,
+        "the first copy is left as it was"
+    );
+
+    // Save As after the original has gone copies the project's own file.
+    let copy = dir.join("Copy.audio");
+    save_project("Copy".to_string(), path_str(&copy)).expect("save as");
+    assert_eq!(
+        std::fs::read(copy.join("audio/kick.wav")).unwrap(),
+        first_copy
+    );
+}
+
+#[test]
+fn missing_sample_saved_to_another_folder_is_looked_for_in_that_folder() {
+    let _guard = engine_lock();
+    let dir = temp_dir("samples_missing_save_as");
+    let kick = write_sine_wav(&dir, "kick.wav", 0.1, 0.8);
+    let (drums, pads) = drum_track(&[&kick]);
+    let project = dir.join("Song.audio");
+    save_project("Song".to_string(), path_str(&project)).expect("save");
+    std::fs::remove_file(project.join("audio/kick.wav")).unwrap();
+    load_project(path_str(&project)).expect("load");
+    assert_eq!(missing_sample_names(), vec!["kick.wav"]);
+
+    let copy = dir.join("Copy.audio");
+    save_project("Copy".to_string(), path_str(&copy)).expect("save as");
+    assert_eq!(saved_sample_paths(&copy), vec!["audio/kick.wav"]);
+
+    // Putting the file into the copy brings the pad back there.
+    std::fs::create_dir_all(copy.join("audio")).unwrap();
+    std::fs::copy(&kick, copy.join("audio/kick.wav")).unwrap();
+    load_project(path_str(&copy)).expect("load copy");
+    assert!(has_sample(drums, Some(pads[0])));
+}
+
+#[test]
+fn full_path_from_the_other_operating_system_is_kept_as_written() {
+    let project = Path::new("/projects/Song.audio");
+    for foreign in [
+        "C:\\Users\\a\\kick.wav",
+        "/Users/a/kick.wav",
+        "\\\\server\\share\\kick.wav",
+    ] {
+        assert_eq!(
+            crate::project::resolve_sample_path(project, foreign),
+            foreign
+        );
+    }
+    assert_eq!(
+        crate::project::resolve_sample_path(project, "audio/kick.wav"),
+        path_str(&project.join("audio/kick.wav"))
+    );
+}

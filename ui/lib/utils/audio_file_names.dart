@@ -25,6 +25,10 @@ String cleanAudioFileName(String path) {
   return rest;
 }
 
+/// Id of the "couldn't find these samples" notice, so a later project (opened,
+/// new or closed) can take the previous one's notice away.
+const missingSamplesNoticeId = 'missing-samples';
+
 /// The notice to show when a project opens with sampler or drum-pad samples
 /// the engine could not find, or null when [fileNames] is empty. A name used
 /// by several pads is listed once; a long list is cut to three names.
