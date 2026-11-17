@@ -535,6 +535,15 @@ class MockAudioEngine implements AudioEngineInterface {
     return start;
   }
 
+  /// What `getMissingSampleNames` returns; set by a test.
+  List<String> missingSampleNames = const [];
+
+  @override
+  List<String> getMissingSampleNames() {
+    _record('getMissingSampleNames');
+    return missingSampleNames;
+  }
+
   @override
   DrumKitInfo? getDrumKitInfo(int trackId) {
     _record('getDrumKitInfo');

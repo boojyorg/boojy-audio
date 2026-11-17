@@ -178,8 +178,10 @@ impl AudioGraph {
 
                 // Get instrument settings for MIDI tracks (synth, sampler, or drum kit)
                 let synth_settings = synth_manager.get_synth_parameters(track.id);
-                let sampler_settings = synth_manager.get_sampler_parameters(track.id);
-                let drum_kit_settings = synth_manager.get_drum_kit_parameters(track.id);
+                // The `saved_` forms keep the reference of a sample that could
+                // not be found on load, so a save never erases it.
+                let sampler_settings = synth_manager.saved_sampler_parameters(track.id);
+                let drum_kit_settings = synth_manager.saved_drum_kit_parameters(track.id);
 
                 // Export send routing
                 let sends: Vec<SendData> = track
@@ -570,19 +572,31 @@ impl AudioGraph {
                 } else if let Some(sampler_data) = &track_data.sampler_settings {
                     let mut synth_manager = self.track_synth_manager.lock();
                     synth_manager.create_sampler(track_id);
-                    // Load the sample file first, then restore parameters
-                    if !sampler_data.sample_path.is_empty() {
-                        if let Ok(clip) =
-                            crate::audio_file::load_audio_file(&sampler_data.sample_path)
-                        {
-                            synth_manager.load_sample(
-                                track_id,
-                                Arc::new(clip),
-                                sampler_data.root_note,
-                            );
+                    // Load the sample file first, then restore parameters. A
+                    // file that can't be loaded leaves the sampler empty but
+                    // remembered as missing, so the UI can say so and the
+                    // next save keeps the reference.
+                    let mut loaded = sampler_data.sample_path.is_empty();
+                    if !loaded {
+                        match crate::audio_file::load_audio_file(&sampler_data.sample_path) {
+                            Ok(clip) => {
+                                synth_manager.load_sample(
+                                    track_id,
+                                    Arc::new(clip),
+                                    sampler_data.root_note,
+                                );
+                                loaded = true;
+                            }
+                            Err(e) => eprintln!(
+                                "⚠️  [Project] Couldn't load sampler sample: {} ({e})",
+                                sampler_data.sample_path
+                            ),
                         }
                     }
                     synth_manager.restore_sampler_parameters(track_id, sampler_data);
+                    if !loaded {
+                        synth_manager.mark_sample_missing(track_id, None, sampler_data.clone());
+                    }
                 } else if let Some(drum_kit_data) = &track_data.drum_kit_settings {
                     let mut synth_manager = self.track_synth_manager.lock();
                     synth_manager.create_drum_kit(track_id);
@@ -590,13 +604,22 @@ impl AudioGraph {
                         // Restore pad metadata, load its sample file (if any), then restore the
                         // pad's sampler params — same order as the single-sampler restore above.
                         synth_manager.restore_drum_pad_meta(track_id, slot);
+                        let mut loaded = true;
                         if let Some(path) = crate::drum_kit::DrumKit::slot_sample_path(slot) {
-                            if let Ok(clip) = crate::audio_file::load_audio_file(path) {
-                                synth_manager.load_drum_pad_sample(
-                                    track_id,
-                                    slot.pad_index,
-                                    Arc::new(clip),
-                                );
+                            match crate::audio_file::load_audio_file(path) {
+                                Ok(clip) => {
+                                    synth_manager.load_drum_pad_sample(
+                                        track_id,
+                                        slot.pad_index,
+                                        Arc::new(clip),
+                                    );
+                                }
+                                Err(e) => {
+                                    eprintln!(
+                                        "⚠️  [Project] Couldn't load drum pad sample: {path} ({e})"
+                                    );
+                                    loaded = false;
+                                }
                             }
                         }
                         if let Some(sampler_data) = &slot.sampler {
@@ -605,6 +628,13 @@ impl AudioGraph {
                                 slot.pad_index,
                                 sampler_data,
                             );
+                            if !loaded {
+                                synth_manager.mark_sample_missing(
+                                    track_id,
+                                    Some(slot.pad_index),
+                                    sampler_data.clone(),
+                                );
+                            }
                         }
                     }
                 } else if track_data.track_type == "Sampler" {

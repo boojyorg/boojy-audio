@@ -136,3 +136,10 @@ Save: `DAWProjectMixin.getCurrentUILayout()` → `ProjectPersistence.collect()` 
 Load: `ProjectManager.loadProject()` → `applyUILayout()`. `AutoSaveService` reuses the same
 path. Bundled samples are copied from the asset bundle to app
 support on first use (`bundled_content_service.dart`); the engine loads by filesystem path only.
+
+The engine's save also copies every audio file the project uses into the project's `audio/`
+folder and saves its path relative to the project, so the folder can move: timeline clips as
+`NNN-name` (clip id first), sampler and drum-pad samples under their own name (bundled ones
+included). A file is never overwritten, and identical bytes are reused. A missing clip file
+fails the load; a missing sample loads empty, is listed by `get_missing_samples`, and keeps
+its saved settings through later saves (`Sampler::saved_parameters`).

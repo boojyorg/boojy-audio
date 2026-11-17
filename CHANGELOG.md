@@ -110,6 +110,15 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Sampler and drum-pad sounds are saved inside the project.** Saving now copies every sound a
+  sampler or drum pad uses into the project folder, as it already did for audio on the
+  timeline, so a project still plays after you move it, send it to someone or tidy your sample
+  folder. A sound used on several pads is stored once. Projects saved before this pick it up
+  the next time you save them. If a sound still can't be loaded when a project opens (missing or damaged), the
+  project opens and a notice names the file; the pad keeps its settings, and they come back
+  when the file does. Before, the pad loaded empty with no message and the next save (auto-save
+  included) erased its sound and settings for good.
+
 - **Mute Clip silences a MIDI clip.** Muting a MIDI clip from its menu did nothing: it kept
   playing, and came out in exports too. A muted clip is now silent when you play and when you
   export, keeps its notes, and is still muted when you reopen the project. Muting is one undo

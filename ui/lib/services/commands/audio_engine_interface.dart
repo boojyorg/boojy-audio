@@ -147,6 +147,7 @@ abstract class AudioEngineInterface {
   );
   bool isDrumKitTrack(int trackId);
   int drumNextFreeNote(int trackId, int start);
+  List<String> getMissingSampleNames();
   DrumKitInfo? getDrumKitInfo(int trackId);
   List<double> getDrumPadWaveformPeaks(
     int trackId,

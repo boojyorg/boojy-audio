@@ -529,6 +529,20 @@ mixin _PluginsMixin on _AudioEngineBase {
     return _drumNextFreeNote(trackId, start);
   }
 
+  /// File names of the sampler and drum-pad samples the last project load
+  /// could not find. Empty when everything loaded.
+  List<String> getMissingSampleNames() {
+    final resultPtr = _getMissingSamples();
+    final jsonStr = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    if (jsonStr.startsWith('Error')) return const [];
+    try {
+      return (jsonDecode(jsonStr) as List<dynamic>).cast<String>();
+    } catch (_) {
+      return const [];
+    }
+  }
+
   /// Full drum-kit state (pads + per-pad params), or null if not a drum kit.
   DrumKitInfo? getDrumKitInfo(int trackId) {
     final resultPtr = _getDrumKitInfo(trackId);

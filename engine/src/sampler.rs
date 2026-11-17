@@ -272,6 +272,12 @@ pub struct Sampler {
     pub warp_mode: u8,            // 0=repitch, 1=warp (default 0)
     pub beats_per_bar: i32,       // Time signature numerator (default 4)
     pub beat_unit: i32,           // Time signature denominator (default 4)
+    /// Saved settings of a sample the project loader could not find. Kept so
+    /// the next save writes the reference back instead of erasing it.
+    missing: Option<SamplerData>,
+    /// Where an earlier save put this sample's copy (a full path). A later
+    /// save uses it when the file the sample was loaded from has gone.
+    saved_copy: Option<String>,
 }
 
 impl Sampler {
@@ -295,6 +301,8 @@ impl Sampler {
             warp_mode: 0, // repitch
             beats_per_bar: 4,
             beat_unit: 4,
+            missing: None,
+            saved_copy: None,
         }
     }
 
@@ -308,6 +316,8 @@ impl Sampler {
         self.loop_end = clip.frame_count() as f64;
         self.loop_start = 0.0;
         self.sample = Some(clip);
+        self.missing = None;
+        self.saved_copy = None;
     }
 
     /// Load sample and set root note
@@ -322,6 +332,8 @@ impl Sampler {
     pub fn unload_sample(&mut self) {
         self.all_notes_off();
         self.sample = None;
+        self.missing = None;
+        self.saved_copy = None;
         self.loop_start = 0.0;
         self.loop_end = 0.0;
     }
@@ -329,6 +341,34 @@ impl Sampler {
     /// Get the loaded sample path (for serialization)
     pub fn sample_path(&self) -> Option<&str> {
         self.sample.as_ref().map(|s| s.file_path.as_str())
+    }
+
+    /// The loaded sample itself, for a save that has to write it out because
+    /// its source file is gone.
+    pub fn sample_clip(&self) -> Option<Arc<AudioClip>> {
+        self.sample.clone()
+    }
+
+    /// The copy of this sample an earlier save made, if any.
+    pub fn saved_copy(&self) -> Option<&str> {
+        self.saved_copy.as_deref()
+    }
+
+    /// Remember where a save put this sample's copy.
+    pub fn set_saved_copy(&mut self, path: String) {
+        self.saved_copy = Some(path);
+    }
+
+    /// Record that the project loader could not find this sampler's file.
+    /// The sampler stays empty; `saved_parameters` keeps returning `data`
+    /// until a sample is loaded or the sampler is cleared.
+    pub fn mark_missing(&mut self, data: SamplerData) {
+        self.missing = Some(data);
+    }
+
+    /// Path of a sample the project loader could not find, if any.
+    pub fn missing_sample_path(&self) -> Option<&str> {
+        self.missing.as_ref().map(|d| d.sample_path.as_str())
     }
 
     /// Check if a sample is loaded
@@ -770,6 +810,12 @@ impl Sampler {
             beats_per_bar: self.beats_per_bar,
             beat_unit: self.beat_unit,
         })
+    }
+
+    /// What a project save should write: the live parameters, or, when the
+    /// sample could not be found on load, the settings it was saved with.
+    pub fn saved_parameters(&self) -> Option<SamplerData> {
+        self.get_parameters().or_else(|| self.missing.clone())
     }
 
     /// Restore sampler parameters from saved data (sample must be loaded separately)

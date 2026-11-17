@@ -24,3 +24,24 @@ String cleanAudioFileName(String path) {
   }
   return rest;
 }
+
+/// Id of the "couldn't load these samples" notice, so a later project (opened,
+/// new or closed) can take the previous one's notice away.
+const missingSamplesNoticeId = 'missing-samples';
+
+/// The notice to show when a project opens with sampler or drum-pad samples
+/// the engine could not load (missing or unreadable), or null when [fileNames] is empty. A name used
+/// by several pads is listed once; a long list is cut to three names.
+String? missingSamplesMessage(List<String> fileNames) {
+  final names = fileNames.toSet().toList();
+  if (names.isEmpty) return null;
+  if (names.length == 1) {
+    return "Couldn't load the sample ${names.first}. "
+        'It stays silent until you add it again.';
+  }
+  const shown = 3;
+  final listed = names.take(shown).join(', ');
+  final more = names.length > shown ? ' and ${names.length - shown} more' : '';
+  return "Couldn't load ${names.length} samples: $listed$more. "
+      'They stay silent until you add them again.';
+}

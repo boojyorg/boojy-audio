@@ -11,6 +11,7 @@ import '../audio_engine.dart';
 import '../theme/animation_constants.dart';
 import '../theme/theme_extension.dart';
 import '../widgets/export_dialog.dart';
+import '../utils/audio_file_names.dart';
 import '../widgets/shared/boojy_notice.dart';
 import '../widgets/shared/stable_menu_bar.dart';
 import '../widgets/transport_bar.dart';
@@ -1259,6 +1260,7 @@ class _DAWScreenState extends State<DAWScreen>
 
               // Clear project state via manager
               projectManager?.closeProject();
+              Notices.clear(missingSamplesNoticeId);
               midiPlaybackManager?.clear();
               undoRedoManager.clear();
               // Track numbering restarts at 1, so per-track UI data from this
