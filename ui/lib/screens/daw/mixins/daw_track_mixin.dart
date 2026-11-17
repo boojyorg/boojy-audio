@@ -202,8 +202,7 @@ mixin DAWTrackMixin
   /// Lives here (not in the mixer panel) because restoring clips needs the
   /// playback managers. The command owns the engine-side state (mixer, sends,
   /// built-in effects, redo id); these closures own the UI/manager state
-  /// (MIDI + audio clips, timeline, selection). VST3 plugins and tweaked synth
-  /// params aren't recovered — surfaced via the command's onNotice.
+  /// (MIDI + audio clips, timeline, selection, the synth's settings).
   Future<void> onDeleteTrackRequested(TrackData track) async {
     // Snapshot the track's content BEFORE the command deletes it.
     final midiSnapshot =
@@ -222,6 +221,10 @@ mixin DAWTrackMixin
     final instrumentPluginPath = (deletedInstrument?.type == 'vst3')
         ? deletedInstrument?.pluginPath
         : null;
+    // The built-in synth's settings as the screen holds them, read again on
+    // every delete (redo included) so undo puts back the latest. The engine
+    // keeps the synth itself; a sampler or drum kit has no entry here.
+    InstrumentData? builtInInstrument;
     final command = DeleteTrackCommand(
       trackId: track.id,
       trackName: track.name,
@@ -267,9 +270,18 @@ mixin DAWTrackMixin
             timeline.removeClip(clip.clipId);
           }
         }
+        final instrument = trackController.getTrackInstrument(tid);
+        builtInInstrument = instrument?.type == 'vst3' ? null : instrument;
         onTrackDeleted(tid);
       },
       onRestoreUi: (newTrackId) {
+        final instrument = builtInInstrument;
+        if (instrument != null) {
+          trackController.setTrackInstrument(
+            newTrackId,
+            instrument.copyWith(trackId: newTrackId),
+          );
+        }
         // MIDI clips: re-stamp onto the recreated track, re-add to the manager
         // and resync to the engine (mirrors DeleteMidiClipFromArrangementCommand).
         for (final clip in midiSnapshot) {

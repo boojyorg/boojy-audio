@@ -176,6 +176,15 @@ pub extern "C" fn unload_sample_for_track_ffi(track_id: u64) -> i32 {
     })
 }
 
+/// Give a deleted track's instrument back (undo of Delete Track)
+/// Returns 1 on success, 0 when the deleted track had no instrument
+#[no_mangle]
+pub extern "C" fn restore_track_instrument_ffi(deleted_id: u64, track_id: u64) -> i32 {
+    ffi_catch(-1, || {
+        i32::from(api::restore_track_instrument(deleted_id, track_id).is_ok())
+    })
+}
+
 /// Path of the sample currently loaded on a sampler track
 /// Returns an empty string when the track has no sample (or isn't a sampler)
 #[no_mangle]

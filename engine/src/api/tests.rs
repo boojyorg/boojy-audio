@@ -1574,6 +1574,139 @@ fn undo_and_redo_can_bring_tracks_and_clips_back_under_their_ids() {
 }
 
 // ============================================================================
+// INSTRUMENTS: Duplicate Track copies them, undoing Delete Track restores them
+// ============================================================================
+
+/// The settings of the instrument on `track` as JSON: its synth, sampler and
+/// drum-kit settings, each `null` when the track has no such instrument.
+fn instrument_settings(track: u64) -> String {
+    let graph = get_audio_graph().expect("graph").lock();
+    let synths = graph.track_synth_manager.lock();
+    serde_json::to_string(&(
+        synths.get_synth_parameters(track),
+        synths.saved_sampler_parameters(track),
+        synths.saved_drum_kit_parameters(track),
+    ))
+    .expect("instrument settings as JSON")
+}
+
+/// A synth track with every setting moved off its default.
+fn synth_track() -> u64 {
+    let track = create_track("midi", "Synth".to_string()).expect("create track");
+    set_track_instrument(track, "synthesizer".to_string()).expect("create synth");
+    for (key, value) in [
+        ("osc_type", "square"),
+        ("filter_cutoff", "0.4"),
+        ("attack", "0.2"),
+        ("decay", "0.3"),
+        ("sustain", "0.5"),
+        ("release", "0.7"),
+    ] {
+        set_synth_parameter(track, key.to_string(), value.to_string()).expect("set synth");
+    }
+    track
+}
+
+/// A sampler, a drum kit and a synth, each with edited settings.
+fn edited_instrument_tracks(dir: &Path) -> (u64, u64, Vec<u8>, u64) {
+    let wav = write_sine_wav(dir, "tone.wav", 0.5, 0.5);
+
+    let sampler = sampler_track(&wav);
+    for (key, value) in [
+        ("volume_db", "-6.0"),
+        ("reversed", "1"),
+        ("root_note", "48"),
+    ] {
+        set_sampler_parameter(sampler, key.to_string(), value.to_string()).expect("set sampler");
+    }
+
+    let (drums, pads) = drum_track(&[&wav, &wav]);
+    for (key, value) in [("pan", "-0.5"), ("muted", "1"), ("volume_db", "-3.0")] {
+        set_drum_pad_parameter(drums, pads[1], key.to_string(), value.to_string())
+            .expect("set pad");
+    }
+
+    (sampler, drums, pads, synth_track())
+}
+
+#[test]
+fn duplicated_track_keeps_its_instrument() {
+    let _guard = engine_lock();
+    let dir = temp_dir("duplicate_instrument");
+    let (sampler, drums, pads, synth) = edited_instrument_tracks(&dir);
+
+    let sampler_copy = duplicate_track(sampler).unwrap();
+    assert!(has_sample(sampler_copy, None), "the copy has the sample");
+    assert_eq!(
+        instrument_settings(sampler_copy),
+        instrument_settings(sampler)
+    );
+
+    let drums_copy = duplicate_track(drums).unwrap();
+    for pad in &pads {
+        assert!(
+            has_sample(drums_copy, Some(*pad)),
+            "pad {pad} has its sample"
+        );
+    }
+    assert_eq!(instrument_settings(drums_copy), instrument_settings(drums));
+
+    let synth_copy = duplicate_track(synth).unwrap();
+    assert_eq!(instrument_settings(synth_copy), instrument_settings(synth));
+
+    // Each copy is its own instrument: editing it leaves the original alone.
+    let before = instrument_settings(sampler);
+    set_sampler_parameter(sampler_copy, "volume_db".to_string(), "-20.0".to_string()).unwrap();
+    assert_eq!(instrument_settings(sampler), before);
+    assert_ne!(instrument_settings(sampler_copy), before);
+
+    // A track with no instrument still copies without one.
+    let empty = create_track("midi", "Empty".to_string()).unwrap();
+    let empty_copy = duplicate_track(empty).unwrap();
+    assert_eq!(instrument_settings(empty_copy), "[null,null,null]");
+}
+
+#[test]
+fn undoing_delete_track_brings_its_instrument_back() {
+    let _guard = engine_lock();
+    let dir = temp_dir("delete_undo_instrument");
+    let (sampler, drums, pads, synth) = edited_instrument_tracks(&dir);
+    // The sample files go: undo must not depend on reading them again.
+    std::fs::remove_dir_all(&dir).unwrap();
+
+    for track in [sampler, drums, synth] {
+        let before = instrument_settings(track);
+        delete_track(track).unwrap();
+        create_track_with_id("midi", "Back".to_string(), track).unwrap();
+        assert_eq!(instrument_settings(track), "[null,null,null]");
+        restore_track_instrument(track, track).unwrap();
+        assert_eq!(instrument_settings(track), before, "track {track}");
+        assert!(
+            restore_track_instrument(track, track).is_err(),
+            "an instrument comes back once"
+        );
+    }
+
+    assert!(has_sample(sampler, None));
+    for pad in &pads {
+        assert!(has_sample(drums, Some(*pad)), "pad {pad} has its sample");
+    }
+
+    // Undo can recreate the track under another id.
+    let before = instrument_settings(sampler);
+    delete_track(sampler).unwrap();
+    let other = create_track("midi", "Elsewhere".to_string()).unwrap();
+    restore_track_instrument(sampler, other).unwrap();
+    assert_eq!(instrument_settings(other), before);
+
+    // A new project forgets what was kept.
+    delete_track(other).unwrap();
+    clear_all_tracks().unwrap();
+    let fresh = create_track("midi", "Fresh".to_string()).unwrap();
+    assert!(restore_track_instrument(other, fresh).is_err());
+}
+
+// ============================================================================
 // REPEATING AUDIO CLIPS
 // ============================================================================
 

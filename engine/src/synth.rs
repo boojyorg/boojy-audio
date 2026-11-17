@@ -285,6 +285,21 @@ impl Synth {
         }
     }
 
+    /// A separate synth with the same settings and no notes playing
+    /// (Duplicate Track).
+    pub fn duplicate(&self) -> Self {
+        Self {
+            voices: [Voice::new(); MAX_VOICES],
+            steal_tails: vec![Voice::new(); MAX_VOICES],
+            osc_type: self.osc_type,
+            filter_cutoff: self.filter_cutoff,
+            envelope: self.envelope,
+            sample_rate: self.sample_rate,
+            filter_state: 0.0,
+            sustain_held: false,
+        }
+    }
+
     pub fn note_on(&mut self, note: u8, velocity: u8) {
         // Find free voice or steal one
         let idx = self.find_free_voice_index();
@@ -552,6 +567,15 @@ impl TrackInstrument {
         }
     }
 
+    /// A separate instrument with the same settings and no notes playing.
+    pub fn duplicate(&self) -> Self {
+        match self {
+            TrackInstrument::Synth(synth) => TrackInstrument::Synth(synth.duplicate()),
+            TrackInstrument::Sampler(sampler) => TrackInstrument::Sampler(sampler.duplicate()),
+            TrackInstrument::DrumKit(kit) => TrackInstrument::DrumKit(kit.duplicate()),
+        }
+    }
+
     pub fn is_synth(&self) -> bool {
         matches!(self, TrackInstrument::Synth(_))
     }
@@ -585,6 +609,10 @@ impl TrackInstrument {
 pub struct TrackSynthManager {
     instruments: HashMap<u64, TrackInstrument>,
     bypass_states: HashMap<u64, bool>,
+    /// Instruments of deleted tracks, by the id the track had, kept so that
+    /// undoing Delete Track brings them back exactly as they were. Emptied
+    /// when the project closes.
+    parked: HashMap<u64, TrackInstrument>,
     sample_rate: f32,
 }
 
@@ -593,6 +621,7 @@ impl TrackSynthManager {
         Self {
             instruments: HashMap::new(),
             bypass_states: HashMap::new(),
+            parked: HashMap::new(),
             sample_rate,
         }
     }
@@ -778,29 +807,59 @@ impl TrackSynthManager {
         output
     }
 
-    /// Drop every per-track instrument and bypass flag (project teardown).
+    /// Drop every per-track instrument and bypass flag, and the instruments
+    /// kept for undo (project teardown).
     pub fn clear_all(&mut self) {
         self.instruments.clear();
         self.bypass_states.clear();
+        self.parked.clear();
     }
 
-    pub fn remove_synth(&mut self, track_id: u64) -> bool {
-        self.instruments.remove(&track_id).is_some()
-    }
-
-    pub fn copy_synth(&mut self, source_id: u64, dest_id: u64) -> bool {
-        if let Some(TrackInstrument::Synth(source)) = self.instruments.get(&source_id) {
-            let mut new_synth = Synth::new(self.sample_rate);
-            new_synth.osc_type = source.osc_type;
-            new_synth.filter_cutoff = source.filter_cutoff;
-            new_synth.envelope = source.envelope;
-            self.instruments
-                .insert(dest_id, TrackInstrument::Synth(new_synth));
-            println!("✅ Copied synth from track {source_id} to {dest_id}");
-            true
-        } else {
-            false
+    /// Take a deleted track's instrument out of playback and keep it for
+    /// undo. Returns false when the track had none.
+    pub fn park_instrument(&mut self, track_id: u64) -> bool {
+        match self.instruments.remove(&track_id) {
+            Some(mut instrument) => {
+                instrument.all_notes_off();
+                self.parked.insert(track_id, instrument);
+                true
+            }
+            None => false,
         }
+    }
+
+    /// Give the instrument parked from deleted track `deleted_id` to track
+    /// `track_id` (undo of Delete Track). Returns false when none was parked.
+    pub fn restore_parked_instrument(&mut self, deleted_id: u64, track_id: u64) -> bool {
+        match self.parked.remove(&deleted_id) {
+            Some(instrument) => {
+                if deleted_id != track_id {
+                    if let Some(bypassed) = self.bypass_states.remove(&deleted_id) {
+                        self.bypass_states.insert(track_id, bypassed);
+                    }
+                }
+                self.instruments.insert(track_id, instrument);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Give track `dest_id` its own copy of track `source_id`'s instrument
+    /// (Duplicate Track). Returns false when the source has none.
+    pub fn copy_instrument(&mut self, source_id: u64, dest_id: u64) -> bool {
+        let Some(copy) = self
+            .instruments
+            .get(&source_id)
+            .map(TrackInstrument::duplicate)
+        else {
+            return false;
+        };
+        self.instruments.insert(dest_id, copy);
+        if let Some(bypassed) = self.bypass_states.get(&source_id).copied() {
+            self.bypass_states.insert(dest_id, bypassed);
+        }
+        true
     }
 
     /// Get synth parameters for serialization

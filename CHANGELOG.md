@@ -110,6 +110,11 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **A track's instrument goes with it.** Duplicate Track now copies a Sampler or Drum Kit with
+  its samples and settings (the copy used to be silent), and a duplicated Synthesizer keeps
+  every setting. Undoing Delete Track brings the Synthesizer, Sampler or Drum Kit back as it
+  was, even if the sample files have since moved.
+
 - **A VST3 instrument shows once in the device chain.** A plugin instrument such as a synth
   appeared twice: as the instrument, and again as an effect card after it. The second card was
   the same plugin, so deleting it took the instrument away. It now shows as the instrument

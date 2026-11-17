@@ -226,6 +226,23 @@ pub fn unload_sample_for_track(track_id: u64) -> Result<String, String> {
     }
 }
 
+/// Give the instrument that `delete_track` kept from deleted track
+/// `deleted_id` to track `track_id` (undo of Delete Track). The synth, sampler
+/// or drum kit comes back with its samples and settings as they were.
+pub fn restore_track_instrument(deleted_id: u64, track_id: u64) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let mut synth_manager = graph.track_synth_manager.lock();
+
+    if synth_manager.restore_parked_instrument(deleted_id, track_id) {
+        Ok(format!(
+            "Restored the instrument of track {deleted_id} on track {track_id}"
+        ))
+    } else {
+        Err(format!("No instrument was kept for track {deleted_id}"))
+    }
+}
+
 /// Path of the sample currently loaded on a sampler track (empty when none)
 pub fn get_sampler_sample_path(track_id: u64) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
