@@ -356,11 +356,18 @@ impl AudioGraph {
         }
 
         // 3. effect: remove the effects (VST3 included) those tracks owned.
+        //    Taken out under the lock, destroyed after it: the audio thread
+        //    takes this lock every buffer, playing or not, and shutting a
+        //    VST3 down is slow.
         if !effect_ids.is_empty() {
-            let mut effect_manager = self.effect_manager.lock();
-            for effect_id in &effect_ids {
-                effect_manager.remove_effect(*effect_id);
-            }
+            let removed_effects: Vec<_> = {
+                let mut effect_manager = self.effect_manager.lock();
+                effect_ids
+                    .iter()
+                    .filter_map(|effect_id| effect_manager.take_effect(*effect_id))
+                    .collect()
+            };
+            drop(removed_effects);
             dlog!(
                 "🧹 [Graph] Removed {} effects from cleared tracks",
                 effect_ids.len()

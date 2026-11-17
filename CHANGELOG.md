@@ -110,6 +110,11 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Adding or removing a VST3 while the song plays no longer crackles.** Boojy used to load the
+  plugin while the audio engine was kept waiting for it, so a buffer ran late and you heard a
+  click. The plugin is now loaded first and slotted in afterwards. Removing a plugin, and
+  deleting a track that has one, are handled the same way.
+
 - **Sampler and drum-pad sounds are saved inside the project.** Saving now copies every sound a
   sampler or drum pad uses into the project folder, as it already did for audio on the
   timeline, so a project still plays after you move it, send it to someone or tidy your sample

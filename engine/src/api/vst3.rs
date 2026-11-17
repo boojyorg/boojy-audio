@@ -22,11 +22,6 @@ pub fn add_vst3_effect_to_track(
     use crate::effects::EffectType;
     use crate::vst3_host::VST3Effect;
 
-    let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock();
-    let track_manager = graph.track_manager.lock();
-    let mut effect_manager = graph.effect_manager.lock();
-
     // Get audio settings.
     //
     // C21/C62: maxSamplesPerBlock honours the session's buffer preset (same
@@ -34,33 +29,26 @@ pub fn add_vst3_effect_to_track(
     // hands a plugin more than 512 frames per call (live MAX_VST3_BLOCK and
     // offline OFFLINE_BLOCK both sub-block), so the floor stays 512.
     let sample_rate = f64::from(crate::audio_file::TARGET_SAMPLE_RATE);
-    let block_size = graph.preferred_buffer_size.lock().samples().max(512) as i32;
+    let block_size = {
+        let graph = get_audio_graph()?.lock();
+        let samples = graph.preferred_buffer_size.lock().samples();
+        samples.max(512) as i32
+    };
 
-    // Load VST3 plugin
-    let mut vst3_effect = VST3Effect::new(plugin_path, plugin_name, sample_rate, block_size)
-        .map_err(|e| format!("Failed to load VST3 plugin: {e}"))?;
-
-    // Initialize and activate the plugin for audio processing
-    vst3_effect
-        .initialize()
-        .map_err(|e| format!("Failed to initialize VST3 plugin: {e}"))?;
-
-    let effect = EffectType::VST3(vst3_effect);
-
-    // Add effect to effect manager
-    let effect_id = effect_manager.create_effect(effect);
-
-    // Add effect to track's FX chain
-    if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock();
-        track.fx_chain.push(effect_id);
-        eprintln!(
-            "🎛️ [API] Added VST3 plugin from {plugin_path} (ID: {effect_id}) to track {track_id}"
-        );
-        Ok(effect_id)
-    } else {
-        Err(format!("Track {track_id} not found"))
-    }
+    // Load and start the plugin with no lock held (see
+    // `add_loaded_effect_to_track`): this is the slow part.
+    let effect_id = super::effects::add_loaded_effect_to_track(track_id, || {
+        let mut vst3_effect = VST3Effect::new(plugin_path, plugin_name, sample_rate, block_size)
+            .map_err(|e| format!("Failed to load VST3 plugin: {e}"))?;
+        vst3_effect
+            .initialize()
+            .map_err(|e| format!("Failed to initialize VST3 plugin: {e}"))?;
+        Ok(EffectType::VST3(vst3_effect))
+    })?;
+    eprintln!(
+        "🎛️ [API] Added VST3 plugin from {plugin_path} (ID: {effect_id}) to track {track_id}"
+    );
+    Ok(effect_id)
 }
 
 #[cfg(not(target_os = "ios"))]

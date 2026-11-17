@@ -39,11 +39,11 @@ state-of-play review ([RELEASING.md](RELEASING.md#milestone-reviews)).
   after a throwaway Mac + iPad prototype; if the prototype says no or the work balloons, it moves
   to v0.8.
   **Order (2026-11-12):** the test net, recording fixes, the dropout counter and log, export
-  off the UI thread, built-in MP3, the VST3 fixes, sample-rate conversion and the first bug
-  batch (backup, stems, New Project, Mute Clip) and sampler and drum-pad samples copied into
-  the project are done. Next: the VST3-add crackle → test what the export window sends (Test plan 15) → Tyr makes a song
-  with the log on and tries a 44.1 kHz device (row 1 is the lowest v0.7 row and has the least
-  evidence; Test plan 14) → reproduce-or-drop the rest → the loop in the engine → the recording
+  off the UI thread, built-in MP3, the VST3 fixes, sample-rate conversion, the first bug
+  batch (backup, stems, New Project, Mute Clip), sampler and drum-pad samples copied into
+  the project and the VST3-add crackle are done. Next: test what the export window sends
+  (Test plan 15) → Tyr makes a song with the log on and tries a 44.1 kHz device (row 1 is
+  the lowest v0.7 row and has the least evidence; Test plan 14) → reproduce-or-drop the rest → the loop in the engine → the recording
   test input (Test plan 11) → editing model prototype. The other test ideas (Test plan 9–13)
   slot in beside the work they cover.
 - **v0.8.0: the app feels right.** UI/UX and bugs, not new sounds: rows 4, 10, 11, 12, 14 and
@@ -60,7 +60,7 @@ state-of-play review ([RELEASING.md](RELEASING.md#milestone-reviews)).
 Classified by the severity rule in [RELEASING.md](RELEASING.md#severity-rule). Review findings
 (IDs U*, B* point into the [UI/UX](reviews/2026_09_29_ui_ux_review.md) and
 [feature-gap](reviews/2026_09_29_feature_gap_review.md) reports) count once a failing test
-reproduces them. The VST3 crackle is in Tyr's log.
+reproduces them.
 
 **Blocks release**
 
@@ -68,9 +68,7 @@ reproduces them. The VST3 crackle is in Tyr's log.
 
 **Fix before release**
 
-- **Adding a VST3 while playing crackles.** Loading the plugin holds the track lock, so the
-  audio thread waits (log 2026-10-14: one buffer at 123%, "waited on: tracks"). Load it first,
-  then take the lock only to insert it.
+- Nothing known.
 - *If reproduced:*
   - Found reading the code for the sampler-samples fix (2026-11-17), none run:
     **Duplicate Track drops a sampler or drum kit** (`copy_synth` only copies synths), and
@@ -81,6 +79,20 @@ reproduces them. The VST3 crackle is in Tyr's log.
     different files with one name resolve to the first).
   - A missing sample is only named in the notice at open: the empty pad doesn't say which
     file it wants, and there is no relink.
+  - The VST3 host's last-error text (`g_last_error` in `vst3_host.cpp`) is one shared string
+    written from the audio thread and the UI thread with nothing guarding it. Loading a
+    plugin now overlaps audio processing, so a failed load at the same instant as a failed
+    process call could corrupt it. Make it per-thread (`thread_local`); needs the C++ library
+    rebuilt. From the PR #225 review, same source as the next item, neither run:
+    Duplicate Track may leave two effect ids sharing one VST3 instance.
+  - The engine's own tests crash about one run in seven on a Mac with Serum installed
+    (`libc++abi: … std::range_error: wstring_convert: to_bytes error`, seen twice on
+    2026-11-17): the C++ host throws while turning a plugin's text into UTF-8 and nothing
+    catches it. The tests in `vst3_host.rs` load Serum on several threads at once; whether
+    the app can hit it is unknown. CI has no plugins, so it never shows there.
+  - The window pauses while a VST3 loads (the load runs on the UI thread; the sound no longer
+    crackles). Opening a project loads its plugins under the audio locks, harmless while
+    playback is stopped.
   - Save copies files while holding the engine's main lock, and runs on the UI thread (clips
     and samples both), so a big project stalls the window on every save and auto-save. Move
     it off the UI thread as export was.

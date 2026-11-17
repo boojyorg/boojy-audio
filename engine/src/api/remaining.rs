@@ -217,42 +217,54 @@ pub fn set_clip_duration(track_id: u64, clip_id: u64, duration: f64) -> Result<S
 /// Delete a track (cannot delete master)
 pub fn delete_track(track_id: TrackId) -> Result<String, String> {
     let graph_mutex = graph()?;
-    let graph = graph_mutex.lock();
+    // The track's effects leave this block still alive and are destroyed
+    // after every lock is released: shutting a VST3 plugin down under the
+    // effect lock makes the audio thread wait, and under the graph lock it
+    // holds up every other engine call.
+    let (removed, removed_effects) = {
+        let graph = graph_mutex.lock();
 
-    // Stop any playing notes on the per-track synth to prevent stuck notes
-    { let mut synth_manager = graph.track_synth_manager.lock();
-        synth_manager.all_notes_off(track_id);
-        // Also remove the synth for this track
-        synth_manager.remove_synth(track_id);
-    }
+        // Stop any playing notes on the per-track synth to prevent stuck notes
+        {
+            let mut synth_manager = graph.track_synth_manager.lock();
+            synth_manager.all_notes_off(track_id);
+            // Also remove the synth for this track
+            synth_manager.remove_synth(track_id);
+        }
 
-    // Remove all MIDI clips belonging to this track from the global collection
-    graph.remove_midi_clips_for_track(track_id);
+        // Remove all MIDI clips belonging to this track from the global collection
+        graph.remove_midi_clips_for_track(track_id);
 
-    // Get the track's fx_chain before deleting so we can clean up effects
-    let fx_chain: Vec<u64> = {
-        let track_manager = graph.track_manager.lock();
-        if let Some(track_arc) = track_manager.get_track(track_id) {
-            let track = track_arc.lock();
-            track.fx_chain.clone()
+        // Get the track's fx_chain before deleting so we can clean up effects
+        let fx_chain: Vec<u64> = {
+            let track_manager = graph.track_manager.lock();
+            if let Some(track_arc) = track_manager.get_track(track_id) {
+                let track = track_arc.lock();
+                track.fx_chain.clone()
+            } else {
+                Vec::new()
+            }
+        };
+
+        let removed = graph.track_manager.lock().remove_track(track_id);
+
+        // Only a track that really went loses its effects: the master track
+        // can't be deleted and must keep its chain.
+        let removed_effects: Vec<_> = if removed {
+            let mut effect_manager = graph.effect_manager.lock();
+            fx_chain
+                .iter()
+                .filter_map(|effect_id| effect_manager.take_effect(*effect_id))
+                .collect()
         } else {
             Vec::new()
-        }
+        };
+
+        // Deleting the last armed audio track closes the input.
+        graph.sync_input_to_armed_tracks();
+        (removed, removed_effects)
     };
-
-    // Remove all VST3 effects in the track's fx_chain
-    if !fx_chain.is_empty() {
-        { let mut effect_manager = graph.effect_manager.lock();
-            for effect_id in &fx_chain {
-                effect_manager.remove_effect(*effect_id);
-                eprintln!("🧹 [API] Removed effect {effect_id} from deleted track {track_id}");
-            }
-        }
-    }
-
-    let removed = graph.track_manager.lock().remove_track(track_id);
-    // Deleting the last armed audio track closes the input.
-    graph.sync_input_to_armed_tracks();
+    drop(removed_effects);
 
     if removed {
         Ok(format!("Track {track_id} deleted"))
