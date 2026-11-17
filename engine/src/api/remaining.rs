@@ -329,13 +329,27 @@ pub fn duplicate_track(track_id: TrackId) -> Result<TrackId, String> {
 /// [`duplicate_track`] under a chosen id for the copy (redo recreates the
 /// copy under the id it had), or a fresh one with `None`.
 pub fn duplicate_track_as(track_id: TrackId, new_id: Option<TrackId>) -> Result<TrackId, String> {
-    let graph_mutex = graph()?;
-    let graph = graph_mutex.lock();
-
     // Cannot duplicate master track
     if track_id == 0 {
         return Err("Cannot duplicate master track".to_string());
     }
+
+    let graph_mutex = graph()?;
+
+    // Don't pay for starting plugins when the copy can't be made: the id it
+    // should get is taken (checked again below, by insert_track_with_id).
+    if let Some(id) = new_id {
+        let graph = graph_mutex.lock();
+        if graph.track_manager.lock().get_track(id).is_some() {
+            return Err(format!("Track {id} already exists"));
+        }
+    }
+
+    // The copy's VST3 plugins are loaded first, before any lock is taken:
+    // each is a new plugin instance with the original's settings.
+    let mut vst3_copies = vst3::load_vst3_copies(track_id);
+
+    let graph = graph_mutex.lock();
 
     // First, collect the data we need from the source track
     let (track_type, name, volume_db, pan, mute, fx_chain, sends) = {
@@ -375,10 +389,19 @@ pub fn duplicate_track_as(track_id: TrackId, new_id: Option<TrackId>) -> Result<
         let mut new_chain = Vec::new();
 
         for effect_id in &fx_chain {
-            if let Some(new_effect_id) = effect_manager.duplicate_effect(*effect_id) {
-                new_chain.push(new_effect_id);
-            } else {
-                eprintln!("⚠️  [API] Failed to duplicate effect {effect_id}");
+            let loaded = vst3_copies.iter().position(|(id, _)| id == effect_id);
+            let new_effect_id = match loaded {
+                Some(index) => {
+                    let (_, copy) = vst3_copies.swap_remove(index);
+                    let new_effect_id = effect_manager.create_effect(copy);
+                    effect_manager.copy_bypass(*effect_id, new_effect_id);
+                    Some(new_effect_id)
+                }
+                None => effect_manager.duplicate_effect(*effect_id),
+            };
+            match new_effect_id {
+                Some(new_effect_id) => new_chain.push(new_effect_id),
+                None => eprintln!("⚠️  [API] Failed to duplicate effect {effect_id}"),
             }
         }
 

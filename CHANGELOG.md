@@ -110,6 +110,11 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **A duplicated track gets its own plugins.** Duplicate Track used to leave the copy's VST3
+  plugins tied to the original's, so changing the sound on one track changed the other, and
+  the copy's plugin didn't appear in its device chain. Each copy is now a separate plugin that
+  starts with the original's settings. An effect that was switched off stays off on the copy.
+
 - **A track's instrument goes with it.** Duplicate Track now copies a Sampler or Drum Kit with
   its samples and settings (the copy used to be silent), and a duplicated Synthesizer keeps
   every setting. Undoing Delete Track brings the Synthesizer, Sampler or Drum Kit back as it

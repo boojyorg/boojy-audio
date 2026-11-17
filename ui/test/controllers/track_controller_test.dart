@@ -501,6 +501,23 @@ void main() {
       expect(copied.parameters['osc1_level'], 0.8);
     });
 
+    test('leaves a VST3 instrument to the DAW layer: the copy is a plugin '
+        'of its own, with its own effect id', () {
+      controller.setTrackInstrument(
+        1,
+        InstrumentData.vst3Instrument(
+          trackId: 1,
+          pluginPath: '/Library/Audio/Plug-Ins/VST3/Serum.vst3',
+          pluginName: 'Serum',
+          effectId: 10,
+        ),
+      );
+      controller.onTrackDuplicated(1, 2);
+
+      expect(controller.hasInstrument(2), isFalse);
+      expect(controller.getTrackInstrument(1)?.effectId, 10);
+    });
+
     test('copies clip height from source to new track', () {
       controller.setClipHeight(1, 250.0);
       controller.onTrackDuplicated(1, 2);

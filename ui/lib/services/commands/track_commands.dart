@@ -110,6 +110,30 @@ class _Vst3EffectSnapshot extends _EffectSnapshot {
 /// reported back so the caller can re-register it with the UI plugin manager.
 typedef RestoredVst3 = ({int effectId, String path, String name});
 
+/// The VST3 plugins on a track's FX chain, in order.
+List<RestoredVst3> vst3EffectsOnTrack(
+  AudioEngineInterface engine,
+  int trackId,
+) {
+  final plugins = <RestoredVst3>[];
+  for (final idStr in engine.getTrackEffects(trackId).split(',')) {
+    final effectId = int.tryParse(idStr.trim());
+    if (effectId == null) continue;
+    final effect = EffectData.fromInfo(
+      effectId,
+      engine.getEffectInfo(effectId),
+    );
+    final path = effect?.pluginPath;
+    if (effect == null || path == null) continue;
+    plugins.add((
+      effectId: effectId,
+      path: path,
+      name: effect.type.substring('vst3:'.length),
+    ));
+  }
+  return plugins;
+}
+
 /// Command to delete a track, with full content restore on undo.
 ///
 /// Previously undo recreated an empty mixer-settings-only shell: clips, MIDI,
@@ -382,6 +406,14 @@ class DuplicateTrackCommand extends Command {
   /// Remove a track's clips from the screen before undo deletes it.
   final void Function(int trackId)? onCleanup;
 
+  /// Report the copy's VST3 plugins (the engine loads each as a plugin of its
+  /// own, with the original's settings) so the DAW layer can register them
+  /// with the UI plugin manager. Called after [onCopied], also when empty.
+  final void Function(int newTrackId, List<RestoredVst3> plugins)? onVst3Copied;
+
+  /// Surface a user-facing notice (a plugin that couldn't be loaded again).
+  final void Function(String message)? onNotice;
+
   int? _duplicatedTrackId;
 
   DuplicateTrackCommand({
@@ -391,6 +423,8 @@ class DuplicateTrackCommand extends Command {
     this.midiClips = const [],
     this.onCopied,
     this.onCleanup,
+    this.onVst3Copied,
+    this.onNotice,
   });
 
   /// Get the ID of the duplicated track (after execute)
@@ -433,6 +467,15 @@ class DuplicateTrackCommand extends Command {
         independentMidiCopy(clip, trackId: newTrackId),
     ];
     onCopied?.call(newTrackId, audioCopies, midiCopies);
+
+    final plugins = vst3EffectsOnTrack(engine, newTrackId);
+    onVst3Copied?.call(newTrackId, plugins);
+    if (plugins.length < vst3EffectsOnTrack(engine, sourceTrackId).length) {
+      onNotice?.call(
+        'Track "$sourceTrackName" was copied, but a plugin couldn\'t be '
+        'loaded — it may have been moved or uninstalled.',
+      );
+    }
   }
 
   @override

@@ -1434,33 +1434,30 @@ impl EffectManager {
         self.effects.keys().copied().collect()
     }
 
-    /// Duplicate an effect (deep copy with new ID)
-    /// Returns new effect ID on success, None if source effect not found
+    /// Duplicate a built-in effect: a separate effect with the same settings
+    /// and bypass state, under a new ID. Returns `None` when the source isn't
+    /// there, or is a VST3 plugin: cloning one only copies the pointer to the
+    /// running plugin, so two effects would drive a single instance. A VST3
+    /// copy is a newly loaded plugin (`api::vst3::load_vst3_copies`).
     pub fn duplicate_effect(&mut self, source_effect_id: EffectId) -> Option<EffectId> {
-        if let Some(source_effect_arc) = self.effects.get(&source_effect_id) {
-            let source_effect = source_effect_arc.lock();
+        let copy = {
+            let source = self.effects.get(&source_effect_id)?.lock();
+            #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+            if matches!(&*source, EffectType::VST3(_)) {
+                return None;
+            }
+            source.clone()
+        };
+        let new_id = self.create_effect(copy);
+        self.copy_bypass(source_effect_id, new_id);
+        eprintln!("🎛️ [EffectManager] Duplicated effect {source_effect_id} → {new_id}");
+        Some(new_id)
+    }
 
-            // Clone the effect (deep copy)
-            let cloned_effect = source_effect.clone();
-            drop(source_effect); // Release lock
-
-            // Create new effect with cloned data
-            let new_id = self.next_id;
-            self.next_id += 1;
-
-            self.effects
-                .insert(new_id, Arc::new(Mutex::new(cloned_effect)));
-            eprintln!(
-                "🎛️ [EffectManager] Duplicated effect {} → {} ({})",
-                source_effect_id,
-                new_id,
-                self.effects.get(&new_id).unwrap().lock().name()
-            );
-
-            Some(new_id)
-        } else {
-            None
-        }
+    /// Give effect `to` the bypass state of effect `from`.
+    pub fn copy_bypass(&mut self, from: EffectId, to: EffectId) {
+        let bypassed = self.is_bypassed(from);
+        self.bypass_states.insert(to, bypassed);
     }
 }
 

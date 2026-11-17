@@ -710,6 +710,12 @@ impl VST3Effect {
         })
     }
 
+    /// Whether `other` drives the same plugin instance as this effect.
+    #[cfg(test)]
+    pub fn shares_plugin_with(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.plugin, &other.plugin)
+    }
+
     /// Get the plugin path
     pub fn get_plugin_path(&self) -> &str {
         &self.plugin_path

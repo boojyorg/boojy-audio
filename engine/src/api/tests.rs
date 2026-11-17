@@ -2552,6 +2552,85 @@ fn a_refused_track_delete_keeps_the_tracks_effects() {
     remove_effect_from_track(0, limiter).expect("tidy up");
 }
 
+/// A VST3 plugin installed on this machine, if any. CI machines have none,
+/// so the plugin half of a test using this runs on a developer's Mac only.
+fn installed_vst3() -> Option<&'static str> {
+    [
+        "/Library/Audio/Plug-Ins/VST3/ValhallaSupermassive.vst3",
+        "/Library/Audio/Plug-Ins/VST3/Serum.vst3",
+    ]
+    .into_iter()
+    .find(|path| Path::new(path).exists())
+}
+
+fn fx_chain(track: u64) -> Vec<u64> {
+    let graph = get_audio_graph().unwrap().lock();
+    let tracks = graph.track_manager.lock();
+    let track = tracks.get_track(track).expect("track");
+    let chain = track.lock().fx_chain.clone();
+    chain
+}
+
+fn is_bypassed(effect: u64) -> bool {
+    let graph = get_audio_graph().unwrap().lock();
+    let bypassed = graph.effect_manager.lock().is_bypassed(effect);
+    bypassed
+}
+
+/// Duplicate Track gives the copy its own effects. A VST3 used to be shared:
+/// the copy's effect id pointed at the original's plugin, so a change to one
+/// track's plugin changed the other's, and both tracks ran one instance.
+#[test]
+fn duplicated_track_gets_its_own_effects() {
+    use crate::effects::EffectType;
+    let _guard = engine_lock();
+
+    let track = create_track("audio", "Guitar".to_string()).unwrap();
+    let reverb = add_effect_to_track(track, "reverb").unwrap();
+    set_effect_bypass(reverb, true).unwrap();
+    let plugin = installed_vst3().map(|path| {
+        crate::vst3_host::VST3Host::init().expect("start the VST3 host");
+        add_vst3_effect_to_track(track, path, "").expect("load the plugin")
+    });
+    if plugin.is_none() {
+        println!("No VST3 installed: checking built-in effects only");
+    }
+
+    let copy = duplicate_track(track).unwrap();
+    let copied = fx_chain(copy);
+    assert_eq!(copied.len(), fx_chain(track).len(), "same chain, in order");
+    assert_ne!(copied[0], reverb);
+    assert!(is_bypassed(copied[0]), "a bypassed effect stays bypassed");
+
+    if let Some(plugin) = plugin {
+        let effect = |id: u64| {
+            let graph = get_audio_graph().unwrap().lock();
+            let effect = graph.effect_manager.lock().get_effect(id).expect("effect");
+            effect
+        };
+        let (original, duplicate) = (effect(plugin), effect(copied[1]));
+        let (original, duplicate) = (original.lock(), duplicate.lock());
+        let (EffectType::VST3(original), EffectType::VST3(duplicate)) = (&*original, &*duplicate)
+        else {
+            panic!("both are VST3 effects");
+        };
+        assert!(
+            !original.shares_plugin_with(duplicate),
+            "the copy runs its own plugin"
+        );
+        assert_eq!(duplicate.get_plugin_path(), original.get_plugin_path());
+        assert_eq!(
+            duplicate.get_state().unwrap(),
+            original.get_state().unwrap(),
+            "with the original's settings"
+        );
+    }
+
+    // No plugin is left running under the tests that follow.
+    delete_track(copy).unwrap();
+    delete_track(track).unwrap();
+}
+
 /// `take_effect` gives up the manager's reference, so the effect is dropped
 /// where the caller drops it (after its locks), not inside the manager.
 #[test]
