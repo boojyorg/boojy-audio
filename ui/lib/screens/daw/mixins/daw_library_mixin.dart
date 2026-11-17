@@ -100,7 +100,9 @@ mixin DAWLibraryMixin
   /// shares the audio it holds for the clip: the clip's path on screen is
   /// for show (a recording's names a file that doesn't exist yet).
   void createSamplerTrackFromClip(ClipData clip) {
-    final name = clip.fileName.split('.').first;
+    // Without the extension: "kick.v2.wav" is "kick.v2".
+    final dot = clip.fileName.lastIndexOf('.');
+    final name = dot > 0 ? clip.fileName.substring(0, dot) : clip.fileName;
     final trackId = _createSamplerTrack(
       'Sampler: ${truncateName(name, 20)}',
       (trackId) => audioEngine!.loadSampleFromClip(trackId, clip.clipId, 60),
@@ -196,11 +198,7 @@ mixin DAWLibraryMixin
     if (audioEngine == null) return;
 
     try {
-      // 1. The file is used where it is: the engine copies it into the
-      // project on save.
-      final finalPath = filePath;
-
-      // 2. A new unarmed audio track holding the clip, as one undo step
+      // A new unarmed audio track holding the clip, as one undo step
       // (it holds a file, so it shouldn't open the microphone).
       final startTimeSeconds = startTimeBeats * 60.0 / tempo;
       int? droppedClipId; // redo brings the clip back under this id
@@ -211,7 +209,7 @@ mixin DAWLibraryMixin
         onCreated: (trackId) {
           final clipId = placeAudioFile(
             audioEngine!,
-            finalPath, // Use the copied path
+            filePath,
             trackId,
             startTimeSeconds,
             reuseId: droppedClipId,
@@ -223,7 +221,7 @@ mixin DAWLibraryMixin
             ClipData(
               clipId: clipId,
               trackId: trackId,
-              filePath: finalPath,
+              filePath: filePath,
               startTime: startTimeSeconds,
               duration: audioEngine!.getClipDuration(clipId),
               waveformPeaks: audioEngine!.getWaveformPeaks(clipId, 1000),
@@ -238,7 +236,7 @@ mixin DAWLibraryMixin
       );
       await undoRedoManager.execute(command);
 
-      // 3. Refresh track widgets. The track was created unarmed, so other
+      // Refresh track widgets. The track was created unarmed, so other
       // tracks keep their arm.
       refreshTrackWidgets();
     } catch (e) {
@@ -261,20 +259,16 @@ mixin DAWLibraryMixin
     if (isMidiTrack(trackId)) return;
 
     try {
-      // 1. The file is used where it is: the engine copies it into the
-      // project on save.
-      final finalPath = filePath;
-
-      // 2. Convert beats to seconds (audio clips use seconds)
+      // Convert beats to seconds (audio clips use seconds)
       final startTimeSeconds = startTimeBeats * 60.0 / tempo;
 
-      // 3. Extract filename for display
-      final fileName = finalPath.split('/').last.split('\\').last;
+      // Extract filename for display
+      final fileName = filePath.split('/').last.split('\\').last;
 
-      // 4. Use AddAudioClipCommand for undo support
+      // Use AddAudioClipCommand for undo support
       final command = AddAudioClipCommand(
         trackId: trackId,
-        filePath: finalPath,
+        filePath: filePath,
         startTime: startTimeSeconds,
         clipName: fileName,
         resolveOverlaps: (clipId, duration) {
@@ -302,7 +296,7 @@ mixin DAWLibraryMixin
             ClipData(
               clipId: clipId,
               trackId: trackId,
-              filePath: finalPath,
+              filePath: filePath,
               startTime: startTimeSeconds,
               duration: duration,
               waveformPeaks: peaks,
@@ -321,7 +315,7 @@ mixin DAWLibraryMixin
 
       await undoRedoManager.execute(command);
 
-      // 5. Refresh track widgets
+      // Refresh track widgets
       refreshTrackWidgets();
     } catch (e) {
       Log.e('Failed to add audio file to track: $e');

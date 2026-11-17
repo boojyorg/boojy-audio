@@ -48,5 +48,18 @@ void main() {
       expect((applied, failed), (0, 1));
       expect(manager.canUndo, isFalse, reason: 'nothing changed');
     });
+
+    test('a redo that can no longer load the file is dropped, not kept as '
+        'an undo step', () async {
+      await manager.execute(load());
+      await manager.undo();
+      engine.sampleLoadsSucceed = false; // the file has moved
+
+      await manager.redo();
+
+      expect(failed, 1);
+      expect(manager.canUndo, isFalse);
+      expect(manager.canRedo, isFalse);
+    });
   });
 }
