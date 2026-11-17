@@ -16,10 +16,7 @@ import 'support/native_engine_harness.dart';
 // daw_workflow_test.dart).
 
 void main() {
-  if (!isNativeEngineAvailable) {
-    test('DAW Piano Roll undo (native engine)', () {}, skip: true);
-    return;
-  }
+  if (skipWithoutNativeEngine('DAW Piano Roll undo')) return;
 
   group('Piano Roll undo', () {
     /// What an undo step must put back: where the loop is, how the clip

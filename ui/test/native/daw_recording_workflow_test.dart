@@ -9,10 +9,7 @@ import 'support/workflow_helpers.dart';
 // daw_workflow_test.dart).
 
 void main() {
-  if (!isNativeEngineAvailable) {
-    test('DAW recording workflows (native engine)', () {}, skip: true);
-    return;
-  }
+  if (skipWithoutNativeEngine('DAW recording workflows')) return;
 
   // Recording needs a real input, which the test machines don't have: the
   // engine's takes are stood in for by clips loaded where the recorder puts

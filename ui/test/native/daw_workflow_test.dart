@@ -30,10 +30,7 @@ import 'support/workflow_helpers.dart';
 // another while files run side by side, so one big file was the whole wait.
 
 void main() {
-  if (!isNativeEngineAvailable) {
-    test('DAW workflows (native engine)', () {}, skip: true);
-    return;
-  }
+  if (skipWithoutNativeEngine('DAW workflows')) return;
 
   testWidgets('the Count-in button lights up and dims as it is clicked', (
     tester,

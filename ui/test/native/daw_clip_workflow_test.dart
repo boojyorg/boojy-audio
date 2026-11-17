@@ -19,10 +19,7 @@ import 'support/workflow_helpers.dart';
 // DAW screen and engine (see daw_workflow_test.dart).
 
 void main() {
-  if (!isNativeEngineAvailable) {
-    test('DAW clip workflows (native engine)', () {}, skip: true);
-    return;
-  }
+  if (skipWithoutNativeEngine('DAW clip workflows')) return;
 
   testWidgets('a warped clip follows tempo changes, dragged or typed', (
     tester,

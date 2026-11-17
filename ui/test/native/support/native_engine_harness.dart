@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:boojy_audio/audio_engine.dart';
 import 'package:boojy_audio/models/audio_input_status.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 /// Whether the native Rust engine dylib is available on this host.
 ///
@@ -24,6 +25,25 @@ bool get isNativeEngineAvailable {
 /// instead. See review finding C92.
 bool get isNativeEngineRequired =>
     !kIsWeb && const bool.fromEnvironment('BOOJY_CI');
+
+/// The guard for the top of a native test file's `main()`:
+/// `if (skipWithoutNativeEngine('Export workflows')) return;`.
+///
+/// With the engine library missing it registers one test under [name] and
+/// returns true, so the file defines nothing that needs the engine. That test
+/// fails under BOOJY_CI ([isNativeEngineRequired]) and is skipped otherwise.
+bool skipWithoutNativeEngine(String name) {
+  if (isNativeEngineAvailable) return false;
+  const reason = 'native engine library not found — run ./build.sh first';
+  if (isNativeEngineRequired) {
+    test('native engine present (required under BOOJY_CI)', () {
+      fail('$reason. Refusing to report a vacuous green suite (C92).');
+    });
+  } else {
+    test('$name (native engine)', () {}, skip: reason);
+  }
+  return true;
+}
 
 /// Search paths aligned with [AudioEngine] dylib discovery in
 /// `audio_engine_base.dart`.

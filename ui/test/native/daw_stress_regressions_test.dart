@@ -8,14 +8,11 @@ import 'support/daw_harness.dart';
 import 'support/native_engine_harness.dart';
 import 'support/workflow_helpers.dart';
 
-// Workflow tests through the real DAW screen and engine (see
-// daw_workflow_test.dart).
+// Bugs the stress test found (daw_stress_test.dart), each pinned by name,
+// through the real DAW screen and engine (see daw_workflow_test.dart).
 
 void main() {
-  if (!isNativeEngineAvailable) {
-    test('DAW stress regressions (native engine)', () {}, skip: true);
-    return;
-  }
+  if (skipWithoutNativeEngine('DAW stress regressions')) return;
 
   // Bugs the stress test found (daw_stress_test.dart), each pinned here by
   // name so a change to the random action mix can't lose them.

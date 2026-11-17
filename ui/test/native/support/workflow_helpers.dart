@@ -5,7 +5,7 @@ import 'package:boojy_audio/services/state_consistency.dart';
 
 import 'daw_harness.dart';
 
-// Steps shared by the workflow tests (daw_*_test.dart).
+// Steps shared by the workflow tests split out of daw_workflow_test.dart.
 
 /// Drop a 2 s click file onto the empty arrangement; returns its clip.
 Future<ClipData> dropClip(DawHarness h, String name) async {

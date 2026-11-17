@@ -14,10 +14,7 @@ import 'support/workflow_helpers.dart';
 // daw_workflow_test.dart).
 
 void main() {
-  if (!isNativeEngineAvailable) {
-    test('DAW Audio Editor undo (native engine)', () {}, skip: true);
-    return;
-  }
+  if (skipWithoutNativeEngine('DAW Audio Editor undo')) return;
 
   group('Audio Editor undo', () {
     /// What an undo step must put back: how the clip sounds and repeats.

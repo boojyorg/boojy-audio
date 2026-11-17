@@ -14,10 +14,7 @@ import 'support/workflow_helpers.dart';
 // daw_workflow_test.dart).
 
 void main() {
-  if (!isNativeEngineAvailable) {
-    test('DAW export workflows (native engine)', () {}, skip: true);
-    return;
-  }
+  if (skipWithoutNativeEngine('DAW export workflows')) return;
 
   testWidgets('export writes a repeating clip and reads back the result', (
     tester,
