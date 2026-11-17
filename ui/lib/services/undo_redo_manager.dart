@@ -73,6 +73,7 @@ class UndoRedoManager extends ChangeNotifier {
     await _acquireLock();
     try {
       await command.execute(_engine!);
+      if (!command.changedAnything) return;
 
       // Add to undo stack
       _undoStack.add(command);

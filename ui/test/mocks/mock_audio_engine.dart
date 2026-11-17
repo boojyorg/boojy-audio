@@ -450,10 +450,19 @@ class MockAudioEngine implements AudioEngineInterface {
     return 1;
   }
 
+  /// What the sample loads answer: false is a file the engine can't read.
+  bool sampleLoadsSucceed = true;
+
+  @override
+  bool loadSampleFromClip(int trackId, int clipId, int rootNote) {
+    _record('loadSampleFromClip');
+    return sampleLoadsSucceed;
+  }
+
   @override
   bool loadSampleForTrack(int trackId, String path, int rootNote) {
     _record('loadSampleForTrack');
-    return true;
+    return sampleLoadsSucceed;
   }
 
   @override
@@ -519,7 +528,7 @@ class MockAudioEngine implements AudioEngineInterface {
   @override
   bool loadDrumPadSample(int trackId, int padIndex, String path) {
     _record('loadDrumPadSample');
-    return true;
+    return sampleLoadsSucceed;
   }
 
   @override

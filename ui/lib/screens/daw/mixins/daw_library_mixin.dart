@@ -43,35 +43,36 @@ mixin DAWLibraryMixin
   // daw_screen privates, don't re-add copies here (see the mixin-trap rule
   // in .claude/rules/flutter-ui.md).
 
-  /// Create a new Sampler track and load a sample into it
-  void createSamplerTrackWithSample(String filePath, String sampleName) {
-    if (audioEngine == null) return;
+  /// A new sampler track with a sample on it, put there by [load]. A sample
+  /// that won't load shows a notice and takes the track away again, so a
+  /// failed attempt leaves nothing behind. Returns the track id, or null.
+  int? _createSamplerTrack(String trackName, bool Function(int trackId) load) {
+    final engine = audioEngine;
+    if (engine == null) return null;
 
-    // Generate track name based on sample name
-    final trackName = 'Sampler: ${truncateName(sampleName, 20)}';
-
-    // Create MIDI track with sampler instrument (samplers live on regular
-    // MIDI tracks — the instrument is engine-side, see isSamplerTrack)
-    final trackId = audioEngine!.createTrack('midi', trackName);
+    // Samplers live on regular MIDI tracks — the instrument is engine-side,
+    // see isSamplerTrack.
+    final trackId = engine.createTrack('midi', trackName);
     if (trackId < 0) {
       Notices.problem("Couldn't create the sampler track");
-      return;
+      return null;
     }
-
-    // Create sampler instrument for the track
-    final samplerId = audioEngine!.createSamplerForTrack(trackId);
-    if (samplerId < 0) {
+    if (engine.createSamplerForTrack(trackId) < 0) {
+      engine.deleteTrack(trackId);
       Notices.problem("Couldn't create the sampler");
-      return;
+      return null;
     }
-
-    // Load the sample (root note C4 = 60)
-    final success = audioEngine!.loadSampleForTrack(trackId, filePath, 60);
-    if (!success) {
+    if (!load(trackId)) {
+      engine.deleteTrack(trackId);
       Notices.problem("Couldn't load that sample");
-      return;
+      return null;
     }
+    return trackId;
+  }
 
+  /// Show a sampler track made from one sample: a default clip, selected,
+  /// with its editor open.
+  void _showNewSamplerTrack(int trackId) {
     // Give the track a default clip like every other instrument path —
     // without one, the piano roll shows "Click to create MIDI clip" and the
     // transport never triggers the sampler (bug-hunt #1 sibling).
@@ -83,6 +84,28 @@ mixin DAWLibraryMixin
     onTrackSelected(trackId, autoSelectClip: true);
     // Loading a sample into a new track is deliberate: show its editor.
     uiLayout.isEditorPanelVisible = true;
+  }
+
+  /// Create a new Sampler track and load a sample file into it
+  void createSamplerTrackWithSample(String filePath, String sampleName) {
+    final trackId = _createSamplerTrack(
+      'Sampler: ${truncateName(sampleName, 20)}',
+      // Root note C4 = 60
+      (trackId) => audioEngine!.loadSampleForTrack(trackId, filePath, 60),
+    );
+    if (trackId != null) _showNewSamplerTrack(trackId);
+  }
+
+  /// Create a new Sampler track playing an audio clip's audio. The engine
+  /// shares the audio it holds for the clip: the clip's path on screen is
+  /// for show (a recording's names a file that doesn't exist yet).
+  void createSamplerTrackFromClip(ClipData clip) {
+    final name = clip.fileName.split('.').first;
+    final trackId = _createSamplerTrack(
+      'Sampler: ${truncateName(name, 20)}',
+      (trackId) => audioEngine!.loadSampleFromClip(trackId, clip.clipId, 60),
+    );
+    if (trackId != null) _showNewSamplerTrack(trackId);
   }
 
   /// Convert an Audio track to a Sampler track
@@ -98,44 +121,20 @@ mixin DAWLibraryMixin
       return;
     }
 
-    // Get the first clip's file path (we'll use this as the sample)
-    final firstClip = audioClips.first;
-    final samplePath = firstClip.filePath;
-    if (samplePath.isEmpty) {
-      Notices.problem("Couldn't find the audio file for this clip");
-      return;
-    }
-
     // Get track name for the new sampler track
     final trackName = getTrackName(trackId) ?? 'Sampler';
     final samplerTrackName = trackName.startsWith('Sampler:')
         ? trackName
         : 'Sampler: $trackName';
 
-    // Create MIDI track with sampler instrument
-    final samplerTrackId = audioEngine!.createTrack('midi', samplerTrackName);
-    if (samplerTrackId < 0) {
-      Notices.problem("Couldn't create the sampler track");
-      return;
-    }
-
-    // Create sampler instrument for the track
-    final samplerId = audioEngine!.createSamplerForTrack(samplerTrackId);
-    if (samplerId < 0) {
-      Notices.problem("Couldn't create the sampler");
-      return;
-    }
-
-    // Load the sample (root note C4 = 60)
-    final success = audioEngine!.loadSampleForTrack(
-      samplerTrackId,
-      samplePath,
-      60,
+    // The first clip's audio is the sample, taken from the engine's copy of
+    // the clip, not from a file path (root note C4 = 60).
+    final firstClipId = audioClips.first.clipId;
+    final samplerTrackId = _createSamplerTrack(
+      samplerTrackName,
+      (id) => audioEngine!.loadSampleFromClip(id, firstClipId, 60),
     );
-    if (!success) {
-      Notices.problem("Couldn't load that sample");
-      return;
-    }
+    if (samplerTrackId == null) return;
 
     // Create MIDI clips for each audio clip position — each audio clip
     // becomes a MIDI note at the same position. Register the clips through
@@ -197,8 +196,9 @@ mixin DAWLibraryMixin
     if (audioEngine == null) return;
 
     try {
-      // 1. Copy sample to project folder if setting is enabled
-      final finalPath = await prepareSamplePath(filePath);
+      // 1. The file is used where it is: the engine copies it into the
+      // project on save.
+      final finalPath = filePath;
 
       // 2. A new unarmed audio track holding the clip, as one undo step
       // (it holds a file, so it shouldn't open the microphone).
@@ -261,8 +261,9 @@ mixin DAWLibraryMixin
     if (isMidiTrack(trackId)) return;
 
     try {
-      // 1. Copy sample to project folder if setting is enabled
-      final finalPath = await prepareSamplePath(filePath);
+      // 1. The file is used where it is: the engine copies it into the
+      // project on save.
+      final finalPath = filePath;
 
       // 2. Convert beats to seconds (audio clips use seconds)
       final startTimeSeconds = startTimeBeats * 60.0 / tempo;
@@ -483,44 +484,6 @@ mixin DAWLibraryMixin
   // ============================================
   // HELPER METHODS
   // ============================================
-
-  /// Copy audio file to project's Samples folder
-  Future<String> prepareSamplePath(String originalPath) async {
-    // No project open: use the original path
-    if (projectManager?.currentPath == null) {
-      return originalPath;
-    }
-
-    try {
-      final projectPath = projectManager!.currentPath!;
-      final samplesDir = Directory('$projectPath/Samples');
-
-      // Create Samples folder if it doesn't exist
-      if (!await samplesDir.exists()) {
-        await samplesDir.create(recursive: true);
-      }
-
-      // Get the file name from the original path
-      final fileName = originalPath.split(Platform.pathSeparator).last;
-      final destinationPath = '$projectPath/Samples/$fileName';
-
-      // Check if file already exists in Samples folder
-      final destinationFile = File(destinationPath);
-      if (await destinationFile.exists()) {
-        // File already exists, use it
-        return destinationPath;
-      }
-
-      // Copy the file to Samples folder
-      final sourceFile = File(originalPath);
-      await sourceFile.copy(destinationPath);
-
-      return destinationPath;
-    } catch (e) {
-      // Fall back to original path if copy fails
-      return originalPath;
-    }
-  }
 
   // (addAudioClipToTrack / addBuiltInEffectToTrack / findInstrumentByName /
   // findInstrumentById lived here as dead duplicates of the daw_screen

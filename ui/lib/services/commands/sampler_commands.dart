@@ -6,7 +6,8 @@ import 'command.dart';
 /// Execute loads [newPath]. Undo restores the previous sample (re-loading
 /// [oldPath] and re-applying the parameter snapshot taken before the load —
 /// loading resets loop points), or unloads entirely when this was the first
-/// load, returning the editor to its empty drop-zone state.
+/// load, returning the editor to its empty drop-zone state. A file the engine
+/// can't read reports [onFailed] and is not an undo step.
 class LoadSampleCommand extends Command {
   final int trackId;
   final String newPath;
@@ -23,6 +24,12 @@ class LoadSampleCommand extends Command {
   /// Refresh the editor UI after the engine sample changes.
   final void Function()? onApplied;
 
+  /// The engine couldn't read [newPath]: say so. The sampler keeps the
+  /// sample it had.
+  final void Function()? onFailed;
+
+  bool _loaded = false;
+
   LoadSampleCommand({
     required this.trackId,
     required this.newPath,
@@ -30,11 +37,19 @@ class LoadSampleCommand extends Command {
     required this.oldPath,
     required this.oldParams,
     this.onApplied,
+    this.onFailed,
   });
 
   @override
+  bool get changedAnything => _loaded;
+
+  @override
   Future<void> execute(AudioEngineInterface engine) async {
-    engine.loadSampleForTrack(trackId, newPath, newRootNote);
+    _loaded = engine.loadSampleForTrack(trackId, newPath, newRootNote);
+    if (!_loaded) {
+      onFailed?.call();
+      return;
+    }
     onApplied?.call();
   }
 

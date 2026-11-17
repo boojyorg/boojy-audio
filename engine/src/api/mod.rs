@@ -77,6 +77,7 @@ pub use sends::{
     find_return_by_effect_type, get_all_returns, get_track_sends, linear_to_db, remove_return,
     remove_send, set_master_timeline_visible, set_send_amount, DEFAULT_SEND_DB,
 };
+pub use synthesizer::load_sample_from_clip;
 pub use synthesizer::{
     add_drum_pad, create_drum_kit_for_track, create_sampler_for_track, drum_next_free_note,
     get_drum_kit_info, get_drum_pad_waveform_peaks, get_missing_samples, get_sampler_info,
