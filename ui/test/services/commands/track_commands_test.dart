@@ -364,8 +364,7 @@ void main() {
       expect(mockEngine.calls, contains('duplicateTrack'));
     });
 
-    test("reports the copy's VST3 plugins, and says when one is "
-        'missing', () async {
+    test("reports the copy's VST3 plugins", () async {
       // The mock answers the same chain for every track: a built-in effect
       // and one plugin.
       mockEngine.trackEffectsResponse = '9,10';
@@ -392,6 +391,28 @@ void main() {
         name: 'Serum',
       ));
       expect(notices, isEmpty, reason: 'every plugin was copied');
+    });
+
+    test('says when a plugin could not be loaded for the copy', () async {
+      mockEngine.trackEffectsResponse = '10'; // the source: one plugin
+      mockEngine.effectInfoResponses[10] =
+          'type:vst3,bypassed:0,name:Serum,path:/Library/Audio/Plug-Ins/VST3/Serum.vst3';
+      mockEngine.trackEffectsResponses[1001] = ''; // the copy: none
+
+      final reported = <List<RestoredVst3>>[];
+      final notices = <String>[];
+      final command = DuplicateTrackCommand(
+        sourceTrackId: 1,
+        sourceTrackName: 'Lead',
+        onVst3Copied: (_, plugins) => reported.add(plugins),
+        onNotice: notices.add,
+      );
+
+      await command.execute(mockEngine);
+
+      expect(command.duplicatedTrackId, 1001);
+      expect(reported.single, isEmpty);
+      expect(notices.single, contains("a plugin couldn't be loaded"));
     });
 
     test('undo deletes duplicated track', () async {

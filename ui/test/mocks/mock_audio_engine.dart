@@ -21,6 +21,9 @@ class MockAudioEngine implements AudioEngineInterface {
   /// Configurable responses for the delete-track snapshot path.
   String trackSendsResponse = '';
   String trackEffectsResponse = '';
+
+  /// Per-track answers for getTrackEffects; [trackEffectsResponse] otherwise.
+  final Map<int, String> trackEffectsResponses = {};
   final Map<int, String> effectInfoResponses = {};
 
   /// VST3 state blobs keyed by effect id, returned by [getVst3State]. Lets
@@ -99,6 +102,7 @@ class MockAudioEngine implements AudioEngineInterface {
     trackInfoResponse = '';
     trackSendsResponse = '';
     trackEffectsResponse = '';
+    trackEffectsResponses.clear();
     effectInfoResponses.clear();
     vst3StateResponses.clear();
     setVst3StateCalls.clear();
@@ -384,7 +388,7 @@ class MockAudioEngine implements AudioEngineInterface {
   @override
   String getTrackEffects(int trackId) {
     _record('getTrackEffects');
-    return trackEffectsResponse;
+    return trackEffectsResponses[trackId] ?? trackEffectsResponse;
   }
 
   @override

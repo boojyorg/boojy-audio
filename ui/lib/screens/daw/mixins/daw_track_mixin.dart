@@ -178,8 +178,15 @@ mixin DAWTrackMixin
 
   /// Handle track deletion
   void onTrackDeleted(int trackId) {
-    // Close any floating plugin windows for this track
-    final effectIds = vst3PluginManager?.getTrackEffectIds(trackId) ?? [];
+    // Close any floating plugin windows for this track: its VST3 effects,
+    // and its VST3 instrument, which the track controller holds.
+    final instrumentEffectId = trackController
+        .getTrackInstrument(trackId)
+        ?.effectId;
+    final effectIds = [
+      ...?vst3PluginManager?.getTrackEffectIds(trackId),
+      if (instrumentEffectId != null) instrumentEffectId,
+    ];
     for (final id in effectIds) {
       if (floatedPluginEffectIds.contains(id)) {
         VST3EditorService.closeFloatingWindow(effectId: id);
@@ -195,6 +202,55 @@ mixin DAWTrackMixin
 
     // Refresh timeline immediately
     refreshTrackWidgets();
+  }
+
+  /// Hand the VST3 plugins a command loaded onto [trackId] to the screen. The
+  /// one standing in for [instrument] (the VST3 instrument of the track that
+  /// was copied or deleted, if it had one) becomes the track's instrument;
+  /// the rest register with the plugin manager as effects (editor + count
+  /// chip).
+  ///
+  /// One file can hold several plugins (a synth and its effect version), so
+  /// the instrument is the plugin with the same file and name; the first
+  /// from the same file is the fallback for a name the engine spells
+  /// differently.
+  void adoptVst3Plugins(
+    int trackId,
+    List<RestoredVst3> plugins,
+    InstrumentData? instrument,
+  ) {
+    var instrumentIndex = -1;
+    if (instrument != null && instrument.type == 'vst3') {
+      instrumentIndex = plugins.indexWhere(
+        (p) =>
+            p.path == instrument.pluginPath && p.name == instrument.pluginName,
+      );
+      if (instrumentIndex < 0) {
+        instrumentIndex = plugins.indexWhere(
+          (p) => p.path == instrument.pluginPath,
+        );
+      }
+    }
+    for (final (index, plugin) in plugins.indexed) {
+      if (index == instrumentIndex) {
+        trackController.setTrackInstrument(
+          trackId,
+          InstrumentData.vst3Instrument(
+            trackId: trackId,
+            pluginPath: plugin.path,
+            pluginName: plugin.name,
+            effectId: plugin.effectId,
+          ),
+        );
+      } else {
+        vst3PluginManager?.registerRestoredPlugin(
+          trackId,
+          plugin.effectId,
+          path: plugin.path,
+          name: plugin.name,
+        );
+      }
+    }
   }
 
   /// Undoable track deletion that snapshots and restores the track's content.
@@ -218,9 +274,6 @@ mixin DAWTrackMixin
     // instrument slot reads. Capture its path so undo can route the reloaded
     // plugin back to setTrackInstrument; everything else is a VST3 effect.
     final deletedInstrument = trackController.getTrackInstrument(track.id);
-    final instrumentPluginPath = (deletedInstrument?.type == 'vst3')
-        ? deletedInstrument?.pluginPath
-        : null;
     // The built-in synth's settings as the screen holds them, read again on
     // every delete (redo included) so undo puts back the latest. The engine
     // keeps the synth itself; a sampler or drum kit has no entry here.
@@ -234,32 +287,8 @@ mixin DAWTrackMixin
       mute: track.mute,
       solo: track.solo,
       armed: track.armed,
-      onVst3Restored: (newTrackId, restored) {
-        // The command reloaded these plugins into the engine. A reloaded plugin
-        // whose path matches the deleted track's VST3 instrument goes back as
-        // the track's instrument (trackController); the rest are VST3 effects
-        // and re-register with the plugin manager (editor + count chip).
-        for (final r in restored) {
-          if (instrumentPluginPath != null && r.path == instrumentPluginPath) {
-            trackController.setTrackInstrument(
-              newTrackId,
-              InstrumentData.vst3Instrument(
-                trackId: newTrackId,
-                pluginPath: r.path,
-                pluginName: r.name,
-                effectId: r.effectId,
-              ),
-            );
-          } else {
-            vst3PluginManager?.registerRestoredPlugin(
-              newTrackId,
-              r.effectId,
-              path: r.path,
-              name: r.name,
-            );
-          }
-        }
-      },
+      onVst3Restored: (newTrackId, restored) =>
+          adoptVst3Plugins(newTrackId, restored, deletedInstrument),
       onCleanup: (tid) {
         // The engine drops a track's audio clips with the track, but the
         // timeline UI keeps them — prune them here so redo doesn't leave
@@ -351,31 +380,11 @@ mixin DAWTrackMixin
         refreshTrackWidgets();
       },
       onVst3Copied: (newTrackId, plugins) {
-        // The first copy of the source's VST3 instrument is the new track's
-        // instrument; the rest are effects (editor + count chip).
-        final source = trackController.getTrackInstrument(track.id);
-        var instrumentPath = source?.type == 'vst3' ? source?.pluginPath : null;
-        for (final plugin in plugins) {
-          if (instrumentPath != null && plugin.path == instrumentPath) {
-            trackController.setTrackInstrument(
-              newTrackId,
-              InstrumentData.vst3Instrument(
-                trackId: newTrackId,
-                pluginPath: plugin.path,
-                pluginName: plugin.name,
-                effectId: plugin.effectId,
-              ),
-            );
-            instrumentPath = null;
-          } else {
-            vst3PluginManager?.registerRestoredPlugin(
-              newTrackId,
-              plugin.effectId,
-              path: plugin.path,
-              name: plugin.name,
-            );
-          }
-        }
+        adoptVst3Plugins(
+          newTrackId,
+          plugins,
+          trackController.getTrackInstrument(track.id),
+        );
         refreshTrackWidgets();
       },
       onCleanup: (trackId) {

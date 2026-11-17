@@ -78,6 +78,9 @@ reproduces them.
   - The engine keeps a deleted track's instrument for undo, and also keeps it when the delete
     was itself an undo (of Create Track or Duplicate Track), where nothing takes it back. It
     stays in memory until the project closes; the sample audio is shared, so the cost is small.
+  - Effects get new ids when a redo recreates them (redo of Duplicate Track, undo of Delete
+    Track), so a later step that recorded the old id (bypass, remove) does nothing after an
+    undo and redo. Tracks and clips keep their ids for this reason; effects don't yet.
   - The engine's own tests crash about one run in five on a Mac with Serum installed (5 of 28
     runs on 2026-11-17, with and without the newer plugin test). Sometimes it is
     `libc++abi: … std::range_error: wstring_convert: to_bytes error`: the C++ host throws

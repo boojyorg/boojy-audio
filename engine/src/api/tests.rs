@@ -2625,6 +2625,10 @@ fn duplicated_track_gets_its_own_effects() {
             "with the original's settings"
         );
     }
+
+    // No plugin is left running under the tests that follow.
+    delete_track(copy).unwrap();
+    delete_track(track).unwrap();
 }
 
 /// `take_effect` gives up the manager's reference, so the effect is dropped

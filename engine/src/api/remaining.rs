@@ -334,11 +334,21 @@ pub fn duplicate_track_as(track_id: TrackId, new_id: Option<TrackId>) -> Result<
         return Err("Cannot duplicate master track".to_string());
     }
 
+    let graph_mutex = graph()?;
+
+    // Don't pay for starting plugins when the copy can't be made: the id it
+    // should get is taken (checked again below, by insert_track_with_id).
+    if let Some(id) = new_id {
+        let graph = graph_mutex.lock();
+        if graph.track_manager.lock().get_track(id).is_some() {
+            return Err(format!("Track {id} already exists"));
+        }
+    }
+
     // The copy's VST3 plugins are loaded first, before any lock is taken:
     // each is a new plugin instance with the original's settings.
     let mut vst3_copies = vst3::load_vst3_copies(track_id);
 
-    let graph_mutex = graph()?;
     let graph = graph_mutex.lock();
 
     // First, collect the data we need from the source track

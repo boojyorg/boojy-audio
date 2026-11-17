@@ -66,7 +66,10 @@ pub(crate) fn load_vst3_copies(track_id: TrackId) -> Vec<(u64, crate::effects::E
     let Ok(graph_mutex) = get_audio_graph() else {
         return Vec::new();
     };
-    let (originals, block_size) = {
+    // Under the locks only the chain is read; each plugin's state is read
+    // afterwards holding that one effect's lock, so the audio thread and the
+    // UI's engine calls don't wait while a plugin writes its state out.
+    let (effects, block_size) = {
         let graph = graph_mutex.lock();
         let fx_chain = {
             let track_manager = graph.track_manager.lock();
@@ -76,46 +79,45 @@ pub(crate) fn load_vst3_copies(track_id: TrackId) -> Vec<(u64, crate::effects::E
                 .unwrap_or_default()
         };
         let effect_manager = graph.effect_manager.lock();
-        let originals: Vec<_> = fx_chain
+        let effects: Vec<_> = fx_chain
             .iter()
-            .filter_map(|effect_id| {
-                let effect = effect_manager.get_effect(*effect_id)?;
-                let effect = effect.lock();
-                match &*effect {
-                    EffectType::VST3(vst3) => Some((
-                        *effect_id,
-                        vst3.get_plugin_path().to_string(),
-                        vst3.get_name().to_string(),
-                        vst3.get_state().ok(),
-                    )),
-                    _ => None,
-                }
-            })
+            .filter_map(|effect_id| Some((*effect_id, effect_manager.get_effect(*effect_id)?)))
             .collect();
         // Same block size rule as `add_vst3_effect_to_track`.
         let block_size = graph.preferred_buffer_size.lock().samples().max(512) as i32;
-        (originals, block_size)
+        (effects, block_size)
     };
 
     let sample_rate = f64::from(crate::audio_file::TARGET_SAMPLE_RATE);
-    originals
+    effects
         .into_iter()
-        .filter_map(|(effect_id, path, name, state)| {
+        .filter_map(|(effect_id, effect)| {
+            let (path, name, state) = match &*effect.lock() {
+                EffectType::VST3(vst3) => (
+                    vst3.get_plugin_path().to_string(),
+                    vst3.get_name().to_string(),
+                    vst3.get_state(),
+                ),
+                _ => return None,
+            };
             let loaded =
                 VST3Effect::new(&path, &name, sample_rate, block_size).and_then(|mut copy| {
                     copy.initialize()?;
-                    if let Some(state) = &state {
-                        copy.set_state(state)?;
-                    }
                     Ok(copy)
                 });
-            match loaded {
-                Ok(copy) => Some((effect_id, EffectType::VST3(copy))),
+            let mut copy = match loaded {
+                Ok(copy) => copy,
                 Err(e) => {
                     eprintln!("⚠️  [API] Couldn't load a copy of {name} ({path}): {e}");
-                    None
+                    return None;
                 }
+            };
+            // A copy that can't take the original's settings is still a
+            // plugin on the new track, as on project load: it keeps its own.
+            if let Err(e) = state.and_then(|state| copy.set_state(&state)) {
+                eprintln!("⚠️  [API] The copy of {name} keeps its default settings: {e}");
             }
+            Some((effect_id, EffectType::VST3(copy)))
         })
         .collect()
 }
