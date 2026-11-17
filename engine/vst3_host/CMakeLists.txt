@@ -1,5 +1,14 @@
 cmake_minimum_required(VERSION 3.14)
 
+# The macOS library is committed (engine/lib/libvst3_host.a), so every rebuild
+# must come out the same: both architectures, and the app's minimum macOS.
+# Without these CMake builds for this machine's chip and macOS version only.
+# They must be set before project().
+if(APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Build architectures")
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum macOS version")
+endif()
+
 # Enable Objective-C++ for macOS
 if(APPLE)
     project(vst3_host LANGUAGES C CXX OBJCXX)
@@ -93,10 +102,6 @@ if(APPLE)
         ${COCOA_FRAMEWORK}
     )
 
-    # Set macOS deployment target
-    set_target_properties(vst3_host PROPERTIES
-        MACOSX_DEPLOYMENT_TARGET "10.13"
-    )
 elseif(WIN32)
     # Windows-specific settings
     target_compile_definitions(vst3_host PRIVATE

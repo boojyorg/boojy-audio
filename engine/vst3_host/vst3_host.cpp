@@ -47,7 +47,10 @@ namespace fs = std::filesystem;
 // plugin can be loading while another is processing: one shared string would
 // be written by both at once. Each caller reads the error right after the
 // call that failed, on the same thread, so per-thread is also what it wants.
-static thread_local std::string g_last_error;
+//
+// A fixed buffer, not a std::string: the audio thread sets it when a plugin
+// fails, and a string would allocate there (and need a per-thread destructor).
+static thread_local char g_last_error[256] = "";
 
 // Global host application
 static IPtr<HostApplication> g_host_app;
@@ -321,8 +324,14 @@ tresult PLUGIN_API PlugFrame::resizeView(IPlugView* view, ViewRect* newSize) {
 }
 
 // Helper function to set error message
+// The const char* form is the one string literals pick, so reporting an
+// error from the audio thread builds no std::string (which would allocate).
+static void set_error(const char* error) {
+    std::snprintf(g_last_error, sizeof(g_last_error), "%s", error);
+}
+
 static void set_error(const std::string& error) {
-    g_last_error = error;
+    set_error(error.c_str());
 }
 
 // C API Implementation
@@ -345,7 +354,7 @@ void vst3_host_shutdown() {
     // Cleanup global resources
     g_component_handler = nullptr;
     g_host_app = nullptr;
-    g_last_error.clear();
+    g_last_error[0] = '\0';  // this thread's; other threads keep theirs
 }
 
 int vst3_scan_directory(const char* directory, VST3ScanCallback callback, void* user_data) {
@@ -1693,5 +1702,5 @@ bool vst3_set_program(
 }
 
 const char* vst3_get_last_error() {
-    return g_last_error.c_str();
+    return g_last_error;
 }
