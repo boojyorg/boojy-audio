@@ -23,6 +23,14 @@ paths:
   launches the app). Run `./build.sh` first. Under `--dart-define=BOOJY_CI=true` a missing engine
   is a failing test, locally a skip; one guard at the top of `main()` handles it, don't add
   per-test guards.
+- **Keep engine-backed test files small.** `flutter test` runs files side by side but the tests
+  inside one file one after another, and each workflow test takes seconds. It runs half as
+  many files at once as the machine has cores, so CI's 3-core macOS runner ran one at a time
+  until `ci.yml` set `--concurrency=3`. One 46-test file
+  was once the whole CI wait (8 to 9.5 minutes); it is now split by topic
+  (`daw_*_workflow_test.dart`, `daw_*_undo_test.dart`, and `daw_stress_regressions_test.dart`
+  for bugs the stress test found). Add a new file for a new topic, with shared steps in
+  `support/workflow_helpers.dart` and `skipWithoutNativeEngine` as its guard.
 - **Goldens (`ui/test/goldens/`)** render painters to PNG under plain `flutter test`. After an
   intentional visual change: `fvm flutter test --update-goldens test/goldens/`, then look at the
   PNGs. They skip off macOS; refresh only on macOS.
