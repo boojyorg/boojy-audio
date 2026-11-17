@@ -188,6 +188,10 @@ bool vst3_set_program(
 void vst3_set_editor_max_size(VST3PluginHandle handle, int maxW, int maxH);
 
 // Error handling
+//
+// The message for the last failed call ON THE CALLING THREAD. Read it on the
+// thread whose call failed, straight after that call, and copy it: the pointer
+// is into that thread's storage and is overwritten by its next failure.
 const char* vst3_get_last_error();
 
 #ifdef __cplusplus
